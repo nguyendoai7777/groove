@@ -9,6 +9,6 @@
 </template>
 
 <script setup>
-import SideNav from '@groovex/ui/side-nav/side-nav'
-import AppBar from '@groovex/ui/app-bar/app-bar.vue'
+  import SideNav from '@groovex/ui/side-nav/side-nav'
+  import AppBar from '@groovex/ui/app-bar/app-bar.vue'
 </script>
