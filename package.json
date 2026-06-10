@@ -1,0 +1,39 @@
+{
+  "name": "groovex",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "trd": "tauri dev",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "prepare": "husky",
+    "fmt": "oxfmt src/"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-opener": "^2",
+    "pinia": "^3.0.4",
+    "vue": "^3.6.0-beta.14",
+    "vue-router": "^5.1.0",
+    "vuetify": "^4.1.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.0",
+    "@tauri-apps/cli": "^2",
+    "@types/node": "^25.9.2",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.7",
+    "oxfmt": "^0.53.0",
+    "tailwindcss": "^4.3.0",
+    "typescript": "~5.6.2",
+    "vite": "^6.0.3",
+    "vue-tsc": "^2.1.10"
+  },
+  "lint-staged": {
+    "*.{vue,ts}": "oxfmt src/"
+  }
+}

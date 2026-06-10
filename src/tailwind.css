@@ -1,0 +1,21 @@
+@import 'tailwindcss';
+@theme {
+}
+:root {
+  --text-primary: #fff;
+  --nav-bg: black;
+  color: var(--text-primary);
+
+  /* sizing */
+  --nav-head-h: 36px;
+  --nav-link-h: 42px;
+}
+.dark {
+  --text-primary: #fff;
+  --nav-bg: var(--color-gray-500);
+}
+
+.light {
+  --text-primary: #000;
+  --nav-bg: var(--color-white);
+}
