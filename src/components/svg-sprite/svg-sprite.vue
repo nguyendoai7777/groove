@@ -19,6 +19,9 @@
 
     Close: '/icons/action.svg#Close',
     Minus: '/icons/action.svg#Minus',
+    Settings: '/icons/action.svg#Settings',
+    Play: '/icons/action.svg#Play',
+    Folder: '/icons/action.svg#Folder',
 
     Command: '/icons/cli.svg#Command',
     Song: '/icons/cli.svg#Song',

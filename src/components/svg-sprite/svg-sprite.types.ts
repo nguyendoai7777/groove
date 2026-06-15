@@ -12,6 +12,9 @@ export type SVGSrc =
   | 'Album'
   | 'Action'
   | 'Search'
+  | 'Settings'
+  | 'Play'
+  | 'Folder'
 
 export interface SVGSpriteProps {
   src: CastString<SVGSrc>
