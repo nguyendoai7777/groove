@@ -5,11 +5,22 @@
     <icon-btn title="Restore" :size="{ icon: 'sm' }" src="ArrowsCompress" />
     <icon-btn title="Maximize" :size="{ icon: 'sm' }" src="ArrowsExpand" />
     <icon-btn title="Close" :size="{ icon: 'sm' }" src="Close" />
-    <div class="absolute top-1/2 left-1/2 -translate-1/2">Search all</div>
+    <div
+      class="grx-SearchBar absolute top-1/2 left-1/2 -translate-1/2 w-[40%] cursor-pointer rounded-full border border-solid"
+    >
+      <div class="">search all</div>
+    </div>
   </div>
 </template>
 
+<style>
+  .grx-SearchBar {
+    border: var(--border-search);
+    background: var(--bg-search);
+  }
+</style>
+
 <script setup>
-import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
-import IconBtn from '@groovex/ui/button/icon-btn.vue'
+  import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
+  import IconBtn from '@groovex/ui/button/icon-btn.vue'
 </script>

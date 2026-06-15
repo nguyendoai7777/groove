@@ -4,8 +4,11 @@
 :root {
   --text-primary: #fff;
   --nav-bg: black;
+  --border-search: rgb(128 128 128 / 0.8);
+  --border-search-hover: gray;
+  --bg-search: #222;
+  --bg-search-hover: #222;
   color: var(--text-primary);
-
   /* sizing */
   --nav-head-h: 36px;
   --nav-link-h: 42px;
@@ -14,7 +17,6 @@
   --text-primary: #fff;
   --nav-bg: var(--color-gray-500);
 }
-
 .light {
   --text-primary: #000;
   --nav-bg: var(--color-white);

@@ -23,11 +23,13 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
-      "@groovex/pages/*": ["./src/pages/*"],
-      "@groovex/ui/*": ["./src/components/*"],
+      "@groovex/state": ["./src/shared/states"],
       "@groovex/types": ["./src/shared/types"],
+      "@groovex/store": ["./src/shared/stores"],
       "@groovex/core": ["./src/shared/core"],
-      "@groovex/*": ["./src/*"]
+      "@groovex/store/*": ["./src/shared/stores/*"],
+      "@groovex/pages/*": ["./src/pages/*"],
+      "@groovex/ui/*": ["./src/components/*"]
     }
   }
 }

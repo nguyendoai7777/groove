@@ -14,6 +14,6 @@
 </template>
 
 <script setup>
-import appInfo from '../../../app.json' with { type: 'json' }
-import { APP_ROUTES } from '@groovex/app.route.ts'
+  import appInfo from '../../../app.json' with { type: 'json' }
+  import { APP_ROUTES } from '../../app.route.ts'
 </script>
