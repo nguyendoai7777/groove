@@ -19,5 +19,12 @@
 
     Close: '/icons/action.svg#Close',
     Minus: '/icons/action.svg#Minus',
+
+    Command: '/icons/cli.svg#Command',
+    Song: '/icons/cli.svg#Song',
+    Artist: '/icons/cli.svg#Artist',
+    Album: '/icons/cli.svg#Album',
+    Action: '/icons/cli.svg#Action',
+    Search: '/icons/cli.svg#Search',
   }
 </script>

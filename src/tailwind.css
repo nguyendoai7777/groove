@@ -2,22 +2,88 @@
 @theme {
 }
 :root {
-  --text-primary: #fff;
-  --nav-bg: black;
-  --border-search: rgb(128 128 128 / 0.8);
-  --border-search-hover: gray;
-  --bg-search: #222;
-  --bg-search-hover: #222;
-  color: var(--text-primary);
-  /* sizing */
-  --nav-head-h: 36px;
-  --nav-link-h: 42px;
+	--text-primary: #fff;
+	--nav-bg: black;
+	--border-search: rgb(128 128 128 / 0.8);
+	--border-search-hover: gray;
+	--bg-search: #222;
+	--bg-search-hover: #222;
+	color: var(--text-primary);
+	/* sizing */
+	--nav-head-h: 36px;
+	--nav-link-h: 42px;
+
+	/* Command Palette Theme Variables (Default Dark) */
+	--cmd-bg: rgba(18, 18, 20, 0.95);
+	--cmd-border: rgba(63, 63, 70, 0.4);
+	--cmd-text-primary: #f4f4f5;
+	--cmd-text-secondary: #71717a;
+	--cmd-input-placeholder: #52525b;
+
+	--cmd-item-bg-active: rgba(168, 85, 247, 0.05);
+	--cmd-item-border-active: #6366f1;
+	--cmd-item-icon-bg: rgba(39, 39, 42, 0.6);
+	--cmd-item-icon-color: #a1a1aa;
+	--cmd-item-icon-bg-active: rgba(99, 102, 241, 0.2);
+	--cmd-item-icon-color-active: #c7d2fe;
+
+	--cmd-badge-cmd-bg: rgba(99, 102, 241, 0.15);
+	--cmd-badge-cmd-text: #a5b4fc;
+	--cmd-badge-cmd-border: rgba(99, 102, 241, 0.3);
+
+	--cmd-badge-search-bg: rgba(24, 24, 27, 0.5);
+	--cmd-badge-search-text: #71717a;
+	--cmd-badge-search-border: rgba(63, 63, 70, 0.4);
+
+	--cmd-kbd-bg: #27272a;
+	--cmd-kbd-border: #3f3f46;
+	--cmd-kbd-text: #a1a1aa;
+
+	--cmd-kbd-bg-active: #3f3f46;
+	--cmd-kbd-border-active: #52525b;
+	--cmd-kbd-text-active: #e4e4e7;
+
+	--cmd-footer-bg: rgba(9, 9, 11, 0.4);
+	--cmd-footer-border: rgba(63, 63, 70, 0.4);
 }
 .dark {
-  --text-primary: #fff;
-  --nav-bg: var(--color-gray-500);
+	--text-primary: #fff;
+	--nav-bg: var(--color-gray-500);
 }
 .light {
-  --text-primary: #000;
-  --nav-bg: var(--color-white);
+	--text-primary: #000;
+	--nav-bg: var(--color-white);
+
+	/* Command Palette Theme Variables (Light Mode) */
+	--cmd-bg: rgba(255, 255, 255, 0.95);
+	--cmd-border: rgba(228, 228, 231, 0.8);
+	--cmd-text-primary: #18181b;
+	--cmd-text-secondary: #71717a;
+	--cmd-input-placeholder: #a1a1aa;
+
+	--cmd-item-bg-active: linear-gradient(90deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.04) 100%);
+	--cmd-item-border-active: #4f46e5;
+	--cmd-item-icon-bg: rgba(244, 244, 245, 0.8);
+	--cmd-item-icon-color: #71717a;
+	--cmd-item-icon-bg-active: rgba(99, 102, 241, 0.1);
+	--cmd-item-icon-color-active: #4f46e5;
+
+	--cmd-badge-cmd-bg: rgba(79, 70, 229, 0.1);
+	--cmd-badge-cmd-text: #4f46e5;
+	--cmd-badge-cmd-border: rgba(79, 70, 229, 0.2);
+
+	--cmd-badge-search-bg: rgba(244, 244, 245, 0.8);
+	--cmd-badge-search-text: #71717a;
+	--cmd-badge-search-border: rgba(228, 228, 231, 0.8);
+
+	--cmd-kbd-bg: #f4f4f5;
+	--cmd-kbd-border: #e4e4e7;
+	--cmd-kbd-text: #71717a;
+
+	--cmd-kbd-bg-active: #e4e4e7;
+	--cmd-kbd-border-active: #d4d4d8;
+	--cmd-kbd-text-active: #18181b;
+
+	--cmd-footer-bg: rgba(244, 244, 245, 0.8);
+	--cmd-footer-border: rgba(228, 228, 231, 0.8);
 }

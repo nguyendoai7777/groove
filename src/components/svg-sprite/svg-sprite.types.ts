@@ -6,6 +6,12 @@ export type SVGSrc =
   | 'Minus'
   | 'ArrowsExpand'
   | 'ArrowsCompress'
+  | 'Command'
+  | 'Song'
+  | 'Artist'
+  | 'Album'
+  | 'Action'
+  | 'Search'
 
 export interface SVGSpriteProps {
   src: CastString<SVGSrc>
