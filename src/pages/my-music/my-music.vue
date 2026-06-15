@@ -1,59 +1,165 @@
 <template>
-  <div class="p-6">
-    <!-- Header -->
-    <div class="flex pb-4 justify-between items-center mb-6">
-      <h1 class="text-3xl font-light text-zinc-100">My Music</h1>
-      <div class="flex gap-2">
-        <icon-btn title="Settings" :size="{ icon: 'sm' }" src="Settings" />
-      </div>
-    </div>
+  <div class="h-full">
+    <!-- View Switcher -->
+    <transition name="fade" mode="out-in">
+      <!-- Grid Category View -->
+      <div v-if="currentView === 'grid'" class="p-6">
+        <!-- Header -->
+        <div class="flex pb-4 justify-between items-center mb-6">
+          <h1 class="text-3xl font-light text-zinc-100">My Music</h1>
+          <div class="flex gap-2">
+            <icon-btn title="Settings" :size="{ icon: 'sm' }" src="Settings" />
+          </div>
+        </div>
 
-    <!-- Import Banner (Aligns with the first image) -->
-    <div
-      @click="handleImportClick"
-      class="flex items-start gap-3.5 p-4 bg-zinc-900/40 hover:bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700/80 rounded-lg cursor-pointer transition-all duration-200 mb-8 max-w-xl select-none"
-    >
-      <div class="flex-shrink-0 mt-0.5">
-        <svg-sprite src="Folder" class="w-5 h-5 text-zinc-400" />
-      </div>
-      <div class="flex flex-col">
-        <span class="text-[13px] font-semibold text-zinc-300">Not finding everything?</span>
-        <span class="text-xs text-cyan-400 hover:text-cyan-300 hover:underline mt-1 font-medium">
-          Show us where to look for music
-        </span>
-      </div>
-    </div>
+        <!-- Import Banner (Aligns with the first image) -->
+        <div
+          @click="handleImportClick"
+          class="flex items-start gap-3.5 p-4 bg-zinc-900/40 hover:bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700/80 rounded-lg cursor-pointer transition-all duration-200 mb-8 max-w-xl select-none"
+        >
+          <div class="shrink-0 mt-0.5">
+            <svg-sprite src="Folder" class="w-5 h-5 text-zinc-400" />
+          </div>
+          <div class="flex flex-col">
+            <span class="text-[13px] font-semibold text-zinc-300">Not finding everything?</span>
+            <span
+              class="text-xs text-cyan-400 hover:text-cyan-300 hover:underline mt-1 font-medium"
+            >
+              Show us where to look for music
+            </span>
+          </div>
+        </div>
 
-    <!-- Music Items Grid -->
-    <div>
-      <div
-        class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
-      >
-        <music-card
-          v-for="item in musicItems"
-          :key="item.id"
-          :type="item.type"
-          :title="item.title"
-          :subtitle="item.subtitle"
-          :thumbnail="item.thumbnail"
-          :songs-count="item.songsCount"
-          :accent-color="item.accentColor"
-          @play="handlePlay"
-          @settings="handleSettings"
-        />
+        <v-tabs v-model="activeTab" color="cyan-lighten-1" class="mb-6 border-b border-zinc-800">
+          <v-tab value="albums" class="text-zinc-300 font-semibold">Albums</v-tab>
+          <v-tab value="folders" class="text-zinc-300 font-semibold">Folders</v-tab>
+        </v-tabs>
+
+        <v-tabs-window v-model="activeTab">
+          <v-tabs-window-item value="albums">
+            <div v-if="albums.length > 0 || (isImporting && activeTab === 'albums')">
+              <div
+                class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
+              >
+                <music-card
+                  v-for="item in albums"
+                  :key="'album-' + item.id"
+                  type="album"
+                  :title="item.title"
+                  :subtitle="item.subtitle"
+                  :thumbnail="item.thumbnail"
+                  :songs-count="item.songsCount"
+                  :accent-color="item.accentColor"
+                  @click="openCategoryDetails(item)"
+                  @play="handlePlay"
+                  @settings="handleSettings(item)"
+                />
+                <!-- Loading Skeleton Card -->
+                <div
+                  v-if="isImporting && activeTab === 'albums'"
+                  class="music-card flex flex-col p-3 rounded-xl border-2 border-zinc-800/20 bg-zinc-900/10 select-none"
+                >
+                  <div
+                    class="relative w-full aspect-square rounded-lg overflow-hidden bg-zinc-800 flex items-center justify-center shadow-md"
+                  >
+                    <v-progress-circular indeterminate color="cyan" size="40" width="4" />
+                  </div>
+                  <div class="mt-3 flex flex-col min-w-0">
+                    <span class="text-sm font-semibold truncate text-zinc-300">Importing...</span>
+                    <span class="text-xs text-zinc-500 mt-1 truncate">Scanning directory</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div
+              v-else
+              class="flex flex-col items-center justify-center py-20 text-center select-none"
+            >
+              <svg-sprite src="Album" class="w-16 h-16 text-zinc-700 mb-4" />
+              <h3 class="text-lg font-semibold text-zinc-400">No albums found</h3>
+              <p class="text-xs text-zinc-500 mt-2 max-w-sm">
+                Import folders containing audio files with album metadata to see them here.
+              </p>
+            </div>
+          </v-tabs-window-item>
+
+          <!-- Folders Tab -->
+          <v-tabs-window-item value="folders">
+            <div v-if="folders.length > 0 || (isImporting && activeTab === 'folders')">
+              <div
+                class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
+              >
+                <music-card
+                  v-for="item in folders"
+                  :key="'folder-' + item.id"
+                  type="folder"
+                  :title="item.title"
+                  :subtitle="item.subtitle"
+                  :thumbnail="item.thumbnail"
+                  :songs-count="item.songsCount"
+                  :accent-color="item.accentColor"
+                  @click="openCategoryDetails(item)"
+                  @play="handlePlay"
+                  @settings="handleSettings(item)"
+                />
+                <!-- Loading Skeleton Card -->
+                <div
+                  v-if="isImporting && activeTab === 'folders'"
+                  class="music-card flex flex-col p-3 rounded-xl border-2 border-zinc-800/20 bg-zinc-900/10 select-none"
+                >
+                  <div
+                    class="relative w-full aspect-square rounded-lg overflow-hidden bg-zinc-800 flex items-center justify-center shadow-md"
+                  >
+                    <v-progress-circular indeterminate color="cyan" size="40" width="4" />
+                  </div>
+                  <div class="mt-3 flex flex-col min-w-0">
+                    <span class="text-sm font-semibold truncate text-zinc-300">Importing...</span>
+                    <span class="text-xs text-zinc-500 mt-1 truncate">Scanning directory</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div
+              v-else
+              class="flex flex-col items-center justify-center py-20 text-center select-none"
+            >
+              <svg-sprite src="Folder" class="w-16 h-16 text-zinc-700 mb-4" />
+              <h3 class="text-lg font-semibold text-zinc-400">No folders imported</h3>
+              <p class="text-xs text-zinc-500 mt-2 max-w-sm">
+                Click the banner above to import a folder containing music.
+              </p>
+            </div>
+          </v-tabs-window-item>
+        </v-tabs-window>
       </div>
-    </div>
+
+      <!-- Detail Song List View -->
+      <music-list
+        v-else-if="currentView === 'list' && selectedCategory"
+        :type="selectedCategory.type"
+        :id="selectedCategory.id"
+        :title="selectedCategory.title"
+        :subtitle="selectedCategory.subtitle"
+        :thumbnail="selectedCategory.thumbnail"
+        :accent-color="selectedCategory.accentColor"
+        :songs-count="selectedCategory.songsCount"
+        @back="router.push('/my-music')"
+      />
+    </transition>
   </div>
 </template>
 
 <script setup lang="ts">
-  import { ref } from 'vue'
+  import { ref, computed, onMounted } from 'vue'
+  import { useRoute, useRouter } from 'vue-router'
+  import { invoke } from '@tauri-apps/api/core'
   import IconBtn from '@groovex/ui/button/icon-btn.vue'
   import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
   import { MusicCard } from '@groovex/ui/music-card'
+  import MusicList from '@groovex/pages/my-music/music-list.vue'
 
-  interface MusicItem {
-    id: string
+  interface MusicItemCard {
+    id: number
     type: 'album' | 'folder'
     title: string
     subtitle: string
@@ -62,54 +168,178 @@
     accentColor?: string
   }
 
-  // Mock data matching the user's screenshots
-  const musicItems = ref<MusicItem[]>([
-    {
-      id: '1',
-      type: 'album',
-      title: 'Lệ Quyên',
-      subtitle: 'Unknown Artist',
-      thumbnail: '/images/le_quyen_cover.png',
-      accentColor: '#8a5c2d', // warm brown/gold accent color matching cover
-    },
-    {
-      id: '2',
-      type: 'album',
-      title: 'V Pop',
-      subtitle: 'Unknown Artist',
-      thumbnail: '/images/vpop_cover.png',
-      accentColor: '#14b8a6', // teal accent color matching cover
-    },
-    {
-      id: '3',
-      type: 'folder',
-      title: 'VRM',
-      subtitle: 'Unknown Artist',
-      accentColor: '#0ea5e9', // cyan/blue accent color
-      songsCount: 248, // From the listed folder previously
-    },
-    {
-      id: '4',
-      type: 'album',
-      title: 'Nonstop',
-      subtitle: 'Unknown Artist',
-      accentColor: '#4b5563', // grey accent color
-    },
-  ])
+  const route = useRoute()
+  const router = useRouter()
 
-  // Triggers folder selection
-  function handleImportClick() {
-    console.log('Import triggered: opening folder selection via Tauri...')
-    // Note for logic: When Tauri dialog returns folder path, Tauri scans the files inside.
-    // It extracts the thumbnail of the first song found containing a picture frame (e.g. APIC in ID3),
-    // saves it, inserts the album/folder record with this thumbnail path into the DB, and refreshes the list.
+  const currentView = computed(() => (route.query.view === 'list' ? 'list' : 'grid'))
+  const selectedCategory = computed(() => {
+    if (route.query.view !== 'list') return null
+    return {
+      id: Number(route.query.id),
+      type: route.query.type as 'album' | 'folder',
+      title: route.query.title as string,
+      subtitle: route.query.subtitle as string,
+      thumbnail: (route.query.thumbnail as string) || undefined,
+      accentColor: (route.query.accentColor as string) || undefined,
+      songsCount: route.query.songsCount ? Number(route.query.songsCount) : undefined,
+    }
+  })
+
+  const isImporting = ref(false)
+  const musicItems = ref<MusicItemCard[]>([])
+
+  const activeTab = ref<'albums' | 'folders'>('albums')
+  const albums = computed(() => musicItems.value.filter((item) => item.type === 'album'))
+  const folders = computed(() => musicItems.value.filter((item) => item.type === 'folder'))
+
+  // Load imported items from SQLite DB
+  async function loadCategories() {
+    try {
+      const res = await invoke<{ folders: any[]; albums: any[] }>('get_music_categories')
+
+      const folderCards = res.folders.map((f) => ({
+        id: f.id,
+        type: 'folder' as const,
+        title: f.name,
+        subtitle: f.path,
+        thumbnail: f.thumbnail,
+        songsCount: f.songs_count,
+        accentColor: f.accent_color || '#0ea5e9',
+      }))
+
+      const albumCards = res.albums.map((a) => ({
+        id: a.id,
+        type: 'album' as const,
+        title: a.name,
+        subtitle: a.artist || 'Unknown Artist',
+        thumbnail: a.thumbnail,
+        songsCount: a.songs_count,
+        accentColor: a.accent_color || '#4b5563',
+      }))
+
+      musicItems.value = [...folderCards, ...albumCards]
+    } catch (err) {
+      console.error('Error loading categories:', err)
+    }
+  }
+
+  onMounted(() => {
+    loadCategories()
+  })
+
+  // Trigger folder picker and scanning
+  async function handleImportClick() {
+    isImporting.value = true
+    try {
+      const res = await invoke<{ folders: any[]; albums: any[] }>('import_music_folder')
+
+      const folderCards = res.folders.map((f) => ({
+        id: f.id,
+        type: 'folder' as const,
+        title: f.name,
+        subtitle: f.path,
+        thumbnail: f.thumbnail,
+        songsCount: f.songs_count,
+        accentColor: f.accent_color || '#0ea5e9',
+      }))
+
+      const albumCards = res.albums.map((a) => ({
+        id: a.id,
+        type: 'album' as const,
+        title: a.name,
+        subtitle: a.artist || 'Unknown Artist',
+        thumbnail: a.thumbnail,
+        songsCount: a.songs_count,
+        accentColor: a.accent_color || '#4b5563',
+      }))
+
+      musicItems.value = [...folderCards, ...albumCards]
+    } catch (err) {
+      console.error('Error scanning folder:', err)
+    } finally {
+      isImporting.value = false
+    }
+  }
+
+  // Opens category song listing via route parameters for back-button history integration
+  function openCategoryDetails(item: MusicItemCard) {
+    router.push({
+      path: '/my-music',
+      query: {
+        view: 'list',
+        type: item.type,
+        id: item.id.toString(),
+        title: item.title,
+        subtitle: item.subtitle,
+        thumbnail: item.thumbnail || '',
+        accentColor: item.accentColor || '',
+        songsCount: item.songsCount ? item.songsCount.toString() : '',
+      },
+    })
+  }
+
+  // Custom thumbnail setting picker
+  async function handleSettings(item: MusicItemCard) {
+    try {
+      const newThumbnailBase64 = await invoke<string>('update_music_thumbnail', {
+        categoryType: item.type,
+        categoryId: item.id,
+      })
+
+      // Extract accent color using HTML canvas on the fly
+      const accentColor = await getAverageColor(newThumbnailBase64)
+
+      // Save accent color in DB
+      await invoke('update_category_accent_color', {
+        categoryType: item.type,
+        categoryId: item.id,
+        accentColor,
+      })
+
+      // Reload list to refresh accent Color and thumbnail
+      await loadCategories()
+    } catch (err) {
+      if (err !== 'Cancelled') {
+        console.error('Error updating custom cover art:', err)
+      }
+    }
   }
 
   function handlePlay(item: { type: 'album' | 'folder'; title: string }) {
-    console.log(`Play all triggered for ${item.type}: ${item.title}`)
+    console.log(`Play categories: ${item.type}: ${item.title}`)
   }
 
-  function handleSettings(item: { type: 'album' | 'folder'; title: string }) {
-    console.log(`Settings clicked for ${item.type}: ${item.title}`)
+  // Helper function to extract average dominant color from base64 string
+  function getAverageColor(base64Image: string): Promise<string> {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = 1
+        canvas.height = 1
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, 1, 1)
+          const pixel = ctx.getImageData(0, 0, 1, 1).data
+          // Return format rgb(r, g, b)
+          resolve(`rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`)
+        } else {
+          resolve('#06b6d4')
+        }
+      }
+      img.onerror = () => resolve('#06b6d4')
+      img.src = base64Image
+    })
   }
 </script>
+
+<style scoped>
+  .fade-enter-active,
+  .fade-leave-active {
+    transition: opacity 0.2s ease;
+  }
+  .fade-enter-from,
+  .fade-leave-to {
+    opacity: 0;
+  }
+</style>

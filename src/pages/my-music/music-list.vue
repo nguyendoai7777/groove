@@ -1,0 +1,246 @@
+<template>
+  <div
+    class="music-list flex flex-col min-h-full p-6 text-zinc-100 select-none"
+    :style="{
+      '--accent-bg': accentBgColor,
+    }"
+  >
+    <!-- Background immersive glow -->
+    <div
+      class="absolute inset-0 -z-10 bg-gradient-to-b from-[var(--accent-bg)] to-zinc-950/20 opacity-25 pointer-events-none transition-all duration-500"
+    ></div>
+
+    <!-- Navigation & Header -->
+    <div class="flex items-center gap-4 mb-8">
+      <button
+        class="flex items-center justify-center w-8 h-8 rounded-full bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 transition-colors duration-150 cursor-pointer"
+        @click="$emit('back')"
+        title="Go Back"
+      >
+        <!-- Back Arrow -->
+        <svg-sprite src="AngleLeft" class="w-4 h-4 text-zinc-300" />
+      </button>
+      <span class="text-xs text-zinc-400 font-semibold uppercase tracking-wider">
+        Back to my music
+      </span>
+    </div>
+
+    <!-- Category Header Info -->
+    <div class="flex flex-col md:flex-row gap-6 items-start md:items-end mb-8">
+      <!-- Big cover image -->
+      <div
+        class="relative w-40 h-40 rounded-xl overflow-hidden bg-zinc-800 shadow-xl flex-shrink-0"
+      >
+        <img v-if="thumbnail" :src="thumbnail" :alt="title" class="w-full h-full object-cover" />
+        <div
+          v-else
+          class="w-full h-full flex items-center justify-center"
+          :class="placeholderClass"
+        >
+          <svg-sprite
+            :src="type === 'folder' ? 'Play' : 'Album'"
+            :class="
+              type === 'folder'
+                ? 'w-16 h-16 text-white/90 drop-shadow-lg'
+                : 'w-16 h-16 text-zinc-600'
+            "
+          />
+        </div>
+      </div>
+
+      <!-- Text details -->
+      <div class="flex-1 min-w-0">
+        <span class="text-xs text-cyan-400 font-bold uppercase tracking-widest">
+          {{ type === 'folder' ? 'Folder' : 'Album' }}
+        </span>
+        <h2 class="text-3xl md:text-4xl font-extrabold truncate text-white mt-1">
+          {{ title }}
+        </h2>
+        <p class="text-sm text-zinc-400 mt-2 flex items-center gap-2">
+          <span>{{ displaySubtitle }}</span>
+          <span v-if="songs.length > 0" class="text-zinc-600">•</span>
+          <span v-if="songs.length > 0">{{ songs.length }} items</span>
+        </p>
+
+        <!-- Quick actions -->
+        <div class="flex gap-3 mt-4">
+          <button
+            class="flex items-center gap-2 px-5 py-2 rounded-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-sm transition-all duration-150 shadow-md hover:scale-[1.02] active:scale-95 cursor-pointer"
+            @click="handlePlayAll"
+            :disabled="songs.length === 0"
+            :class="{ 'opacity-50 cursor-not-allowed': songs.length === 0 }"
+          >
+            <svg-sprite src="Play" class="w-4 h-4 fill-white" />
+            Play all
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Songs Table -->
+    <div class="flex-1 bg-zinc-900/10 rounded-xl border border-zinc-800/30 overflow-hidden">
+      <!-- Loading State -->
+      <div v-if="isLoading" class="flex flex-col items-center justify-center py-20 gap-3">
+        <div
+          class="w-8 h-8 rounded-full border-2 border-cyan-500/20 border-t-cyan-500 animate-spin"
+        ></div>
+        <span class="text-xs text-zinc-500">Loading songs...</span>
+      </div>
+
+      <!-- Empty State -->
+      <div
+        v-else-if="songs.length === 0"
+        class="flex flex-col items-center justify-center py-20 text-center"
+      >
+        <svg-sprite src="Song" class="w-12 h-12 text-zinc-600 mb-3" />
+        <span class="text-sm font-semibold text-zinc-400">This category is empty</span>
+        <span class="text-xs text-zinc-600 mt-1">Scan folder to add songs</span>
+      </div>
+
+      <!-- Table Content -->
+      <div v-else class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr
+              class="border-b border-zinc-800/60 text-zinc-500 text-xs font-semibold uppercase tracking-wider"
+            >
+              <th class="py-3.5 px-4 w-12 text-center">#</th>
+              <th class="py-3.5 px-4">Filename</th>
+              <th class="py-3.5 px-4 hidden sm:table-cell">Title (Metadata)</th>
+              <th class="py-3.5 px-4 hidden md:table-cell">Artist</th>
+              <th class="py-3.5 px-4 w-24 text-right">Duration</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="(song, idx) in songs"
+              :key="song.id"
+              class="group/row hover:bg-zinc-900/60 border-b border-zinc-900/40 transition-colors duration-150 text-sm cursor-pointer"
+              @click="handlePlaySong(song)"
+            >
+              <td
+                class="py-3 px-4 text-center text-zinc-500 group-hover/row:text-cyan-400 transition-colors"
+              >
+                <!-- Play symbol on hover, index otherwise -->
+                <span class="group-hover/row:hidden">{{ idx + 1 }}</span>
+                <svg-sprite
+                  src="Play"
+                  class="w-3 h-3 mx-auto hidden group-hover/row:block text-cyan-400 fill-cyan-400"
+                />
+              </td>
+              <td
+                class="py-3 px-4 font-medium text-zinc-200 group-hover/row:text-white truncate max-w-xs sm:max-w-sm"
+              >
+                {{ song.filename }}
+              </td>
+              <td class="py-3 px-4 text-zinc-400 hidden sm:table-cell truncate max-w-xs">
+                {{ song.title || '—' }}
+              </td>
+              <td class="py-3 px-4 text-zinc-400 hidden md:table-cell truncate max-w-xs">
+                {{ song.artist || '—' }}
+              </td>
+              <td class="py-3 px-4 text-right text-zinc-400 tabular-nums">
+                {{ formatDuration(song.duration) }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+  import { ref, computed, onMounted } from 'vue'
+  import { invoke } from '@tauri-apps/api/core'
+  import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
+
+  interface Song {
+    id: number
+    title: string | null
+    artist: string | null
+    album_id: number | null
+    folder_id: number
+    file_path: string
+    filename: string
+    duration: number
+  }
+
+  const props = defineProps<{
+    type: 'album' | 'folder'
+    id: number
+    title: string
+    subtitle?: string
+    thumbnail?: string
+    accentColor?: string
+    songsCount?: number
+  }>()
+
+  defineEmits<{
+    (e: 'back'): void
+  }>()
+
+  const songs = ref<Song[]>([])
+  const isLoading = ref(true)
+
+  // Format seconds to mm:ss
+  function formatDuration(secs: number): string {
+    if (!secs || isNaN(secs)) return '0:00'
+    const minutes = Math.floor(secs / 60)
+    const seconds = Math.floor(secs % 60)
+    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`
+  }
+
+  // Accent glow background color
+  const accentBgColor = computed(() => {
+    return props.accentColor || 'rgba(6, 182, 212, 0.4)'
+  })
+
+  // Subtitle string
+  const displaySubtitle = computed(() => {
+    if (props.subtitle) return props.subtitle
+    if (props.type === 'folder') return 'Local Folder'
+    return 'Unknown Artist'
+  })
+
+  // Fallback placeholder class
+  const placeholderClass = computed(() => {
+    if (props.type === 'folder') {
+      return 'bg-gradient-to-br from-cyan-500 to-blue-600 shadow-[inset_0_2px_10px_rgba(255,255,255,0.15)]'
+    }
+    return 'bg-zinc-800 border border-zinc-700/50'
+  })
+
+  // Fetch category songs on mount
+  onMounted(async () => {
+    try {
+      songs.value = await invoke<Song[]>('get_category_songs', {
+        categoryType: props.type,
+        categoryId: props.id,
+      })
+    } catch (err) {
+      console.error('Error fetching category songs:', err)
+    } finally {
+      isLoading.value = false
+    }
+  })
+
+  function handlePlayAll() {
+    console.log('Play all songs in category:', props.title, songs.value)
+    // Audio playback engine integration goes here later
+  }
+
+  function handlePlaySong(song: Song) {
+    console.log('Play single song:', song)
+    // Audio playback engine integration goes here later
+  }
+</script>
+
+<style scoped>
+  .music-list {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+  }
+</style>

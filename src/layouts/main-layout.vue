@@ -1,9 +1,11 @@
 <template>
-  <div class="flex">
+  <div class="flex h-screen overflow-hidden">
     <side-nav />
-    <div class="w-[stretch]">
-      <app-bar />
-      <router-view />
+    <div class="flex-1 flex flex-col h-full overflow-hidden bg-(--bg-main)">
+      <app-bar class="" />
+      <div class="flex-1 overflow-y-auto">
+        <router-view />
+      </div>
     </div>
   </div>
 </template>

@@ -7,7 +7,19 @@ import 'overlayscrollbars/overlayscrollbars.css'
 import './tailwind.css'
 import './style.css'
 import { AppRouter } from './app.route'
-import { VBtn, VCard, VDialog, VList, VListItem, VTextField } from 'vuetify/components'
+import {
+  VBtn,
+  VCard,
+  VDialog,
+  VList,
+  VListItem,
+  VProgressCircular,
+  VTab,
+  VTabs,
+  VTabsWindow,
+  VTabsWindowItem,
+  VTextField,
+} from 'vuetify/components'
 
 const app = createApp(App)
 const vtx = createVuetify({
@@ -18,6 +30,11 @@ const vtx = createVuetify({
     'v-text-field': VTextField,
     'v-list': VList,
     'v-list-item': VListItem,
+    'v-tabs': VTabs,
+    'v-tab': VTab,
+    'v-tabs-window': VTabsWindow,
+    'v-tabs-window-item': VTabsWindowItem,
+    'v-progress-circular': VProgressCircular,
   },
 })
 app.use(AppRouter).use(createPinia()).use(vtx).mount('#app')

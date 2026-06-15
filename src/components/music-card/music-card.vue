@@ -5,6 +5,7 @@
       '--glow-color': glowColor,
       '--border-glow': borderGlowColor,
     }"
+    @click="$emit('click')"
   >
     <!-- Thumbnail Container -->
     <div class="relative w-full aspect-square rounded-lg overflow-hidden bg-zinc-800 shadow-md">
@@ -89,6 +90,7 @@
   })
 
   defineEmits<{
+    (e: 'click'): void
     (e: 'play', payload: { type: 'album' | 'folder'; title: string }): void
     (e: 'settings', payload: { type: 'album' | 'folder'; title: string }): void
   }>()

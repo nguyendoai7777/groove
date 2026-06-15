@@ -1,6 +1,9 @@
 * {
-	font-weight: 300;
+  font-weight: 300;
 }
 .w-stretch {
-	width: stretch;
+  width: stretch;
+}
+*[data-tauri-drag-region] {
+  app-region: drag;
 }

@@ -3,7 +3,7 @@
 }
 :root {
   --text-primary: #fff;
-  --nav-bg: black;
+  --nav-bg: rgba(18, 18, 18, 0.4);
   --border-search: rgb(128 128 128 / 0.8);
   --border-search-hover: gray;
   --bg-search: #222;
@@ -48,11 +48,11 @@
 }
 .dark {
   --text-primary: #fff;
-  --nav-bg: var(--color-gray-500);
+  --nav-bg: rgba(24, 24, 27, 0.4);
 }
 .light {
   --text-primary: #000;
-  --nav-bg: var(--color-white);
+  --nav-bg: rgba(255, 255, 255, 0.4);
 
   /* Command Palette Theme Variables (Light Mode) */
   --cmd-bg: rgba(255, 255, 255, 0.95);
@@ -88,6 +88,22 @@
   --cmd-kbd-border-active: #d4d4d8;
   --cmd-kbd-text-active: #18181b;
 
-  --cmd-footer-bg: rgba(244, 244, 245, 0.8);
+  --cmd-footer-bg: rgba(24, 24, 27, 0.8);
   --cmd-footer-border: rgba(228, 228, 231, 0.8);
+}
+
+:root {
+  --bg-main: #121212;
+}
+.light {
+  --bg-main: #f4f4f5;
+}
+.dark {
+  --bg-main: #121212;
+}
+
+html,
+body,
+#app {
+  background-color: transparent !important;
 }
