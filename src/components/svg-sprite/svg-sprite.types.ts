@@ -23,6 +23,7 @@ export type SVGSrc =
   | 'LoopBadge'
   | 'Next'
   | 'Prev'
+  | 'Delete'
 
 export interface SVGSpriteProps {
   src: CastString<SVGSrc>

@@ -53,6 +53,7 @@
                   @click="openCategoryDetails(item)"
                   @play="handlePlay"
                   @settings="handleSettings(item)"
+                  @delete="handleDeleteCategory(item)"
                 />
                 <!-- Loading Skeleton Card -->
                 <div
@@ -101,6 +102,7 @@
                   @click="openCategoryDetails(item)"
                   @play="handlePlay"
                   @settings="handleSettings(item)"
+                  @delete="handleDeleteCategory(item)"
                 />
                 <!-- Loading Skeleton Card -->
                 <div
@@ -304,6 +306,39 @@
       if (err !== 'Cancelled') {
         console.error('Error updating custom cover art:', err)
       }
+    }
+  }
+
+  async function handleDeleteCategory(item: MusicItemCard) {
+    try {
+      const res = await invoke<{ folders: any[]; albums: any[] }>('delete_category', {
+        categoryType: item.type,
+        categoryId: item.id,
+      })
+
+      const folderCards = res.folders.map((f) => ({
+        id: f.id,
+        type: 'folder' as const,
+        title: f.name,
+        subtitle: f.path,
+        thumbnail: f.thumbnail,
+        songsCount: f.songs_count,
+        accentColor: f.accent_color || '#0ea5e9',
+      }))
+
+      const albumCards = res.albums.map((a) => ({
+        id: a.id,
+        type: 'album' as const,
+        title: a.name,
+        subtitle: a.artist || 'Unknown Artist',
+        thumbnail: a.thumbnail,
+        songsCount: a.songs_count,
+        accentColor: a.accent_color || '#4b5563',
+      }))
+
+      musicItems.value = [...folderCards, ...albumCards]
+    } catch (err) {
+      console.error('Error deleting category:', err)
     }
   }
 

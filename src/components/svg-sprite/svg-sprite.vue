@@ -38,5 +38,6 @@
     LoopBadge: '/icons/media-ctrl.svg#LoopBadge',
     Next: '/icons/media-ctrl.svg#Next',
     Prev: '/icons/media-ctrl.svg#Prev',
+    Delete: '/icons/acions.svg#Delete',
   }
 </script>

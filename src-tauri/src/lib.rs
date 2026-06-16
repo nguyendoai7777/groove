@@ -283,6 +283,31 @@ fn update_category_accent_color(
     Ok(())
 }
 
+#[tauri::command]
+fn delete_category(
+    state: State<'_, DbState>,
+    category_type: String,
+    category_id: i64,
+) -> Result<CategoriesResponse, String> {
+    let conn = state.conn.lock().unwrap();
+    if category_type == "folder" {
+        conn.execute("DELETE FROM folders WHERE id = ?1", rusqlite::params![category_id])
+            .map_err(|e| e.to_string())?;
+    } else {
+        conn.execute("DELETE FROM songs WHERE album_id = ?1", rusqlite::params![category_id])
+            .map_err(|e| e.to_string())?;
+        conn.execute("DELETE FROM albums WHERE id = ?1", rusqlite::params![category_id])
+            .map_err(|e| e.to_string())?;
+    }
+
+    conn.execute("DELETE FROM albums WHERE id NOT IN (SELECT DISTINCT album_id FROM songs WHERE album_id IS NOT NULL)", []).ok();
+    conn.execute("DELETE FROM folders WHERE id NOT IN (SELECT DISTINCT folder_id FROM songs)", []).ok();
+
+    let folders = db::fetch_folders(&conn).map_err(|e| e.to_string())?;
+    let albums = db::fetch_albums(&conn).map_err(|e| e.to_string())?;
+    Ok(CategoriesResponse { folders, albums })
+}
+
 const CLEAR_DB_ON_START: bool = true;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -335,7 +360,8 @@ pub fn run() {
             get_category_songs,
             update_music_thumbnail,
             update_category_accent_color,
-            search_songs
+            search_songs,
+            delete_category
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
