@@ -1,6 +1,5 @@
 <template>
   <div
-    ref="rootRef"
     class="flex flex-col min-h-full px-4 text-zinc-100 select-none"
     :style="{
       '--accent-bg': accentBgColor,
@@ -16,7 +15,7 @@
       class="sticky top-0 py-3 z-20 flex transition-all duration-300 ease-in-out"
       :class="[
         isScrolled
-          ? 'flex-row items-center gap-4 py-3 backdrop-blur-md -mx-4 px-4 border-b border-zinc-800/40 mb-6'
+          ? 'flex-row items-center gap-4 py-3 backdrop-blur-md -mx-4 px-4'
           : 'flex-col md:flex-row gap-6 items-start md:items-end pb-2 mb-8',
       ]"
     >
@@ -165,9 +164,11 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, onMounted, onUnmounted } from 'vue'
+  import { ref, computed, onMounted } from 'vue'
   import { invoke } from '@tauri-apps/api/core'
   import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
+  import { useLayoutScroll } from '../../shared/composables/use-layout-scroll'
+  import { formatDuration } from '@groovex/core'
 
   interface Song {
     id: number
@@ -197,23 +198,12 @@
   const songs = ref<Song[]>([])
   const isLoading = ref(true)
 
-  const rootRef = ref<HTMLElement | null>(null)
   const isScrolled = ref(false)
-  const scrollContainer = ref<HTMLElement | null>(null)
 
-  function handleScroll() {
-    if (scrollContainer.value) {
-      isScrolled.value = scrollContainer.value.scrollTop > 40
-    }
-  }
-
-  // Format seconds to mm:ss
-  function formatDuration(secs: number): string {
-    if (!secs || isNaN(secs)) return '0:00'
-    const minutes = Math.floor(secs / 60)
-    const seconds = Math.floor(secs % 60)
-    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`
-  }
+  useLayoutScroll((instance) => {
+    const { viewport } = instance.elements()
+    isScrolled.value = viewport.scrollTop > 40
+  })
 
   // Accent glow background color
   const accentBgColor = computed(() => {
@@ -237,26 +227,6 @@
 
   // Fetch category songs on mount
   onMounted(async () => {
-    // Find the scrollable ancestor of this component
-    let parent = rootRef.value?.parentElement
-    while (parent) {
-      const overflow = window.getComputedStyle(parent).overflowY
-      if (
-        overflow === 'auto' ||
-        overflow === 'scroll' ||
-        parent.classList.contains('os-viewport')
-      ) {
-        scrollContainer.value = parent
-        parent.addEventListener('scroll', handleScroll, { passive: true })
-        break
-      }
-      parent = parent.parentElement
-    }
-
-    if (!scrollContainer.value) {
-      window.addEventListener('scroll', handleScroll, true)
-    }
-
     try {
       songs.value = await invoke<Song[]>('get_category_songs', {
         categoryType: props.type,
@@ -267,13 +237,6 @@
     } finally {
       isLoading.value = false
     }
-  })
-
-  onUnmounted(() => {
-    if (scrollContainer.value) {
-      scrollContainer.value.removeEventListener('scroll', handleScroll)
-    }
-    window.removeEventListener('scroll', handleScroll, true)
   })
 
   function handlePlayAll() {
