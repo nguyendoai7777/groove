@@ -128,6 +128,7 @@
             <tr
               v-for="(song, idx) in songs"
               :key="song.id"
+              :data-src="song.file_path"
               class="group/row hover:bg-gray-400/10 border-b border-zinc-900/40 transition-colors duration-150 text-sm cursor-pointer"
               @click="handlePlaySong(song)"
             >
@@ -169,17 +170,8 @@
   import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
   import { useLayoutScroll } from '../../shared/composables/use-layout-scroll'
   import { formatDuration } from '@groovex/core'
-
-  interface Song {
-    id: number
-    title: string | null
-    artist: string | null
-    album_id: number | null
-    folder_id: number
-    file_path: string
-    filename: string
-    duration: number
-  }
+  import { useAudioPlayer } from '@groovex/state'
+  import type { Song } from '@groovex/types'
 
   const props = defineProps<{
     type: 'album' | 'folder'
@@ -239,13 +231,26 @@
     }
   })
 
+  const player = useAudioPlayer()
+
   function handlePlayAll() {
-    console.log('Play all songs in category:', props.title, songs.value)
-    // Audio playback engine integration goes here later
+    if (songs.value.length === 0) return
+    const playlist = songs.value.map((s) => ({
+      ...s,
+      thumbnail: props.thumbnail,
+    }))
+    player.playSong(playlist[0], playlist)
   }
 
   function handlePlaySong(song: Song) {
-    console.log('Play single song:', song)
-    // Audio playback engine integration goes here later
+    const playlist = songs.value.map((s) => ({
+      ...s,
+      thumbnail: props.thumbnail,
+    }))
+    const playSongItem = playlist.find((s) => s.id === song.id) || {
+      ...song,
+      thumbnail: props.thumbnail,
+    }
+    player.playSong(playSongItem, playlist)
   }
 </script>

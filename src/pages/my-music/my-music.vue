@@ -157,6 +157,8 @@
   import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
   import { MusicCard } from '@groovex/ui/music-card'
   import MusicList from '@groovex/pages/my-music/music-list.vue'
+  import { useAudioPlayer } from '@groovex/state'
+  import type { Song } from '@groovex/types'
 
   interface MusicItemCard {
     id: number
@@ -305,8 +307,26 @@
     }
   }
 
-  function handlePlay(item: { type: 'album' | 'folder'; title: string }) {
-    console.log(`Play categories: ${item.type}: ${item.title}`)
+  async function handlePlay(item: { type: 'album' | 'folder'; title: string }) {
+    const matched = musicItems.value.find((i) => i.type === item.type && i.title === item.title)
+    if (matched) {
+      try {
+        const categorySongs = await invoke<Song[]>('get_category_songs', {
+          categoryType: matched.type,
+          categoryId: matched.id,
+        })
+        if (categorySongs.length > 0) {
+          const playlist = categorySongs.map((s) => ({
+            ...s,
+            thumbnail: matched.thumbnail,
+          }))
+          const player = useAudioPlayer()
+          player.playSong(playlist[0], playlist)
+        }
+      } catch (err) {
+        console.error('Error playing category:', err)
+      }
+    }
   }
 
   // Helper function to extract average dominant color from base64 string

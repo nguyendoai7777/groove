@@ -97,7 +97,8 @@
 
         <div class="flex-1 grx-PlayerSlider flex items-center h-4">
           <v-slider
-            v-model="currentTime"
+            :model-value="currentTime"
+            @update:model-value="player.seek"
             :min="0"
             :max="duration"
             :step="1"
@@ -150,29 +151,27 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, watch, onBeforeUnmount, computed } from 'vue'
+  import { computed } from 'vue'
+  import { storeToRefs } from 'pinia'
+  import { useAudioPlayer } from '@groovex/state'
   import IconBtn from '@groovex/ui/button/icon-btn.vue'
   import TogglePlay from './toggle-play.vue'
 
-  // Reactive state variables
-  const isPlaying = ref(false)
-  const currentTime = ref(157) // starts at 02:37
-  const duration = ref(315) // starts at 05:15
-  const volume = ref(75)
-  const isMuted = ref(false)
-  const isShuffle = ref(false)
-  const isRepeat = ref(false)
+  const player = useAudioPlayer()
+  const { currentSong, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isRepeat } =
+    storeToRefs(player)
 
-  // Track meta
-  const songTitle = ref('Song_name')
-  const artistName = ref('Artist_name')
-  const subArtists = ref('Sub_artist_1, Sub_artist_2')
-  const thumbnailUrl = ref(
-    'https://photo-resize-zmp3.zmdcdn.me/w240_r1x1_jpeg/cover/b/4/b/9/b4b96e865b138912ffc25bbb203f0c55.jpg',
+  // Track metadata computed properties
+  const songTitle = computed(
+    () => currentSong.value?.title || currentSong.value?.filename || 'No song selected',
   )
-
-  // Previous volume before mute
-  const prevVolume = ref(75)
+  const artistName = computed(() => currentSong.value?.artist || 'Unknown Artist')
+  const subArtists = computed(() => '') // Song model doesn't have sub-artists
+  const thumbnailUrl = computed(
+    () =>
+      currentSong.value?.thumbnail ||
+      'https://photo-resize-zmp3.zmdcdn.me/w240_r1x1_jpeg/cover/b/4/b/9/b4b96e865b138912ffc25bbb203f0c55.jpg',
+  )
 
   // Time formatter
   function formatTime(seconds: number): string {
@@ -181,42 +180,9 @@
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
   }
 
-  // Play/Pause toggling
-  let playInterval: number | null = null
-
-  function startProgressTimer() {
-    if (playInterval) return
-    playInterval = window.setInterval(() => {
-      if (currentTime.value < duration.value) {
-        currentTime.value += 1
-      } else {
-        if (isRepeat.value) {
-          currentTime.value = 0
-        } else {
-          isPlaying.value = false
-        }
-      }
-    }, 1000)
-  }
-
-  function stopProgressTimer() {
-    if (playInterval) {
-      clearInterval(playInterval)
-      playInterval = null
-    }
-  }
-
   function onPlayStateChange(state: boolean) {
-    isPlaying.value = state
+    player.setPlaying(state)
   }
-
-  watch(isPlaying, (newVal) => {
-    if (newVal) {
-      startProgressTimer()
-    } else {
-      stopProgressTimer()
-    }
-  })
 
   // Volume control & dynamic icon mapping
   const volumeIcon = computed(() => {
@@ -233,38 +199,16 @@
   })
 
   function toggleMute() {
-    if (isMuted.value) {
-      isMuted.value = false
-      volume.value = prevVolume.value
-    } else {
-      prevVolume.value = volume.value
-      volume.value = 0
-      isMuted.value = true
-    }
+    isMuted.value = !isMuted.value
   }
 
-  watch(volume, (newVal) => {
-    if (newVal > 0) {
-      isMuted.value = false
-    } else {
-      isMuted.value = true
-    }
-  })
-
-  // Stub controls for prev/next
   function prevTrack() {
-    console.log('Previous track clicked')
-    currentTime.value = 0
+    player.prevTrack()
   }
 
   function nextTrack() {
-    console.log('Next track clicked')
-    currentTime.value = 0
+    player.nextTrack()
   }
-
-  onBeforeUnmount(() => {
-    stopProgressTimer()
-  })
 </script>
 
 <style>
