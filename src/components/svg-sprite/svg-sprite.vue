@@ -11,6 +11,9 @@
 
   const sourceMap: Record<SVGSrc, string> = {
     VMute: '/icons/volume.svg#VMute',
+    VMin: '/icons/volume.svg#VMin',
+    VMedium: '/icons/volume.svg#VMedium',
+    VMax: '/icons/volume.svg#VMax',
 
     AngleLeft: '/icons/arrow.svg#AngleLeft',
     AngleRight: '/icons/arrow.svg#AngleRight',
@@ -29,5 +32,11 @@
     Album: '/icons/cli.svg#Album',
     Action: '/icons/cli.svg#Action',
     Search: '/icons/cli.svg#Search',
+
+    Shuffle: '/icons/media-ctrl.svg#Shuffle',
+    Loop: '/icons/media-ctrl.svg#Loop',
+    LoopBadge: '/icons/media-ctrl.svg#LoopBadge',
+    Next: '/icons/media-ctrl.svg#Next',
+    Prev: '/icons/media-ctrl.svg#Prev',
   }
 </script>

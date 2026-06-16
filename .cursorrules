@@ -1,34 +1,47 @@
+dont use scope in style
+
 # Tailwind CSS v4 Shorthand Rules for Groovex Project
 
 Since this project uses Tailwind CSS v4, we must follow the new shorthand syntax rules for custom properties and modifiers to ensure optimal styling compliance and clean code.
 
 ## 1. Custom Property Shorthand
+
 Instead of using the verbose `[var(...)]` arbitrary value notation, use the new shorthand parenthetical syntax `(...)`:
 
-*   **Background Color**:
-    *   ❌ `bg-[var(--my-color)]`
-    *   ✅ `bg-(--my-color)`
-*   **Text Color**:
-    *   ❌ `text-[var(--my-text)]`
-    *   ✅ `text-(--my-text)`
-*   **Border Color**:
-    *   ❌ `border-[var(--my-border)]`
-    *   ✅ `border-(--my-border)`
-*   **Placeholder Color**:
-    *   ❌ `placeholder-[var(--my-placeholder)]`
-    *   ✅ `placeholder-(--my-placeholder)`
+- **Background Color**:
+  - ❌ `bg-[var(--my-color)]`
+  - ✅ `bg-(--my-color)`
+- **Text Color**:
+  - ❌ `text-[var(--my-text)]`
+  - ✅ `text-(--my-text)`
+- **Border Color**:
+  - ❌ `border-[var(--my-border)]`
+  - ✅ `border-(--my-border)`
+- **Placeholder Color**:
+  - ❌ `placeholder-[var(--my-placeholder)]`
+  - ✅ `placeholder-(--my-placeholder)`
 
 ## 2. Opacity Modifiers
+
 When using custom properties with opacity modifiers, follow the shorthand syntax:
-*   ❌ `bg-[var(--my-color)]/40`
-*   ✅ `bg-(--my-color)/40`
+
+- ❌ `bg-[var(--my-color)]/40`
+- ✅ `bg-(--my-color)/40`
 
 ## 3. Important Modifier Suffix
+
 In Tailwind CSS v4, the important modifier is written as a **suffix** at the end of the utility class, not as a prefix:
-*   ❌ `!bg-[var(--my-color)]` or `!bg-(--my-color)`
-*   ✅ `bg-(--my-color)!`
-*   ❌ `!text-white`
-*   ✅ `text-white!`
+
+- ❌ `!bg-[var(--my-color)]` or `!bg-(--my-color)`
+- ✅ `bg-(--my-color)!`
+- ❌ `!text-white`
+- ✅ `text-white!`
+
+## 4. flex box props
+
+- ❌ `flex-shrink-0`
+- ✅ `shrink-0`
 
 ---
+
 Keep this rules file updated as new styling patterns are introduced in the workspace.

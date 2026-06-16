@@ -1,5 +1,8 @@
 export type SVGSrc =
   | 'VMute'
+  | 'VMin'
+  | 'VMedium'
+  | 'VMax'
   | 'AngleLeft'
   | 'AngleRight'
   | 'Close'
@@ -15,6 +18,11 @@ export type SVGSrc =
   | 'Settings'
   | 'Play'
   | 'Folder'
+  | 'Shuffle'
+  | 'Loop'
+  | 'LoopBadge'
+  | 'Next'
+  | 'Prev'
 
 export interface SVGSpriteProps {
   src: CastString<SVGSrc>
