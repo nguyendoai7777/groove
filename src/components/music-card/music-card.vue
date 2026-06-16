@@ -130,7 +130,7 @@
   })
 </script>
 
-<style scoped>
+<style>
   .music-card:hover {
     border-color: var(--border-glow) !important;
     box-shadow: 0 0 20px var(--glow-color) !important;

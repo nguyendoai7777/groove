@@ -49,7 +49,7 @@
   </div>
 </template>
 
-<style scoped>
+<style>
   .grx-SearchBar {
     border: var(--border-search);
     background: var(--bg-search);

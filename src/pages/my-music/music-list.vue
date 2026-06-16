@@ -1,6 +1,7 @@
 <template>
   <div
-    class="flex flex-col min-h-full px-4 py-6 text-zinc-100 select-none"
+    ref="rootRef"
+    class="flex flex-col min-h-full px-4 text-zinc-100 select-none"
     :style="{
       '--accent-bg': accentBgColor,
     }"
@@ -11,42 +12,74 @@
     ></div>
 
     <!-- Category Header Info -->
-    <div class="flex flex-col md:flex-row gap-6 items-start md:items-end mb-8">
+    <div
+      class="sticky top-0 py-3 z-20 flex transition-all duration-300 ease-in-out"
+      :class="[
+        isScrolled
+          ? 'flex-row items-center gap-4 py-3 backdrop-blur-md -mx-4 px-4 border-b border-zinc-800/40 mb-6'
+          : 'flex-col md:flex-row gap-6 items-start md:items-end pb-2 mb-8',
+      ]"
+    >
       <!-- Big cover image -->
-      <div class="relative w-40 h-40 rounded-xl overflow-hidden bg-zinc-800 shadow-xl shrink-0">
+      <div
+        class="relative rounded-xl overflow-hidden bg-zinc-800 shadow-xl shrink-0 transition-all duration-300 ease-in-out"
+        :class="isScrolled ? 'w-20 h-20 shadow-md' : 'w-40 h-40 shadow-xl'"
+      >
         <img v-if="thumbnail" :src="thumbnail" :alt="title" class="w-full h-full object-cover" />
         <div
           v-else
-          class="w-full h-full flex items-center justify-center"
+          class="w-full h-full flex items-center justify-center transition-all duration-300 ease-in-out"
           :class="placeholderClass"
         >
           <svg-sprite
             :src="type === 'folder' ? 'Play' : 'Album'"
-            :class="
-              type === 'folder'
-                ? 'w-16 h-16 text-white/90 drop-shadow-lg'
-                : 'w-16 h-16 text-zinc-600'
-            "
+            :class="[
+              type === 'folder' ? 'text-white/90 drop-shadow-lg' : 'text-zinc-600',
+              isScrolled ? 'w-8 h-8' : 'w-16 h-16',
+            ]"
+            class="transition-all duration-300 ease-in-out"
           />
         </div>
       </div>
 
       <!-- Text details -->
       <div class="flex-1 min-w-0">
-        <span class="text-xs text-cyan-400 font-bold uppercase tracking-widest">
+        <span
+          class="text-xs text-cyan-400 font-bold uppercase tracking-widest transition-all duration-300 block"
+          :class="isScrolled ? 'opacity-0 h-0 overflow-hidden mb-0' : 'mb-1'"
+        >
           {{ type === 'folder' ? 'Folder' : 'Album' }}
         </span>
-        <h2 class="text-3xl md:text-4xl font-extrabold truncate text-white mt-1">
+        <h2
+          class="font-extrabold truncate text-white transition-all duration-300"
+          :class="isScrolled ? 'text-lg md:text-xl mt-0' : 'text-3xl md:text-4xl mt-1'"
+        >
           {{ title }}
         </h2>
-        <p class="text-sm text-zinc-400 mt-2 flex items-center gap-2">
-          <span>{{ displaySubtitle }}</span>
-          <span v-if="songs.length > 0" class="text-zinc-600">•</span>
+        <p
+          class="text-zinc-400 flex items-center gap-2 transition-all duration-300 mt-1"
+          :class="isScrolled ? 'text-xs md:text-sm' : 'text-sm md:mt-2'"
+        >
+          <span v-if="!isScrolled" class="transition-opacity duration-300">
+            {{ displaySubtitle }}
+          </span>
+          <span v-if="!isScrolled && songs.length > 0" class="text-zinc-600">•</span>
+
+          <span v-if="isScrolled" class="font-semibold text-cyan-400 uppercase tracking-wider">
+            {{ type === 'folder' ? 'Folder' : 'Album' }}
+          </span>
+          <span v-if="isScrolled" class="text-zinc-600">•</span>
+
           <span v-if="songs.length > 0">{{ songs.length }} items</span>
         </p>
 
         <!-- Quick actions -->
-        <div class="flex gap-3 mt-4">
+        <div
+          class="flex gap-3 transition-all duration-300 ease-in-out overflow-hidden"
+          :class="
+            isScrolled ? 'max-h-0 opacity-0 mt-0 pointer-events-none' : 'max-h-12 opacity-100 mt-4'
+          "
+        >
           <button
             class="flex items-center gap-2 px-5 py-2 rounded-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-sm transition-all duration-150 shadow-md hover:scale-[1.02] active:scale-95 cursor-pointer"
             @click="handlePlayAll"
@@ -132,7 +165,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, onMounted } from 'vue'
+  import { ref, computed, onMounted, onUnmounted } from 'vue'
   import { invoke } from '@tauri-apps/api/core'
   import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
 
@@ -164,6 +197,16 @@
   const songs = ref<Song[]>([])
   const isLoading = ref(true)
 
+  const rootRef = ref<HTMLElement | null>(null)
+  const isScrolled = ref(false)
+  const scrollContainer = ref<HTMLElement | null>(null)
+
+  function handleScroll() {
+    if (scrollContainer.value) {
+      isScrolled.value = scrollContainer.value.scrollTop > 40
+    }
+  }
+
   // Format seconds to mm:ss
   function formatDuration(secs: number): string {
     if (!secs || isNaN(secs)) return '0:00'
@@ -194,6 +237,26 @@
 
   // Fetch category songs on mount
   onMounted(async () => {
+    // Find the scrollable ancestor of this component
+    let parent = rootRef.value?.parentElement
+    while (parent) {
+      const overflow = window.getComputedStyle(parent).overflowY
+      if (
+        overflow === 'auto' ||
+        overflow === 'scroll' ||
+        parent.classList.contains('os-viewport')
+      ) {
+        scrollContainer.value = parent
+        parent.addEventListener('scroll', handleScroll, { passive: true })
+        break
+      }
+      parent = parent.parentElement
+    }
+
+    if (!scrollContainer.value) {
+      window.addEventListener('scroll', handleScroll, true)
+    }
+
     try {
       songs.value = await invoke<Song[]>('get_category_songs', {
         categoryType: props.type,
@@ -204,6 +267,13 @@
     } finally {
       isLoading.value = false
     }
+  })
+
+  onUnmounted(() => {
+    if (scrollContainer.value) {
+      scrollContainer.value.removeEventListener('scroll', handleScroll)
+    }
+    window.removeEventListener('scroll', handleScroll, true)
   })
 
   function handlePlayAll() {
