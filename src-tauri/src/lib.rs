@@ -14,6 +14,15 @@ struct DbState {
     conn: Mutex<Connection>,
 }
 
+fn clean_metadata_string(s: &str) -> String {
+    s.replace('\0', "")
+     .replace('\r', "")
+     .replace('\n', "")
+     .replace('\u{a0}', " ")
+     .trim()
+     .to_string()
+}
+
 #[derive(serde::Serialize)]
 struct CategoriesResponse {
     folders: Vec<db::Folder>,
@@ -90,13 +99,13 @@ fn import_music_folder(state: State<'_, DbState>) -> Result<CategoriesResponse, 
             
             for tag in tagged_file.tags() {
                 if title.is_none() {
-                    title = tag.title().map(|s| s.to_string());
+                    title = tag.title().map(|s| clean_metadata_string(&s));
                 }
                 if artist.is_none() {
-                    artist = tag.artist().map(|s| s.to_string());
+                    artist = tag.artist().map(|s| clean_metadata_string(&s));
                 }
                 if album_name.is_none() {
-                    album_name = tag.album().map(|s| s.to_string());
+                    album_name = tag.album().map(|s| clean_metadata_string(&s));
                 }
                 if thumbnail.is_none() {
                     if let Some(pic) = tag.pictures().first() {
@@ -112,13 +121,13 @@ fn import_music_folder(state: State<'_, DbState>) -> Result<CategoriesResponse, 
         if ext_lower == "mp3" && (album_name.is_none() || title.is_none() || artist.is_none() || thumbnail.is_none()) {
             if let Ok(tag) = id3::Tag::read_from_path(&file) {
                 if title.is_none() {
-                    title = tag.title().map(|s| s.to_string());
+                    title = tag.title().map(|s| clean_metadata_string(&s));
                 }
                 if artist.is_none() {
-                    artist = tag.artist().map(|s| s.to_string());
+                    artist = tag.artist().map(|s| clean_metadata_string(&s));
                 }
                 if album_name.is_none() {
-                    album_name = tag.album().map(|s| s.to_string());
+                    album_name = tag.album().map(|s| clean_metadata_string(&s));
                 }
                 if thumbnail.is_none() {
                     if let Some(pic) = tag.pictures().next() {
@@ -132,7 +141,7 @@ fn import_music_folder(state: State<'_, DbState>) -> Result<CategoriesResponse, 
 
         // Handle Album creation
         let album_id = if let Some(ref name) = album_name {
-            if !name.trim().is_empty() {
+            if !name.is_empty() {
                 let id = db::get_or_create_album(&conn, name, artist.as_deref())
                     .map_err(|e| e.to_string())?;
                 Some(id)
@@ -174,6 +183,10 @@ fn import_music_folder(state: State<'_, DbState>) -> Result<CategoriesResponse, 
             }
         }
     }
+
+    // Clean up empty categories to avoid displaying ghost items in the UI
+    conn.execute("DELETE FROM albums WHERE id NOT IN (SELECT DISTINCT album_id FROM songs WHERE album_id IS NOT NULL)", []).ok();
+    conn.execute("DELETE FROM folders WHERE id NOT IN (SELECT DISTINCT folder_id FROM songs)", []).ok();
 
     // Return fresh list of folders and albums
     let folders = db::fetch_folders(&conn).map_err(|e| e.to_string())?;
@@ -270,6 +283,8 @@ fn update_category_accent_color(
     Ok(())
 }
 
+const CLEAR_DB_ON_START: bool = true;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -277,6 +292,13 @@ pub fn run() {
             // Initialize database path in App Data directory
             let app_data_dir = app.path().app_data_dir().unwrap_or_else(|_| PathBuf::from("."));
             let db_path = app_data_dir.join("groovex.db");
+            
+            if CLEAR_DB_ON_START {
+                if db_path.exists() {
+                    std::fs::remove_file(&db_path).ok();
+                    println!("Cleared database file on startup: {:?}", db_path);
+                }
+            }
             
             let conn = db::init_db(&db_path)
                 .expect("Failed to initialize database");

@@ -253,12 +253,12 @@ pub fn fetch_folders(conn: &Connection) -> Result<Vec<Folder>> {
 }
 
 pub fn fetch_albums(conn: &Connection) -> Result<Vec<Album>> {
-    let mut stmt = conn.prepare(
-        "SELECT a.id, a.name, a.artist, a.thumbnail, a.accent_color, COUNT(s.id) as songs_count
+	let mut stmt = conn.prepare(
+		"SELECT a.id, a.name, a.artist, a.thumbnail, a.accent_color, COUNT(s.id) as songs_count
          FROM albums a
-         LEFT JOIN songs s ON s.album_id = a.id
+         INNER JOIN songs s ON s.album_id = a.id
          GROUP BY a.id"
-    )?;
+	)?;
 
     let album_iter = stmt.query_map([], |row| {
         Ok(Album {

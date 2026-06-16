@@ -7,7 +7,7 @@
   >
     <!-- Background immersive glow -->
     <div
-      class="absolute inset-0 -z-10 bg-linear-to-b from-(--accent-bg) to-zinc-950/20 opacity-25 pointer-events-none transition-all duration-500"
+      class="absolute top-0 left-0 right-0 h-[380px] -z-10 bg-linear-to-b from-(--accent-bg) to-transparent opacity-40 pointer-events-none transition-all duration-500"
     ></div>
 
     <!-- Category Header Info -->
@@ -44,7 +44,7 @@
       <!-- Text details -->
       <div class="flex-1 min-w-0">
         <span
-          class="text-xs text-cyan-400 font-bold uppercase tracking-widest transition-all duration-300 block"
+          class="text-xs text-cyan-400 font-bold tracking-widest transition-all duration-300 block"
           :class="isScrolled ? 'opacity-0 h-0 overflow-hidden mb-0' : 'mb-1'"
         >
           {{ type === 'folder' ? 'Folder' : 'Album' }}
@@ -64,7 +64,7 @@
           </span>
           <span v-if="!isScrolled && songs.length > 0" class="text-zinc-600">•</span>
 
-          <span v-if="isScrolled" class="font-semibold text-cyan-400 uppercase tracking-wider">
+          <span v-if="isScrolled" class="font-semibold text-cyan-400 tracking-wider">
             {{ type === 'folder' ? 'Folder' : 'Album' }}
           </span>
           <span v-if="isScrolled" class="text-zinc-600">•</span>
@@ -118,10 +118,9 @@
           <thead>
             <tr class="text-zinc-500 text-xs font-semibold uppercase tracking-wider">
               <th class="py-3.5 px-4 w-12 text-center">#</th>
-              <th class="py-3.5 px-4">Filename</th>
-              <th class="py-3.5 px-4 hidden sm:table-cell">Title (Metadata)</th>
+              <th class="py-3.5 px-4">Name</th>
+              <th class="py-3.5 px-4 w-24 text-left min-w-50">Duration</th>
               <th class="py-3.5 px-4 hidden md:table-cell">Artist</th>
-              <th class="py-3.5 px-4 w-24 text-right">Duration</th>
             </tr>
           </thead>
           <tbody>
@@ -133,28 +132,109 @@
               @click="handlePlaySong(song)"
             >
               <td
-                class="py-3 px-4 text-center text-zinc-500 group-hover/row:text-cyan-400 transition-colors"
+                class="py-3 px-4 text-center text-zinc-500 group-hover/row:text-cyan-400 transition-colors w-12"
               >
-                <!-- Play symbol on hover, index otherwise -->
-                <span class="group-hover/row:hidden">{{ idx + 1 }}</span>
-                <svg-sprite
-                  src="Play"
-                  class="w-3 h-3 mx-auto hidden group-hover/row:block text-cyan-400 fill-cyan-400"
-                />
+                <div class="relative flex items-center justify-center w-full h-full">
+                  <!-- If this song is NOT currently selected/playing in the player -->
+                  <template v-if="player.currentSong?.id !== song.id">
+                    <!-- Default state: show index number -->
+                    <span class="group-hover/row:hidden font-mono text-xs">{{ idx + 1 }}</span>
+                    <!-- Hover state: show Play icon -->
+                    <svg-sprite
+                      src="Play"
+                      class="w-3 h-3 mx-auto hidden group-hover/row:block text-cyan-400 fill-cyan-400"
+                    />
+                  </template>
+
+                  <!-- If this song IS currently selected/playing in the player -->
+                  <template v-else>
+                    <!-- Default state: show bouncing visualizer SVG -->
+                    <div
+                      class="group-hover/row:hidden flex items-center justify-center text-cyan-400"
+                    >
+                      <svg
+                        class="w-3.5 h-3.5 playing-indicator"
+                        :class="{ 'playing-indicator-paused': !player.isPlaying }"
+                        viewBox="0 0 14 14"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <rect
+                          class="bar bar-1"
+                          x="1.5"
+                          y="2"
+                          width="2"
+                          height="10"
+                          rx="1"
+                          fill="currentColor"
+                        />
+                        <rect
+                          class="bar bar-2"
+                          x="4.5"
+                          y="2"
+                          width="2"
+                          height="10"
+                          rx="1"
+                          fill="currentColor"
+                        />
+                        <rect
+                          class="bar bar-3"
+                          x="7.5"
+                          y="2"
+                          width="2"
+                          height="10"
+                          rx="1"
+                          fill="currentColor"
+                        />
+                        <rect
+                          class="bar bar-4"
+                          x="10.5"
+                          y="2"
+                          width="2"
+                          height="10"
+                          rx="1"
+                          fill="currentColor"
+                        />
+                      </svg>
+                    </div>
+                    <!-- Hover state: show Play/Pause icon depending on state -->
+                    <div class="hidden group-hover/row:block text-cyan-400">
+                      <!-- If playing, show Pause icon -->
+                      <svg
+                        v-if="player.isPlaying"
+                        class="w-3.5 h-3.5 fill-cyan-400 mx-auto"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                      </svg>
+                      <!-- If paused, show Play icon -->
+                      <svg-sprite
+                        v-else
+                        src="Play"
+                        class="w-3 h-3 mx-auto text-cyan-400 fill-cyan-400"
+                      />
+                    </div>
+                  </template>
+                </div>
               </td>
+
               <td
-                class="py-3 px-4 font-medium text-zinc-200 group-hover/row:text-white truncate max-w-xs sm:max-w-sm"
+                class="py-3 px-4 font-medium truncate max-w-xs sm:max-w-sm transition-colors duration-150"
+                :class="
+                  player.currentSong?.id === song.id
+                    ? 'text-cyan-400'
+                    : 'text-zinc-200 group-hover/row:text-white'
+                "
               >
-                {{ song.filename }}
+                {{ song.filename.replace(/\.[^/.]+$/, '') }}
               </td>
-              <td class="py-3 px-4 text-zinc-400 hidden sm:table-cell truncate max-w-xs">
-                {{ song.title || '—' }}
+              <td class="py-3 px-4 text-left text-zinc-400 tabular-nums">
+                {{ formatDuration(song.duration) }}
               </td>
+
               <td class="py-3 px-4 text-zinc-400 hidden md:table-cell truncate max-w-xs">
                 {{ song.artist || '—' }}
-              </td>
-              <td class="py-3 px-4 text-right text-zinc-400 tabular-nums">
-                {{ formatDuration(song.duration) }}
               </td>
             </tr>
           </tbody>
@@ -197,9 +277,11 @@
     isScrolled.value = viewport.scrollTop > 40
   })
 
+  const dynamicAccentColor = ref(props.accentColor || 'rgba(6, 182, 212, 0.4)')
+
   // Accent glow background color
   const accentBgColor = computed(() => {
-    return props.accentColor || 'rgba(6, 182, 212, 0.4)'
+    return dynamicAccentColor.value
   })
 
   // Subtitle string
@@ -217,8 +299,51 @@
     return 'bg-zinc-800 border border-zinc-700/50'
   })
 
+  // Helper function to extract average dominant color from image URL or base64
+  function getAverageColor(imageUrl: string): Promise<string> {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.crossOrigin = 'Anonymous'
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = 1
+        canvas.height = 1
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, 1, 1)
+          const pixel = ctx.getImageData(0, 0, 1, 1).data
+          let r = pixel[0]
+          let g = pixel[1]
+          let b = pixel[2]
+
+          // Keep brightness under control for dark mode text readability
+          const brightness = (r * 299 + g * 587 + b * 114) / 1000
+          if (brightness > 120) {
+            const factor = 120 / brightness
+            r = Math.round(r * factor)
+            g = Math.round(g * factor)
+            b = Math.round(b * factor)
+          }
+          resolve(`rgb(${r}, ${g}, ${b})`)
+        } else {
+          resolve('#06b6d4')
+        }
+      }
+      img.onerror = () => resolve('#06b6d4')
+      img.src = imageUrl
+    })
+  }
+
   // Fetch category songs on mount
   onMounted(async () => {
+    if (props.thumbnail) {
+      try {
+        const avgColor = await getAverageColor(props.thumbnail)
+        dynamicAccentColor.value = avgColor
+      } catch (e) {
+        console.error('Failed to extract dominant color:', e)
+      }
+    }
     try {
       songs.value = await invoke<Song[]>('get_category_songs', {
         categoryType: props.type,
@@ -243,6 +368,10 @@
   }
 
   function handlePlaySong(song: Song) {
+    if (player.currentSong?.id === song.id) {
+      player.togglePlay()
+      return
+    }
     const playlist = songs.value.map((s) => ({
       ...s,
       thumbnail: props.thumbnail,
@@ -254,3 +383,73 @@
     player.playSong(playSongItem, playlist)
   }
 </script>
+
+<style>
+  .playing-indicator {
+    display: flex;
+    align-items: flex-end;
+  }
+
+  .playing-indicator .bar {
+    transform-origin: bottom;
+  }
+
+  .playing-indicator-paused .bar {
+    animation-play-state: paused !important;
+  }
+
+  .playing-indicator .bar-1 {
+    animation: bounce-bar-1 0.3s ease-in-out infinite alternate;
+  }
+
+  .playing-indicator .bar-2 {
+    animation: bounce-bar-2 0.38s ease-in-out infinite alternate;
+    animation-delay: 0.075s;
+  }
+
+  .playing-indicator .bar-3 {
+    animation: bounce-bar-3 0.28s ease-in-out infinite alternate;
+    animation-delay: 0.025s;
+  }
+
+  .playing-indicator .bar-4 {
+    animation: bounce-bar-4 0.34s ease-in-out infinite alternate;
+    animation-delay: 0.125s;
+  }
+
+  @keyframes bounce-bar-1 {
+    0% {
+      transform: scaleY(0.25);
+    }
+    100% {
+      transform: scaleY(0.8);
+    }
+  }
+
+  @keyframes bounce-bar-2 {
+    0% {
+      transform: scaleY(0.15);
+    }
+    100% {
+      transform: scaleY(1);
+    }
+  }
+
+  @keyframes bounce-bar-3 {
+    0% {
+      transform: scaleY(0.3);
+    }
+    100% {
+      transform: scaleY(0.7);
+    }
+  }
+
+  @keyframes bounce-bar-4 {
+    0% {
+      transform: scaleY(0.2);
+    }
+    100% {
+      transform: scaleY(0.9);
+    }
+  }
+</style>
