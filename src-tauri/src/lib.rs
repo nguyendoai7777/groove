@@ -196,6 +196,15 @@ fn get_category_songs(
 }
 
 #[tauri::command]
+fn search_songs(
+    state: State<'_, DbState>,
+    query: String,
+) -> Result<Vec<db::SongSearchResult>, String> {
+    let conn = state.conn.lock().unwrap();
+    db::search_songs(&conn, &query).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn update_music_thumbnail(
     state: State<'_, DbState>,
     category_type: String,
@@ -303,7 +312,8 @@ pub fn run() {
             import_music_folder,
             get_category_songs,
             update_music_thumbnail,
-            update_category_accent_color
+            update_category_accent_color,
+            search_songs
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

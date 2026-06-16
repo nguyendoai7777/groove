@@ -2,6 +2,50 @@ use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
+fn normalize_char(c: char) -> Option<char> {
+    match c {
+        'à' | 'á' | 'ạ' | 'ả' | 'ã' | 'â' | 'ầ' | 'ấ' | 'ậ' | 'ẩ' | 'ẫ' | 'ă' | 'ằ' | 'ắ' | 'ặ' | 'ẳ' | 'ẵ' |
+        'À' | 'Á' | 'Ạ' | 'Ả' | 'Ã' | 'Â' | 'Ầ' | 'Ấ' | 'Ậ' | 'Ẩ' | 'Ẫ' | 'Ă' | 'Ằ' | 'Ắ' | 'Ặ' | 'Ẳ' | 'Ẵ' => Some('a'),
+        
+        'è' | 'é' | 'ẹ' | 'ẻ' | 'ẽ' | 'ê' | 'ề' | 'ế' | 'ệ' | 'ể' | 'ễ' |
+        'È' | 'É' | 'Ẹ' | 'Ẻ' | 'Ẽ' | 'Ê' | 'Ề' | 'Ế' | 'Ệ' | 'Ể' | 'Ễ' => Some('e'),
+        
+        'ò' | 'ó' | 'ọ' | 'ỏ' | 'õ' | 'ô' | 'ồ' | 'ố' | 'ộ' | 'ổ' | 'ỗ' | 'ơ' | 'ờ' | 'ớ' | 'ợ' | 'ở' | 'ỡ' |
+        'Ò' | 'Ó' | 'Ọ' | 'Ỏ' | 'Õ' | 'Ô' | 'Ồ' | 'Ố' | 'Ộ' | 'Ổ' | 'Ỗ' | 'Ơ' | 'Ờ' | 'Ớ' | 'Ợ' | 'Ở' | 'Ỡ' => Some('o'),
+        
+        'ù' | 'ú' | 'ụ' | 'ủ' | 'ũ' | 'ư' | 'ừ' | 'ứ' | 'ự' | 'ử' | 'ữ' |
+        'Ù' | 'Ú' | 'Ụ' | 'Ủ' | 'Ũ' | 'Ư' | 'Ừ' | 'Ứ' | 'Ự' | 'Ử' | 'Ữ' => Some('u'),
+        
+        'ì' | 'í' | 'ị' | 'ỉ' | 'ĩ' |
+        'Ì' | 'Í' | 'Ị' | 'Ỉ' | 'Ĩ' => Some('i'),
+        
+        'ỳ' | 'ý' | 'ỵ' | 'ỷ' | 'ỹ' |
+        'Ỳ' | 'Ý' | 'Ỵ' | 'Ỷ' | 'Ỹ' => Some('y'),
+        
+        'đ' | 'Đ' => Some('d'),
+        
+        _ => None,
+    }
+}
+
+fn normalize_string(input: &str) -> String {
+    let mut normalized = String::with_capacity(input.len());
+    for c in input.chars() {
+        if let Some(norm_c) = normalize_char(c) {
+            normalized.push(norm_c);
+        } else {
+            let lower = c.to_lowercase();
+            for lc in lower {
+                if lc.is_alphanumeric() {
+                    normalized.push(lc);
+                }
+            }
+        }
+    }
+    normalized
+}
+
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Folder {
     pub id: i64,
@@ -34,6 +78,19 @@ pub struct Song {
     pub duration: u32,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SongSearchResult {
+    pub id: i64,
+    pub title: Option<String>,
+    pub artist: Option<String>,
+    pub album_id: Option<i64>,
+    pub album_name: Option<String>,
+    pub folder_id: i64,
+    pub file_path: String,
+    pub filename: String,
+    pub duration: u32,
+}
+
 pub fn init_db(db_path: &Path) -> Result<Connection> {
     // Ensure parent directory exists
     if let Some(parent) = db_path.parent() {
@@ -44,6 +101,20 @@ pub fn init_db(db_path: &Path) -> Result<Connection> {
 
     // Enable foreign keys
     conn.execute("PRAGMA foreign_keys = ON;", [])?;
+
+    // Register custom normalize_str function
+    conn.create_scalar_function(
+        "normalize_str",
+        1,
+        rusqlite::functions::FunctionFlags::SQLITE_UTF8 | rusqlite::functions::FunctionFlags::SQLITE_DETERMINISTIC,
+        |ctx| {
+            let val = ctx.get::<Option<String>>(0)?;
+            match val {
+                Some(s) => Ok(Some(normalize_string(&s))),
+                None => Ok(None),
+            }
+        },
+    )?;
 
     // Create tables
     conn.execute(
@@ -249,6 +320,42 @@ pub fn fetch_songs_by_album(conn: &Connection, album_id: i64) -> Result<Vec<Song
             file_path: row.get(5)?,
             filename: row.get(6)?,
             duration: row.get(7)?,
+        })
+    })?;
+
+    let mut songs = Vec::new();
+    for song in song_iter {
+        songs.push(song?);
+    }
+    Ok(songs)
+}
+
+pub fn search_songs(conn: &Connection, query: &str) -> Result<Vec<SongSearchResult>> {
+    let clean_query = normalize_string(query);
+    let sql_query = format!("%{}%", clean_query);
+    let mut stmt = conn.prepare(
+        "SELECT s.id, s.title, s.artist, s.album_id, a.name as album_name, s.folder_id, s.file_path, s.filename, s.duration
+         FROM songs s
+         LEFT JOIN albums a ON s.album_id = a.id
+         WHERE normalize_str(s.title) LIKE ?1 
+            OR normalize_str(s.artist) LIKE ?1 
+            OR normalize_str(s.filename) LIKE ?1 
+            OR normalize_str(a.name) LIKE ?1
+         ORDER BY CASE WHEN normalize_str(s.title) LIKE ?1 THEN 0 ELSE 1 END, s.title ASC, s.filename ASC
+         LIMIT 50"
+    )?;
+
+    let song_iter = stmt.query_map(params![sql_query], |row| {
+        Ok(SongSearchResult {
+            id: row.get(0)?,
+            title: row.get(1)?,
+            artist: row.get(2)?,
+            album_id: row.get(3)?,
+            album_name: row.get(4)?,
+            folder_id: row.get(5)?,
+            file_path: row.get(6)?,
+            filename: row.get(7)?,
+            duration: row.get(8)?,
         })
     })?;
 

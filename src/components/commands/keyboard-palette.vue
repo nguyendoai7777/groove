@@ -143,6 +143,7 @@
   import { OverlayScrollbarsComponent } from 'overlayscrollbars-vue'
   import { useCommandPaletteStore } from '@groovex/store'
   import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
+  import { invoke } from '@tauri-apps/api/core'
   import SearchItem from './search-item.vue'
   import type { PartialOptions } from 'overlayscrollbars'
 
@@ -153,6 +154,8 @@
   const activeIndex = ref(0)
   const inputRef = ref<HTMLInputElement | null>(null)
   const itemRefs = ref<Record<number, HTMLElement>>({})
+  const searchResults = ref<any[]>([])
+  let searchTimeout: number
 
   // Mode Detector (Starts with /)
   const isCommandMode = computed(() => {
@@ -252,100 +255,31 @@
     },
   ]
 
-  // Mock search results (Songs, Artists, Albums)
-  const MOCK_ITEMS = [
-    {
-      id: 's-1',
-      type: 'song',
-      title: 'Shape of You',
-      description: 'Bài hát • Ed Sheeran • Divide',
-      shortcut: '⌘S',
-    },
-    {
-      id: 's-2',
-      type: 'song',
-      title: 'Blinding Lights',
-      description: 'Bài hát • The Weeknd • After Hours',
-      shortcut: '⌘S',
-    },
-    {
-      id: 's-3',
-      type: 'song',
-      title: 'Bohemian Rhapsody',
-      description: 'Bài hát • Queen • A Night at the Opera',
-      shortcut: '⌘S',
-    },
-    {
-      id: 's-4',
-      type: 'song',
-      title: 'Stay',
-      description: 'Bài hát • The Kid LAROI & Justin Bieber • F*CK LOVE 3',
-      shortcut: '⌘S',
-    },
-    {
-      id: 's-5',
-      type: 'song',
-      title: 'Chúng Ta Của Tương Lai',
-      description: 'Bài hát • Sơn Tùng M-TP • Single',
-      shortcut: '⌘S',
-    },
-    {
-      id: 's-6',
-      type: 'song',
-      title: 'Bad Guy',
-      description: 'Bài hát • Billie Eilish • When We All Fall Asleep',
-      shortcut: '⌘S',
-    },
-    {
-      id: 'a-1',
-      type: 'artist',
-      title: 'Taylor Swift',
-      description: 'Nghệ sĩ • 110M người nghe hàng tháng',
-      shortcut: '⌘A',
-    },
-    {
-      id: 'a-2',
-      type: 'artist',
-      title: 'The Weeknd',
-      description: 'Nghệ sĩ • 115M người nghe hàng tháng',
-      shortcut: '⌘A',
-    },
-    {
-      id: 'a-3',
-      type: 'artist',
-      title: 'Sơn Tùng M-TP',
-      description: 'Nghệ sĩ • 3M người nghe hàng tháng',
-      shortcut: '⌘A',
-    },
-    {
-      id: 'a-4',
-      type: 'artist',
-      title: 'Billie Eilish',
-      description: 'Nghệ sĩ • 98M người nghe hàng tháng',
-      shortcut: '⌘A',
-    },
-    {
-      id: 'al-1',
-      type: 'album',
-      title: 'Random Access Memories',
-      description: 'Album • Daft Punk • 13 bài hát',
-      shortcut: '⌘B',
-    },
-    {
-      id: 'al-2',
-      type: 'album',
-      title: 'Starboy',
-      description: 'Album • The Weeknd • 18 bài hát',
-      shortcut: '⌘B',
-    },
-    {
-      id: 'al-3',
-      type: 'album',
-      title: 'Lover',
-      description: 'Album • Taylor Swift • 18 bài hát',
-      shortcut: '⌘B',
-    },
-  ]
+  // Watch searchQuery to perform debounced DB queries
+  watch(searchQuery, (newQuery) => {
+    if (searchTimeout) clearTimeout(searchTimeout)
+
+    const query = newQuery.trim()
+    if (!query || query.startsWith('/')) {
+      searchResults.value = []
+      return
+    }
+
+    searchTimeout = window.setTimeout(async () => {
+      try {
+        const dbSongs = await invoke<any[]>('search_songs', { query })
+        searchResults.value = dbSongs.map((song) => ({
+          id: `song-${song.id}`,
+          type: 'song',
+          title: song.title || song.filename,
+          description: `Bài hát • ${song.artist || 'Chưa rõ nghệ sĩ'}${song.album_name ? ` • ${song.album_name}` : ''}`,
+          rawSong: song,
+        }))
+      } catch (err) {
+        console.error('Lỗi tìm kiếm bài hát:', err)
+      }
+    }, 250)
+  })
 
   // Filter based on input value
   const filteredItems = computed(() => {
@@ -357,11 +291,7 @@
       return COMMANDS.filter((c) => c.commandName.toLowerCase().includes(query))
     } else {
       if (!query) return QUICK_ACTIONS
-      return MOCK_ITEMS.filter(
-        (item) =>
-          item.title.toLowerCase().includes(query) ||
-          item.description.toLowerCase().includes(query),
-      )
+      return searchResults.value
     }
   })
 
@@ -405,6 +335,7 @@
     async (isOpen) => {
       if (isOpen) {
         searchQuery.value = ''
+        searchResults.value = []
         activeIndex.value = 0
         itemRefs.value = {}
         await nextTick()
@@ -481,10 +412,13 @@
     } else if (item.type === 'action') {
       console.log(`Triggered Quick Action: ${item.title}`)
       store.close()
+    } else if (item.type === 'song') {
+      console.log(`Selected Song: ${item.title} (${item.rawSong?.file_path})`)
+      alert(`Phát bài hát: ${item.title} - ${item.rawSong?.artist || 'Chưa rõ nghệ sĩ'}`)
+      // store.close();
     } else {
       console.log(`Selected Search Result: ${item.title} (${item.type})`)
-      // Implement DB or Tauri search interaction later
-      store.close()
+      // store.close();
     }
   }
 
