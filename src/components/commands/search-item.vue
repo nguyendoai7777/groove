@@ -17,7 +17,12 @@
           : 'bg-(--cmd-item-icon-bg) text-(--cmd-item-icon-color)'
       "
     >
-      <svg-sprite :src="getIconSrc(item.type)" class-name="w-3.5 h-3.5" />
+      <playing-visualizer
+        v-if="item.type === 'song' && player.currentSong?.id === item.rawSong?.id"
+        :paused="!player.isPlaying"
+        class="w-3.5 h-3.5"
+      />
+      <svg-sprite v-else :src="getIconSrc(item.type)" class-name="w-3.5 h-3.5" />
     </span>
 
     <div class="flex flex-col flex-1 min-w-0">
@@ -65,6 +70,8 @@
 <script setup lang="ts">
   import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
   import type { SVGSrc } from '@groovex/ui/svg-sprite'
+  import PlayingVisualizer from '@groovex/ui/playing-visualizer/playing-visualizer.vue'
+  import { useAudioPlayer } from '@groovex/state'
 
   interface Props {
     item: {
@@ -74,15 +81,18 @@
       description: string
       shortcut?: string
       globalIndex: number
+      rawSong?: any
     }
     isActive: boolean
   }
 
   defineProps<Props>()
-  defineEmits<{
+  const emit = defineEmits<{
     (e: 'select', item: Props['item']): void
     (e: 'hover', index: number): void
   }>()
+
+  const player = useAudioPlayer()
 
   function getIconSrc(type: string): SVGSrc {
     switch (type) {

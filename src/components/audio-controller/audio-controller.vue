@@ -28,23 +28,35 @@
           class="text-[11px] text-zinc-400 truncate hover:text-white cursor-pointer transition-colors"
           >{{ artistName }}</span
         >
-        <span
-          class="text-[13px] font-semibold truncate hover:underline cursor-pointer text-white my-1"
-          >{{ songTitle }}</span
+        <div
+          ref="titleContainerRef"
+          class="song-title-container overflow-hidden whitespace-nowrap my-1"
         >
+          <div
+            class="song-title-content inline-flex cursor-pointer text-white"
+            :class="{ 'animate-marquee': isTitleOverflow }"
+          >
+            <span
+              ref="titleTextRef"
+              class="text-[13px] font-semibold transition-colors duration-200"
+              :class="{ 'pr-8': isTitleOverflow }"
+            >
+              <span ref="titleInnerRef">{{ songTitle }}</span>
+            </span>
+            <span
+              v-if="isTitleOverflow"
+              class="text-[13px] font-semibold pr-8 transition-colors duration-200"
+              aria-hidden="true"
+            >
+              {{ songTitle }}
+            </span>
+          </div>
+        </div>
         <span
           class="text-[10px] text-zinc-500 truncate hover:text-zinc-300 cursor-pointer transition-colors"
           >{{ subArtists }}</span
         >
       </div>
-
-      <!-- More Options Button -->
-      <icon-btn
-        src="Settings"
-        :size="{ box: 'sm', icon: 'sm' }"
-        class="text-zinc-400 hover:text-white rounded-full transition-colors shrink-0 ml-1"
-        title="Options"
-      />
     </div>
 
     <!-- Center Section: Playback Controls & Progress Bar -->
@@ -54,10 +66,9 @@
         <!-- Shuffle -->
         <icon-btn
           src="Shuffle"
-          :size="{ box: 'sm', icon: 'sm' }"
           class="transition-colors relative group rounded-full"
           :class="isShuffle ? 'text-green-500' : 'text-zinc-400 hover:text-white'"
-          @click="isShuffle = !isShuffle"
+          @click="toggleShuffle"
           title="Shuffle"
         />
 
@@ -83,10 +94,9 @@
         <!-- Repeat -->
         <icon-btn
           src="Loop"
-          :size="{ box: 'sm', icon: 'sm' }"
           class="transition-colors relative group rounded-full"
           :class="isRepeat ? 'text-green-500' : 'text-zinc-400 hover:text-white'"
-          @click="isRepeat = !isRepeat"
+          @click="toggleRepeat"
           title="Repeat"
         />
       </div>
@@ -151,7 +161,7 @@
 </template>
 
 <script setup lang="ts">
-  import { computed } from 'vue'
+  import { computed, ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
   import { storeToRefs } from 'pinia'
   import { useAudioPlayer } from '@groovex/state'
   import IconBtn from '@groovex/ui/button/icon-btn.vue'
@@ -160,7 +170,11 @@
   const player = useAudioPlayer()
   const { currentSong, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isRepeat } =
     storeToRefs(player)
+  const { toggleShuffle, toggleRepeat } = player
 
+  const titleContainerRef = ref<HTMLElement | null>(null)
+  const titleInnerRef = ref<HTMLElement | null>(null)
+  const isTitleOverflow = ref(false)
   // Track metadata computed properties
   const songTitle = computed(
     () => currentSong.value?.title || currentSong.value?.filename || 'No song selected',
@@ -172,6 +186,37 @@
       currentSong.value?.thumbnail ||
       'https://photo-resize-zmp3.zmdcdn.me/w240_r1x1_jpeg/cover/b/4/b/9/b4b96e865b138912ffc25bbb203f0c55.jpg',
   )
+
+  function checkOverflow() {
+    if (titleContainerRef.value && titleInnerRef.value) {
+      isTitleOverflow.value = titleInnerRef.value.offsetWidth > titleContainerRef.value.clientWidth
+    }
+  }
+
+  watch(songTitle, () => {
+    isTitleOverflow.value = false
+    nextTick(() => {
+      checkOverflow()
+    })
+  })
+
+  let resizeObserver: ResizeObserver | null = null
+
+  onMounted(() => {
+    checkOverflow()
+    if (typeof ResizeObserver !== 'undefined' && titleContainerRef.value) {
+      resizeObserver = new ResizeObserver(() => {
+        checkOverflow()
+      })
+      resizeObserver.observe(titleContainerRef.value)
+    }
+  })
+
+  onBeforeUnmount(() => {
+    if (resizeObserver) {
+      resizeObserver.disconnect()
+    }
+  })
 
   // Time formatter
   function formatTime(seconds: number): string {
@@ -215,5 +260,35 @@
   .AudioController {
     height: var(--audio-controller-h);
     background-color: var(--audio-controller-bg);
+  }
+
+  .song-title-container {
+    width: 100%;
+  }
+
+  .song-title-content {
+    --song-hover-color: #3b82f6; /* Hover color variable. Adjust/override this later as needed. */
+    transition: color 0.2s ease;
+  }
+
+  .song-title-content:hover {
+    color: var(--song-hover-color) !important;
+  }
+
+  .animate-marquee {
+    animation: marquee 12s linear infinite;
+  }
+
+  .animate-marquee:hover {
+    animation-play-state: paused;
+  }
+
+  @keyframes marquee {
+    0% {
+      transform: translate3d(0, 0, 0);
+    }
+    100% {
+      transform: translate3d(-50%, 0, 0);
+    }
   }
 </style>

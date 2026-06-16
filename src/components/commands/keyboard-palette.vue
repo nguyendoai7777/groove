@@ -142,12 +142,14 @@
   import { ref, computed, watch, nextTick } from 'vue'
   import { OverlayScrollbarsComponent } from 'overlayscrollbars-vue'
   import { useCommandPaletteStore } from '@groovex/store'
+  import { useAudioPlayer } from '@groovex/state'
   import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
   import { invoke } from '@tauri-apps/api/core'
   import SearchItem from './search-item.vue'
   import type { PartialOptions } from 'overlayscrollbars'
 
   const store = useCommandPaletteStore()
+  const player = useAudioPlayer()
   const OSOptions: PartialOptions = { scrollbars: { autoHide: 'scroll' } }
 
   const searchQuery = ref('')
@@ -411,14 +413,24 @@
       autocompleteCommand(item)
     } else if (item.type === 'action') {
       console.log(`Triggered Quick Action: ${item.title}`)
-      store.close()
+      if (item.id === 'qa-1') {
+        // Play random from library if we can, or play the active list shuffled
+        if (player.playlist && player.playlist.length > 0) {
+          player.isShuffle = true
+          player.playSong(player.playlist[Math.floor(Math.random() * player.playlist.length)])
+        }
+      }
+      // store.close();  // dont enable this
     } else if (item.type === 'song') {
-      console.log(`Selected Song: ${item.title} (${item.rawSong?.file_path})`)
-      alert(`Phát bài hát: ${item.title} - ${item.rawSong?.artist || 'Chưa rõ nghệ sĩ'}`)
-      // store.close();
+      const song = item.rawSong
+      if (player.currentSong?.id === song.id) {
+        player.togglePlay()
+      } else {
+        player.playSong(song, [song])
+      }
+      // store.close();  // dont enable this
     } else {
       console.log(`Selected Search Result: ${item.title} (${item.type})`)
-      // store.close();
     }
   }
 
@@ -446,7 +458,38 @@
     const args = spaceIndex === -1 ? '' : trimmed.substring(spaceIndex + 1).trim()
 
     console.log(`[CLI Run] Running command: "${cmd}" with args: "${args}"`)
-    alert(`[CLI Run] Đang thực thi lệnh: ${cmd}${args ? ` với đối số: "${args}"` : ''}`)
+
+    if (cmd === '/play') {
+      if (args) {
+        invoke<any[]>('search_songs', { query: args })
+          .then((songs) => {
+            if (songs && songs.length > 0) {
+              player.playSong(songs[0], songs)
+            }
+          })
+          .catch((err) => console.error(err))
+      } else {
+        player.setPlaying(true)
+      }
+    } else if (cmd === '/pause') {
+      player.setPlaying(false)
+    } else if (cmd === '/next') {
+      player.nextTrack()
+    } else if (cmd === '/prev') {
+      player.prevTrack()
+    } else if (cmd === '/playall') {
+      if (player.playlist && player.playlist.length > 0) {
+        player.playSong(player.playlist[0])
+      }
+    } else if (cmd === '/volume') {
+      const vol = parseInt(args)
+      if (!isNaN(vol)) {
+        player.volume = Math.max(0, Math.min(100, vol))
+      }
+    } else {
+      // For other commands (like theme/help) we can log or show default alert
+      alert(`[CLI Run] Đang thực thi lệnh: ${cmd}${args ? ` với đối số: "${args}"` : ''}`)
+    }
 
     // Close the command palette
     store.close()

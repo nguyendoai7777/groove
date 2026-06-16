@@ -18,3 +18,12 @@ export const AppRouter = createRouter({
   history: createWebHistory(),
   routes: APP_ROUTES,
 })
+
+AppRouter.beforeEach((to, from, next) => {
+  if (to.meta && typeof to.meta.title === 'string') {
+    document.title = `${to.meta.title} | GrooveX`
+  } else {
+    document.title = 'GrooveX'
+  }
+  next()
+})

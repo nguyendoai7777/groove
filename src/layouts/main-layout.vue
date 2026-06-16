@@ -6,7 +6,7 @@
       <overlay-scrollbars-component
         ref="osComponentRef"
         defer
-        class="flex-1 overflow-y-auto"
+        class="flex-1 overflow-y-auto scroll-zone"
         @os-initialized="onOsInitialized"
       >
         <router-view />
@@ -31,3 +31,9 @@
 
   provideLayoutScroll(osInstance)
 </script>
+
+<style scoped>
+  .scroll-zone {
+    max-height: calc(100vh - var(--nav-head-h) - var(--audio-controller-h));
+  }
+</style>

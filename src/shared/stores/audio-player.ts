@@ -20,6 +20,48 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
   const isShuffle = ref(false)
   const isRepeat = ref(false)
 
+  const shuffleHistory = ref<number[]>([])
+  const shuffleHistoryIndex = ref(-1)
+
+  watch(
+    () => isShuffle.value,
+    (newVal) => {
+      if (newVal) {
+        isRepeat.value = false
+        if (currentIndex.value !== -1) {
+          shuffleHistory.value = [currentIndex.value]
+          shuffleHistoryIndex.value = 0
+        } else {
+          shuffleHistory.value = []
+          shuffleHistoryIndex.value = -1
+        }
+      } else {
+        shuffleHistory.value = []
+        shuffleHistoryIndex.value = -1
+      }
+    },
+  )
+
+  watch(
+    () => isRepeat.value,
+    (newVal) => {
+      if (newVal && isShuffle.value) {
+        isShuffle.value = false
+      }
+    },
+  )
+
+  watch(
+    playlist,
+    () => {
+      if (isShuffle.value) {
+        shuffleHistory.value = currentIndex.value !== -1 ? [currentIndex.value] : []
+        shuffleHistoryIndex.value = currentIndex.value !== -1 ? 0 : -1
+      }
+    },
+    { deep: true },
+  )
+
   // HTML5 Audio element
   const audio = new Audio()
   audio.volume = volume.value / 100
@@ -80,6 +122,14 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
       } else {
         playlist.value.push(song)
         currentIndex.value = playlist.value.length - 1
+      }
+    }
+
+    if (isShuffle.value) {
+      const expectedIndex = shuffleHistory.value[shuffleHistoryIndex.value]
+      if (currentIndex.value !== expectedIndex) {
+        shuffleHistory.value = [currentIndex.value]
+        shuffleHistoryIndex.value = 0
       }
     }
 
@@ -146,8 +196,28 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     if (playlist.value.length === 0) return
 
     if (isShuffle.value) {
-      const randomIndex = Math.floor(Math.random() * playlist.value.length)
-      currentIndex.value = randomIndex
+      if (shuffleHistoryIndex.value < shuffleHistory.value.length - 1) {
+        shuffleHistoryIndex.value++
+        currentIndex.value = shuffleHistory.value[shuffleHistoryIndex.value]
+      } else {
+        const playedSet = new Set(shuffleHistory.value)
+        const unplayedIndices = playlist.value
+          .map((_, index) => index)
+          .filter((index) => !playedSet.has(index))
+
+        if (unplayedIndices.length > 0) {
+          const randomIndex = unplayedIndices[Math.floor(Math.random() * unplayedIndices.length)]
+          shuffleHistory.value.push(randomIndex)
+          shuffleHistoryIndex.value = shuffleHistory.value.length - 1
+          currentIndex.value = randomIndex
+        } else {
+          // All songs played, start a new shuffle cycle
+          const randomIndex = Math.floor(Math.random() * playlist.value.length)
+          shuffleHistory.value = [randomIndex]
+          shuffleHistoryIndex.value = 0
+          currentIndex.value = randomIndex
+        }
+      }
     } else {
       if (currentIndex.value < playlist.value.length - 1) {
         currentIndex.value++
@@ -165,16 +235,35 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
   function prevTrack() {
     if (playlist.value.length === 0) return
 
-    if (currentIndex.value > 0) {
-      currentIndex.value--
+    if (isShuffle.value) {
+      if (shuffleHistoryIndex.value > 0) {
+        shuffleHistoryIndex.value--
+        currentIndex.value = shuffleHistory.value[shuffleHistoryIndex.value]
+      } else {
+        // At start of shuffle history, restart current song
+        seek(0)
+        return
+      }
     } else {
-      currentIndex.value = playlist.value.length - 1
+      if (currentIndex.value > 0) {
+        currentIndex.value--
+      } else {
+        currentIndex.value = playlist.value.length - 1
+      }
     }
 
     const prevSong = playlist.value[currentIndex.value]
     if (prevSong) {
       playSong(prevSong)
     }
+  }
+
+  function toggleShuffle() {
+    isShuffle.value = !isShuffle.value
+  }
+
+  function toggleRepeat() {
+    isRepeat.value = !isRepeat.value
   }
 
   return {
@@ -194,5 +283,7 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     seek,
     nextTrack,
     prevTrack,
+    toggleShuffle,
+    toggleRepeat,
   }
 })
