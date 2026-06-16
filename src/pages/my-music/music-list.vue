@@ -1,36 +1,19 @@
 <template>
   <div
-    class="music-list flex flex-col min-h-full p-6 text-zinc-100 select-none"
+    class="flex flex-col min-h-full px-4 py-6 text-zinc-100 select-none"
     :style="{
       '--accent-bg': accentBgColor,
     }"
   >
     <!-- Background immersive glow -->
     <div
-      class="absolute inset-0 -z-10 bg-gradient-to-b from-[var(--accent-bg)] to-zinc-950/20 opacity-25 pointer-events-none transition-all duration-500"
+      class="absolute inset-0 -z-10 bg-linear-to-b from-(--accent-bg) to-zinc-950/20 opacity-25 pointer-events-none transition-all duration-500"
     ></div>
-
-    <!-- Navigation & Header -->
-    <div class="flex items-center gap-4 mb-8">
-      <button
-        class="flex items-center justify-center w-8 h-8 rounded-full bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 transition-colors duration-150 cursor-pointer"
-        @click="$emit('back')"
-        title="Go Back"
-      >
-        <!-- Back Arrow -->
-        <svg-sprite src="AngleLeft" class="w-4 h-4 text-zinc-300" />
-      </button>
-      <span class="text-xs text-zinc-400 font-semibold uppercase tracking-wider">
-        Back to my music
-      </span>
-    </div>
 
     <!-- Category Header Info -->
     <div class="flex flex-col md:flex-row gap-6 items-start md:items-end mb-8">
       <!-- Big cover image -->
-      <div
-        class="relative w-40 h-40 rounded-xl overflow-hidden bg-zinc-800 shadow-xl flex-shrink-0"
-      >
+      <div class="relative w-40 h-40 rounded-xl overflow-hidden bg-zinc-800 shadow-xl shrink-0">
         <img v-if="thumbnail" :src="thumbnail" :alt="title" class="w-full h-full object-cover" />
         <div
           v-else
@@ -78,7 +61,7 @@
     </div>
 
     <!-- Songs Table -->
-    <div class="flex-1 bg-zinc-900/10 rounded-xl border border-zinc-800/30 overflow-hidden">
+    <div class="flex-1 bg-zinc-900/10 rounded-xl overflow-hidden">
       <!-- Loading State -->
       <div v-if="isLoading" class="flex flex-col items-center justify-center py-20 gap-3">
         <div
@@ -101,9 +84,7 @@
       <div v-else class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
           <thead>
-            <tr
-              class="border-b border-zinc-800/60 text-zinc-500 text-xs font-semibold uppercase tracking-wider"
-            >
+            <tr class="text-zinc-500 text-xs font-semibold uppercase tracking-wider">
               <th class="py-3.5 px-4 w-12 text-center">#</th>
               <th class="py-3.5 px-4">Filename</th>
               <th class="py-3.5 px-4 hidden sm:table-cell">Title (Metadata)</th>
@@ -115,7 +96,7 @@
             <tr
               v-for="(song, idx) in songs"
               :key="song.id"
-              class="group/row hover:bg-zinc-900/60 border-b border-zinc-900/40 transition-colors duration-150 text-sm cursor-pointer"
+              class="group/row hover:bg-gray-400/10 border-b border-zinc-900/40 transition-colors duration-150 text-sm cursor-pointer"
               @click="handlePlaySong(song)"
             >
               <td
@@ -235,12 +216,3 @@
     // Audio playback engine integration goes here later
   }
 </script>
-
-<style scoped>
-  .music-list {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    overflow-y: auto;
-  }
-</style>
