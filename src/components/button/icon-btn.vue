@@ -1,6 +1,6 @@
 <template>
-  <v-btn :class="sized.box" class="grx-IconButton">
-    <svg-sprite :src="src" :class="sized.icon" />
+  <v-btn :class="sized.box" class="grx-IconButton shadow-none">
+    <svg-sprite :src="src" :class="sized.icon" class="select-none" />
   </v-btn>
 </template>
 

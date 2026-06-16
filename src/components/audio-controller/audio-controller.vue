@@ -103,7 +103,7 @@
 
       <!-- Timeline/Progress -->
       <div class="w-full flex items-center gap-3 text-[11px] text-zinc-400 leading-none">
-        <span class="w-9 text-right font-mono">{{ formatTime(currentTime) }}</span>
+        <span class="w-9 text-right font-mono">{{ formatDuration(currentTime) }}</span>
 
         <div class="flex-1 grx-PlayerSlider flex items-center h-4">
           <v-slider
@@ -120,7 +120,7 @@
           />
         </div>
 
-        <span class="w-9 text-left font-mono">{{ formatTime(duration) }}</span>
+        <span class="w-9 text-left font-mono">{{ formatDuration(duration) }}</span>
       </div>
     </div>
 
@@ -166,6 +166,7 @@
   import { useAudioPlayer } from '@groovex/state'
   import IconBtn from '@groovex/ui/button/icon-btn.vue'
   import TogglePlay from './toggle-play.vue'
+  import { formatDuration } from '@groovex/core'
 
   const player = useAudioPlayer()
   const { currentSong, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isRepeat } =
@@ -217,13 +218,6 @@
       resizeObserver.disconnect()
     }
   })
-
-  // Time formatter
-  function formatTime(seconds: number): string {
-    const m = Math.floor(seconds / 60)
-    const s = Math.floor(seconds % 60)
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-  }
 
   function onPlayStateChange(state: boolean) {
     player.setPlaying(state)

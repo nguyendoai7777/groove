@@ -8,6 +8,7 @@ export const APP_ROUTES: RouteRecordRaw[] = [
     path: '/',
     component: MainLayout,
     children: [
+      { path: '', redirect: 'my-music' },
       { path: 'my-music', component: MyMusic, meta: { title: 'My Music' } },
       { path: 'playing', component: NowPlaying, meta: { title: 'Now Playing' } },
     ],
@@ -19,11 +20,10 @@ export const AppRouter = createRouter({
   routes: APP_ROUTES,
 })
 
-AppRouter.beforeEach((to, from, next) => {
+AppRouter.beforeEach((to) => {
   if (to.meta && typeof to.meta.title === 'string') {
     document.title = `${to.meta.title} | GrooveX`
   } else {
     document.title = 'GrooveX'
   }
-  next()
 })

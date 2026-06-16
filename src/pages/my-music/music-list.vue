@@ -93,7 +93,7 @@
     </div>
 
     <!-- Songs Table -->
-    <div class="flex-1 bg-zinc-900/10 rounded-xl overflow-hidden">
+    <div class="flex-1 bg-zinc-900/10 overflow-hidden">
       <!-- Loading State -->
       <div v-if="isLoading" class="flex flex-col items-center justify-center py-20 gap-3">
         <div
