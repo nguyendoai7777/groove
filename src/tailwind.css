@@ -1,240 +1,240 @@
 @import 'tailwindcss';
 
 :root {
-	--color-text-primary: #fff;
-	--nav-bg: rgba(18, 18, 18, 0.4);
-	--bg-main: #121212;
-	--border-search: rgb(128 128 128 / 0.8);
-	--border-search-hover: gray;
-	--bg-search: #222;
-	--bg-search-hover: #222;
+  --color-text-primary: #fff;
+  --nav-bg: rgba(18, 18, 18, 0.4);
+  --bg-main: #121212;
+  --border-search: rgb(128 128 128 / 0.8);
+  --border-search-hover: gray;
+  --bg-search: #222;
+  --bg-search-hover: #222;
 
-	--color-disabled: oklch(0.45 0 0);
+  --color-disabled: oklch(0.45 0 0);
 
-	/* Premium Cyan Input Theme Variables */
-	--input-border-color: rgba(6, 182, 212, 0.15);
-	--input-border-color-hover: rgba(6, 182, 212, 0.45);
-	--input-border-focus: rgb(6, 182, 212);
-	--input-border-bg: rgba(20, 20, 25, 0.7);
-	/* sizing */
-	--nav-head-h: 36px;
-	--nav-link-h: 42px;
+  /* Premium Cyan Input Theme Variables */
+  --input-border-color: rgba(6, 182, 212, 0.15);
+  --input-border-color-hover: rgba(6, 182, 212, 0.45);
+  --input-border-focus: rgb(6, 182, 212);
+  --input-border-bg: rgba(20, 20, 25, 0.7);
+  /* sizing */
+  --nav-head-h: 36px;
+  --nav-link-h: 42px;
 
-	/* Command Palette Theme Variables (Default Dark) */
-	--cmd-bg: rgba(18, 18, 20, 0.95);
-	--cmd-border: rgba(63, 63, 70, 0.4);
-	--cmd-text-primary: #f4f4f5;
-	--cmd-text-secondary: #71717a;
-	--cmd-input-placeholder: #52525b;
+  /* Command Palette Theme Variables (Default Dark) */
+  --cmd-bg: rgba(18, 18, 20, 0.95);
+  --cmd-border: rgba(63, 63, 70, 0.4);
+  --cmd-text-primary: #f4f4f5;
+  --cmd-text-secondary: #71717a;
+  --cmd-input-placeholder: #52525b;
 
-	--cmd-item-bg-active: rgba(168, 85, 247, 0.05);
-	--cmd-item-border-active: #6366f1;
-	--cmd-item-icon-bg: rgba(39, 39, 42, 0.6);
-	--cmd-item-icon-color: #a1a1aa;
-	--cmd-item-icon-bg-active: rgba(99, 102, 241, 0.2);
-	--cmd-item-icon-color-active: #c7d2fe;
+  --cmd-item-bg-active: rgba(168, 85, 247, 0.05);
+  --cmd-item-border-active: #6366f1;
+  --cmd-item-icon-bg: rgba(39, 39, 42, 0.6);
+  --cmd-item-icon-color: #a1a1aa;
+  --cmd-item-icon-bg-active: rgba(99, 102, 241, 0.2);
+  --cmd-item-icon-color-active: #c7d2fe;
 
-	--cmd-badge-cmd-bg: rgba(99, 102, 241, 0.15);
-	--cmd-badge-cmd-text: #a5b4fc;
-	--cmd-badge-cmd-border: rgba(99, 102, 241, 0.3);
+  --cmd-badge-cmd-bg: rgba(99, 102, 241, 0.15);
+  --cmd-badge-cmd-text: #a5b4fc;
+  --cmd-badge-cmd-border: rgba(99, 102, 241, 0.3);
 
-	--cmd-badge-search-bg: rgba(24, 24, 27, 0.5);
-	--cmd-badge-search-text: #71717a;
-	--cmd-badge-search-border: rgba(63, 63, 70, 0.4);
+  --cmd-badge-search-bg: rgba(24, 24, 27, 0.5);
+  --cmd-badge-search-text: #71717a;
+  --cmd-badge-search-border: rgba(63, 63, 70, 0.4);
 
-	--cmd-kbd-bg: #27272a;
-	--cmd-kbd-border: #3f3f46;
-	--cmd-kbd-text: #a1a1aa;
+  --cmd-kbd-bg: #27272a;
+  --cmd-kbd-border: #3f3f46;
+  --cmd-kbd-text: #a1a1aa;
 
-	--cmd-kbd-bg-active: #3f3f46;
-	--cmd-kbd-border-active: #52525b;
-	--cmd-kbd-text-active: #e4e4e7;
+  --cmd-kbd-bg-active: #3f3f46;
+  --cmd-kbd-border-active: #52525b;
+  --cmd-kbd-text-active: #e4e4e7;
 
-	--cmd-footer-bg: rgba(9, 9, 11, 0.4);
-	--cmd-footer-border: rgba(63, 63, 70, 0.4);
+  --cmd-footer-bg: rgba(9, 9, 11, 0.4);
+  --cmd-footer-border: rgba(63, 63, 70, 0.4);
 
-	/* scrollbar */
-	--os-handle-bg: rgba(0, 0, 0, 0.44);
-	--os-handle-bg-hover: rgba(0, 0, 0, 0.55);
-	--os-handle-bg-active: rgba(0, 0, 0, 0.66);
+  /* scrollbar */
+  --os-handle-bg: rgba(0, 0, 0, 0.44);
+  --os-handle-bg-hover: rgba(0, 0, 0, 0.55);
+  --os-handle-bg-active: rgba(0, 0, 0, 0.66);
 
-	/* audio-controller */
-	--audio-controller-h: 90px;
-	--audio-controller-bg: #121212;
+  /* audio-controller */
+  --audio-controller-h: 90px;
+  --audio-controller-bg: #121212;
 
-	--deco-visualizer-color: oklch(78.9% 0.154 211.53);
+  --deco-visualizer-color: oklch(78.9% 0.154 211.53);
 
-	/* Semantic Themeable Colors (Dark mode defaults) */
-	--color-theme-accent: #06b6d4;
-	--color-theme-accent-hover: #0891b2;
-	--color-theme-accent-light: #22d3ee;
-	--color-theme-accent-glow: rgba(6, 182, 212, 0.15);
-	--color-theme-accent-tertiary: #818cf8;
-	--color-theme-accent-secondary: #2563eb;
-	--color-theme-accent-secondary-light: #3b82f6;
-	--color-theme-text-on-accent: #ffffff;
-	--color-side-nav-header-hover: #242424;
-	--color-audio-controller-bg: #121212;
+  /* Semantic Themeable Colors (Dark mode defaults) */
+  --color-theme-accent: #06b6d4;
+  --color-theme-accent-hover: #0891b2;
+  --color-theme-accent-light: #22d3ee;
+  --color-theme-accent-glow: rgba(6, 182, 212, 0.15);
+  --color-theme-accent-tertiary: #818cf8;
+  --color-theme-accent-secondary: #2563eb;
+  --color-theme-accent-secondary-light: #3b82f6;
+  --color-theme-text-on-accent: #ffffff;
+  --color-side-nav-header-hover: #242424;
+  --color-audio-controller-bg: #121212;
 
-	/* Theme Grayscale Semantics for Multi-Theme (Dark Theme Defaults) */
-	--color-theme-text: #ffffff;
-	--color-theme-text-secondary: #d4d4d8; /* zinc-300 */
-	--color-theme-text-muted: #a1a1aa; /* zinc-400 */
-	--color-theme-text-disabled: #71717a; /* zinc-500 */
-	--color-theme-bg-card: rgba(24, 24, 27, 0.4); /* zinc-900/40 */
-	--color-theme-bg-card-hover: rgba(24, 24, 27, 0.6); /* zinc-900/60 */
-	--color-theme-bg-item: #18181b; /* zinc-900 */
-	--color-theme-bg-placeholder: #27272a; /* zinc-800 */
-	--color-theme-border: rgba(39, 39, 42, 0.8); /* zinc-800 */
-	--color-theme-border-hover: rgba(63, 63, 70, 0.8); /* zinc-700 */
+  /* Theme Grayscale Semantics for Multi-Theme (Dark Theme Defaults) */
+  --color-theme-text: #ffffff;
+  --color-theme-text-secondary: #d4d4d8; /* zinc-300 */
+  --color-theme-text-muted: #a1a1aa; /* zinc-400 */
+  --color-theme-text-disabled: #71717a; /* zinc-500 */
+  --color-theme-bg-card: rgba(24, 24, 27, 0.4); /* zinc-900/40 */
+  --color-theme-bg-card-hover: rgba(24, 24, 27, 0.6); /* zinc-900/60 */
+  --color-theme-bg-item: #18181b; /* zinc-900 */
+  --color-theme-bg-placeholder: #27272a; /* zinc-800 */
+  --color-theme-border: rgba(39, 39, 42, 0.8); /* zinc-800 */
+  --color-theme-border-hover: rgba(63, 63, 70, 0.8); /* zinc-700 */
 
-	color: var(--color-text-primary);
+  color: var(--color-text-primary);
 }
 
 [theme='dark'] {
-	--color-text-primary: #fff;
-	--nav-bg: rgba(24, 24, 27, 0.4);
-	--bg-main: #121212;
-	/* scrollbar */
-	.os-theme-dark {
-		--os-handle-bg: rgb(143, 143, 143);
-		--os-handle-bg-hover: rgb(180, 180, 180);
-		--os-handle-bg-active: rgb(201, 201, 201);
-	}
+  --color-text-primary: #fff;
+  --nav-bg: rgba(24, 24, 27, 0.4);
+  --bg-main: #121212;
+  /* scrollbar */
+  .os-theme-dark {
+    --os-handle-bg: rgb(143, 143, 143);
+    --os-handle-bg-hover: rgb(180, 180, 180);
+    --os-handle-bg-active: rgb(201, 201, 201);
+  }
 
-	/* Colors for Dark theme */
-	--color-theme-accent: #06b6d4;
-	--color-theme-accent-hover: #0891b2;
-	--color-theme-accent-light: #22d3ee;
-	--color-theme-accent-glow: rgba(6, 182, 212, 0.15);
-	--color-theme-accent-tertiary: #818cf8;
-	--color-theme-accent-secondary: #2563eb;
-	--color-theme-accent-secondary-light: #3b82f6;
-	--color-theme-text-on-accent: #ffffff;
-	--color-side-nav-header-hover: #242424;
-	--color-audio-controller-bg: #121212;
+  /* Colors for Dark theme */
+  --color-theme-accent: #06b6d4;
+  --color-theme-accent-hover: #0891b2;
+  --color-theme-accent-light: #22d3ee;
+  --color-theme-accent-glow: rgba(6, 182, 212, 0.15);
+  --color-theme-accent-tertiary: #818cf8;
+  --color-theme-accent-secondary: #2563eb;
+  --color-theme-accent-secondary-light: #3b82f6;
+  --color-theme-text-on-accent: #ffffff;
+  --color-side-nav-header-hover: #242424;
+  --color-audio-controller-bg: #121212;
 
-	--color-theme-text: #ffffff;
-	--color-theme-text-secondary: #d4d4d8;
-	--color-theme-text-muted: #a1a1aa;
-	--color-theme-text-disabled: #71717a;
-	--color-theme-bg-card: rgba(24, 24, 27, 0.4);
-	--color-theme-bg-card-hover: rgba(24, 24, 27, 0.6);
-	--color-theme-bg-item: #18181b;
-	--color-theme-bg-placeholder: #27272a;
-	--color-theme-border: rgba(39, 39, 42, 0.8);
-	--color-theme-border-hover: rgba(63, 63, 70, 0.8);
+  --color-theme-text: #ffffff;
+  --color-theme-text-secondary: #d4d4d8;
+  --color-theme-text-muted: #a1a1aa;
+  --color-theme-text-disabled: #71717a;
+  --color-theme-bg-card: rgba(24, 24, 27, 0.4);
+  --color-theme-bg-card-hover: rgba(24, 24, 27, 0.6);
+  --color-theme-bg-item: #18181b;
+  --color-theme-bg-placeholder: #27272a;
+  --color-theme-border: rgba(39, 39, 42, 0.8);
+  --color-theme-border-hover: rgba(63, 63, 70, 0.8);
 }
 
 [theme='light'] {
-	--color-text-primary: #000;
-	--nav-bg: rgba(255, 255, 255, 0.4);
-	--bg-main: #f4f4f5;
-	/* Command Palette Theme Variables (Light Mode) */
-	--cmd-bg: rgba(255, 255, 255, 0.95);
-	--cmd-border: rgba(228, 228, 231, 0.8);
-	--cmd-text-primary: #18181b;
-	--cmd-text-secondary: #71717a;
-	--cmd-input-placeholder: #a1a1aa;
+  --color-text-primary: #000;
+  --nav-bg: rgba(255, 255, 255, 0.4);
+  --bg-main: #f4f4f5;
+  /* Command Palette Theme Variables (Light Mode) */
+  --cmd-bg: rgba(255, 255, 255, 0.95);
+  --cmd-border: rgba(228, 228, 231, 0.8);
+  --cmd-text-primary: #18181b;
+  --cmd-text-secondary: #71717a;
+  --cmd-input-placeholder: #a1a1aa;
 
-	--cmd-item-bg-active: linear-gradient(90deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.04) 100%);
-	--cmd-item-border-active: #4f46e5;
-	--cmd-item-icon-bg: rgba(244, 244, 245, 0.8);
-	--cmd-item-icon-color: #71717a;
-	--cmd-item-icon-bg-active: rgba(99, 102, 241, 0.1);
-	--cmd-item-icon-color-active: #4f46e5;
+  --cmd-item-bg-active: linear-gradient(90deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.04) 100%);
+  --cmd-item-border-active: #4f46e5;
+  --cmd-item-icon-bg: rgba(244, 244, 245, 0.8);
+  --cmd-item-icon-color: #71717a;
+  --cmd-item-icon-bg-active: rgba(99, 102, 241, 0.1);
+  --cmd-item-icon-color-active: #4f46e5;
 
-	--cmd-badge-cmd-bg: rgba(79, 70, 229, 0.1);
-	--cmd-badge-cmd-text: #4f46e5;
-	--cmd-badge-cmd-border: rgba(79, 70, 229, 0.2);
+  --cmd-badge-cmd-bg: rgba(79, 70, 229, 0.1);
+  --cmd-badge-cmd-text: #4f46e5;
+  --cmd-badge-cmd-border: rgba(79, 70, 229, 0.2);
 
-	--cmd-badge-search-bg: rgba(244, 244, 245, 0.8);
-	--cmd-badge-search-text: #71717a;
-	--cmd-badge-search-border: rgba(228, 228, 231, 0.8);
+  --cmd-badge-search-bg: rgba(244, 244, 245, 0.8);
+  --cmd-badge-search-text: #71717a;
+  --cmd-badge-search-border: rgba(228, 228, 231, 0.8);
 
-	--cmd-kbd-bg: #f4f4f5;
-	--cmd-kbd-border: #e4e4e7;
-	--cmd-kbd-text: #71717a;
+  --cmd-kbd-bg: #f4f4f5;
+  --cmd-kbd-border: #e4e4e7;
+  --cmd-kbd-text: #71717a;
 
-	--cmd-kbd-bg-active: #e4e4e7;
-	--cmd-kbd-border-active: #d4d4d8;
-	--cmd-kbd-text-active: #18181b;
+  --cmd-kbd-bg-active: #e4e4e7;
+  --cmd-kbd-border-active: #d4d4d8;
+  --cmd-kbd-text-active: #18181b;
 
-	--cmd-footer-bg: rgba(24, 24, 27, 0.8);
-	--cmd-footer-border: rgba(228, 228, 231, 0.8);
+  --cmd-footer-bg: rgba(24, 24, 27, 0.8);
+  --cmd-footer-border: rgba(228, 228, 231, 0.8);
 
-	/* Colors for Light theme */
-	--color-theme-accent: #0891b2;
-	--color-theme-accent-hover: #0e7490;
-	--color-theme-accent-light: #06b6d4;
-	--color-theme-accent-glow: rgba(8, 145, 178, 0.15);
-	--color-theme-accent-tertiary: #4f46e5;
-	--color-theme-accent-secondary: #1d4ed8;
-	--color-theme-accent-secondary-light: #2563eb;
-	--color-theme-text-on-accent: #ffffff;
-	--color-side-nav-header-hover: #e4e4e7;
-	--color-audio-controller-bg: #ffffff;
+  /* Colors for Light theme */
+  --color-theme-accent: #0891b2;
+  --color-theme-accent-hover: #0e7490;
+  --color-theme-accent-light: #06b6d4;
+  --color-theme-accent-glow: rgba(8, 145, 178, 0.15);
+  --color-theme-accent-tertiary: #4f46e5;
+  --color-theme-accent-secondary: #1d4ed8;
+  --color-theme-accent-secondary-light: #2563eb;
+  --color-theme-text-on-accent: #ffffff;
+  --color-side-nav-header-hover: #e4e4e7;
+  --color-audio-controller-bg: #ffffff;
 
-	--color-theme-text: #18181b;
-	--color-theme-text-secondary: #3f3f46;
-	--color-theme-text-muted: #71717a;
-	--color-theme-text-disabled: #a1a1aa;
-	--color-theme-bg-card: rgba(228, 228, 231, 0.4);
-	--color-theme-bg-card-hover: rgba(228, 228, 231, 0.6);
-	--color-theme-bg-item: #ffffff;
-	--color-theme-bg-placeholder: #e4e4e7;
-	--color-theme-border: rgba(228, 228, 231, 0.8);
-	--color-theme-border-hover: rgba(212, 212, 216, 0.8);
+  --color-theme-text: #18181b;
+  --color-theme-text-secondary: #3f3f46;
+  --color-theme-text-muted: #71717a;
+  --color-theme-text-disabled: #a1a1aa;
+  --color-theme-bg-card: rgba(228, 228, 231, 0.4);
+  --color-theme-bg-card-hover: rgba(228, 228, 231, 0.6);
+  --color-theme-bg-item: #ffffff;
+  --color-theme-bg-placeholder: #e4e4e7;
+  --color-theme-border: rgba(228, 228, 231, 0.8);
+  --color-theme-border-hover: rgba(212, 212, 216, 0.8);
 }
 
 @theme {
-	--color-disabled: var(--color-disabled);
+  --color-disabled: var(--color-disabled);
 
-	/* Dynamic Custom Colors for Themeing */
-	--color-theme-accent: var(--color-theme-accent);
-	--color-theme-accent-hover: var(--color-theme-accent-hover);
-	--color-theme-accent-light: var(--color-theme-accent-light);
-	--color-theme-accent-glow: var(--color-theme-accent-glow);
-	--color-theme-accent-tertiary: var(--color-theme-accent-tertiary);
-	--color-theme-accent-secondary: var(--color-theme-accent-secondary);
-	--color-theme-accent-secondary-light: var(--color-theme-accent-secondary-light);
-	--color-theme-text-on-accent: var(--color-theme-text-on-accent);
-	--color-side-nav-header-hover: var(--color-side-nav-header-hover);
-	--color-audio-controller-bg: var(--color-audio-controller-bg);
+  /* Dynamic Custom Colors for Themeing */
+  --color-theme-accent: var(--color-theme-accent);
+  --color-theme-accent-hover: var(--color-theme-accent-hover);
+  --color-theme-accent-light: var(--color-theme-accent-light);
+  --color-theme-accent-glow: var(--color-theme-accent-glow);
+  --color-theme-accent-tertiary: var(--color-theme-accent-tertiary);
+  --color-theme-accent-secondary: var(--color-theme-accent-secondary);
+  --color-theme-accent-secondary-light: var(--color-theme-accent-secondary-light);
+  --color-theme-text-on-accent: var(--color-theme-text-on-accent);
+  --color-side-nav-header-hover: var(--color-side-nav-header-hover);
+  --color-audio-controller-bg: var(--color-audio-controller-bg);
 
-	--color-theme-text: var(--color-theme-text);
-	--color-theme-text-secondary: var(--color-theme-text-secondary);
-	--color-theme-text-muted: var(--color-theme-text-muted);
-	--color-theme-text-disabled: var(--color-theme-text-disabled);
-	--color-theme-bg-card: var(--color-theme-bg-card);
-	--color-theme-bg-card-hover: var(--color-theme-bg-card-hover);
-	--color-theme-bg-item: var(--color-theme-bg-item);
-	--color-theme-bg-placeholder: var(--color-theme-bg-placeholder);
-	--color-theme-border: var(--color-theme-border);
-	--color-theme-border-hover: var(--color-theme-border-hover);
+  --color-theme-text: var(--color-theme-text);
+  --color-theme-text-secondary: var(--color-theme-text-secondary);
+  --color-theme-text-muted: var(--color-theme-text-muted);
+  --color-theme-text-disabled: var(--color-theme-text-disabled);
+  --color-theme-bg-card: var(--color-theme-bg-card);
+  --color-theme-bg-card-hover: var(--color-theme-bg-card-hover);
+  --color-theme-bg-item: var(--color-theme-bg-item);
+  --color-theme-bg-placeholder: var(--color-theme-bg-placeholder);
+  --color-theme-border: var(--color-theme-border);
+  --color-theme-border-hover: var(--color-theme-border-hover);
 
-	/* Spacing and layout configs */
-	--spacing-now-playing-h: calc(100vh - var(--nav-head-h) - var(--audio-controller-h));
-	--spacing-now-playing-glow-h: 450px;
-	--spacing-now-playing-left-min-w: 180px;
-	--spacing-now-playing-left-max-w: 300px;
-	--spacing-now-playing-right-w: 32%;
-	--spacing-now-playing-right-min-w: 240px;
-	--spacing-now-playing-right-max-w: 340px;
+  /* Spacing and layout configs */
+  --spacing-now-playing-h: calc(100vh - var(--nav-head-h) - var(--audio-controller-h));
+  --spacing-now-playing-glow-h: 450px;
+  --spacing-now-playing-left-min-w: 180px;
+  --spacing-now-playing-left-max-w: 300px;
+  --spacing-now-playing-right-w: 32%;
+  --spacing-now-playing-right-min-w: 240px;
+  --spacing-now-playing-right-max-w: 340px;
 
-	--spacing-music-list-glow-h: 380px;
-	--spacing-cmd-list-max-h: 380px;
-	--spacing-search-bar-w: 40%;
+  --spacing-music-list-glow-h: 380px;
+  --spacing-cmd-list-max-h: 380px;
+  --spacing-search-bar-w: 40%;
 
-	/* Box Shadows */
-	--shadow-now-playing-cover: 0 20px 50px rgba(0, 0, 0, 0.5);
-	--shadow-now-playing-cover-hover: 0 25px 60px rgba(0, 0, 0, 0.6);
-	--shadow-music-placeholder-inset: inset 0 2px 10px rgba(255, 255, 255, 0.15);
-	--shadow-kbd-bottom: 0 1px 0 0 rgba(0, 0, 0, 0.15);
+  /* Box Shadows */
+  --shadow-now-playing-cover: 0 20px 50px rgba(0, 0, 0, 0.5);
+  --shadow-now-playing-cover-hover: 0 25px 60px rgba(0, 0, 0, 0.6);
+  --shadow-music-placeholder-inset: inset 0 2px 10px rgba(255, 255, 255, 0.15);
+  --shadow-kbd-bottom: 0 1px 0 0 rgba(0, 0, 0, 0.15);
 }
 
 html,
 body,
 #app {
-	background-color: transparent;
+  background-color: transparent;
 }

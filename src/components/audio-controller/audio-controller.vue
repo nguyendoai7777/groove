@@ -104,7 +104,7 @@
     </div>
 
     <!-- Right Section: Volume & Options -->
-    <div class="flex items-center gap-3 w-1/5 justify-end min-w-32.5 pl-20">
+    <div class="flex items-center gap-3 w-1/4 justify-end min-w-60">
       <!-- Volume Toggle Button -->
       <icon-btn
         :src="volumeIcon"
