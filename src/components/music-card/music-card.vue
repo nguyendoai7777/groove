@@ -1,13 +1,13 @@
 <template>
   <div
-    class="music-card group relative flex flex-col p-3 rounded-xl transition-all duration-300 border-2 border-transparent bg-zinc-900/20 hover:bg-zinc-900/60 cursor-pointer"
+    class="music-card group relative flex flex-col p-3 rounded-xl transition-all duration-300 border-2 border-transparent bg-theme-bg-card hover:bg-theme-bg-card-hover cursor-pointer"
     :style="{
       '--glow-color': glowColor,
       '--border-glow': borderGlowColor,
     }"
     @click="$emit('click')">
     <!-- Thumbnail Container -->
-    <div class="relative w-full aspect-square rounded-lg overflow-hidden bg-zinc-800 shadow-md">
+    <div class="relative w-full aspect-square rounded-lg overflow-hidden bg-theme-bg-placeholder shadow-md">
       <img
         v-if="thumbnail"
         :src="thumbnail"
@@ -17,21 +17,21 @@
       <div v-else class="w-full h-full flex items-center justify-center select-none" :class="placeholderClass">
         <svg-sprite
           :src="type === 'folder' ? 'Play' : 'Album'"
-          :class="type === 'folder' ? 'w-16 h-16 text-white/90 drop-shadow-lg' : 'w-16 h-16 text-zinc-600'" />
+          :class="type === 'folder' ? 'w-16 h-16 text-theme-text-on-accent drop-shadow-lg' : 'w-16 h-16 text-theme-text-disabled'" />
       </div>
 
       <!-- Hover Overlay -->
       <div
-        class="absolute inset-0 bg-black/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 flex items-center justify-center gap-4 transition-all duration-300">
+        class="absolute inset-0 bg-theme-bg-item/75 backdrop-blur-xs opacity-0 group-hover:opacity-100 flex items-center justify-center gap-4 transition-all duration-300">
         <!-- Play Button -->
         <div class="relative group/btn">
           <icon-btn
             src="Play"
             :size="{ box: 'lg', icon: 'sm' }"
-            class="bg-zinc-900/80! hover:bg-zinc-800! border border-white/10! hover:border-white/20! text-white! rounded-full! transition-all duration-200 hover:scale-110 shadow-lg cursor-pointer"
+            class="bg-theme-bg-placeholder/80! hover:bg-theme-bg-card! border border-theme-border/50! hover:border-theme-border! text-theme-text! rounded-full! transition-all duration-200 hover:scale-110 shadow-lg cursor-pointer"
             @click.stop="$emit('play', { type, title })" />
           <span
-            class="absolute bottom-14 left-1/2 -translate-x-1/2 bg-zinc-950/90 text-zinc-100 text-[11px] px-2 py-1 rounded-md border border-zinc-800/80 shadow-md opacity-0 group-hover/btn:opacity-100 transition-opacity duration-150 whitespace-nowrap pointer-events-none">
+            class="absolute bottom-14 left-1/2 -translate-x-1/2 bg-theme-bg-item/90 text-theme-text text-[11px] px-2 py-1 rounded-md border border-theme-border/80 shadow-md opacity-0 group-hover/btn:opacity-100 transition-opacity duration-150 whitespace-nowrap pointer-events-none">
             Play all
           </span>
         </div>
@@ -39,7 +39,7 @@
         <!-- Settings Button (Commented out)
         <div class="relative group/btn">
           <button
-            class="w-12 h-12 rounded-full bg-zinc-900/80 hover:bg-zinc-800 border border-white/10 hover:border-white/20 text-white flex items-center justify-center transition-all duration-200 hover:scale-110 shadow-lg cursor-pointer"
+            class="w-12 h-12 rounded-full bg-theme-bg-placeholder/80 hover:bg-theme-bg-card border border-theme-border/50 hover:border-theme-border text-theme-text flex items-center justify-center transition-all duration-200 hover:scale-110 shadow-lg cursor-pointer"
             @click.stop="$emit('settings', { type, title })"
           >
             <svg-sprite src="Settings" class="w-5 h-5" />
@@ -57,10 +57,10 @@
           <icon-btn
             src="Delete"
             :size="{ box: 'lg', icon: 'sm' }"
-            class="bg-zinc-900/80! hover:bg-zinc-800! border border-white/10! hover:border-white/20! text-red-400! hover:text-red-300! rounded-full! transition-all duration-200 hover:scale-110 shadow-lg cursor-pointer"
+            class="bg-theme-bg-placeholder/80! hover:bg-theme-bg-card! border border-theme-border/50! hover:border-theme-border! text-red-400! hover:text-red-300! rounded-full! transition-all duration-200 hover:scale-110 shadow-lg cursor-pointer"
             @click.stop="onDeleteClick" />
           <span
-            class="absolute bottom-14 left-1/2 -translate-x-1/2 bg-zinc-950/90 text-zinc-100 text-[11px] px-2 py-1 rounded-md border border-zinc-800/80 shadow-md opacity-0 group-hover/btn:opacity-100 transition-opacity duration-150 whitespace-nowrap pointer-events-none">
+            class="absolute bottom-14 left-1/2 -translate-x-1/2 bg-theme-bg-item/90 text-theme-text text-[11px] px-2 py-1 rounded-md border border-theme-border/80 shadow-md opacity-0 group-hover/btn:opacity-100 transition-opacity duration-150 whitespace-nowrap pointer-events-none">
             Delete
           </span>
         </div>
@@ -69,10 +69,10 @@
 
     <!-- Metadata Details -->
     <div class="mt-3 flex flex-col min-w-0">
-      <span class="text-sm font-semibold truncate text-zinc-100 group-hover:text-white transition-colors duration-150">
+      <span class="text-sm font-semibold truncate text-theme-text group-hover:text-white transition-colors duration-150">
         {{ title }}
       </span>
-      <span class="text-xs text-zinc-400 mt-1 truncate">
+      <span class="text-xs text-theme-text-muted mt-1 truncate">
         {{ displaySubtitle }}
       </span>
     </div>
@@ -148,9 +148,9 @@
   // Dynamic classes for placeholder background
   const placeholderClass = computed(() => {
     if (props.type === 'folder') {
-      return 'bg-gradient-to-br from-cyan-500 to-blue-600 shadow-[inset_0_2px_10px_rgba(255,255,255,0.15)]'
+      return 'bg-gradient-to-br from-theme-accent to-theme-accent-secondary shadow-music-placeholder-inset'
     }
-    return 'bg-zinc-800 border border-zinc-700/50'
+    return 'bg-theme-bg-placeholder border border-theme-border/50'
   })
 </script>
 

@@ -8,7 +8,7 @@
         <!-- Dynamic Header Icon via SvgSprite -->
         <span
           class="flex items-center justify-center text-(--cmd-text-secondary) transition-colors duration-200"
-          :class="{ 'text-indigo-400': isCommandMode }">
+          :class="{ 'text-cmd-cli-accent': isCommandMode }">
           <svg-sprite :src="isCommandMode ? 'Command' : 'Search'" class-name="w-4 h-4" />
         </span>
 
@@ -33,7 +33,7 @@
       </div>
 
       <!-- Scrollable Results -->
-      <OverlayScrollbarsComponent class="max-h-[380px]" defer :options="OSOptions">
+      <OverlayScrollbarsComponent class="max-h-cmd-list-max-h" defer :options="OSOptions">
         <div class="p-2">
           <!-- Empty State -->
           <div

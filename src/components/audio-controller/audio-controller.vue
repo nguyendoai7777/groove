@@ -2,10 +2,10 @@
   <div
     :class="[
       currentSong ? '' : 'disabled',
-      'AudioController fixed bottom-0 left-0 w-full z-50 border-t border-zinc-800 bg-[#121212] pr-6 flex items-center justify-between text-white select-none',
+      'AudioController fixed bottom-0 left-0 w-full z-50 border-t border-theme-border bg-audio-controller-bg pr-6 flex items-center justify-between text-theme-text select-none',
     ]">
     <!-- Left Section: Song Info -->
-    <div class="flex items-center gap-3 w-[25%] min-w-60">
+    <div class="flex items-center gap-3 w-1/4 min-w-60">
       <!-- Album Cover with stats and hover overlay -->
       <div
         class="relative overflow-hidden group shrink-0 cursor-pointer shadow-md aspect-square h-(--audio-controller-h)"
@@ -24,9 +24,11 @@
 
       <!-- Metadata (Artist, Title, Sub-artists) -->
       <div class="flex flex-col min-w-0 pr-2 leading-tight cursor-pointer" @click="goToNowPlaying">
-        <span class="text-[11px] text-zinc-400 truncate hover:text-white cursor-pointer transition-colors">{{ artistName }}</span>
+        <span class="text-[11px] text-theme-text-muted truncate hover:text-theme-text cursor-pointer transition-colors">
+          {{ artistName }}
+        </span>
         <div ref="titleContainerRef" class="song-title-container overflow-hidden whitespace-nowrap my-1">
-          <div class="song-title-content inline-flex cursor-pointer text-white" :class="{ 'animate-marquee': isTitleOverflow }">
+          <div class="song-title-content inline-flex cursor-pointer text-theme-text" :class="{ 'animate-marquee': isTitleOverflow }">
             <span ref="titleTextRef" class="text-[13px] font-semibold transition-colors duration-200" :class="{ 'pr-8': isTitleOverflow }">
               <span ref="titleInnerRef">{{ songTitle }}</span>
             </span>
@@ -35,7 +37,9 @@
             </span>
           </div>
         </div>
-        <span class="text-[10px] text-zinc-500 truncate hover:text-zinc-300 cursor-pointer transition-colors">{{ subArtists }}</span>
+        <span class="text-[10px] text-theme-text-disabled truncate hover:text-theme-text-secondary cursor-pointer transition-colors">
+          {{ subArtists }}
+        </span>
       </div>
     </div>
 
@@ -47,30 +51,38 @@
         <icon-btn
           src="Shuffle"
           class="transition-colors relative group rounded-full"
-          :class="isShuffle ? 'text-green-500' : 'text-zinc-400 hover:text-white'"
+          :class="isShuffle ? 'text-green-500' : 'text-theme-text-muted hover:text-theme-text'"
           @click="toggleShuffle"
           title="Shuffle" />
 
         <!-- Previous -->
-        <icon-btn src="Prev" class="text-zinc-400 hover:text-white rounded-full transition-colors" @click="prevTrack" title="Previous" />
+        <icon-btn
+          src="Prev"
+          class="text-theme-text-muted hover:text-theme-text rounded-full transition-colors"
+          @click="prevTrack"
+          title="Previous" />
 
         <!-- Play/Pause (animated toggle-play) -->
         <toggle-play :is-playing="isPlaying" @state="onPlayStateChange" style="--size: 36px" />
 
         <!-- Next -->
-        <icon-btn src="Next" class="text-zinc-400 hover:text-white rounded-full transition-colors" @click="nextTrack" title="Next" />
+        <icon-btn
+          src="Next"
+          class="text-theme-text-muted hover:text-theme-text rounded-full transition-colors"
+          @click="nextTrack"
+          title="Next" />
 
         <!-- Repeat -->
         <icon-btn
           src="Loop"
           class="transition-colors relative group rounded-full"
-          :class="isRepeat ? 'text-green-500' : 'text-zinc-400 hover:text-white'"
+          :class="isRepeat ? 'text-green-500' : 'text-theme-text-muted hover:text-theme-text'"
           @click="toggleRepeat"
           title="Repeat" />
       </div>
 
       <!-- Timeline/Progress -->
-      <div class="w-full flex items-center gap-3 text-[11px] text-zinc-400 leading-none">
+      <div class="w-full flex items-center gap-3 text-[11px] text-theme-text-muted leading-none">
         <span class="w-9 text-right font-mono">{{ formatDuration(currentTime) }}</span>
 
         <div class="flex-1 grx-PlayerSlider flex items-center h-4">
@@ -92,11 +104,11 @@
     </div>
 
     <!-- Right Section: Volume & Options -->
-    <div class="flex items-center gap-3 w-[20%] justify-end min-w-32.5 pl-20">
+    <div class="flex items-center gap-3 w-1/5 justify-end min-w-32.5 pl-20">
       <!-- Volume Toggle Button -->
       <icon-btn
         :src="volumeIcon"
-        class="text-zinc-400 hover:text-white rounded-full transition-colors"
+        class="text-theme-text-muted hover:text-theme-text rounded-full transition-colors"
         @click="toggleMute"
         :title="isMuted ? 'Unmute' : 'Mute'" />
 
@@ -118,7 +130,7 @@
       <icon-btn
         src="Settings"
         :size="{ box: 'sm', icon: 'sm' }"
-        class="text-zinc-400 hover:text-white rounded-full transition-colors ml-1"
+        class="text-theme-text-muted hover:text-theme-text rounded-full transition-colors ml-1"
         title="Settings" />
     </div>
   </div>

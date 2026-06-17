@@ -40,7 +40,7 @@
         :class="
           isActive
             ? 'bg-(--cmd-kbd-bg-active) text-(--cmd-kbd-text-active) border-(--cmd-kbd-border-active)'
-            : 'bg-(--cmd-kbd-bg) text-(--cmd-kbd-text) border-(--cmd-kbd-border) shadow-[0_1px_0_0_rgba(0,0,0,0.15)]'
+            : 'bg-(--cmd-kbd-bg) text-(--cmd-kbd-text) border-(--cmd-kbd-border) shadow-kbd-bottom'
         ">
         {{ item.shortcut }}
       </kbd>
@@ -50,7 +50,7 @@
         :class="
           isActive
             ? 'bg-(--cmd-kbd-bg-active) text-(--cmd-kbd-text-active) border-(--cmd-kbd-border-active)'
-            : 'bg-(--cmd-kbd-bg) text-(--cmd-kbd-text) border-(--cmd-kbd-border) shadow-[0_1px_0_0_rgba(0,0,0,0.15)]'
+            : 'bg-(--cmd-kbd-bg) text-(--cmd-kbd-text) border-(--cmd-kbd-border) shadow-kbd-bottom'
         ">
         Tab Chọn
       </kbd>
@@ -78,7 +78,7 @@
   }
 
   defineProps<Props>()
-  const emit = defineEmits<{
+  defineEmits<{
     (e: 'select', item: Props['item']): void
     (e: 'hover', index: number): void
   }>()

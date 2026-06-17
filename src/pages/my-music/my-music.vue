@@ -6,7 +6,7 @@
       <div v-if="currentView === 'grid'" class="p-6">
         <!-- Header -->
         <div class="flex pb-4 justify-between items-center mb-6">
-          <h1 class="text-3xl font-light text-zinc-100">My Music</h1>
+          <h1 class="text-3xl font-light text-theme-text">My Music</h1>
           <div class="flex gap-2">
             <icon-btn title="Settings" :size="{ icon: 'sm' }" src="Settings" />
           </div>
@@ -15,19 +15,21 @@
         <!-- Import Banner (Aligns with the first image) -->
         <div
           @click="handleImportClick"
-          class="flex items-start gap-3.5 p-4 bg-zinc-900/40 hover:bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700/80 rounded-lg cursor-pointer transition-all duration-200 mb-8 max-w-xl select-none">
+          class="flex items-start gap-3.5 p-4 bg-theme-bg-card hover:bg-theme-bg-card-hover border border-theme-border/80 hover:border-theme-border-hover/80 rounded-lg cursor-pointer transition-all duration-200 mb-8 max-w-xl select-none">
           <div class="shrink-0 mt-0.5">
-            <svg-sprite src="Folder" class="w-5 h-5 text-zinc-400" />
+            <svg-sprite src="Folder" class="w-5 h-5 text-theme-text-muted" />
           </div>
           <div class="flex flex-col">
-            <span class="text-[13px] font-semibold text-zinc-300">Not finding everything?</span>
-            <span class="text-xs text-cyan-400 hover:text-cyan-300 hover:underline mt-1 font-medium">Show us where to look for music</span>
+            <span class="text-[13px] font-semibold text-theme-text-secondary">Not finding everything?</span>
+            <span class="text-xs text-theme-accent-light hover:text-theme-accent hover:underline mt-1 font-medium">
+              Show us where to look for music
+            </span>
           </div>
         </div>
 
-        <v-tabs v-model="activeTab" color="cyan-lighten-1" class="mb-6 border-b border-zinc-800">
-          <v-tab value="albums" class="text-zinc-300 font-semibold">Albums</v-tab>
-          <v-tab value="folders" class="text-zinc-300 font-semibold">Folders</v-tab>
+        <v-tabs v-model="activeTab" color="cyan-lighten-1" class="mb-6 border-b border-theme-border">
+          <v-tab value="albums" class="text-theme-text-secondary font-semibold">Albums</v-tab>
+          <v-tab value="folders" class="text-theme-text-secondary font-semibold">Folders</v-tab>
         </v-tabs>
 
         <v-tabs-window v-model="activeTab">
@@ -50,22 +52,24 @@
                 <!-- Loading Skeleton Card -->
                 <div
                   v-if="isImporting && activeTab === 'albums'"
-                  class="music-card flex flex-col p-3 rounded-xl border-2 border-zinc-800/20 bg-zinc-900/10 select-none">
+                  class="music-card flex flex-col p-3 rounded-xl border-2 border-theme-border/20 bg-theme-bg-card/30 select-none">
                   <div
-                    class="relative w-full aspect-square rounded-lg overflow-hidden bg-zinc-800 flex items-center justify-center shadow-md">
+                    class="relative w-full aspect-square rounded-lg overflow-hidden bg-theme-bg-placeholder flex items-center justify-center shadow-md">
                     <v-progress-circular indeterminate color="cyan" size="40" width="4" />
                   </div>
                   <div class="mt-3 flex flex-col min-w-0">
-                    <span class="text-sm font-semibold truncate text-zinc-300">Importing...</span>
-                    <span class="text-xs text-zinc-500 mt-1 truncate">Scanning directory</span>
+                    <span class="text-sm font-semibold truncate text-theme-text-secondary">Importing...</span>
+                    <span class="text-xs text-theme-text-disabled mt-1 truncate">Scanning directory</span>
                   </div>
                 </div>
               </div>
             </div>
-            <div v-else class="flex flex-col items-center justify-center py-20 text-center select-none">
-              <svg-sprite src="Album" class="w-16 h-16 text-zinc-700 mb-4" />
-              <h3 class="text-lg font-semibold text-zinc-400">No albums found</h3>
-              <p class="text-xs text-zinc-500 mt-2 max-w-sm">Import folders containing audio files with album metadata to see them here.</p>
+            <div class="flex flex-col items-center justify-center py-20 text-center select-none" v-else>
+              <svg-sprite src="Album" class="w-16 h-16 text-theme-text-disabled/60 mb-4" />
+              <h3 class="text-lg font-semibold text-theme-text-muted">No albums found</h3>
+              <p class="text-xs text-theme-text-disabled mt-2 max-w-sm">
+                Import folders containing audio files with album metadata to see them here.
+              </p>
             </div>
           </v-tabs-window-item>
 
@@ -89,22 +93,22 @@
                 <!-- Loading Skeleton Card -->
                 <div
                   v-if="isImporting && activeTab === 'folders'"
-                  class="music-card flex flex-col p-3 rounded-xl border-2 border-zinc-800/20 bg-zinc-900/10 select-none">
+                  class="music-card flex flex-col p-3 rounded-xl border-2 border-theme-border/20 bg-theme-bg-card/30 select-none">
                   <div
-                    class="relative w-full aspect-square rounded-lg overflow-hidden bg-zinc-800 flex items-center justify-center shadow-md">
+                    class="relative w-full aspect-square rounded-lg overflow-hidden bg-theme-bg-placeholder flex items-center justify-center shadow-md">
                     <v-progress-circular indeterminate color="cyan" size="40" width="4" />
                   </div>
                   <div class="mt-3 flex flex-col min-w-0">
-                    <span class="text-sm font-semibold truncate text-zinc-300">Importing...</span>
-                    <span class="text-xs text-zinc-500 mt-1 truncate">Scanning directory</span>
+                    <span class="text-sm font-semibold truncate text-theme-text-secondary">Importing...</span>
+                    <span class="text-xs text-theme-text-disabled mt-1 truncate">Scanning directory</span>
                   </div>
                 </div>
               </div>
             </div>
-            <div v-else class="flex flex-col items-center justify-center py-20 text-center select-none">
-              <svg-sprite src="Folder" class="w-16 h-16 text-zinc-700 mb-4" />
-              <h3 class="text-lg font-semibold text-zinc-400">No folders imported</h3>
-              <p class="text-xs text-zinc-500 mt-2 max-w-sm">Click the banner above to import a folder containing music.</p>
+            <div class="flex flex-col items-center justify-center py-20 text-center select-none" v-else>
+              <svg-sprite src="Folder" class="w-16 h-16 text-theme-text-disabled/60 mb-4" />
+              <h3 class="text-lg font-semibold text-theme-text-muted">No folders imported</h3>
+              <p class="text-xs text-theme-text-disabled mt-2 max-w-sm">Click the banner above to import a folder containing music.</p>
             </div>
           </v-tabs-window-item>
         </v-tabs-window>

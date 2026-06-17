@@ -22,8 +22,8 @@
 
     <!-- Search Bar -->
     <div
-      class="grx-SearchBar absolute top-1/2 left-1/2 -translate-1/2 w-[40%] cursor-pointer rounded-full border border-solid flex items-center justify-center py-1 select-none pointer-events-none">
-      <div class="text-xs text-zinc-500 font-light">search all</div>
+      class="grx-SearchBar absolute top-1/2 left-1/2 -translate-1/2 w-search-bar-w cursor-pointer rounded-full border border-solid flex items-center justify-center py-1 select-none pointer-events-none">
+      <div class="text-xs text-theme-text-disabled font-light">search all</div>
     </div>
   </div>
 </template>

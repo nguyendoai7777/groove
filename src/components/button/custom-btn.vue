@@ -12,7 +12,7 @@
     <template v-slot:default>
       <div class="flex items-center justify-center gap-2 py-0.5">
         <!-- Spinner -->
-        <span v-if="loading" class="w-3.5 h-3.5 rounded-full border-2 border-white/20 border-t-white animate-spin shrink-0"></span>
+        <span v-if="loading" class="w-3.5 h-3.5 rounded-full border-2 border-current/20 border-t-current animate-spin shrink-0"></span>
         <slot></slot>
       </div>
     </template>
@@ -74,13 +74,13 @@
   }
 
   .grx-CustomBtn-primary {
-    background-color: #0891b2 !important;
-    color: #ffffff !important;
-    box-shadow: 0 4px 12px rgba(6, 182, 212, 0.15) !important;
+    background-color: var(--color-theme-accent) !important;
+    color: var(--color-theme-text-on-accent) !important;
+    box-shadow: 0 4px 12px var(--color-theme-accent-glow) !important;
   }
 
   .grx-CustomBtn-primary:hover:not(:disabled) {
-    background-color: #06b6d4 !important;
+    background-color: var(--color-theme-accent-hover) !important;
     transform: scale(1.02);
   }
 
@@ -90,14 +90,14 @@
 
   .grx-CustomBtn-secondary {
     background-color: transparent !important;
-    border: 1px solid #27272a !important;
-    color: #a1a1aa !important;
+    border: 1px solid var(--color-theme-border) !important;
+    color: var(--color-theme-text-muted) !important;
   }
 
   .grx-CustomBtn-secondary:hover:not(:disabled) {
-    border-color: #3f3f46 !important;
-    color: #e4e4e7 !important;
-    background-color: rgba(39, 39, 42, 0.4) !important;
+    border-color: var(--color-theme-border-hover) !important;
+    color: var(--color-theme-text-secondary) !important;
+    background-color: var(--color-theme-bg-card-hover) !important;
   }
 
   /* Disabled state overrides */
