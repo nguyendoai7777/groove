@@ -1,6 +1,7 @@
 // composables/useKeyboardShortcuts.ts
 import { onMounted, onUnmounted, watch } from 'vue'
 import { useCommandPaletteStore } from '@groovex/store'
+import { useAudioPlayer } from '@groovex/state'
 
 interface KeyboardCommand {
   key: string
@@ -12,6 +13,7 @@ interface KeyboardCommand {
 
 export function useKeyboardShortcuts() {
   const commandPalette = useCommandPaletteStore()
+  const player = useAudioPlayer()
 
   // ----------------------------------------------------
   // 1. CÁC PHÍM TẮT CẤP 2 (Chỉ chạy khi Dialog ĐANG MỞ)
@@ -38,12 +40,7 @@ export function useKeyboardShortcuts() {
     const isAltPressed = event.altKey
 
     const matched = dialogShortcuts.find((s) => {
-      return (
-        s.key.toLowerCase() === pressedKey &&
-        !!s.ctrl === isCtrlPressed &&
-        !!s.shift === isShiftPressed &&
-        !!s.alt === isAltPressed
-      )
+      return s.key.toLowerCase() === pressedKey && !!s.ctrl === isCtrlPressed && !!s.shift === isShiftPressed && !!s.alt === isAltPressed
     })
 
     if (matched) {
@@ -74,6 +71,58 @@ export function useKeyboardShortcuts() {
     if (isCtrlPressed && pressedKey === 'k') {
       event.preventDefault()
       commandPalette.open()
+    }
+
+    // Bấm Space để play/pause
+    if (event.key === ' ' || event.code === 'Space') {
+      if (player.currentSong) {
+        event.preventDefault()
+        player.togglePlay()
+      }
+    }
+
+    // Bấm ArrowLeft / ArrowRight để tua nhạc (seek)
+    if (event.key === 'ArrowLeft') {
+      if (player.currentSong) {
+        event.preventDefault()
+        if (event.altKey) {
+          player.prevTrack()
+        } else {
+          const step = Number(player.seekStep)
+          const finalStep = isNaN(step) || !isFinite(step) || step <= 0 ? 5 : step
+          const newTime = Math.max(0, (player.currentTime || 0) - finalStep)
+          if (!isNaN(newTime) && isFinite(newTime)) {
+            player.seek(newTime)
+          }
+        }
+      }
+    } else if (event.key === 'ArrowRight') {
+      if (player.currentSong) {
+        event.preventDefault()
+        if (event.altKey) {
+          player.nextTrack()
+        } else {
+          const step = Number(player.seekStep)
+          const finalStep = isNaN(step) || !isFinite(step) || step <= 0 ? 5 : step
+          const newTime = Math.min(player.duration || 0, (player.currentTime || 0) + finalStep)
+          if (!isNaN(newTime) && isFinite(newTime)) {
+            player.seek(newTime)
+          }
+        }
+      }
+    }
+
+    // Bấm ArrowUp / ArrowDown để tăng giảm âm lượng (volume)
+    if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      const step = Number(player.volumeStep)
+      const finalStep = isNaN(step) || !isFinite(step) || step <= 0 ? 2 : step
+      player.volume = Math.min(100, (player.volume || 0) + finalStep)
+    } else if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      const step = Number(player.volumeStep)
+      const finalStep = isNaN(step) || !isFinite(step) || step <= 0 ? 2 : step
+      player.volume = Math.max(0, (player.volume || 0) - finalStep)
     }
   }
 

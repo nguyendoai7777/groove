@@ -12,6 +12,7 @@
 		"core:window:allow-unmaximize",
 		"core:window:allow-toggle-maximize",
 		"core:window:default",
-		"core:window:allow-start-dragging"
+		"core:window:allow-start-dragging",
+		"window-state:default"
 	]
 }

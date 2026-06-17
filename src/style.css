@@ -7,3 +7,45 @@
 *[data-tauri-drag-region] {
   app-region: drag;
 }
+
+/* Custom Premium Input Styling */
+.v-text-field .v-field {
+  background-color: var(--input-border-bg) !important;
+  border: 1px solid var(--input-border-color) !important;
+  border-radius: 8px !important;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease !important;
+}
+
+.v-text-field .v-field:hover {
+  border-color: var(--input-border-color-hover) !important;
+}
+
+.v-text-field .v-field--focused {
+  border-color: var(--input-border-focus) !important;
+  box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.15) !important;
+}
+
+/* Hide the default Vuetify borders and outlines */
+.v-text-field .v-field__outline {
+  display: none !important;
+}
+
+/* Standard HTML Inputs styling for completeness */
+input[type="text"], input[type="number"], textarea {
+  background-color: var(--input-border-bg);
+  border: 1px solid var(--input-border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  padding: 8px 12px;
+  outline: none;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
+}
+
+input[type="text"]:hover, input[type="number"]:hover, textarea:hover {
+  border-color: var(--input-border-color-hover);
+}
+
+input[type="text"]:focus, input[type="number"]:focus, textarea:focus {
+  border-color: var(--input-border-focus);
+  box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.15);
+}

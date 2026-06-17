@@ -8,6 +8,12 @@
   --border-search-hover: gray;
   --bg-search: #222;
   --bg-search-hover: #222;
+
+  /* Premium Cyan Input Theme Variables */
+  --input-border-color: rgba(6, 182, 212, 0.15);
+  --input-border-color-hover: rgba(6, 182, 212, 0.45);
+  --input-border-focus: rgb(6, 182, 212);
+  --input-border-bg: rgba(20, 20, 25, 0.7);
   /* sizing */
   --nav-head-h: 36px;
   --nav-link-h: 42px;
@@ -53,6 +59,8 @@
   /* audio-controller */
   --audio-controller-h: 90px;
   --audio-controller-bg: #121212;
+
+  --deco-visualizer-color: oklch(78.9% 0.154 211.53);
 }
 [theme='dark'] {
   --text-primary: #fff;

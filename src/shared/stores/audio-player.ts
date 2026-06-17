@@ -20,6 +20,30 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
   const isShuffle = ref(false)
   const isRepeat = ref(false)
 
+  const getInitialSeekStep = () => {
+    const val = localStorage.getItem('seekStep')
+    if (val === null || val === '') return 5
+    const num = Number(val)
+    return isNaN(num) || num <= 0 ? 5 : num
+  }
+  const seekStep = ref(getInitialSeekStep())
+
+  watch(seekStep, (newVal) => {
+    localStorage.setItem('seekStep', String(newVal))
+  })
+
+  const getInitialVolumeStep = () => {
+    const val = localStorage.getItem('volumeStep')
+    if (val === null || val === '') return 2
+    const num = Number(val)
+    return isNaN(num) || num <= 0 ? 2 : num
+  }
+  const volumeStep = ref(getInitialVolumeStep())
+
+  watch(volumeStep, (newVal) => {
+    localStorage.setItem('volumeStep', String(newVal))
+  })
+
   const shuffleHistory = ref<number[]>([])
   const shuffleHistoryIndex = ref(-1)
 
@@ -201,9 +225,7 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
         currentIndex.value = shuffleHistory.value[shuffleHistoryIndex.value]
       } else {
         const playedSet = new Set(shuffleHistory.value)
-        const unplayedIndices = playlist.value
-          .map((_, index) => index)
-          .filter((index) => !playedSet.has(index))
+        const unplayedIndices = playlist.value.map((_, index) => index).filter((index) => !playedSet.has(index))
 
         if (unplayedIndices.length > 0) {
           const randomIndex = unplayedIndices[Math.floor(Math.random() * unplayedIndices.length)]
@@ -277,6 +299,8 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     isMuted,
     isShuffle,
     isRepeat,
+    seekStep,
+    volumeStep,
     playSong,
     togglePlay,
     setPlaying,

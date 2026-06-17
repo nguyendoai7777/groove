@@ -2,5 +2,8 @@
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
   "semi": false,
   "singleQuote": true,
-  "vueIndentScriptAndStyle": true
+  "printWidth": 140,
+  "vueIndentScriptAndStyle": true,
+  "bracketSameLine": true,
+  "htmlWhitespaceSensitivity": "ignore"
 }

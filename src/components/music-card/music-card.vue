@@ -5,46 +5,34 @@
       '--glow-color': glowColor,
       '--border-glow': borderGlowColor,
     }"
-    @click="$emit('click')"
-  >
+    @click="$emit('click')">
     <!-- Thumbnail Container -->
     <div class="relative w-full aspect-square rounded-lg overflow-hidden bg-zinc-800 shadow-md">
       <img
         v-if="thumbnail"
         :src="thumbnail"
         :alt="title"
-        class="w-full h-full object-cover select-none pointer-events-none transition-transform duration-500 group-hover:scale-105"
-      />
+        class="w-full h-full object-cover select-none pointer-events-none transition-transform duration-500 group-hover:scale-105" />
       <!-- Fallback Placeholder -->
-      <div
-        v-else
-        class="w-full h-full flex items-center justify-center select-none"
-        :class="placeholderClass"
-      >
+      <div v-else class="w-full h-full flex items-center justify-center select-none" :class="placeholderClass">
         <svg-sprite
           :src="type === 'folder' ? 'Play' : 'Album'"
-          :class="
-            type === 'folder' ? 'w-16 h-16 text-white/90 drop-shadow-lg' : 'w-16 h-16 text-zinc-600'
-          "
-        />
+          :class="type === 'folder' ? 'w-16 h-16 text-white/90 drop-shadow-lg' : 'w-16 h-16 text-zinc-600'" />
       </div>
 
       <!-- Hover Overlay -->
       <div
-        class="absolute inset-0 bg-black/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 flex items-center justify-center gap-4 transition-all duration-300"
-      >
+        class="absolute inset-0 bg-black/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 flex items-center justify-center gap-4 transition-all duration-300">
         <!-- Play Button -->
         <div class="relative group/btn">
           <button
             class="w-12 h-12 rounded-full bg-zinc-900/80 hover:bg-zinc-800 border border-white/10 hover:border-white/20 text-white flex items-center justify-center transition-all duration-200 hover:scale-110 shadow-lg cursor-pointer"
-            @click.stop="$emit('play', { type, title })"
-          >
+            @click.stop="$emit('play', { type, title })">
             <!-- Offset play icon slightly to the right for optical center alignment -->
-            <svg-sprite src="Play" class="w-5 h-5 translate-x-[1px]" />
+            <svg-sprite src="Play" class="w-5 h-5 translate-x-px" />
           </button>
           <span
-            class="absolute bottom-14 left-1/2 -translate-x-1/2 bg-zinc-950/90 text-zinc-100 text-[11px] px-2 py-1 rounded-md border border-zinc-800/80 shadow-md opacity-0 group-hover/btn:opacity-100 transition-opacity duration-150 whitespace-nowrap pointer-events-none"
-          >
+            class="absolute bottom-14 left-1/2 -translate-x-1/2 bg-zinc-950/90 text-zinc-100 text-[11px] px-2 py-1 rounded-md border border-zinc-800/80 shadow-md opacity-0 group-hover/btn:opacity-100 transition-opacity duration-150 whitespace-nowrap pointer-events-none">
             Play all
           </span>
         </div>
@@ -69,13 +57,11 @@
         <div class="relative group/btn">
           <button
             class="w-12 h-12 rounded-full bg-zinc-900/80 hover:bg-zinc-800 border border-white/10 hover:border-white/20 text-red-400 hover:text-red-300 flex items-center justify-center transition-all duration-200 hover:scale-110 shadow-lg cursor-pointer"
-            @click.stop="onDeleteClick"
-          >
+            @click.stop="onDeleteClick">
             <svg-sprite src="Delete" class="w-5 h-5" />
           </button>
           <span
-            class="absolute bottom-14 left-1/2 -translate-x-1/2 bg-zinc-950/90 text-zinc-100 text-[11px] px-2 py-1 rounded-md border border-zinc-800/80 shadow-md opacity-0 group-hover/btn:opacity-100 transition-opacity duration-150 whitespace-nowrap pointer-events-none"
-          >
+            class="absolute bottom-14 left-1/2 -translate-x-1/2 bg-zinc-950/90 text-zinc-100 text-[11px] px-2 py-1 rounded-md border border-zinc-800/80 shadow-md opacity-0 group-hover/btn:opacity-100 transition-opacity duration-150 whitespace-nowrap pointer-events-none">
             Delete
           </span>
         </div>
@@ -84,9 +70,7 @@
 
     <!-- Metadata Details -->
     <div class="mt-3 flex flex-col min-w-0">
-      <span
-        class="text-sm font-semibold truncate text-zinc-100 group-hover:text-white transition-colors duration-150"
-      >
+      <span class="text-sm font-semibold truncate text-zinc-100 group-hover:text-white transition-colors duration-150">
         {{ title }}
       </span>
       <span class="text-xs text-zinc-400 mt-1 truncate">
@@ -100,8 +84,7 @@
       title="Xóa nhé"
       content="Bạn có chắc chắn muốn xóa album/thư mục này không?"
       @ok="onConfirmOk"
-      @cancel="onConfirmCancel"
-    />
+      @cancel="onConfirmCancel" />
   </div>
 </template>
 

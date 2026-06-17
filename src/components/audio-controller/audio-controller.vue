@@ -1,22 +1,13 @@
 <template>
   <div
-    class="AudioController fixed bottom-0 left-0 w-full z-50 border-t border-zinc-800 bg-[#121212] pr-6 flex items-center justify-between text-white select-none"
-  >
+    class="AudioController fixed bottom-0 left-0 w-full z-50 border-t border-zinc-800 bg-[#121212] pr-6 flex items-center justify-between text-white select-none">
     <!-- Left Section: Song Info -->
     <div class="flex items-center gap-3 w-[25%] min-w-60">
       <!-- Album Cover with stats and hover overlay -->
-      <div
-        class="relative overflow-hidden group shrink-0 cursor-pointer shadow-md aspect-square"
-        style="height: var(--audio-controller-h)"
-      >
-        <img
-          :src="thumbnailUrl"
-          class="transition-transform duration-300 group-hover:scale-105"
-          alt="Song Cover"
-        />
+      <div class="relative overflow-hidden group shrink-0 cursor-pointer shadow-md aspect-square h-(--audio-controller-h)">
+        <img :src="thumbnailUrl" class="transition-transform duration-300 group-hover:scale-105" alt="Song Cover" />
         <div
-          class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-200"
-        >
+          class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-200">
           <toggle-play :isPlaying="isPlaying" @state="onPlayStateChange" />
         </div>
         <!-- Stats badge -->
@@ -24,38 +15,18 @@
 
       <!-- Metadata (Artist, Title, Sub-artists) -->
       <div class="flex flex-col min-w-0 pr-2 leading-tight">
-        <span
-          class="text-[11px] text-zinc-400 truncate hover:text-white cursor-pointer transition-colors"
-          >{{ artistName }}</span
-        >
-        <div
-          ref="titleContainerRef"
-          class="song-title-container overflow-hidden whitespace-nowrap my-1"
-        >
-          <div
-            class="song-title-content inline-flex cursor-pointer text-white"
-            :class="{ 'animate-marquee': isTitleOverflow }"
-          >
-            <span
-              ref="titleTextRef"
-              class="text-[13px] font-semibold transition-colors duration-200"
-              :class="{ 'pr-8': isTitleOverflow }"
-            >
+        <span class="text-[11px] text-zinc-400 truncate hover:text-white cursor-pointer transition-colors">{{ artistName }}</span>
+        <div ref="titleContainerRef" class="song-title-container overflow-hidden whitespace-nowrap my-1">
+          <div class="song-title-content inline-flex cursor-pointer text-white" :class="{ 'animate-marquee': isTitleOverflow }">
+            <span ref="titleTextRef" class="text-[13px] font-semibold transition-colors duration-200" :class="{ 'pr-8': isTitleOverflow }">
               <span ref="titleInnerRef">{{ songTitle }}</span>
             </span>
-            <span
-              v-if="isTitleOverflow"
-              class="text-[13px] font-semibold pr-8 transition-colors duration-200"
-              aria-hidden="true"
-            >
+            <span v-if="isTitleOverflow" class="text-[13px] font-semibold pr-8 transition-colors duration-200" aria-hidden="true">
               {{ songTitle }}
             </span>
           </div>
         </div>
-        <span
-          class="text-[10px] text-zinc-500 truncate hover:text-zinc-300 cursor-pointer transition-colors"
-          >{{ subArtists }}</span
-        >
+        <span class="text-[10px] text-zinc-500 truncate hover:text-zinc-300 cursor-pointer transition-colors">{{ subArtists }}</span>
       </div>
     </div>
 
@@ -69,27 +40,16 @@
           class="transition-colors relative group rounded-full"
           :class="isShuffle ? 'text-green-500' : 'text-zinc-400 hover:text-white'"
           @click="toggleShuffle"
-          title="Shuffle"
-        />
+          title="Shuffle" />
 
         <!-- Previous -->
-        <icon-btn
-          src="Prev"
-          class="text-zinc-400 hover:text-white rounded-full transition-colors"
-          @click="prevTrack"
-          title="Previous"
-        />
+        <icon-btn src="Prev" class="text-zinc-400 hover:text-white rounded-full transition-colors" @click="prevTrack" title="Previous" />
 
         <!-- Play/Pause (animated toggle-play) -->
         <toggle-play :is-playing="isPlaying" @state="onPlayStateChange" style="--size: 36px" />
 
         <!-- Next -->
-        <icon-btn
-          src="Next"
-          class="text-zinc-400 hover:text-white rounded-full transition-colors"
-          @click="nextTrack"
-          title="Next"
-        />
+        <icon-btn src="Next" class="text-zinc-400 hover:text-white rounded-full transition-colors" @click="nextTrack" title="Next" />
 
         <!-- Repeat -->
         <icon-btn
@@ -97,8 +57,7 @@
           class="transition-colors relative group rounded-full"
           :class="isRepeat ? 'text-green-500' : 'text-zinc-400 hover:text-white'"
           @click="toggleRepeat"
-          title="Repeat"
-        />
+          title="Repeat" />
       </div>
 
       <!-- Timeline/Progress -->
@@ -116,8 +75,7 @@
             :thumb-size="16"
             hide-details
             density="compact"
-            class="w-full cursor-pointer"
-          />
+            class="w-full cursor-pointer" />
         </div>
 
         <span class="w-9 text-left font-mono">{{ formatDuration(duration) }}</span>
@@ -131,11 +89,10 @@
         :src="volumeIcon"
         class="text-zinc-400 hover:text-white rounded-full transition-colors"
         @click="toggleMute"
-        :title="isMuted ? 'Unmute' : 'Mute'"
-      />
+        :title="isMuted ? 'Unmute' : 'Mute'" />
 
       <!-- Volume Slider -->
-      <div class="w-24 grx-VolumeSlider flex items-center h-4">
+      <div class="w-24 grx-VolumeSlider flex items-center h-4" @wheel.prevent="onVolumeWheel">
         <v-slider
           v-model="volume"
           :min="0"
@@ -145,8 +102,7 @@
           :thumb-size="8"
           hide-details
           density="compact"
-          class="w-full cursor-pointer"
-        />
+          class="w-full cursor-pointer" />
       </div>
 
       <!-- Far Right Menu Button -->
@@ -154,8 +110,7 @@
         src="Settings"
         :size="{ box: 'sm', icon: 'sm' }"
         class="text-zinc-400 hover:text-white rounded-full transition-colors ml-1"
-        title="Settings"
-      />
+        title="Settings" />
     </div>
   </div>
 </template>
@@ -169,17 +124,14 @@
   import { formatDuration } from '@groovex/core'
 
   const player = useAudioPlayer()
-  const { currentSong, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isRepeat } =
-    storeToRefs(player)
+  const { currentSong, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isRepeat } = storeToRefs(player)
   const { toggleShuffle, toggleRepeat } = player
 
   const titleContainerRef = ref<HTMLElement | null>(null)
   const titleInnerRef = ref<HTMLElement | null>(null)
   const isTitleOverflow = ref(false)
   // Track metadata computed properties
-  const songTitle = computed(
-    () => currentSong.value?.title || currentSong.value?.filename || 'No song selected',
-  )
+  const songTitle = computed(() => currentSong.value?.title || currentSong.value?.filename || 'No song selected')
   const artistName = computed(() => currentSong.value?.artist || 'Unknown Artist')
   const subArtists = computed(() => '') // Song model doesn't have sub-artists
   const thumbnailUrl = computed(
@@ -248,6 +200,14 @@
   function nextTrack() {
     player.nextTrack()
   }
+
+  function onVolumeWheel(event: WheelEvent) {
+    if (event.deltaY < 0) {
+      volume.value = Math.min(100, (volume.value || 0) + 1)
+    } else if (event.deltaY > 0) {
+      volume.value = Math.max(0, (volume.value || 0) - 1)
+    }
+  }
 </script>
 
 <style>
@@ -255,28 +215,22 @@
     height: var(--audio-controller-h);
     background-color: var(--audio-controller-bg);
   }
-
   .song-title-container {
     width: 100%;
   }
-
   .song-title-content {
     --song-hover-color: #3b82f6; /* Hover color variable. Adjust/override this later as needed. */
     transition: color 0.2s ease;
   }
-
   .song-title-content:hover {
     color: var(--song-hover-color) !important;
   }
-
   .animate-marquee {
     animation: marquee 12s linear infinite;
   }
-
   .animate-marquee:hover {
     animation-play-state: paused;
   }
-
   @keyframes marquee {
     0% {
       transform: translate3d(0, 0, 0);
