@@ -13,7 +13,7 @@ mod db;
 struct DbState {
     conn: Mutex<Connection>,
 }
-
+const CLEAR_DB_ON_START: bool = false;
 fn clean_metadata_string(s: &str) -> String {
     s.replace('\0', "")
      .replace('\r', "")
@@ -92,6 +92,7 @@ fn import_music_folder(state: State<'_, DbState>) -> Result<CategoriesResponse, 
         let mut album_name = None;
         let mut duration = 0;
         let mut thumbnail = None;
+        let mut lyrics = None;
 
         // Try extracting metadata using lofty
         if let Ok(tagged_file) = Probe::open(&file).and_then(|p| p.read()) {
@@ -114,11 +115,16 @@ fn import_music_folder(state: State<'_, DbState>) -> Result<CategoriesResponse, 
                         thumbnail = Some(format!("data:{};base64,{}", mime, b64));
                     }
                 }
+                if lyrics.is_none() {
+                    if let Some(item) = tag.get(&lofty::tag::ItemKey::Lyrics) {
+                        lyrics = Some(clean_metadata_string(item.value().text().unwrap_or("")));
+                    }
+                }
             }
         }
 
         // Fallback to the mature `id3` crate if this is an MP3 and any metadata is missing
-        if ext_lower == "mp3" && (album_name.is_none() || title.is_none() || artist.is_none() || thumbnail.is_none()) {
+        if ext_lower == "mp3" && (album_name.is_none() || title.is_none() || artist.is_none() || thumbnail.is_none() || lyrics.is_none()) {
             if let Ok(tag) = id3::Tag::read_from_path(&file) {
                 if title.is_none() {
                     title = tag.title().map(|s| clean_metadata_string(&s));
@@ -134,6 +140,11 @@ fn import_music_folder(state: State<'_, DbState>) -> Result<CategoriesResponse, 
                         let b64 = BASE64_STANDARD.encode(&pic.data);
                         let mime = pic.mime_type.to_string();
                         thumbnail = Some(format!("data:{};base64,{}", mime, b64));
+                    }
+                }
+                if lyrics.is_none() {
+                    if let Some(lyric_frame) = tag.lyrics().next() {
+                        lyrics = Some(clean_metadata_string(&lyric_frame.text));
                     }
                 }
             }
@@ -162,6 +173,7 @@ fn import_music_folder(state: State<'_, DbState>) -> Result<CategoriesResponse, 
             &file_path_str,
             &filename,
             duration,
+            lyrics.as_deref(),
         ).map_err(|e| e.to_string())?;
 
         // If the file has a thumbnail, set it as category thumbnail if they don't have one
@@ -284,6 +296,68 @@ fn update_category_accent_color(
 }
 
 #[tauri::command]
+fn update_song_lyrics(
+    state: State<'_, DbState>,
+    song_id: i64,
+    lyrics: String,
+) -> Result<(), String> {
+    let conn = state.conn.lock().unwrap();
+
+    // 1. Get the file path of the song from the database
+    let mut stmt = conn.prepare("SELECT file_path FROM songs WHERE id = ?1").map_err(|e| e.to_string())?;
+    let file_path_str: String = stmt.query_row([song_id], |row| row.get(0)).map_err(|_| "Song not found in database".to_string())?;
+    let path = Path::new(&file_path_str);
+
+    // 2. Try to write lyrics to the file tag on disk
+    if path.exists() {
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+        if ext == "mp3" {
+            // Use ID3 crate for MP3 files since it is mature and supports USLT natively
+            let mut tag = id3::Tag::read_from_path(path).unwrap_or_else(|_| id3::Tag::new());
+            // Remove existing USLT frames to avoid duplicates
+            tag.remove("USLT");
+            let lyrics_frame = id3::frame::Lyrics {
+                lang: "eng".to_string(),
+                description: "".to_string(),
+                text: lyrics.clone(),
+            };
+            tag.add_frame(id3::Frame::with_content("USLT", id3::Content::Lyrics(lyrics_frame)));
+            if let Err(e) = tag.write_to_path(path, id3::Version::Id3v24) {
+                eprintln!("Failed to write ID3 lyrics tag: {}", e);
+            }
+        } else {
+            // For other formats (FLAC, M4A, WAV, etc.), use lofty
+            if let Ok(mut tagged_file) = Probe::open(path).and_then(|p| p.read()) {
+                // Try primary tag first
+                if let Some(tag) = tagged_file.primary_tag_mut() {
+                    tag.insert_text(lofty::tag::ItemKey::Lyrics, lyrics.clone());
+                } else if let Some(tag) = tagged_file.first_tag_mut() {
+                    tag.insert_text(lofty::tag::ItemKey::Lyrics, lyrics.clone());
+                } else {
+                    // Create a new tag if none exists (using the primary tag type)
+                    let tag_type = tagged_file.primary_tag_type();
+                    let mut new_tag = lofty::tag::Tag::new(tag_type);
+                    new_tag.insert_text(lofty::tag::ItemKey::Lyrics, lyrics.clone());
+                    tagged_file.insert_tag(new_tag);
+                }
+
+                if let Err(e) = tagged_file.save_to_path(path, lofty::config::WriteOptions::default()) {
+                    eprintln!("Failed to save lofty lyrics tag to path: {}", e);
+                }
+            }
+        }
+    }
+
+    // 3. Update the lyrics in the database
+    conn.execute(
+        "UPDATE songs SET lyrics = ?1 WHERE id = ?2",
+        rusqlite::params![lyrics, song_id],
+    ).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
 fn delete_category(
     state: State<'_, DbState>,
     category_type: String,
@@ -308,7 +382,7 @@ fn delete_category(
     Ok(CategoriesResponse { folders, albums })
 }
 
-const CLEAR_DB_ON_START: bool = true;
+
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -362,7 +436,8 @@ pub fn run() {
             update_music_thumbnail,
             update_category_accent_color,
             search_songs,
-            delete_category
+            delete_category,
+            update_song_lyrics
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

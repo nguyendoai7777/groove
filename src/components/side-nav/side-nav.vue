@@ -79,16 +79,8 @@
         </v-card-text>
 
         <v-card-actions class="px-6 py-4 flex justify-end gap-2 bg-zinc-950/20 border-t border-zinc-800/50">
-          <button
-            class="px-4 py-2 text-xs font-semibold rounded-md border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-all cursor-pointer"
-            @click="showSettings = false">
-            Cancel
-          </button>
-          <button
-            class="px-4 py-2 text-xs font-semibold rounded-md bg-cyan-600 hover:bg-cyan-500 text-white transition-all shadow-md cursor-pointer"
-            @click="showSettings = false">
-            OK
-          </button>
+          <custom-btn variant="secondary" @click="showSettings = false">Cancel</custom-btn>
+          <custom-btn variant="primary" @click="showSettings = false">OK</custom-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -102,6 +94,7 @@
   import appInfo from '../../../app.json' with { type: 'json' }
   import { APP_ROUTES } from '../../app.route.ts'
   import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
+  import CustomBtn from '@groovex/ui/button/custom-btn.vue'
 
   const showSettings = ref(false)
   const player = useAudioPlayer()

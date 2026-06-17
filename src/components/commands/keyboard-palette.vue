@@ -1,22 +1,14 @@
 <template>
-  <v-dialog
-    v-model="store.isOpen"
-    max-width="600"
-    attach="body"
-    position="top"
-    transition="dialog-transition"
-  >
+  <v-dialog v-model="store.isOpen" max-width="600" attach="body" position="top" transition="dialog-transition">
     <!-- Main Dialog Container with Tailwind & CSS Variables -->
     <div
-      class="bg-(--cmd-bg) border border-(--cmd-border) rounded-2xl overflow-hidden shadow-2xl backdrop-blur-md text-(--cmd-text-primary) font-sans"
-    >
+      class="bg-(--cmd-bg) border border-(--cmd-border) rounded-2xl overflow-hidden shadow-2xl backdrop-blur-md text-(--cmd-text-primary) font-sans">
       <!-- Search Input Wrapper -->
       <div class="flex items-center px-5 py-3.5 border-b border-(--cmd-border) gap-3">
         <!-- Dynamic Header Icon via SvgSprite -->
         <span
           class="flex items-center justify-center text-(--cmd-text-secondary) transition-colors duration-200"
-          :class="{ 'text-indigo-400': isCommandMode }"
-        >
+          :class="{ 'text-indigo-400': isCommandMode }">
           <svg-sprite :src="isCommandMode ? 'Command' : 'Search'" class-name="w-4 h-4" />
         </span>
 
@@ -26,8 +18,7 @@
           v-model="searchQuery"
           @keydown="handleKeyDown"
           placeholder="Gõ '/' để dùng lệnh phát nhạc, hoặc tìm bài hát, ca sĩ..."
-          class="w-full bg-transparent border-none outline-none text-sm placeholder-(--cmd-input-placeholder) text-(--cmd-text-primary)"
-        />
+          class="w-full bg-transparent border-none outline-none text-sm placeholder-(--cmd-input-placeholder) text-(--cmd-text-primary)" />
 
         <!-- Mode Indicator Badge -->
         <span
@@ -36,8 +27,7 @@
             isCommandMode
               ? 'bg-(--cmd-badge-cmd-bg) text-(--cmd-badge-cmd-text) border-(--cmd-badge-cmd-border)'
               : 'bg-(--cmd-badge-search-bg) text-(--cmd-badge-search-text) border-(--cmd-badge-search-border)'
-          "
-        >
+          ">
           {{ isCommandMode ? 'CLI Mode' : 'Search' }}
         </span>
       </div>
@@ -48,8 +38,7 @@
           <!-- Empty State -->
           <div
             v-if="filteredItems.length === 0"
-            class="flex flex-col items-center justify-center py-12 px-6 text-(--cmd-text-secondary) text-sm gap-3"
-          >
+            class="flex flex-col items-center justify-center py-12 px-6 text-(--cmd-text-secondary) text-sm gap-3">
             <!-- <svg
 							xmlns="http://www.w3.org/2000/svg"
 							width="24"
@@ -71,9 +60,7 @@
 
           <!-- Grouped Content -->
           <div v-else v-for="section in groupedItems" :key="section.title" class="mb-3 last:mb-0">
-            <div
-              class="text-[10px] font-bold uppercase tracking-wider text-(--cmd-text-secondary) px-3 py-1.5 select-none"
-            >
+            <div class="text-[10px] font-bold uppercase tracking-wider text-(--cmd-text-secondary) px-3 py-1.5 select-none">
               {{ section.title }}
             </div>
 
@@ -84,54 +71,43 @@
               :item="item"
               :is-active="item.globalIndex === activeIndex"
               @select="selectItem"
-              @hover="activeIndex = $event"
-            />
+              @hover="activeIndex = $event" />
           </div>
         </div>
       </OverlayScrollbarsComponent>
 
       <!-- Footer Help Guide -->
       <div
-        class="flex items-center justify-between px-5 py-2.5 bg-(--cmd-footer-bg) border-t border-(--cmd-footer-border) text-[11px] text-(--cmd-text-secondary)"
-      >
+        class="flex items-center justify-between px-5 py-2.5 bg-(--cmd-footer-bg) border-t border-(--cmd-footer-border) text-[11px] text-(--cmd-text-secondary)">
         <div class="flex items-center gap-1.5">
-          <span
-            ><kbd
-              class="font-mono text-[9px] bg-(--cmd-kbd-bg) text-(--cmd-kbd-text) border border-(--cmd-kbd-border) rounded px-1 py-0.25"
-              >↑↓</kbd
-            >
-            Di chuyển</span
-          >
+          <kbd class="font-mono text-[9px] bg-(--cmd-kbd-bg) text-(--cmd-kbd-text) border border-(--cmd-kbd-border) rounded px-1 py-0.25">
+            ↑↓
+          </kbd>
+          Di chuyển
           <span class="opacity-50">•</span>
           <span v-if="isCommandMode" class="flex items-center gap-1.5">
-            <kbd
-              class="font-mono text-[9px] bg-(--cmd-kbd-bg) text-(--cmd-kbd-text) border border-(--cmd-kbd-border) rounded px-1 py-0.25"
-              >Tab</kbd
-            >
+            <kbd class="font-mono text-[9px] bg-(--cmd-kbd-bg) text-(--cmd-kbd-text) border border-(--cmd-kbd-border) rounded px-1 py-0.25">
+              Tab
+            </kbd>
             Chọn lệnh
             <span class="opacity-50">•</span>
-            <kbd
-              class="font-mono text-[9px] bg-(--cmd-kbd-bg) text-(--cmd-kbd-text) border border-(--cmd-kbd-border) rounded px-1 py-0.25"
-              >↵ Enter</kbd
-            >
+            <kbd class="font-mono text-[9px] bg-(--cmd-kbd-bg) text-(--cmd-kbd-text) border border-(--cmd-kbd-border) rounded px-1 py-0.25">
+              ↵ Enter
+            </kbd>
             Chạy lệnh
           </span>
           <span v-else class="flex items-center gap-1.5">
-            <kbd
-              class="font-mono text-[9px] bg-(--cmd-kbd-bg) text-(--cmd-kbd-text) border border-(--cmd-kbd-border) rounded px-1 py-0.25"
-              >↵ Enter</kbd
-            >
+            <kbd class="font-mono text-[9px] bg-(--cmd-kbd-bg) text-(--cmd-kbd-text) border border-(--cmd-kbd-border) rounded px-1 py-0.25">
+              ↵ Enter
+            </kbd>
             Chọn
           </span>
         </div>
-        <div>
-          <span
-            ><kbd
-              class="font-mono text-[9px] bg-(--cmd-kbd-bg) text-(--cmd-kbd-text) border border-(--cmd-kbd-border) rounded px-1 py-0.25"
-              >Esc</kbd
-            >
-            Đóng</span
-          >
+        <div class="flex items-center gap-1.5">
+          <kbd class="font-mono text-[9px] bg-(--cmd-kbd-bg) text-(--cmd-kbd-text) border border-(--cmd-kbd-border) rounded px-1 py-0.25">
+            Esc
+          </kbd>
+          Đóng
         </div>
       </div>
     </div>

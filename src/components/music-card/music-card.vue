@@ -25,12 +25,11 @@
         class="absolute inset-0 bg-black/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 flex items-center justify-center gap-4 transition-all duration-300">
         <!-- Play Button -->
         <div class="relative group/btn">
-          <button
-            class="w-12 h-12 rounded-full bg-zinc-900/80 hover:bg-zinc-800 border border-white/10 hover:border-white/20 text-white flex items-center justify-center transition-all duration-200 hover:scale-110 shadow-lg cursor-pointer"
-            @click.stop="$emit('play', { type, title })">
-            <!-- Offset play icon slightly to the right for optical center alignment -->
-            <svg-sprite src="Play" class="w-5 h-5 translate-x-px" />
-          </button>
+          <icon-btn
+            src="Play"
+            :size="{ box: 'lg', icon: 'sm' }"
+            class="bg-zinc-900/80! hover:bg-zinc-800! border border-white/10! hover:border-white/20! text-white! rounded-full! transition-all duration-200 hover:scale-110 shadow-lg cursor-pointer"
+            @click.stop="$emit('play', { type, title })" />
           <span
             class="absolute bottom-14 left-1/2 -translate-x-1/2 bg-zinc-950/90 text-zinc-100 text-[11px] px-2 py-1 rounded-md border border-zinc-800/80 shadow-md opacity-0 group-hover/btn:opacity-100 transition-opacity duration-150 whitespace-nowrap pointer-events-none">
             Play all
@@ -55,11 +54,11 @@
 
         <!-- Delete Button -->
         <div class="relative group/btn">
-          <button
-            class="w-12 h-12 rounded-full bg-zinc-900/80 hover:bg-zinc-800 border border-white/10 hover:border-white/20 text-red-400 hover:text-red-300 flex items-center justify-center transition-all duration-200 hover:scale-110 shadow-lg cursor-pointer"
-            @click.stop="onDeleteClick">
-            <svg-sprite src="Delete" class="w-5 h-5" />
-          </button>
+          <icon-btn
+            src="Delete"
+            :size="{ box: 'lg', icon: 'sm' }"
+            class="bg-zinc-900/80! hover:bg-zinc-800! border border-white/10! hover:border-white/20! text-red-400! hover:text-red-300! rounded-full! transition-all duration-200 hover:scale-110 shadow-lg cursor-pointer"
+            @click.stop="onDeleteClick" />
           <span
             class="absolute bottom-14 left-1/2 -translate-x-1/2 bg-zinc-950/90 text-zinc-100 text-[11px] px-2 py-1 rounded-md border border-zinc-800/80 shadow-md opacity-0 group-hover/btn:opacity-100 transition-opacity duration-150 whitespace-nowrap pointer-events-none">
             Delete
@@ -91,6 +90,7 @@
 <script setup lang="ts">
   import { ref, computed } from 'vue'
   import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
+  import IconBtn from '@groovex/ui/button/icon-btn.vue'
   import Confirmer from '@groovex/ui/confirmer/confirmer.vue'
   import { MusicCardProps } from '@groovex/ui/music-card/music-card.types.ts'
 

@@ -7,35 +7,28 @@
         : 'border-l-transparent text-(--cmd-text-secondary) hover:bg-(--cmd-item-bg-active)/40'
     "
     @click="$emit('select', item)"
-    @mouseenter="$emit('hover', item.globalIndex)"
-  >
+    @mouseenter="$emit('hover', item.globalIndex)">
     <span
       class="flex items-center justify-center w-7 h-7 rounded-md transition-colors duration-150"
       :class="
         isActive
           ? 'bg-(--cmd-item-icon-bg-active) text-(--cmd-item-icon-color-active)'
           : 'bg-(--cmd-item-icon-bg) text-(--cmd-item-icon-color)'
-      "
-    >
+      ">
       <playing-visualizer
         v-if="item.type === 'song' && player.currentSong?.id === item.rawSong?.id"
         :paused="!player.isPlaying"
-        class="w-3.5 h-3.5"
-      />
+        class="w-3.5 h-3.5" />
       <svg-sprite v-else :src="getIconSrc(item.type)" class-name="w-3.5 h-3.5" />
     </span>
 
     <div class="flex flex-col flex-1 min-w-0">
-      <span
-        class="text-[13px] font-medium truncate"
-        :class="isActive ? 'text-(--cmd-text-primary)' : 'text-(--cmd-text-primary)/90'"
-      >
+      <span class="text-[13px] font-medium truncate" :class="isActive ? 'text-(--cmd-text-primary)' : 'text-(--cmd-text-primary)/90'">
         {{ item.title }}
       </span>
       <span
         class="text-xs truncate mt-0.5 transition-colors duration-150"
-        :class="isActive ? 'text-(--cmd-text-primary)/75' : 'text-(--cmd-text-secondary)'"
-      >
+        :class="isActive ? 'text-(--cmd-text-primary)/75' : 'text-(--cmd-text-secondary)'">
         {{ item.description }}
       </span>
     </div>
@@ -48,8 +41,7 @@
           isActive
             ? 'bg-(--cmd-kbd-bg-active) text-(--cmd-kbd-text-active) border-(--cmd-kbd-border-active)'
             : 'bg-(--cmd-kbd-bg) text-(--cmd-kbd-text) border-(--cmd-kbd-border) shadow-[0_1px_0_0_rgba(0,0,0,0.15)]'
-        "
-      >
+        ">
         {{ item.shortcut }}
       </kbd>
       <kbd
@@ -59,8 +51,7 @@
           isActive
             ? 'bg-(--cmd-kbd-bg-active) text-(--cmd-kbd-text-active) border-(--cmd-kbd-border-active)'
             : 'bg-(--cmd-kbd-bg) text-(--cmd-kbd-text) border-(--cmd-kbd-border) shadow-[0_1px_0_0_rgba(0,0,0,0.15)]'
-        "
-      >
+        ">
         Tab Chọn
       </kbd>
     </span>

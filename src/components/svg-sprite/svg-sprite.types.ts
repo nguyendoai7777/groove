@@ -24,6 +24,9 @@ export type SVGSrc =
   | 'Next'
   | 'Prev'
   | 'Delete'
+  | 'Edit'
+  | 'LyricsBubble'
+  | 'HelpCircle'
 
 export interface SVGSpriteProps {
   src: CastString<SVGSrc>

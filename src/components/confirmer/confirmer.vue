@@ -1,8 +1,6 @@
 <template>
   <v-dialog v-model="dialogVisible" max-width="400">
-    <v-card
-      class="grx-ConfirmerCard bg-zinc-900! text-zinc-100! border border-zinc-800! rounded-xl! overflow-hidden shadow-2xl"
-    >
+    <v-card class="grx-ConfirmerCard bg-zinc-900! text-zinc-100! border border-zinc-800! rounded-xl! overflow-hidden shadow-2xl">
       <v-card-title class="text-md! font-bold! border-b border-zinc-800/80 px-6 py-4 text-white">
         {{ title }}
       </v-card-title>
@@ -11,21 +9,9 @@
         {{ content }}
       </v-card-text>
 
-      <v-card-actions
-        class="px-6 py-4 flex justify-end gap-2 bg-zinc-950/20 border-t border-zinc-800/50"
-      >
-        <button
-          class="px-4 py-2 text-xs font-semibold rounded-md border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-all cursor-pointer"
-          @click="onCancel"
-        >
-          Cancel
-        </button>
-        <button
-          class="px-4 py-2 text-xs font-semibold rounded-md bg-cyan-600 hover:bg-cyan-500 text-white transition-all shadow-md cursor-pointer"
-          @click="onOk"
-        >
-          OK
-        </button>
+      <v-card-actions class="px-6 py-4 flex justify-end gap-2 bg-zinc-950/20 border-t border-zinc-800/50">
+        <custom-btn variant="secondary" @click="onCancel">Cancel</custom-btn>
+        <custom-btn variant="primary" @click="onOk">OK</custom-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -33,6 +19,7 @@
 
 <script setup lang="ts">
   import { computed } from 'vue'
+  import CustomBtn from '@groovex/ui/button/custom-btn.vue'
 
   const props = defineProps<{
     modelValue: boolean

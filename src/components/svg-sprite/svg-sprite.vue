@@ -38,6 +38,9 @@
     LoopBadge: '/icons/media-ctrl.svg#LoopBadge',
     Next: '/icons/media-ctrl.svg#Next',
     Prev: '/icons/media-ctrl.svg#Prev',
-    Delete: '/icons/acions.svg#Delete',
+    Delete: '/icons/action.svg#Delete',
+    Edit: '/icons/action.svg#Edit',
+    LyricsBubble: '/icons/action.svg#LyricsBubble',
+    HelpCircle: '/icons/action.svg#HelpCircle',
   }
 </script>

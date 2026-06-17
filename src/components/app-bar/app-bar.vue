@@ -1,49 +1,28 @@
 <template>
-  <div
-    class="h-(--nav-head-h) w-full flex items-center relative select-none"
-    data-tauri-drag-region
-  >
+  <div class="h-(--nav-head-h) w-full flex items-center relative select-none" data-tauri-drag-region>
     <!-- Back Button -->
     <icon-btn
       src="AngleLeft"
-      :class="[
-        'transition-all duration-200',
-        canGoBack ? 'opacity-100' : 'opacity-20 cursor-not-allowed pointer-events-none',
-      ]"
+      :class="['transition-all duration-200', canGoBack ? 'opacity-100' : 'opacity-20 cursor-not-allowed pointer-events-none']"
       data-tauri-no-drag
-      @click="handleBack"
-    />
+      @click="handleBack" />
 
     <!-- Window Controls -->
     <div class="ml-auto flex items-center h-full" data-tauri-no-drag>
       <icon-btn title="Minimize" :size="{ icon: 'sm' }" src="Minus" @click="minimize" />
-      <icon-btn
-        v-if="isMaximized"
-        title="Restore"
-        :size="{ icon: 'sm' }"
-        src="ArrowsCompress"
-        @click="restore"
-      />
-      <icon-btn
-        v-else
-        title="Maximize"
-        :size="{ icon: 'sm' }"
-        src="ArrowsExpand"
-        @click="maximize"
-      />
+      <icon-btn v-if="isMaximized" title="Restore" :size="{ icon: 'sm' }" src="ArrowsCompress" @click="restore" />
+      <icon-btn v-else title="Maximize" :size="{ icon: 'sm' }" src="ArrowsExpand" @click="maximize" />
       <icon-btn
         title="Close"
         :size="{ icon: 'sm' }"
         src="Close"
         class="hover:bg-red-600 hover:text-white transition-colors rounded-none"
-        @click="close"
-      />
+        @click="close" />
     </div>
 
     <!-- Search Bar -->
     <div
-      class="grx-SearchBar absolute top-1/2 left-1/2 -translate-1/2 w-[40%] cursor-pointer rounded-full border border-solid flex items-center justify-center py-1 select-none pointer-events-none"
-    >
+      class="grx-SearchBar absolute top-1/2 left-1/2 -translate-1/2 w-[40%] cursor-pointer rounded-full border border-solid flex items-center justify-center py-1 select-none pointer-events-none">
       <div class="text-xs text-zinc-500 font-light">search all</div>
     </div>
   </div>

@@ -76,6 +76,7 @@ pub struct Song {
     pub file_path: String,
     pub filename: String,
     pub duration: u32,
+    pub lyrics: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -89,6 +90,7 @@ pub struct SongSearchResult {
     pub file_path: String,
     pub filename: String,
     pub duration: u32,
+    pub lyrics: Option<String>,
 }
 
 pub fn init_db(db_path: &Path) -> Result<Connection> {
@@ -149,11 +151,23 @@ pub fn init_db(db_path: &Path) -> Result<Connection> {
             file_path TEXT UNIQUE NOT NULL,
             filename TEXT NOT NULL,
             duration INTEGER NOT NULL,
+            lyrics TEXT,
             FOREIGN KEY(album_id) REFERENCES albums(id) ON DELETE SET NULL,
             FOREIGN KEY(folder_id) REFERENCES folders(id) ON DELETE CASCADE
         );",
         [],
     )?;
+
+    // Migration: Add lyrics column to songs table if it does not exist
+    let has_lyrics_col: bool = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('songs') WHERE name='lyrics';",
+        [],
+        |row| row.get(0)
+    ).unwrap_or(0) > 0;
+
+    if !has_lyrics_col {
+        conn.execute("ALTER TABLE songs ADD COLUMN lyrics TEXT;", []).ok();
+    }
 
     Ok(conn)
 }
@@ -201,11 +215,12 @@ pub fn insert_song(
     file_path: &str,
     filename: &str,
     duration: u32,
+    lyrics: Option<&str>,
 ) -> Result<()> {
     conn.execute(
-        "INSERT OR REPLACE INTO songs (title, artist, album_id, folder_id, file_path, filename, duration)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-        params![title, artist, album_id, folder_id, file_path, filename, duration],
+        "INSERT OR REPLACE INTO songs (title, artist, album_id, folder_id, file_path, filename, duration, lyrics)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        params![title, artist, album_id, folder_id, file_path, filename, duration, lyrics],
     )?;
     Ok(())
 }
@@ -280,7 +295,7 @@ pub fn fetch_albums(conn: &Connection) -> Result<Vec<Album>> {
 
 pub fn fetch_songs_by_folder(conn: &Connection, folder_id: i64) -> Result<Vec<Song>> {
     let mut stmt = conn.prepare(
-        "SELECT id, title, artist, album_id, folder_id, file_path, filename, duration
+        "SELECT id, title, artist, album_id, folder_id, file_path, filename, duration, lyrics
          FROM songs WHERE folder_id = ?1 ORDER BY filename ASC"
     )?;
 
@@ -294,6 +309,7 @@ pub fn fetch_songs_by_folder(conn: &Connection, folder_id: i64) -> Result<Vec<So
             file_path: row.get(5)?,
             filename: row.get(6)?,
             duration: row.get(7)?,
+            lyrics: row.get(8)?,
         })
     })?;
 
@@ -306,7 +322,7 @@ pub fn fetch_songs_by_folder(conn: &Connection, folder_id: i64) -> Result<Vec<So
 
 pub fn fetch_songs_by_album(conn: &Connection, album_id: i64) -> Result<Vec<Song>> {
     let mut stmt = conn.prepare(
-        "SELECT id, title, artist, album_id, folder_id, file_path, filename, duration
+        "SELECT id, title, artist, album_id, folder_id, file_path, filename, duration, lyrics
          FROM songs WHERE album_id = ?1 ORDER BY filename ASC"
     )?;
 
@@ -320,6 +336,7 @@ pub fn fetch_songs_by_album(conn: &Connection, album_id: i64) -> Result<Vec<Song
             file_path: row.get(5)?,
             filename: row.get(6)?,
             duration: row.get(7)?,
+            lyrics: row.get(8)?,
         })
     })?;
 
@@ -334,7 +351,7 @@ pub fn search_songs(conn: &Connection, query: &str) -> Result<Vec<SongSearchResu
     let clean_query = normalize_string(query);
     let sql_query = format!("%{}%", clean_query);
     let mut stmt = conn.prepare(
-        "SELECT s.id, s.title, s.artist, s.album_id, a.name as album_name, s.folder_id, s.file_path, s.filename, s.duration
+        "SELECT s.id, s.title, s.artist, s.album_id, a.name as album_name, s.folder_id, s.file_path, s.filename, s.duration, s.lyrics
          FROM songs s
          LEFT JOIN albums a ON s.album_id = a.id
          WHERE normalize_str(s.title) LIKE ?1 
@@ -356,6 +373,7 @@ pub fn search_songs(conn: &Connection, query: &str) -> Result<Vec<SongSearchResu
             file_path: row.get(6)?,
             filename: row.get(7)?,
             duration: row.get(8)?,
+            lyrics: row.get(9)?,
         })
     })?;
 

@@ -7,4 +7,5 @@ export interface Song {
   file_path: string
   filename: string
   duration: number
+  lyrics?: string | null
 }

@@ -1,10 +1,5 @@
 <template>
-  <button
-    @click="togglePlay"
-    :class="isPlaying ? 'paused' : 'playing'"
-    class="MainController"
-    aria-label="Play/Pause"
-  >
+  <button @click="togglePlay" :class="isPlaying ? 'paused' : 'playing'" class="MainController" aria-label="Play/Pause">
     <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
       <path class="bar left-bar" d="M6,4 L10,4 L10,20 L6,20 Z" />
       <path class="bar right-bar" d="M14,4 L18,4 L18,20 L14,20 Z" />
@@ -51,7 +46,7 @@
     }
 
     .bar {
-      fill: #f1f1f1;
+      fill: currentColor;
       transition: d 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
 

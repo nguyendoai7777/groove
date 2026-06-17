@@ -1,20 +1,29 @@
 <template>
   <div
-    class="AudioController fixed bottom-0 left-0 w-full z-50 border-t border-zinc-800 bg-[#121212] pr-6 flex items-center justify-between text-white select-none">
+    :class="[
+      currentSong ? '' : 'disabled',
+      'AudioController fixed bottom-0 left-0 w-full z-50 border-t border-zinc-800 bg-[#121212] pr-6 flex items-center justify-between text-white select-none',
+    ]">
     <!-- Left Section: Song Info -->
     <div class="flex items-center gap-3 w-[25%] min-w-60">
       <!-- Album Cover with stats and hover overlay -->
-      <div class="relative overflow-hidden group shrink-0 cursor-pointer shadow-md aspect-square h-(--audio-controller-h)">
-        <img :src="thumbnailUrl" class="transition-transform duration-300 group-hover:scale-105" alt="Song Cover" />
+      <div
+        class="relative overflow-hidden group shrink-0 cursor-pointer shadow-md aspect-square h-(--audio-controller-h)"
+        @click="goToNowPlaying">
+        <img v-if="currentSong" :src="thumbnailUrl" class="transition-transform duration-300 group-hover:scale-105" alt="Song Cover" />
+        <div v-else class="w-full h-full p-2">
+          <svg-sprite src="Album" class="w-full h-full text-disabled" />
+        </div>
         <div
-          class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-200">
+          class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-200"
+          @click.stop>
           <toggle-play :isPlaying="isPlaying" @state="onPlayStateChange" />
         </div>
         <!-- Stats badge -->
       </div>
 
       <!-- Metadata (Artist, Title, Sub-artists) -->
-      <div class="flex flex-col min-w-0 pr-2 leading-tight">
+      <div class="flex flex-col min-w-0 pr-2 leading-tight cursor-pointer" @click="goToNowPlaying">
         <span class="text-[11px] text-zinc-400 truncate hover:text-white cursor-pointer transition-colors">{{ artistName }}</span>
         <div ref="titleContainerRef" class="song-title-container overflow-hidden whitespace-nowrap my-1">
           <div class="song-title-content inline-flex cursor-pointer text-white" :class="{ 'animate-marquee': isTitleOverflow }">
@@ -118,14 +127,23 @@
 <script setup lang="ts">
   import { computed, ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
   import { storeToRefs } from 'pinia'
+  import { useRouter } from 'vue-router'
   import { useAudioPlayer } from '@groovex/state'
   import IconBtn from '@groovex/ui/button/icon-btn.vue'
   import TogglePlay from './toggle-play.vue'
   import { formatDuration } from '@groovex/core'
+  import SvgSprite from '../svg-sprite/svg-sprite.vue'
 
+  const router = useRouter()
   const player = useAudioPlayer()
   const { currentSong, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isRepeat } = storeToRefs(player)
   const { toggleShuffle, toggleRepeat } = player
+
+  function goToNowPlaying() {
+    if (currentSong.value) {
+      router.push('/playing')
+    }
+  }
 
   const titleContainerRef = ref<HTMLElement | null>(null)
   const titleInnerRef = ref<HTMLElement | null>(null)
@@ -214,6 +232,17 @@
   .AudioController {
     height: var(--audio-controller-h);
     background-color: var(--audio-controller-bg);
+    &.disabled {
+      &::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: 10;
+      }
+      & * {
+        color: var(--color-disabled);
+      }
+    }
   }
   .song-title-container {
     width: 100%;

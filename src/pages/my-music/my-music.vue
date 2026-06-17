@@ -15,18 +15,13 @@
         <!-- Import Banner (Aligns with the first image) -->
         <div
           @click="handleImportClick"
-          class="flex items-start gap-3.5 p-4 bg-zinc-900/40 hover:bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700/80 rounded-lg cursor-pointer transition-all duration-200 mb-8 max-w-xl select-none"
-        >
+          class="flex items-start gap-3.5 p-4 bg-zinc-900/40 hover:bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700/80 rounded-lg cursor-pointer transition-all duration-200 mb-8 max-w-xl select-none">
           <div class="shrink-0 mt-0.5">
             <svg-sprite src="Folder" class="w-5 h-5 text-zinc-400" />
           </div>
           <div class="flex flex-col">
             <span class="text-[13px] font-semibold text-zinc-300">Not finding everything?</span>
-            <span
-              class="text-xs text-cyan-400 hover:text-cyan-300 hover:underline mt-1 font-medium"
-            >
-              Show us where to look for music
-            </span>
+            <span class="text-xs text-cyan-400 hover:text-cyan-300 hover:underline mt-1 font-medium">Show us where to look for music</span>
           </div>
         </div>
 
@@ -38,9 +33,7 @@
         <v-tabs-window v-model="activeTab">
           <v-tabs-window-item value="albums">
             <div v-if="albums.length > 0 || (isImporting && activeTab === 'albums')">
-              <div
-                class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
-              >
+              <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
                 <music-card
                   v-for="item in albums"
                   :key="'album-' + item.id"
@@ -53,16 +46,13 @@
                   @click="openCategoryDetails(item)"
                   @play="handlePlay"
                   @settings="handleSettings(item)"
-                  @delete="handleDeleteCategory(item)"
-                />
+                  @delete="handleDeleteCategory(item)" />
                 <!-- Loading Skeleton Card -->
                 <div
                   v-if="isImporting && activeTab === 'albums'"
-                  class="music-card flex flex-col p-3 rounded-xl border-2 border-zinc-800/20 bg-zinc-900/10 select-none"
-                >
+                  class="music-card flex flex-col p-3 rounded-xl border-2 border-zinc-800/20 bg-zinc-900/10 select-none">
                   <div
-                    class="relative w-full aspect-square rounded-lg overflow-hidden bg-zinc-800 flex items-center justify-center shadow-md"
-                  >
+                    class="relative w-full aspect-square rounded-lg overflow-hidden bg-zinc-800 flex items-center justify-center shadow-md">
                     <v-progress-circular indeterminate color="cyan" size="40" width="4" />
                   </div>
                   <div class="mt-3 flex flex-col min-w-0">
@@ -72,24 +62,17 @@
                 </div>
               </div>
             </div>
-            <div
-              v-else
-              class="flex flex-col items-center justify-center py-20 text-center select-none"
-            >
+            <div v-else class="flex flex-col items-center justify-center py-20 text-center select-none">
               <svg-sprite src="Album" class="w-16 h-16 text-zinc-700 mb-4" />
               <h3 class="text-lg font-semibold text-zinc-400">No albums found</h3>
-              <p class="text-xs text-zinc-500 mt-2 max-w-sm">
-                Import folders containing audio files with album metadata to see them here.
-              </p>
+              <p class="text-xs text-zinc-500 mt-2 max-w-sm">Import folders containing audio files with album metadata to see them here.</p>
             </div>
           </v-tabs-window-item>
 
           <!-- Folders Tab -->
           <v-tabs-window-item value="folders">
             <div v-if="folders.length > 0 || (isImporting && activeTab === 'folders')">
-              <div
-                class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
-              >
+              <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
                 <music-card
                   v-for="item in folders"
                   :key="'folder-' + item.id"
@@ -102,16 +85,13 @@
                   @click="openCategoryDetails(item)"
                   @play="handlePlay"
                   @settings="handleSettings(item)"
-                  @delete="handleDeleteCategory(item)"
-                />
+                  @delete="handleDeleteCategory(item)" />
                 <!-- Loading Skeleton Card -->
                 <div
                   v-if="isImporting && activeTab === 'folders'"
-                  class="music-card flex flex-col p-3 rounded-xl border-2 border-zinc-800/20 bg-zinc-900/10 select-none"
-                >
+                  class="music-card flex flex-col p-3 rounded-xl border-2 border-zinc-800/20 bg-zinc-900/10 select-none">
                   <div
-                    class="relative w-full aspect-square rounded-lg overflow-hidden bg-zinc-800 flex items-center justify-center shadow-md"
-                  >
+                    class="relative w-full aspect-square rounded-lg overflow-hidden bg-zinc-800 flex items-center justify-center shadow-md">
                     <v-progress-circular indeterminate color="cyan" size="40" width="4" />
                   </div>
                   <div class="mt-3 flex flex-col min-w-0">
@@ -121,15 +101,10 @@
                 </div>
               </div>
             </div>
-            <div
-              v-else
-              class="flex flex-col items-center justify-center py-20 text-center select-none"
-            >
+            <div v-else class="flex flex-col items-center justify-center py-20 text-center select-none">
               <svg-sprite src="Folder" class="w-16 h-16 text-zinc-700 mb-4" />
               <h3 class="text-lg font-semibold text-zinc-400">No folders imported</h3>
-              <p class="text-xs text-zinc-500 mt-2 max-w-sm">
-                Click the banner above to import a folder containing music.
-              </p>
+              <p class="text-xs text-zinc-500 mt-2 max-w-sm">Click the banner above to import a folder containing music.</p>
             </div>
           </v-tabs-window-item>
         </v-tabs-window>
@@ -145,8 +120,7 @@
         :thumbnail="selectedCategory.thumbnail"
         :accent-color="selectedCategory.accentColor"
         :songs-count="selectedCategory.songsCount"
-        @back="router.push('/my-music')"
-      />
+        @back="router.push('/my-music')" />
     </transition>
   </div>
 </template>

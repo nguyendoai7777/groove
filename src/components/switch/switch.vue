@@ -5,18 +5,12 @@
     @mouseup="isPressing = false"
     @mouseleave="isPressing = false"
     @touchstart="isPressing = true"
-    @touchend="isPressing = false"
-  >
+    @touchend="isPressing = false">
     <input type="checkbox" v-model="modelValue" class="sr-only" />
-    <div
-      class="relative transition-colors duration-300 ease-in-out"
-      :class="modelValue ? activeColor : inactiveColor"
-      :style="trackStyle"
-    >
+    <div class="relative transition-colors duration-300 ease-in-out" :class="modelValue ? activeColor : inactiveColor" :style="trackStyle">
       <div
         class="absolute bg-white rounded-full shadow-md transition-all duration-300 ease-out will-change-[width,transform]"
-        :style="thumbStyle"
-      ></div>
+        :style="thumbStyle"></div>
     </div>
   </label>
 </template>

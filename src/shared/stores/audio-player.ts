@@ -116,6 +116,26 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
       audio.currentTime = 0
       audio.play().catch((err) => console.error('Error replaying song:', err))
     } else {
+      const isLastSong = currentIndex.value >= playlist.value.length - 1
+
+      if (isShuffle.value) {
+        const playedSet = new Set(shuffleHistory.value)
+        const unplayedIndices = playlist.value.map((_, index) => index).filter((index) => !playedSet.has(index))
+        const allPlayed = unplayedIndices.length === 0 && shuffleHistoryIndex.value >= shuffleHistory.value.length - 1
+
+        if (allPlayed) {
+          isPlaying.value = false
+          audio.currentTime = 0
+          shuffleHistory.value = []
+          shuffleHistoryIndex.value = -1
+          return
+        }
+      } else if (isLastSong) {
+        isPlaying.value = false
+        audio.currentTime = 0
+        return
+      }
+
       nextTrack()
     }
   })
@@ -288,6 +308,16 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     isRepeat.value = !isRepeat.value
   }
 
+  function updateLyrics(songId: number, lyrics: string) {
+    if (currentSong.value && currentSong.value.id === songId) {
+      currentSong.value.lyrics = lyrics
+    }
+    const idx = playlist.value.findIndex((s) => s.id === songId)
+    if (idx !== -1) {
+      playlist.value[idx].lyrics = lyrics
+    }
+  }
+
   return {
     currentSong,
     playlist,
@@ -309,5 +339,6 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     prevTrack,
     toggleShuffle,
     toggleRepeat,
+    updateLyrics,
   }
 })
