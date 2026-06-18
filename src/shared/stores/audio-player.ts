@@ -28,36 +28,60 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
   }
 
   const getInitialCurrentIndex = () => {
-    const val = localStorage.getItem('currentIndex')
-    if (val === null || val === '') return -1
-    const num = Number(val)
-    return isNaN(num) ? -1 : num
+    try {
+      const val = localStorage.getItem('currentIndex')
+      if (val === null || val === '') return -1
+      const num = Number(val)
+      return isNaN(num) ? -1 : num
+    } catch {
+      return -1
+    }
   }
 
   const getInitialCurrentTime = () => {
-    const val = localStorage.getItem('currentTime')
-    if (val === null || val === '') return 0
-    const num = Number(val)
-    return isNaN(num) ? 0 : num
+    try {
+      const val = localStorage.getItem('currentTime')
+      if (val === null || val === '') return 0
+      const num = Number(val)
+      return isNaN(num) ? 0 : num
+    } catch {
+      return 0
+    }
   }
 
   const getInitialVolume = () => {
-    const val = localStorage.getItem('volume')
-    if (val === null || val === '') return 75
-    const num = Number(val)
-    return isNaN(num) ? 75 : num
+    try {
+      const val = localStorage.getItem('volume')
+      if (val === null || val === '') return 75
+      const num = Number(val)
+      return isNaN(num) ? 75 : num
+    } catch {
+      return 75
+    }
   }
 
   const getInitialIsMuted = () => {
-    return localStorage.getItem('isMuted') === 'true'
+    try {
+      return localStorage.getItem('isMuted') === 'true'
+    } catch {
+      return false
+    }
   }
 
   const getInitialIsShuffle = () => {
-    return localStorage.getItem('isShuffle') === 'true'
+    try {
+      return localStorage.getItem('isShuffle') === 'true'
+    } catch {
+      return false
+    }
   }
 
   const getInitialIsRepeat = () => {
-    return localStorage.getItem('isRepeat') === 'true'
+    try {
+      return localStorage.getItem('isRepeat') === 'true'
+    } catch {
+      return false
+    }
   }
 
   const currentSong = ref(getInitialCurrentSong())
@@ -72,27 +96,43 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
   const isRepeat = ref(getInitialIsRepeat())
 
   const getInitialSeekStep = () => {
-    const val = localStorage.getItem('seekStep')
-    if (val === null || val === '') return 5
-    const num = Number(val)
-    return isNaN(num) || num <= 0 ? 5 : num
+    try {
+      const val = localStorage.getItem('seekStep')
+      if (val === null || val === '') return 5
+      const num = Number(val)
+      return isNaN(num) || num <= 0 ? 5 : num
+    } catch {
+      return 5
+    }
   }
   const seekStep = ref(getInitialSeekStep())
 
   watch(seekStep, (newVal) => {
-    localStorage.setItem('seekStep', String(newVal))
+    try {
+      localStorage.setItem('seekStep', String(newVal))
+    } catch (e) {
+      console.error('Failed to save seekStep to localStorage:', e)
+    }
   })
 
   const getInitialVolumeStep = () => {
-    const val = localStorage.getItem('volumeStep')
-    if (val === null || val === '') return 2
-    const num = Number(val)
-    return isNaN(num) || num <= 0 ? 2 : num
+    try {
+      const val = localStorage.getItem('volumeStep')
+      if (val === null || val === '') return 2
+      const num = Number(val)
+      return isNaN(num) || num <= 0 ? 2 : num
+    } catch {
+      return 2
+    }
   }
   const volumeStep = ref(getInitialVolumeStep())
 
   watch(volumeStep, (newVal) => {
-    localStorage.setItem('volumeStep', String(newVal))
+    try {
+      localStorage.setItem('volumeStep', String(newVal))
+    } catch (e) {
+      console.error('Failed to save volumeStep to localStorage:', e)
+    }
   })
 
   const shuffleHistory = ref<number[]>([])
@@ -101,7 +141,11 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
   watch(
     () => isShuffle.value,
     (newVal) => {
-      localStorage.setItem('isShuffle', String(newVal))
+      try {
+        localStorage.setItem('isShuffle', String(newVal))
+      } catch (e) {
+        console.error('Failed to save isShuffle to localStorage:', e)
+      }
       if (newVal) {
         isRepeat.value = false
         if (currentIndex.value !== -1) {
@@ -121,7 +165,11 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
   watch(
     () => isRepeat.value,
     (newVal) => {
-      localStorage.setItem('isRepeat', String(newVal))
+      try {
+        localStorage.setItem('isRepeat', String(newVal))
+      } catch (e) {
+        console.error('Failed to save isRepeat to localStorage:', e)
+      }
       if (newVal && isShuffle.value) {
         isShuffle.value = false
       }
@@ -131,7 +179,13 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
   watch(
     playlist,
     (newVal) => {
-      localStorage.setItem('playlist', JSON.stringify(newVal))
+      try {
+        // Strip out base64 thumbnail string to prevent QuotaExceededError (localStorage limit is 5MB)
+        const cleanPlaylist = newVal.map(({ thumbnail, ...rest }) => rest)
+        localStorage.setItem('playlist', JSON.stringify(cleanPlaylist))
+      } catch (e) {
+        console.error('Failed to save playlist to localStorage:', e)
+      }
       if (isShuffle.value) {
         shuffleHistory.value = currentIndex.value !== -1 ? [currentIndex.value] : []
         shuffleHistoryIndex.value = currentIndex.value !== -1 ? 0 : -1
@@ -141,14 +195,28 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
   )
 
   watch(currentIndex, (newVal) => {
-    localStorage.setItem('currentIndex', String(newVal))
+    try {
+      localStorage.setItem('currentIndex', String(newVal))
+    } catch (e) {
+      console.error('Failed to save currentIndex to localStorage:', e)
+    }
   })
 
   watch(currentSong, (newVal) => {
     if (newVal) {
-      localStorage.setItem('currentSong', JSON.stringify(newVal))
+      try {
+        // Strip out base64 thumbnail string to prevent QuotaExceededError
+        const { thumbnail, ...rest } = newVal
+        localStorage.setItem('currentSong', JSON.stringify(rest))
+      } catch (e) {
+        console.error('Failed to save currentSong to localStorage:', e)
+      }
     } else {
-      localStorage.removeItem('currentSong')
+      try {
+        localStorage.removeItem('currentSong')
+      } catch (e) {
+        console.error('Failed to remove currentSong from localStorage:', e)
+      }
     }
   })
 
@@ -178,12 +246,20 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
   // Sync volume & mute state
   watch(volume, (newVal) => {
     audio.volume = newVal / 100
-    localStorage.setItem('volume', String(newVal))
+    try {
+      localStorage.setItem('volume', String(newVal))
+    } catch (e) {
+      console.error('Failed to save volume to localStorage:', e)
+    }
   })
 
   watch(isMuted, (newVal) => {
     audio.muted = newVal
-    localStorage.setItem('isMuted', String(newVal))
+    try {
+      localStorage.setItem('isMuted', String(newVal))
+    } catch (e) {
+      console.error('Failed to save isMuted to localStorage:', e)
+    }
   })
 
   // Sync playback progress from Audio element
@@ -192,7 +268,11 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     currentTime.value = audio.currentTime
     // Save to localStorage at most once per second to avoid performance issues
     if (Math.abs(audio.currentTime - lastSavedTime) >= 1) {
-      localStorage.setItem('currentTime', String(audio.currentTime))
+      try {
+        localStorage.setItem('currentTime', String(audio.currentTime))
+      } catch (e) {
+        console.error('Failed to save currentTime to localStorage:', e)
+      }
       lastSavedTime = audio.currentTime
     }
   })
@@ -218,7 +298,11 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
         if (allPlayed) {
           isPlaying.value = false
           audio.currentTime = 0
-          localStorage.setItem('currentTime', '0')
+          try {
+            localStorage.setItem('currentTime', '0')
+          } catch (e) {
+            console.error('Failed to save currentTime to localStorage:', e)
+          }
           lastSavedTime = 0
           shuffleHistory.value = []
           shuffleHistoryIndex.value = -1
@@ -227,7 +311,11 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
       } else if (isLastSong) {
         isPlaying.value = false
         audio.currentTime = 0
-        localStorage.setItem('currentTime', '0')
+        try {
+          localStorage.setItem('currentTime', '0')
+        } catch (e) {
+          console.error('Failed to save currentTime to localStorage:', e)
+        }
         lastSavedTime = 0
         return
       }
@@ -276,7 +364,11 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     currentSong.value = song
     currentTime.value = 0
     duration.value = song.duration
-    localStorage.setItem('currentTime', '0')
+    try {
+      localStorage.setItem('currentTime', '0')
+    } catch (e) {
+      console.error('Failed to save currentTime to localStorage:', e)
+    }
     lastSavedTime = 0
 
     try {
@@ -297,7 +389,11 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     if (isPlaying.value) {
       audio.pause()
       isPlaying.value = false
-      localStorage.setItem('currentTime', String(audio.currentTime))
+      try {
+        localStorage.setItem('currentTime', String(audio.currentTime))
+      } catch (e) {
+        console.error('Failed to save currentTime to localStorage:', e)
+      }
       lastSavedTime = audio.currentTime
     } else {
       audio
@@ -327,7 +423,11 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     } else {
       audio.pause()
       isPlaying.value = false
-      localStorage.setItem('currentTime', String(audio.currentTime))
+      try {
+        localStorage.setItem('currentTime', String(audio.currentTime))
+      } catch (e) {
+        console.error('Failed to save currentTime to localStorage:', e)
+      }
       lastSavedTime = audio.currentTime
     }
   }
@@ -336,7 +436,11 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     if (!currentSong.value) return
     audio.currentTime = seconds
     currentTime.value = seconds
-    localStorage.setItem('currentTime', String(seconds))
+    try {
+      localStorage.setItem('currentTime', String(seconds))
+    } catch (e) {
+      console.error('Failed to save currentTime to localStorage:', e)
+    }
     lastSavedTime = seconds
   }
 
