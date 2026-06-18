@@ -94,7 +94,7 @@
           <!-- Tooltip on hover -->
           <div
             v-if="isHovering && hoverSongName"
-            class="absolute bottom-6 bg-black/95 text-white text-[11px] px-2.5 py-1 rounded-md pointer-events-none transform -translate-x-1/2 whitespace-nowrap shadow-lg border border-white/10 z-50 transition-opacity duration-150"
+            class="absolute bottom-6 bg-black/95 text-white text-[11px] px-5 py-2 rounded-md pointer-events-none transform -translate-x-1/2 whitespace-nowrap shadow-lg border border-white/10 z-50 transition-opacity duration-150"
             :style="{ left: hoverX + 'px' }">
             {{ hoverSongName }}
           </div>

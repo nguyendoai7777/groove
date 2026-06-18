@@ -43,47 +43,38 @@
     </div>
 
     <!-- Settings Dialog -->
-    <v-dialog v-model="showSettings" max-width="450">
+    <v-dialog v-model="showSettings" max-width="800">
       <v-card
         class="grx-ConfirmerCard bg-theme-bg-item! text-theme-text! border border-theme-border! rounded-xl! overflow-hidden shadow-2xl">
         <v-card-title class="text-md! font-bold! border-b border-theme-border/80 px-6 py-4 text-white">Settings</v-card-title>
-
         <v-card-text class="px-6! py-5! text-sm! text-theme-text-muted flex flex-col gap-4">
-          <div class="mb-2 text-xs text-theme-text-disabled leading-relaxed">
-            GrooveX Application Preferences. You can configure audio quality, hotkeys, theme preferences, and sync folders here.
-          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <label>
+              <div class="block mb-2 text-theme-text-secondary font-medium text-xs tracking-wide">Audio Seek Step (seconds)</div>
+              <v-text-field
+                v-model.number="seekStep"
+                type="number"
+                min="1"
+                placeholder="5"
+                density="compact"
+                variant="outlined"
+                color="cyan-accent-3"
+                hide-details />
+            </label>
 
-          <div class="border-t border-theme-border/50 pt-4 flex flex-col gap-2">
-            <label class="text-theme-text-secondary font-medium text-xs tracking-wide uppercase mb-1">Audio Seek Step (seconds)</label>
-            <v-text-field
-              v-model.number="seekStep"
-              type="number"
-              min="1"
-              placeholder="5"
-              density="compact"
-              variant="outlined"
-              color="cyan-accent-3"
-              hide-details />
-            <div class="text-[10px] text-theme-text-disabled mt-1">
-              Adjust how many seconds are skipped when pressing Left or Right arrow keys.
-            </div>
-          </div>
-
-          <div class="border-t border-theme-border/50 pt-4 flex flex-col gap-2">
-            <label class="text-theme-text-secondary font-medium text-xs tracking-wide uppercase mb-1">Volume Adjust Step</label>
-            <v-text-field
-              v-model.number="volumeStep"
-              type="number"
-              min="1"
-              max="100"
-              placeholder="2"
-              density="compact"
-              variant="outlined"
-              color="cyan-accent-3"
-              hide-details />
-            <div class="text-[10px] text-theme-text-disabled mt-1">
-              Adjust how much volume is changed when pressing Up or Down arrow keys.
-            </div>
+            <label>
+              <div class="block mb-2 text-theme-text-secondary font-medium text-xs tracking-wide">Volume Adjust Step</div>
+              <v-text-field
+                v-model.number="volumeStep"
+                type="number"
+                min="1"
+                max="100"
+                placeholder="2"
+                density="compact"
+                variant="outlined"
+                color="cyan-accent-3"
+                hide-details />
+            </label>
           </div>
         </v-card-text>
 

@@ -202,25 +202,33 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     }
   })
 
-  watch(currentSong, (newVal) => {
-    targetSeekTime = null
-    isSeeking = false
-    if (newVal) {
-      try {
-        // Strip out base64 thumbnail string to prevent QuotaExceededError
-        const { thumbnail, ...rest } = newVal
-        localStorage.setItem('currentSong', JSON.stringify(rest))
-      } catch (e) {
-        console.error('Failed to save currentSong to localStorage:', e)
+  let lastSongId = currentSong.value?.id || null
+  watch(
+    currentSong,
+    (newVal) => {
+      if (!newVal || newVal.id !== lastSongId) {
+        targetSeekTime = null
+        isSeeking = false
+        lastSongId = newVal?.id || null
       }
-    } else {
-      try {
-        localStorage.removeItem('currentSong')
-      } catch (e) {
-        console.error('Failed to remove currentSong from localStorage:', e)
+      if (newVal) {
+        try {
+          // Strip out base64 thumbnail string to prevent QuotaExceededError
+          const { thumbnail, ...rest } = newVal
+          localStorage.setItem('currentSong', JSON.stringify(rest))
+        } catch (e) {
+          console.error('Failed to save currentSong to localStorage:', e)
+        }
+      } else {
+        try {
+          localStorage.removeItem('currentSong')
+        } catch (e) {
+          console.error('Failed to remove currentSong from localStorage:', e)
+        }
       }
-    }
-  })
+    },
+    { deep: true },
+  )
 
   // HTML5 Audio element
   const audio = new Audio()

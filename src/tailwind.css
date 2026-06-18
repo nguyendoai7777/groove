@@ -10,6 +10,7 @@
   --bg-search-hover: #222;
 
   --color-disabled: oklch(0.45 0 0);
+  --border-theme: rgba(6, 182, 212, 0.3);
 
   /* Premium Cyan Input Theme Variables */
   --input-border-color: rgba(6, 182, 212, 0.15);
@@ -95,6 +96,7 @@
   --color-text-primary: #fff;
   --nav-bg: rgba(24, 24, 27, 0.4);
   --bg-main: #121212;
+  --border-theme: rgba(6, 182, 212, 0.3);
   /* scrollbar */
   .os-theme-dark {
     --os-handle-bg: rgb(143, 143, 143);
@@ -130,6 +132,7 @@
   --color-text-primary: #000;
   --nav-bg: rgba(255, 255, 255, 0.4);
   --bg-main: #f4f4f5;
+  --border-theme: rgba(8, 145, 178, 0.25);
   /* Command Palette Theme Variables (Light Mode) */
   --cmd-bg: rgba(255, 255, 255, 0.95);
   --cmd-border: rgba(228, 228, 231, 0.8);
@@ -212,6 +215,7 @@
   --color-theme-bg-placeholder: var(--color-theme-bg-placeholder);
   --color-theme-border: var(--color-theme-border);
   --color-theme-border-hover: var(--color-theme-border-hover);
+  --color-border-theme: var(--border-theme);
 
   /* Spacing and layout configs */
   --spacing-now-playing-h: calc(100vh - var(--nav-head-h) - var(--audio-controller-h));

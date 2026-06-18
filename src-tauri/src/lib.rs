@@ -54,8 +54,32 @@ fn get_music_categories(state: State<'_, DbState>) -> Result<CategoriesResponse,
     Ok(CategoriesResponse { folders, albums })
 }
 
+#[derive(serde::Serialize)]
+struct ImportResponse {
+    folders: Vec<db::Folder>,
+    albums: Vec<db::Album>,
+    added_count: usize,
+    removed_count: usize,
+}
+
+// Helper to check if a path is inside another path case-insensitively
+fn is_subpath(child: &Path, parent: &Path) -> bool {
+    let child_str = child.to_string_lossy().to_lowercase().replace("/", "\\");
+    let parent_str = parent.to_string_lossy().to_lowercase().replace("/", "\\");
+    if child_str.starts_with(&parent_str) {
+        if child_str.len() == parent_str.len() {
+            return true;
+        }
+        let rest = &child_str[parent_str.len()..];
+        if rest.starts_with("\\") || parent_str.ends_with("\\") {
+            return true;
+        }
+    }
+    false
+}
+
 #[tauri::command]
-fn import_music_folder(state: State<'_, DbState>) -> Result<CategoriesResponse, String> {
+fn import_music_folder(state: State<'_, DbState>) -> Result<ImportResponse, String> {
     // Open native folder dialog
     let folder_path = rfd::FileDialog::new()
         .set_title("Select Music Folder")
@@ -63,13 +87,67 @@ fn import_music_folder(state: State<'_, DbState>) -> Result<CategoriesResponse, 
 
     let folder_path = match folder_path {
         Some(p) => p,
-        None => return get_music_categories(state), // User cancelled
+        None => {
+            let conn = state.conn.lock().unwrap();
+            let folders = db::fetch_folders(&conn).map_err(|e| e.to_string())?;
+            let albums = db::fetch_albums(&conn).map_err(|e| e.to_string())?;
+            return Ok(ImportResponse {
+                folders,
+                albums,
+                added_count: 0,
+                removed_count: 0,
+            });
+        }
     };
 
     let conn = state.conn.lock().unwrap();
+
+    // 1. Get existing songs belonging to this folder path
+    let mut stmt = conn.prepare("SELECT id, file_path FROM songs").map_err(|e| e.to_string())?;
+    let song_paths_iter = stmt.query_map([], |row| {
+        Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+    }).map_err(|e| e.to_string())?;
+
+    let mut existing_songs = Vec::new();
+    for item in song_paths_iter {
+        let (id, file_path) = item.map_err(|e| e.to_string())?;
+        if is_subpath(Path::new(&file_path), &folder_path) {
+            existing_songs.push((id, file_path));
+        }
+    }
+
+    let existing_paths_set: std::collections::HashSet<String> = existing_songs
+        .iter()
+        .map(|(_, path)| path.clone())
+        .collect();
+
+    // 2. Scan files on disk
     let mut files = Vec::new();
     scan_directory(&folder_path, &mut files);
 
+    let scanned_paths_set: std::collections::HashSet<String> = files
+        .iter()
+        .map(|path| path.to_string_lossy().to_string())
+        .collect();
+
+    // 3. Track added & removed count
+    let mut added_count = 0;
+    for file in &files {
+        let path_str = file.to_string_lossy().to_string();
+        if !existing_paths_set.contains(&path_str) {
+            added_count += 1;
+        }
+    }
+
+    let mut removed_count = 0;
+    for (id, file_path) in &existing_songs {
+        if !scanned_paths_set.contains(file_path) {
+            conn.execute("DELETE FROM songs WHERE id = ?1", [*id]).ok();
+            removed_count += 1;
+        }
+    }
+
+    // 4. Import / update scanned files
     for file in files {
         let file_path_str = file.to_string_lossy().to_string();
         let filename = file.file_name().unwrap_or_default().to_string_lossy().to_string();
@@ -218,7 +296,7 @@ fn import_music_folder(state: State<'_, DbState>) -> Result<CategoriesResponse, 
     // Return fresh list of folders and albums
     let folders = db::fetch_folders(&conn).map_err(|e| e.to_string())?;
     let albums = db::fetch_albums(&conn).map_err(|e| e.to_string())?;
-    Ok(CategoriesResponse { folders, albums })
+    Ok(ImportResponse { folders, albums, added_count, removed_count })
 }
 
 #[tauri::command]

@@ -49,14 +49,14 @@
           <div class="flex flex-col gap-1">
             <div
               v-for="(seg, idx) in parsedTimeline"
-              :key="idx"
-              @click="player.seek(seg.start)"
               class="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-all duration-150 border border-transparent"
+              :key="idx"
               :class="[
                 idx === activeSegmentIndex
                   ? 'bg-theme-accent/10 border-theme-accent/30 text-theme-accent-light font-semibold shadow-xs'
                   : 'hover:bg-theme-bg-placeholder/25 text-theme-text-secondary',
-              ]">
+              ]"
+              @click="player.seek(seg.start)">
               <span class="font-mono text-[9px] shrink-0 opacity-70" :class="{ 'text-theme-accent-light': idx === activeSegmentIndex }">
                 {{ formatDuration(seg.start) }}
               </span>

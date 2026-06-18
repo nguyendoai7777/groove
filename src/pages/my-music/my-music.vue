@@ -139,6 +139,7 @@
   import MusicList from '@groovex/pages/my-music/music-list.vue'
   import { useAudioPlayer } from '@groovex/state'
   import type { Song } from '@groovex/types'
+  import { useToast } from '../../shared/composables/use-toast'
 
   interface MusicItemCard {
     id: number
@@ -209,11 +210,18 @@
     loadCategories()
   })
 
+  const toast = useToast()
+
   // Trigger folder picker and scanning
   async function handleImportClick() {
     isImporting.value = true
     try {
-      const res = await invoke<{ folders: any[]; albums: any[] }>('import_music_folder')
+      const res = await invoke<{
+        folders: any[]
+        albums: any[]
+        added_count: number
+        removed_count: number
+      }>('import_music_folder')
 
       const folderCards = res.folders.map((f) => ({
         id: f.id,
@@ -236,8 +244,20 @@
       }))
 
       musicItems.value = [...folderCards, ...albumCards]
+
+      // Show toast notification
+      if (res.added_count > 0 && res.removed_count > 0) {
+        toast.show(`Có ${res.added_count} bài vừa được thêm và ${res.removed_count} bài vừa được xóa.`)
+      } else if (res.added_count > 0) {
+        toast.show(`Có ${res.added_count} bài vừa được thêm.`)
+      } else if (res.removed_count > 0) {
+        toast.show(`Có ${res.removed_count} bài vừa được xóa.`)
+      } else {
+        toast.show('Không có bài hát nào mới được thêm hoặc xóa.')
+      }
     } catch (err) {
       console.error('Error scanning folder:', err)
+      toast.show('Đã xảy ra lỗi khi quét thư mục.')
     } finally {
       isImporting.value = false
     }
