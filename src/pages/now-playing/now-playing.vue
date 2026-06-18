@@ -7,15 +7,15 @@
 
     <!-- Left side: Album Art & Controls Info -->
     <div
-      class="w-1/4 min-w-now-playing-left-min-w max-w-now-playing-left-max-w flex flex-col items-center justify-start pt-4 shrink-0 @container h-full overflow-hidden">
+      class="w-1/4 min-w-now-playing-left-min-w max-w-now-playing-left-max-w flex flex-col items-center justify-start shrink-0 @container h-full overflow-hidden">
       <!-- Album Cover Card -->
       <div
-        class="relative group w-full aspect-square rounded-2xl overflow-hidden shadow-now-playing-cover bg-theme-bg-placeholder transition-all duration-500 hover:scale-[1.02] hover:shadow-now-playing-cover-hover shrink-0">
+        class="relative group w-full aspect-square rounded-2xl overflow-hidden shadow-now-playing-cover bg-theme-bg-placeholder transition-all duration-500 hover:shadow-now-playing-cover-hover shrink-0">
         <img
           v-if="thumbnailUrl"
           :src="thumbnailUrl"
           alt="Now Playing Cover"
-          class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+          class="w-full h-full object-cover transition-transform duration-350" />
         <div v-else class="w-full h-full flex items-center justify-center bg-linear-to-br from-theme-border-hover to-theme-bg-item">
           <svg-sprite src="Album" class="w-16 h-16 text-theme-text-disabled" />
         </div>
@@ -29,27 +29,28 @@
         <p class="text-theme-text-muted text-xs truncate">{{ artistName }}</p>
       </div>
 
-      <!-- Simple visualizer animation -->
-      <div class="flex items-center gap-1.5 h-6 mt-3 shrink-0">
-        <playing-visualizer :paused="!isPlaying" class="w-5 h-5 text-theme-accent-light" />
-      </div>
-
       <!-- Timeline segments box -->
       <div
         v-if="parsedTimeline.length > 0"
-        class="w-full flex-1 min-h-0 mt-4 flex flex-col overflow-hidden bg-theme-bg-item/20 border border-theme-border/40 rounded-xl p-3 text-left">
+        class="w-full flex-1 min-h-0 mt-4 flex flex-col overflow-hidden bg-theme-bg-item/20 border border-theme-border/40 rounded-xl text-left">
         <div
-          class="text-[11px] font-bold text-theme-text-muted uppercase tracking-wider mb-2 border-b border-theme-border/30 pb-1.5 flex justify-between items-center shrink-0">
-          <span>Timeline</span>
+          class="text-[11px] px-3 py-2 font-bold text-theme-text-muted uppercase tracking-wider mb-2 border-b border-theme-border/30 pb-1.5 flex justify-between items-center shrink-0">
+          <!-- Simple visualizer animation -->
+          <div class="flex items-center gap-1.5 shrink-0">
+            <playing-visualizer :paused="!isPlaying" class="w-5 h-5 text-theme-accent-light" />
+          </div>
           <span class="text-[10px] text-theme-accent-light lowercase font-mono">
             {{ activeSegmentIndex !== -1 ? `${activeSegmentIndex + 1}/${parsedTimeline.length}` : '' }}
           </span>
         </div>
-        <overlay-scrollbars-component :options="{ scrollbars: { autoHide: 'scroll' } }" defer class="flex-1 pr-1 overflow-y-auto">
+        <overlay-scrollbars-component
+          :options="{ scrollbars: { autoHide: 'scroll' } }"
+          defer
+          class="flex-1 px-2 overflow-y-auto timeline-scroll-container">
           <div class="flex flex-col gap-1">
             <div
               v-for="(seg, idx) in parsedTimeline"
-              class="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-all duration-150 border border-transparent"
+              class="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-all duration-150 border border-transparent snap-start"
               :key="idx"
               :class="[
                 idx === activeSegmentIndex
@@ -57,7 +58,9 @@
                   : 'hover:bg-theme-bg-placeholder/25 text-theme-text-secondary',
               ]"
               @click="player.seek(seg.start)">
-              <span class="font-mono text-[9px] shrink-0 opacity-70" :class="{ 'text-theme-accent-light': idx === activeSegmentIndex }">
+              <span
+                class="font-mono text-[12px] shrink-0 opacity-70 mt-px"
+                :class="{ 'text-theme-accent-light': idx === activeSegmentIndex }">
                 {{ formatDuration(seg.start) }}
               </span>
               <span class="truncate text-left flex-1 text-[11px]">{{ seg.title }}</span>
@@ -68,10 +71,10 @@
     </div>
 
     <!-- Middle side: Lyrics View & Editor -->
-    <div class="flex-1 min-w-0 flex flex-col h-full backdrop-blur-xs overflow-hidden rounded-2xl border border-theme-border/50 py-2">
+    <div class="flex-1 min-w-0 flex flex-col h-full backdrop-blur-xs overflow-hidden rounded-2xl border border-theme-border/50 pb-2">
       <!-- View Mode -->
       <template v-if="!isEditingLyrics">
-        <div class="flex items-center justify-between mb-3 border-b border-theme-border/40 pb-2.5 shrink-0 relative">
+        <div class="flex items-center justify-between mb-3 border-b border-theme-border/40 p-2.5 shrink-0 relative">
           <span class="text-2xl font-semibold tracking-wider absolute top-1/2 left-1/2 -translate-1/2">Lyrics</span>
           <div class="ml-auto flex gap-2">
             <!-- Timeline Edit Button -->
@@ -158,79 +161,83 @@
 
     <!-- Right side: Playlist Queue List -->
     <div
-      class="w-now-playing-right-w min-w-now-playing-right-min-w max-w-now-playing-right-max-w flex flex-col h-full backdrop-blur-xs p-4 rounded-2xl border border-theme-border/50 overflow-hidden">
-      <div class="flex items-center justify-between mb-3 pb-2 border-b border-theme-border/30 shrink-0">
-        <h3 class="text-sm font-bold text-white tracking-wide flex items-center gap-2">
+      class="w-now-playing-right-w min-w-now-playing-right-min-w max-w-now-playing-right-max-w flex flex-col h-full backdrop-blur-xs rounded-2xl border border-theme-border/50 overflow-hidden">
+      <div class="flex items-center justify-between pb-2 border-b border-theme-border/30 shrink-0">
+        <h3 class="text-sm font-bold text-white tracking-wide flex items-center gap-2 pt-3 px-3">
           <span>Queue / Playlist</span>
           <span class="text-[10px] font-normal text-theme-text-disabled">({{ playlist.length }} tracks)</span>
         </h3>
       </div>
 
       <!-- Queue List Viewport -->
-      <overlay-scrollbars-component
-        :options="{ scrollbars: { autoHide: 'scroll' } }"
-        defer
-        class="flex-1 pr-1"
-        @os-initialized="onQueueListOsInitialized">
-        <div class="flex flex-col gap-1.5">
-          <template v-if="playlist.length > 0">
-            <div
-              v-for="(song, idx) in playlist"
-              :key="song.id + '-' + idx"
-              :id="'queue-item-' + song.id"
-              :ref="(el) => setActiveRowRef(el, idx)"
-              class="group/item flex items-center gap-2.5 p-2 rounded-xl transition-all duration-200 cursor-pointer border border-transparent"
-              :class="[
-                idx < currentIndex ? 'opacity-25 hover:opacity-50' : 'opacity-100',
-                idx === currentIndex
-                  ? 'bg-theme-accent/10 border-theme-accent/30 shadow-md text-white'
-                  : 'hover:bg-theme-bg-placeholder/40 text-theme-text-secondary',
-              ]"
-              @click="handlePlaySongAt(idx)">
-              <!-- Index / Status -->
-              <div class="w-6 flex items-center justify-center text-[10px] font-mono text-theme-text-disabled">
-                <span v-if="idx !== currentIndex" class="group-hover/item:hidden">{{ idx + 1 }}</span>
-                <svg-sprite
-                  v-if="idx !== currentIndex"
-                  src="Play"
-                  class="w-2.5 h-2.5 text-theme-accent-light fill-theme-accent-light hidden group-hover/item:block" />
-                <playing-visualizer v-if="idx === currentIndex" :paused="!isPlaying" class="w-3 h-3 text-theme-accent-light" />
-              </div>
+      <div class="relative flex-1 min-h-0">
+        <!-- Fade-out gradient at the top of scrollable area -->
+        <div class="absolute top-0 left-0 right-0 h-3 bg-linear-to-b from-[#121212] to-transparent pointer-events-none z-10"></div>
+        <overlay-scrollbars-component
+          :options="{ scrollbars: { autoHide: 'scroll' } }"
+          defer
+          class="h-full px-1"
+          @os-initialized="onQueueListOsInitialized">
+          <div class="flex flex-col gap-1.5 px-2 pt-3">
+            <template v-if="playlist.length > 0">
+              <div
+                v-for="(song, idx) in playlist"
+                :key="song.id + '-' + idx"
+                :id="'queue-item-' + song.id"
+                :ref="(el) => setActiveRowRef(el, idx)"
+                class="group/item flex items-center gap-2.5 p-2 rounded-xl transition-all duration-200 cursor-pointer border border-transparent"
+                :class="[
+                  idx < currentIndex ? 'opacity-25 hover:opacity-50' : 'opacity-100',
+                  idx === currentIndex
+                    ? 'bg-theme-accent/10 border-theme-accent/30 shadow-md text-white'
+                    : 'hover:bg-theme-bg-placeholder/40 text-theme-text-secondary',
+                ]"
+                @click="handlePlaySongAt(idx)">
+                <!-- Index / Status -->
+                <div class="w-6 flex items-center justify-center text-[10px] font-mono text-theme-text-disabled">
+                  <span v-if="idx !== currentIndex" class="group-hover/item:hidden">{{ idx + 1 }}</span>
+                  <svg-sprite
+                    v-if="idx !== currentIndex"
+                    src="Play"
+                    class="w-2.5 h-2.5 text-theme-accent-light fill-theme-accent-light hidden group-hover/item:block" />
+                  <playing-visualizer v-if="idx === currentIndex" :paused="!isPlaying" class="w-3 h-3 text-theme-accent-light" />
+                </div>
 
-              <!-- Thumbnail -->
-              <div class="w-8 h-8 rounded-md overflow-hidden bg-theme-bg-placeholder shrink-0 shadow-xs">
-                <img v-if="song.thumbnail" :src="song.thumbnail" class="w-full h-full object-cover" />
-                <div v-else class="w-full h-full flex items-center justify-center bg-theme-bg-item">
-                  <svg-sprite src="Album" class="w-4 h-4 text-theme-text-disabled" />
+                <!-- Thumbnail -->
+                <div class="w-8 h-8 rounded-md overflow-hidden bg-theme-bg-placeholder shrink-0 shadow-xs">
+                  <img v-if="song.thumbnail" :src="song.thumbnail" class="w-full h-full object-cover" />
+                  <div v-else class="w-full h-full flex items-center justify-center bg-theme-bg-item">
+                    <svg-sprite src="Album" class="w-4 h-4 text-theme-text-disabled" />
+                  </div>
+                </div>
+
+                <!-- Title & Artist -->
+                <div class="flex-1 min-w-0 text-left">
+                  <div
+                    class="text-xs font-semibold truncate"
+                    :class="idx === currentIndex ? 'text-theme-accent-light' : 'text-theme-text-secondary group-hover/item:text-white'">
+                    {{ song.title || song.filename.replace(/\.[^/.]+$/, '') }}
+                  </div>
+                  <div class="text-[10px] text-theme-text-muted truncate mt-0.5">
+                    {{ song.artist || 'Unknown Artist' }}
+                  </div>
+                </div>
+
+                <!-- Duration -->
+                <div class="text-[10px] font-mono text-theme-text-disabled pr-1 tabular-nums">
+                  {{ formatDuration(song.duration) }}
                 </div>
               </div>
+            </template>
 
-              <!-- Title & Artist -->
-              <div class="flex-1 min-w-0 text-left">
-                <div
-                  class="text-xs font-semibold truncate"
-                  :class="idx === currentIndex ? 'text-theme-accent-light' : 'text-theme-text-secondary group-hover/item:text-white'">
-                  {{ song.title || song.filename.replace(/\.[^/.]+$/, '') }}
-                </div>
-                <div class="text-[10px] text-theme-text-muted truncate mt-0.5">
-                  {{ song.artist || 'Unknown Artist' }}
-                </div>
-              </div>
-
-              <!-- Duration -->
-              <div class="text-[10px] font-mono text-theme-text-disabled pr-1 tabular-nums">
-                {{ formatDuration(song.duration) }}
-              </div>
+            <!-- Empty State -->
+            <div v-else class="flex flex-col items-center justify-center py-20 text-center">
+              <svg-sprite src="Song" class="w-10 h-10 text-theme-border-hover mb-2" />
+              <span class="text-xs font-semibold text-theme-text-disabled">No songs in queue</span>
             </div>
-          </template>
-
-          <!-- Empty State -->
-          <div v-else class="flex flex-col items-center justify-center py-20 text-center">
-            <svg-sprite src="Song" class="w-10 h-10 text-theme-border-hover mb-2" />
-            <span class="text-xs font-semibold text-theme-text-disabled">No songs in queue</span>
           </div>
-        </div>
-      </overlay-scrollbars-component>
+        </overlay-scrollbars-component>
+      </div>
     </div>
 
     <!-- Timeline Edit Dialog -->
@@ -554,17 +561,8 @@
 </script>
 
 <style>
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 4px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 9999px;
-  }
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.15);
+  .timeline-scroll-container .os-viewport {
+    scroll-snap-type: y mandatory;
+    scroll-behavior: smooth;
   }
 </style>

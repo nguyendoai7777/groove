@@ -16,6 +16,7 @@ import {
   VDialog,
   VList,
   VListItem,
+  VMenu,
   VProgressCircular,
   VSlider,
   VTab,
@@ -43,6 +44,7 @@ const vtx = createVuetify({
     'v-tabs-window-item': VTabsWindowItem,
     'v-progress-circular': VProgressCircular,
     'v-slider': VSlider,
+    'v-menu': VMenu,
   },
 })
 app.use(AppRouter).use(createPinia()).use(vtx).mount('#app')

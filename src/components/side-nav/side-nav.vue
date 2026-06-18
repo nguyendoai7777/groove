@@ -47,35 +47,122 @@
       <v-card
         class="grx-ConfirmerCard bg-theme-bg-item! text-theme-text! border border-theme-border! rounded-xl! overflow-hidden shadow-2xl">
         <v-card-title class="text-md! font-bold! border-b border-theme-border/80 px-6 py-4 text-white">Settings</v-card-title>
-        <v-card-text class="px-6! py-5! text-sm! text-theme-text-muted flex flex-col gap-4">
-          <div class="grid grid-cols-2 gap-3">
-            <label>
-              <div class="block mb-2 text-theme-text-secondary font-medium text-xs tracking-wide">Audio Seek Step (seconds)</div>
-              <v-text-field
-                v-model.number="seekStep"
-                type="number"
-                min="1"
-                placeholder="5"
-                density="compact"
-                variant="outlined"
-                color="cyan-accent-3"
-                hide-details />
-            </label>
+        <v-card-text class="py-5! !px-1 text-sm! text-theme-text-muted flex flex-col gap-4">
+          <OverlayScrollbarsComponent :options="{ scrollbars: { autoHide: 'scroll' } }" defer class="px-6 max-h-[60svh]">
+            <div class="grid grid-cols-2 gap-3">
+              <label>
+                <div class="block mb-2 text-theme-text-secondary font-medium text-xs tracking-wide">Audio Seek Step (seconds)</div>
+                <v-text-field
+                  v-model.number="seekStep"
+                  type="number"
+                  min="1"
+                  placeholder="5"
+                  density="compact"
+                  variant="outlined"
+                  color="cyan-accent-3"
+                  hide-details />
+              </label>
 
-            <label>
-              <div class="block mb-2 text-theme-text-secondary font-medium text-xs tracking-wide">Volume Adjust Step</div>
-              <v-text-field
-                v-model.number="volumeStep"
-                type="number"
-                min="1"
-                max="100"
-                placeholder="2"
-                density="compact"
-                variant="outlined"
-                color="cyan-accent-3"
-                hide-details />
-            </label>
-          </div>
+              <label>
+                <div class="block mb-2 text-theme-text-secondary font-medium text-xs tracking-wide">Volume Adjust Step</div>
+                <v-text-field
+                  v-model.number="volumeStep"
+                  type="number"
+                  min="1"
+                  max="100"
+                  placeholder="2"
+                  density="compact"
+                  variant="outlined"
+                  color="cyan-accent-3"
+                  hide-details />
+              </label>
+            </div>
+
+            <div class="border-t border-theme-border/30 pt-4 mt-2">
+              <div class="flex justify-between items-center mb-3">
+                <div class="text-theme-text-secondary font-medium text-xs tracking-wide uppercase">Equalizer (Bộ cân bằng âm thanh)</div>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-[11px] text-theme-text-muted">Preset:</span>
+                  <v-menu>
+                    <template #activator="{ props }">
+                      <v-btn
+                        v-bind="props"
+                        variant="outlined"
+                        density="compact"
+                        class="text-xs capitalize font-semibold border-theme-border! text-theme-text-secondary!">
+                        {{ currentPresetName }}
+                      </v-btn>
+                    </template>
+                    <v-list class="bg-theme-bg-item border border-theme-border! text-xs" density="compact">
+                      <v-list-item
+                        v-for="preset in EQ_PRESETS"
+                        :key="preset.name"
+                        @click="applyPreset(preset)"
+                        :active="currentPresetName === preset.name"
+                        color="cyan-accent-3"
+                        class="cursor-pointer hover:bg-theme-bg-placeholder/20">
+                        <v-list-item-title class="text-xs">{{ preset.name }}</v-list-item-title>
+                      </v-list-item>
+                    </v-list>
+                  </v-menu>
+                </div>
+              </div>
+
+              <!-- Bass Booster Special Controls -->
+              <div class="bg-theme-bg-placeholder/5 border border-theme-border/30 rounded-lg p-3 mb-4 flex items-center justify-between">
+                <div class="flex flex-col gap-0.5">
+                  <span class="text-xs font-semibold text-white flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-cyan-accent-3 animate-pulse"></span>
+                    Bass Boost (Tăng Siêu Trầm)
+                  </span>
+                  <span class="text-[10px] text-theme-text-muted">Tăng cường riêng dải âm trầm sâu cho trải nghiệm Bass tốt nhất</span>
+                </div>
+                <div class="flex items-center gap-3 w-44 pr-2">
+                  <v-slider
+                    v-model="bassBoost"
+                    :min="0"
+                    :max="10"
+                    :step="1"
+                    :track-size="2"
+                    :thumb-size="10"
+                    hide-details
+                    color="cyan-accent-3"
+                    class="cursor-pointer w-full"
+                    @update:model-value="onBassBoostChange" />
+                  <span class="text-xs font-mono w-7 text-right text-cyan-accent-3 font-semibold">+{{ bassBoost }}dB</span>
+                </div>
+              </div>
+
+              <!-- 10-Band EQ Panel -->
+              <div
+                class="flex justify-between items-stretch h-48 bg-theme-bg-placeholder/5 border border-theme-border/20 rounded-xl p-4 gap-2">
+                <div v-for="(band, idx) in OCTAVE_BANDS" :key="band" class="flex flex-col items-center flex-1 h-full min-w-0">
+                  <!-- DB value display -->
+                  <span class="text-[9px] font-mono text-theme-text-secondary select-none mb-1">
+                    {{ getDisplayGain(idx) }}
+                  </span>
+                  <!-- Slider -->
+                  <div class="flex-1 flex justify-center py-2 h-full">
+                    <v-slider
+                      v-model="eqGains[idx]"
+                      direction="vertical"
+                      min="-10"
+                      max="10"
+                      step="0.5"
+                      hide-details
+                      color="cyan-accent-3"
+                      track-color="rgba(255, 255, 255, 0.1)"
+                      class="cursor-pointer"
+                      @update:model-value="onSliderChange" />
+                  </div>
+                  <!-- Band Label -->
+                  <span class="text-[9px] text-theme-text-muted select-none mt-1 font-medium whitespace-nowrap">
+                    {{ formatBandLabel(band) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </OverlayScrollbarsComponent>
         </v-card-text>
 
         <v-card-actions class="px-6 py-4 flex justify-end gap-2 bg-theme-bg-placeholder/20 border-t border-theme-border/50">
@@ -91,14 +178,54 @@
   import { ref } from 'vue'
   import { storeToRefs } from 'pinia'
   import { useAudioPlayer } from '@groovex/state'
+  import { OCTAVE_BANDS } from '@groovex/core'
   import appInfo from '../../../app.json' with { type: 'json' }
   import { APP_ROUTES } from '../../app.route.ts'
   import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
   import CustomBtn from '@groovex/ui/button/custom-btn.vue'
+  import { OverlayScrollbarsComponent } from 'overlayscrollbars-vue'
 
   const showSettings = ref(false)
   const player = useAudioPlayer()
-  const { seekStep, volumeStep } = storeToRefs(player)
+  const { seekStep, volumeStep, eqGains, bassBoost, currentPresetName } = storeToRefs(player)
+
+  const EQ_PRESETS = [
+    { name: 'Flat', gains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+    { name: 'Bass Booster (Strong)', gains: [6, 5, 3, 1, 0, 0, 0, 0, 0, 0] },
+    { name: 'Bass Booster (Moderate)', gains: [4, 3, 2, 1, 0, 0, 0, 0, 0, 0] },
+    { name: 'Pop', gains: [-1.5, -1, 0, 2, 4, 4, 2, 0, -1, -1.5] },
+    { name: 'Rock', gains: [4, 3, -1.5, -2.5, -1, 1, 3.5, 4.5, 5, 5] },
+    { name: 'Electronic', gains: [5, 4, 1, 0, -1, 2, 3, 4, 5, 5] },
+    { name: 'Vocal Booster', gains: [-3, -2, -1, 1, 3, 4, 3, 2, 1, 0] },
+    { name: 'Treble Booster', gains: [0, 0, 0, 0, 0, 1, 3, 5, 7, 9] },
+  ]
+
+  const applyPreset = (preset) => {
+    currentPresetName.value = preset.name
+    eqGains.value = [...preset.gains]
+  }
+
+  const onSliderChange = () => {
+    currentPresetName.value = 'Custom'
+  }
+
+  const onBassBoostChange = () => {
+    if (currentPresetName.value !== 'Custom' && !currentPresetName.value.includes('Bass Booster')) {
+      currentPresetName.value = 'Custom'
+    }
+  }
+
+  const getDisplayGain = (idx) => {
+    const gain = eqGains.value[idx]
+    return gain > 0 ? `+${gain}` : `${gain}`
+  }
+
+  const formatBandLabel = (band) => {
+    if (band >= 1000) {
+      return `${band / 1000}k`
+    }
+    return `${band}`
+  }
 
   const getIconForRoute = (path) => {
     if (path === 'my-music') return 'Song'

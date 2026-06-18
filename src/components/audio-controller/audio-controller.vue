@@ -83,7 +83,9 @@
 
       <!-- Timeline/Progress -->
       <div class="w-full flex items-center gap-3 text-[11px] text-theme-text-muted leading-none">
-        <span class="w-9 text-right font-mono">{{ formatDuration(currentTime) }}</span>
+        <span class="w-9 text-right font-mono transition-all duration-300" :class="{ 'time-running': isPlaying }">
+          {{ formatDuration(currentTime) }}
+        </span>
 
         <div
           ref="sliderRef"
@@ -447,5 +449,20 @@
     100% {
       transform: translate3d(-50%, 0, 0);
     }
+  }
+  @keyframes time-ticking {
+    0%,
+    100% {
+      opacity: 1;
+      color: #ffffff;
+      text-shadow: 0 0 4px rgba(255, 255, 255, 0.6);
+    }
+    50% {
+      opacity: 0.65;
+      text-shadow: none;
+    }
+  }
+  .time-running {
+    animation: time-ticking 1s infinite ease-in-out;
   }
 </style>

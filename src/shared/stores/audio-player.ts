@@ -1,8 +1,9 @@
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import type { Song } from '@groovex/types'
 import { EStoreKey } from './stores.definition'
+import { AudioEngine } from '@groovex/core'
 
 export interface PlaybackSong extends Song {
   thumbnail?: string
@@ -84,6 +85,37 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     }
   }
 
+  const getInitialEQGains = () => {
+    try {
+      const val = localStorage.getItem('eqGains')
+      if (val) {
+        const arr = JSON.parse(val)
+        if (Array.isArray(arr) && arr.length === 10) {
+          return arr.map(Number)
+        }
+      }
+    } catch {}
+    return [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  }
+
+  const getInitialBassBoost = () => {
+    try {
+      const val = localStorage.getItem('bassBoost')
+      if (val !== null && val !== '') {
+        const num = Number(val)
+        return isNaN(num) ? 0 : num
+      }
+    } catch {}
+    return 0
+  }
+
+  const getInitialPresetName = () => {
+    try {
+      return localStorage.getItem('currentPresetName') || 'Flat'
+    } catch {}
+    return 'Flat'
+  }
+
   const currentSong = ref(getInitialCurrentSong())
   const playlist = ref(getInitialPlaylist())
   const currentIndex = ref(getInitialCurrentIndex())
@@ -94,6 +126,9 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
   const isMuted = ref(getInitialIsMuted())
   const isShuffle = ref(getInitialIsShuffle())
   const isRepeat = ref(getInitialIsRepeat())
+  const eqGains = ref<number[]>(getInitialEQGains())
+  const bassBoost = ref<number>(getInitialBassBoost())
+  const currentPresetName = ref<string>(getInitialPresetName())
 
   const getInitialSeekStep = () => {
     try {
@@ -232,7 +267,9 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
 
   // HTML5 Audio element
   const audio = new Audio()
-  audio.volume = volume.value / 100
+  audio.crossOrigin = 'anonymous'
+  const audioEngine = new AudioEngine(audio)
+  audioEngine.setVolume(volume.value / 100)
   audio.muted = isMuted.value
 
   // Load initial source if there is a current song saved
@@ -253,9 +290,64 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     }
   }
 
+  // Keep track of effective gains applied to audio engine (incorporating bass boost)
+  const effectiveGains = computed(() => {
+    return eqGains.value.map((gain, idx) => {
+      let offset = 0
+      if (idx === 0)
+        offset = bassBoost.value * 1.0 // 31Hz
+      else if (idx === 1)
+        offset = bassBoost.value * 0.8 // 63Hz
+      else if (idx === 2)
+        offset = bassBoost.value * 0.5 // 125Hz
+      else if (idx === 3) offset = bassBoost.value * 0.2 // 250Hz
+      return Math.max(-10, Math.min(10, gain + offset))
+    })
+  })
+
+  // Watch effective gains and update the audio engine
+  watch(
+    effectiveGains,
+    (newVal) => {
+      newVal.forEach((dbValue, index) => {
+        audioEngine.setEQBand(index, dbValue)
+      })
+    },
+    { deep: true, immediate: true },
+  )
+
+  // Watch for state persistence
+  watch(
+    eqGains,
+    (newVal) => {
+      try {
+        localStorage.setItem('eqGains', JSON.stringify(newVal))
+      } catch (e) {
+        console.error('Failed to save eqGains to localStorage:', e)
+      }
+    },
+    { deep: true },
+  )
+
+  watch(bassBoost, (newVal) => {
+    try {
+      localStorage.setItem('bassBoost', String(newVal))
+    } catch (e) {
+      console.error('Failed to save bassBoost to localStorage:', e)
+    }
+  })
+
+  watch(currentPresetName, (newVal) => {
+    try {
+      localStorage.setItem('currentPresetName', newVal)
+    } catch (e) {
+      console.error('Failed to save currentPresetName to localStorage:', e)
+    }
+  })
+
   // Sync volume & mute state
   watch(volume, (newVal) => {
-    audio.volume = newVal / 100
+    audioEngine.setVolume(newVal / 100)
     try {
       localStorage.setItem('volume', String(newVal))
     } catch (e) {
@@ -369,6 +461,7 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     if (currentSong.value?.id === song.id) {
       if (!isPlaying.value) {
         try {
+          audioEngine.resume()
           await audio.play()
           isPlaying.value = true
         } catch (err) {
@@ -415,6 +508,7 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
       const srcUrl = convertFileSrc(song.file_path)
       audio.src = srcUrl
       audio.load()
+      audioEngine.resume()
       await audio.play()
       isPlaying.value = true
     } catch (err) {
@@ -436,6 +530,7 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
       }
       lastSavedTime = audio.currentTime
     } else {
+      audioEngine.resume()
       audio
         .play()
         .then(() => {
@@ -451,6 +546,7 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
   function setPlaying(state: boolean) {
     if (!currentSong.value) return
     if (state) {
+      audioEngine.resume()
       audio
         .play()
         .then(() => {
@@ -591,6 +687,9 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     isRepeat,
     seekStep,
     volumeStep,
+    eqGains,
+    bassBoost,
+    currentPresetName,
     playSong,
     togglePlay,
     setPlaying,
