@@ -203,6 +203,8 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
   })
 
   watch(currentSong, (newVal) => {
+    targetSeekTime = null
+    isSeeking = false
     if (newVal) {
       try {
         // Strip out base64 thumbnail string to prevent QuotaExceededError
@@ -263,9 +265,39 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
   })
 
   // Sync playback progress from Audio element
+  let isSeeking = false
+  let targetSeekTime: number | null = null
   let lastSavedTime = currentTime.value
+
+  function updateCurrentTime() {
+    if (targetSeekTime !== null) {
+      const diff = audio.currentTime - targetSeekTime
+      if (diff >= 0) {
+        currentTime.value = audio.currentTime
+        targetSeekTime = null
+      } else if (diff >= -1.5) {
+        currentTime.value = targetSeekTime
+      } else {
+        currentTime.value = audio.currentTime
+        targetSeekTime = null
+      }
+    } else {
+      currentTime.value = audio.currentTime
+    }
+  }
+
+  audio.addEventListener('seeking', () => {
+    isSeeking = true
+  })
+
+  audio.addEventListener('seeked', () => {
+    isSeeking = false
+    updateCurrentTime()
+  })
+
   audio.addEventListener('timeupdate', () => {
-    currentTime.value = audio.currentTime
+    if (isSeeking) return
+    updateCurrentTime()
     // Save to localStorage at most once per second to avoid performance issues
     if (Math.abs(audio.currentTime - lastSavedTime) >= 1) {
       try {
@@ -434,6 +466,8 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
 
   function seek(seconds: number) {
     if (!currentSong.value) return
+    isSeeking = true
+    targetSeekTime = seconds
     audio.currentTime = seconds
     currentTime.value = seconds
     try {

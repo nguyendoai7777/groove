@@ -240,20 +240,20 @@
         <v-card-text class="px-2 py-4">
           <p class="text-xs text-theme-text-muted mb-3 leading-relaxed text-left">
             Format:
-            <strong>start-end [space] song name</strong>
-            .
+            <strong>[start_time] [space] song name</strong>
+            (one per line) .
             <br />
-            Time can be in raw seconds or MM:SS / HH:MM:SS. Example:
+            Time can be in raw seconds, MM:SS, or HH:MM:SS. Example:
             <br />
             <span class="font-mono text-theme-accent-light">
-              0:00-3:45 Song One
+              0:00 SANYO
               <br />
-              3:45-8:20 Song Two
+              0:25 Nu Sieu Anh Hung
             </span>
           </p>
           <textarea
             v-model="timelineDraft"
-            placeholder="e.g. 0:00-3:45 First Track"
+            placeholder="e.g. 0:00 First Track"
             rows="10"
             class="w-full bg-theme-bg-item/40 border border-theme-border focus:border-theme-accent/50 rounded-xl p-3 text-xs text-theme-text-secondary outline-hidden resize-none font-mono leading-relaxed custom-scrollbar transition-colors focus:ring-1 focus:ring-theme-accent/20"></textarea>
         </v-card-text>
@@ -278,7 +278,7 @@
   import { formatDuration } from '@groovex/core'
 
   const player = useAudioPlayer()
-  const { playlist, currentIndex, isPlaying, currentSong, currentTime } = storeToRefs(player)
+  const { playlist, currentIndex, isPlaying, currentSong, currentTime, duration } = storeToRefs(player)
 
   const activeRowRef = ref<HTMLElement | null>(null)
   const queueListOsInstance = ref<any>(null)
@@ -300,30 +300,6 @@
     title: string
   }
 
-  // Parse raw timeline text: "start-end title"
-  const parsedTimeline = computed<TimelineSegment[]>(() => {
-    if (!currentSong.value?.timeline) return []
-    const lines = currentSong.value.timeline.split('\n')
-    const segments: TimelineSegment[] = []
-
-    for (const line of lines) {
-      const trimmed = line.trim()
-      if (!trimmed) continue
-
-      const match = trimmed.match(/^([\d:]+)-([\d:]+)\s+(.+)$/)
-      if (match) {
-        const startStr = match[1]
-        const endStr = match[2]
-        const title = match[3]
-
-        const start = parseTimeToSeconds(startStr)
-        const end = parseTimeToSeconds(endStr)
-        segments.push({ start, end, title })
-      }
-    }
-    return segments.sort((a, b) => a.start - b.start)
-  })
-
   // Convert time string "MM:SS", "HH:MM:SS" or raw seconds to number
   function parseTimeToSeconds(timeStr: string): number {
     const parts = timeStr.split(':').map(Number)
@@ -339,10 +315,50 @@
     return 0
   }
 
+  // Parse raw timeline text:
+  // e.g. "0:00 SANYO"
+  // e.g. "0:25 Nu Sieu Anh Hung"
+  const parsedTimeline = computed<TimelineSegment[]>(() => {
+    if (!currentSong.value?.timeline) return []
+    const lines = currentSong.value.timeline.split('\n')
+    const rawSegments: { start: number; title: string }[] = []
+
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (!trimmed) continue
+
+      const match = trimmed.match(/^([\d:]+)\s+(.+)$/)
+      if (match) {
+        const startStr = match[1]
+        const title = match[2].trim()
+        const start = parseTimeToSeconds(startStr)
+        rawSegments.push({ start, title })
+      }
+    }
+
+    rawSegments.sort((a, b) => a.start - b.start)
+
+    const segments: TimelineSegment[] = []
+    const totalDuration = duration.value || 0
+
+    for (let i = 0; i < rawSegments.length; i++) {
+      const start = rawSegments[i].start
+      const title = rawSegments[i].title
+      const nextStart = i < rawSegments.length - 1 ? rawSegments[i + 1].start : totalDuration
+      const end = Math.max(start, nextStart)
+      segments.push({ start, end, title })
+    }
+
+    return segments
+  })
+
   // Active segment index
   const activeSegmentIndex = computed(() => {
     const time = currentTime.value
-    return parsedTimeline.value.findIndex((seg) => time >= seg.start && time <= seg.end)
+    return parsedTimeline.value.findIndex((seg, idx) => {
+      const isLast = idx === parsedTimeline.value.length - 1
+      return time >= seg.start && (isLast ? time <= seg.end : time < seg.end)
+    })
   })
 
   const lyricLines = computed(() => {

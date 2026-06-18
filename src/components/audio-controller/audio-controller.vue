@@ -86,7 +86,9 @@
         <span class="w-9 text-right font-mono">{{ formatDuration(currentTime) }}</span>
 
         <div
-          class="flex-1 grx-PlayerSlider flex items-center h-4 relative group/slider"
+          ref="sliderRef"
+          class="flex-1 grx-PlayerSlider flex items-center h-4 relative cursor-pointer select-none group/slider"
+          @mousedown="startDrag"
           @mousemove="onSliderMouseMove"
           @mouseleave="onSliderMouseLeave">
           <!-- Tooltip on hover -->
@@ -97,26 +99,19 @@
             {{ hoverSongName }}
           </div>
 
-          <!-- Visual chunk dividers -->
-          <div v-if="parsedTimeline.length > 1" class="absolute left-0 right-0 top-0 bottom-0 pointer-events-none z-10 flex">
+          <!-- Custom Chunked Progress Bar -->
+          <div class="w-full flex items-center gap-[2px] h-full">
             <div
-              v-for="(segment, idx) in parsedTimeline.slice(0, -1)"
+              v-for="(segment, idx) in segmentsWithFallback"
               :key="idx"
-              class="absolute top-1/2 -translate-y-1/2 w-[2px] h-[4px] bg-theme-bg-placeholder"
-              :style="{ left: (segment.end / duration) * 100 + '%' }"></div>
+              class="relative h-[4px] rounded-xs overflow-hidden bg-white/10 transition-all duration-150 group-hover/slider:h-[6px] hover:!h-[8px] hover:shadow-xs"
+              :style="{ flexGrow: segment.duration || 1 }">
+              <!-- Filled progress inside this segment -->
+              <div
+                class="absolute left-0 top-0 bottom-0 bg-theme-accent-light transition-all duration-75"
+                :style="{ width: getSegmentFillWidth(segment) }"></div>
+            </div>
           </div>
-
-          <v-slider
-            :model-value="currentTime"
-            @update:model-value="player.seek"
-            :min="0"
-            :max="duration"
-            :step="1"
-            :track-size="4"
-            :thumb-size="16"
-            hide-details
-            density="compact"
-            class="w-full cursor-pointer" />
         </div>
 
         <span class="w-9 text-left font-mono">{{ formatDuration(duration) }}</span>
@@ -178,30 +173,6 @@
     title: string
   }
 
-  // Parse raw timeline text
-  const parsedTimeline = computed<TimelineSegment[]>(() => {
-    if (!currentSong.value?.timeline) return []
-    const lines = currentSong.value.timeline.split('\n')
-    const segments: TimelineSegment[] = []
-
-    for (const line of lines) {
-      const trimmed = line.trim()
-      if (!trimmed) continue
-
-      const match = trimmed.match(/^([\d:]+)-([\d:]+)\s+(.+)$/)
-      if (match) {
-        const startStr = match[1]
-        const endStr = match[2]
-        const title = match[3]
-
-        const start = parseTimeToSeconds(startStr)
-        const end = parseTimeToSeconds(endStr)
-        segments.push({ start, end, title })
-      }
-    }
-    return segments.sort((a, b) => a.start - b.start)
-  })
-
   // Convert time string to seconds
   function parseTimeToSeconds(timeStr: string): number {
     const parts = timeStr.split(':').map(Number)
@@ -217,18 +188,92 @@
     return 0
   }
 
+  // Parse raw timeline text:
+  // e.g. "0:00 SANYO"
+  // e.g. "0:25 Nu Sieu Anh Hung"
+  const parsedTimeline = computed<TimelineSegment[]>(() => {
+    if (!currentSong.value?.timeline) return []
+    const lines = currentSong.value.timeline.split('\n')
+    const rawSegments: { start: number; title: string }[] = []
+
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (!trimmed) continue
+
+      const match = trimmed.match(/^([\d:]+)\s+(.+)$/)
+      if (match) {
+        const startStr = match[1]
+        const title = match[2].trim()
+        const start = parseTimeToSeconds(startStr)
+        rawSegments.push({ start, title })
+      }
+    }
+
+    rawSegments.sort((a, b) => a.start - b.start)
+
+    const segments: TimelineSegment[] = []
+    const totalDuration = duration.value || 0
+
+    for (let i = 0; i < rawSegments.length; i++) {
+      const start = rawSegments[i].start
+      const title = rawSegments[i].title
+      const nextStart = i < rawSegments.length - 1 ? rawSegments[i + 1].start : totalDuration
+      const end = Math.max(start, nextStart)
+      segments.push({ start, end, title })
+    }
+
+    return segments
+  })
+
+  // Extended segment with duration for flexGrow
+  interface ExtendedSegment extends TimelineSegment {
+    duration: number
+  }
+
+  const segmentsWithFallback = computed<ExtendedSegment[]>(() => {
+    if (parsedTimeline.value.length > 0) {
+      return parsedTimeline.value.map((seg) => ({
+        ...seg,
+        duration: Math.max(0, seg.end - seg.start),
+      }))
+    }
+    const totalDuration = duration.value || 1
+    return [
+      {
+        start: 0,
+        end: totalDuration,
+        title: '',
+        duration: totalDuration,
+      },
+    ]
+  })
+
+  function getSegmentFillWidth(segment: TimelineSegment): string {
+    const time = currentTime.value
+    if (time <= segment.start) return '0%'
+    if (time >= segment.end) return '100%'
+    const segmentDuration = segment.end - segment.start
+    if (segmentDuration <= 0) return '0%'
+    const filled = time - segment.start
+    const percentage = Math.max(0, Math.min(100, (filled / segmentDuration) * 100))
+    return `${percentage}%`
+  }
+
   // Hover states & computation
   const isHovering = ref(false)
   const hoverTime = ref(0)
   const hoverX = ref(0)
   const hoverSongName = computed(() => {
     if (parsedTimeline.value.length === 0) return ''
-    const match = parsedTimeline.value.find((s) => hoverTime.value >= s.start && hoverTime.value <= s.end)
+    const match = parsedTimeline.value.find((s, idx) => {
+      const isLast = idx === parsedTimeline.value.length - 1
+      return hoverTime.value >= s.start && (isLast ? hoverTime.value <= s.end : hoverTime.value < s.end)
+    })
     return match ? `${match.title} (${formatDuration(match.start)} - ${formatDuration(match.end)})` : ''
   })
 
   function onSliderMouseMove(e: MouseEvent) {
-    const rect = e.currentTarget?.getBoundingClientRect()
+    const rect = (e.currentTarget as HTMLElement)?.getBoundingClientRect()
     if (!rect || duration.value === 0) return
     const x = e.clientX - rect.left
     const percent = Math.max(0, Math.min(1, x / rect.width))
@@ -239,6 +284,39 @@
 
   function onSliderMouseLeave() {
     isHovering.value = false
+  }
+
+  // Mouse Drag / Seek Logic
+  const isDragging = ref(false)
+  const sliderRef = ref<HTMLElement | null>(null)
+
+  function startDrag(e: MouseEvent) {
+    if (duration.value === 0 || !sliderRef.value) return
+    isDragging.value = true
+    handleDragUpdate(e)
+    window.addEventListener('mousemove', handleDragMove)
+    window.addEventListener('mouseup', handleDragEnd)
+  }
+
+  function handleDragMove(e: MouseEvent) {
+    if (!isDragging.value) return
+    handleDragUpdate(e)
+  }
+
+  function handleDragEnd(e: MouseEvent) {
+    if (!isDragging.value) return
+    isDragging.value = false
+    window.removeEventListener('mousemove', handleDragMove)
+    window.removeEventListener('mouseup', handleDragEnd)
+  }
+
+  function handleDragUpdate(e: MouseEvent) {
+    if (!sliderRef.value || duration.value === 0) return
+    const rect = sliderRef.value.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const percent = Math.max(0, Math.min(1, x / rect.width))
+    const targetTime = percent * duration.value
+    player.seek(targetTime)
   }
 
   function goToNowPlaying() {
