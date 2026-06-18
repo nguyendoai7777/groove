@@ -9,16 +9,67 @@ export interface PlaybackSong extends Song {
 }
 
 export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
-  const currentSong = ref<PlaybackSong | null>(null)
-  const playlist = ref<PlaybackSong[]>([])
-  const currentIndex = ref(-1)
+  const getInitialCurrentSong = () => {
+    try {
+      const val = localStorage.getItem('currentSong')
+      return val ? (JSON.parse(val) as PlaybackSong) : null
+    } catch {
+      return null
+    }
+  }
+
+  const getInitialPlaylist = () => {
+    try {
+      const val = localStorage.getItem('playlist')
+      return val ? (JSON.parse(val) as PlaybackSong[]) : []
+    } catch {
+      return []
+    }
+  }
+
+  const getInitialCurrentIndex = () => {
+    const val = localStorage.getItem('currentIndex')
+    if (val === null || val === '') return -1
+    const num = Number(val)
+    return isNaN(num) ? -1 : num
+  }
+
+  const getInitialCurrentTime = () => {
+    const val = localStorage.getItem('currentTime')
+    if (val === null || val === '') return 0
+    const num = Number(val)
+    return isNaN(num) ? 0 : num
+  }
+
+  const getInitialVolume = () => {
+    const val = localStorage.getItem('volume')
+    if (val === null || val === '') return 75
+    const num = Number(val)
+    return isNaN(num) ? 75 : num
+  }
+
+  const getInitialIsMuted = () => {
+    return localStorage.getItem('isMuted') === 'true'
+  }
+
+  const getInitialIsShuffle = () => {
+    return localStorage.getItem('isShuffle') === 'true'
+  }
+
+  const getInitialIsRepeat = () => {
+    return localStorage.getItem('isRepeat') === 'true'
+  }
+
+  const currentSong = ref(getInitialCurrentSong())
+  const playlist = ref(getInitialPlaylist())
+  const currentIndex = ref(getInitialCurrentIndex())
   const isPlaying = ref(false)
-  const currentTime = ref(0)
-  const duration = ref(0)
-  const volume = ref(75)
-  const isMuted = ref(false)
-  const isShuffle = ref(false)
-  const isRepeat = ref(false)
+  const currentTime = ref(getInitialCurrentTime())
+  const duration = ref(currentSong.value?.duration || 0)
+  const volume = ref(getInitialVolume())
+  const isMuted = ref(getInitialIsMuted())
+  const isShuffle = ref(getInitialIsShuffle())
+  const isRepeat = ref(getInitialIsRepeat())
 
   const getInitialSeekStep = () => {
     const val = localStorage.getItem('seekStep')
@@ -50,6 +101,7 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
   watch(
     () => isShuffle.value,
     (newVal) => {
+      localStorage.setItem('isShuffle', String(newVal))
       if (newVal) {
         isRepeat.value = false
         if (currentIndex.value !== -1) {
@@ -69,6 +121,7 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
   watch(
     () => isRepeat.value,
     (newVal) => {
+      localStorage.setItem('isRepeat', String(newVal))
       if (newVal && isShuffle.value) {
         isShuffle.value = false
       }
@@ -77,7 +130,8 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
 
   watch(
     playlist,
-    () => {
+    (newVal) => {
+      localStorage.setItem('playlist', JSON.stringify(newVal))
       if (isShuffle.value) {
         shuffleHistory.value = currentIndex.value !== -1 ? [currentIndex.value] : []
         shuffleHistoryIndex.value = currentIndex.value !== -1 ? 0 : -1
@@ -86,23 +140,61 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     { deep: true },
   )
 
+  watch(currentIndex, (newVal) => {
+    localStorage.setItem('currentIndex', String(newVal))
+  })
+
+  watch(currentSong, (newVal) => {
+    if (newVal) {
+      localStorage.setItem('currentSong', JSON.stringify(newVal))
+    } else {
+      localStorage.removeItem('currentSong')
+    }
+  })
+
   // HTML5 Audio element
   const audio = new Audio()
   audio.volume = volume.value / 100
   audio.muted = isMuted.value
 
+  // Load initial source if there is a current song saved
+  if (currentSong.value) {
+    try {
+      const srcUrl = convertFileSrc(currentSong.value.file_path)
+      audio.src = srcUrl
+      audio.load()
+
+      const onLoadedMetadata = () => {
+        audio.currentTime = currentTime.value
+        duration.value = audio.duration || currentSong.value?.duration || 0
+        audio.removeEventListener('loadedmetadata', onLoadedMetadata)
+      }
+      audio.addEventListener('loadedmetadata', onLoadedMetadata)
+    } catch (err) {
+      console.error('Error loading initial song:', err)
+    }
+  }
+
   // Sync volume & mute state
   watch(volume, (newVal) => {
     audio.volume = newVal / 100
+    localStorage.setItem('volume', String(newVal))
   })
 
   watch(isMuted, (newVal) => {
     audio.muted = newVal
+    localStorage.setItem('isMuted', String(newVal))
   })
 
   // Sync playback progress from Audio element
+  let lastSavedTime = currentTime.value
   audio.addEventListener('timeupdate', () => {
     currentTime.value = audio.currentTime
+    // Save to localStorage at most once per second to avoid performance issues
+    if (Math.abs(audio.currentTime - lastSavedTime) >= 1) {
+      localStorage.setItem('currentTime', String(audio.currentTime))
+      lastSavedTime = audio.currentTime
+    }
   })
 
   audio.addEventListener('durationchange', () => {
@@ -126,6 +218,8 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
         if (allPlayed) {
           isPlaying.value = false
           audio.currentTime = 0
+          localStorage.setItem('currentTime', '0')
+          lastSavedTime = 0
           shuffleHistory.value = []
           shuffleHistoryIndex.value = -1
           return
@@ -133,6 +227,8 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
       } else if (isLastSong) {
         isPlaying.value = false
         audio.currentTime = 0
+        localStorage.setItem('currentTime', '0')
+        lastSavedTime = 0
         return
       }
 
@@ -180,6 +276,8 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     currentSong.value = song
     currentTime.value = 0
     duration.value = song.duration
+    localStorage.setItem('currentTime', '0')
+    lastSavedTime = 0
 
     try {
       const srcUrl = convertFileSrc(song.file_path)
@@ -199,6 +297,8 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     if (isPlaying.value) {
       audio.pause()
       isPlaying.value = false
+      localStorage.setItem('currentTime', String(audio.currentTime))
+      lastSavedTime = audio.currentTime
     } else {
       audio
         .play()
@@ -227,6 +327,8 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     } else {
       audio.pause()
       isPlaying.value = false
+      localStorage.setItem('currentTime', String(audio.currentTime))
+      lastSavedTime = audio.currentTime
     }
   }
 
@@ -234,6 +336,8 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     if (!currentSong.value) return
     audio.currentTime = seconds
     currentTime.value = seconds
+    localStorage.setItem('currentTime', String(seconds))
+    lastSavedTime = seconds
   }
 
   function nextTrack() {
