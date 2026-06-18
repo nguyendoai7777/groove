@@ -7,10 +7,10 @@
 
     <!-- Left side: Album Art & Controls Info -->
     <div
-      class="w-1/4 min-w-now-playing-left-min-w max-w-now-playing-left-max-w flex flex-col items-center justify-start pt-4 shrink-0 @container">
+      class="w-1/4 min-w-now-playing-left-min-w max-w-now-playing-left-max-w flex flex-col items-center justify-start pt-4 shrink-0 @container h-full overflow-hidden">
       <!-- Album Cover Card -->
       <div
-        class="relative group w-full aspect-square rounded-2xl overflow-hidden shadow-now-playing-cover bg-theme-bg-placeholder transition-all duration-500 hover:scale-[1.02] hover:shadow-now-playing-cover-hover">
+        class="relative group w-full aspect-square rounded-2xl overflow-hidden shadow-now-playing-cover bg-theme-bg-placeholder transition-all duration-500 hover:scale-[1.02] hover:shadow-now-playing-cover-hover shrink-0">
         <img
           v-if="thumbnailUrl"
           :src="thumbnailUrl"
@@ -22,7 +22,7 @@
       </div>
 
       <!-- Metadata -->
-      <div class="text-center mt-5 w-full px-2">
+      <div class="text-center mt-4 w-full px-2 shrink-0">
         <h1 class="text-base font-bold truncate text-white mb-1" id="now-playing-title">
           {{ songTitle }}
         </h1>
@@ -30,8 +30,40 @@
       </div>
 
       <!-- Simple visualizer animation -->
-      <div class="flex items-center gap-1.5 h-6 mt-4">
+      <div class="flex items-center gap-1.5 h-6 mt-3 shrink-0">
         <playing-visualizer :paused="!isPlaying" class="w-5 h-5 text-theme-accent-light" />
+      </div>
+
+      <!-- Timeline segments box -->
+      <div
+        v-if="parsedTimeline.length > 0"
+        class="w-full flex-1 min-h-0 mt-4 flex flex-col overflow-hidden bg-theme-bg-item/20 border border-theme-border/40 rounded-xl p-3 text-left">
+        <div
+          class="text-[11px] font-bold text-theme-text-muted uppercase tracking-wider mb-2 border-b border-theme-border/30 pb-1.5 flex justify-between items-center shrink-0">
+          <span>Timeline</span>
+          <span class="text-[10px] text-theme-accent-light lowercase font-mono">
+            {{ activeSegmentIndex !== -1 ? `${activeSegmentIndex + 1}/${parsedTimeline.length}` : '' }}
+          </span>
+        </div>
+        <overlay-scrollbars-component :options="{ scrollbars: { autoHide: 'scroll' } }" defer class="flex-1 pr-1 overflow-y-auto">
+          <div class="flex flex-col gap-1">
+            <div
+              v-for="(seg, idx) in parsedTimeline"
+              :key="idx"
+              @click="player.seek(seg.start)"
+              class="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-all duration-150 border border-transparent"
+              :class="[
+                idx === activeSegmentIndex
+                  ? 'bg-theme-accent/10 border-theme-accent/30 text-theme-accent-light font-semibold shadow-xs'
+                  : 'hover:bg-theme-bg-placeholder/25 text-theme-text-secondary',
+              ]">
+              <span class="font-mono text-[9px] shrink-0 opacity-70" :class="{ 'text-theme-accent-light': idx === activeSegmentIndex }">
+                {{ formatDuration(seg.start) }}
+              </span>
+              <span class="truncate text-left flex-1 text-[11px]">{{ seg.title }}</span>
+            </div>
+          </div>
+        </overlay-scrollbars-component>
       </div>
     </div>
 
@@ -41,17 +73,32 @@
       <template v-if="!isEditingLyrics">
         <div class="flex items-center justify-between mb-3 border-b border-theme-border/40 pb-2.5 shrink-0 relative">
           <span class="text-2xl font-semibold tracking-wider absolute top-1/2 left-1/2 -translate-1/2">Lyrics</span>
-          <v-btn
-            v-slot:default
-            v-if="currentSong"
-            @click="startEditLyrics"
-            class="ml-auto mr-2 flex rounded-full items-center gap-1.5 px-3 py-1 bg-theme-bg-placeholder/50 hover:bg-theme-border-hover/50 text-xs text-theme-accent-light font-semibold border border-theme-border-hover/30 hover:scale-[1.02] active:scale-95 text-none h-auto shadow-none cursor-pointer"
-            variant="flat">
-            <div class="flex items-center gap-1.5 py-0.5">
-              <svg-sprite src="Edit" class="w-3.5 h-3.5" />
-              <span>{{ lyricLines.length > 0 ? 'Edit Lyrics' : 'Add Lyrics' }}</span>
-            </div>
-          </v-btn>
+          <div class="ml-auto flex gap-2">
+            <!-- Timeline Edit Button -->
+            <v-btn
+              v-slot:default
+              v-if="currentSong"
+              @click="isEditingTimeline = true"
+              class="flex rounded-full items-center gap-1.5 px-3 py-1 bg-theme-bg-placeholder/50 hover:bg-theme-border-hover/50 text-xs text-theme-accent-light font-semibold border border-theme-border-hover/30 hover:scale-[1.02] active:scale-95 text-none h-auto shadow-none cursor-pointer"
+              variant="flat">
+              <div class="flex items-center gap-1.5 py-0.5">
+                <svg-sprite src="Loop" class="w-3.5 h-3.5" />
+                <span>Timeline</span>
+              </div>
+            </v-btn>
+            <!-- Edit Lyrics Button -->
+            <v-btn
+              v-slot:default
+              v-if="currentSong"
+              @click="startEditLyrics"
+              class="flex rounded-full items-center gap-1.5 px-3 py-1 bg-theme-bg-placeholder/50 hover:bg-theme-border-hover/50 text-xs text-theme-accent-light font-semibold border border-theme-border-hover/30 hover:scale-[1.02] active:scale-95 text-none h-auto shadow-none cursor-pointer"
+              variant="flat">
+              <div class="flex items-center gap-1.5 py-0.5">
+                <svg-sprite src="Edit" class="w-3.5 h-3.5" />
+                <span>{{ lyricLines.length > 0 ? 'Edit Lyrics' : 'Add Lyrics' }}</span>
+              </div>
+            </v-btn>
+          </div>
         </div>
 
         <!-- No song loaded state -->
@@ -185,6 +232,37 @@
         </div>
       </overlay-scrollbars-component>
     </div>
+
+    <!-- Timeline Edit Dialog -->
+    <v-dialog v-model="isEditingTimeline" max-width="500px">
+      <v-card class="bg-theme-bg-card border border-theme-border/60 text-theme-text rounded-2xl overflow-hidden p-4 shadow-xl">
+        <v-card-title class="px-2 pb-2 text-base font-bold text-white border-b border-theme-border/30">Edit Timeline</v-card-title>
+        <v-card-text class="px-2 py-4">
+          <p class="text-xs text-theme-text-muted mb-3 leading-relaxed text-left">
+            Format:
+            <strong>start-end [space] song name</strong>
+            .
+            <br />
+            Time can be in raw seconds or MM:SS / HH:MM:SS. Example:
+            <br />
+            <span class="font-mono text-theme-accent-light">
+              0:00-3:45 Song One
+              <br />
+              3:45-8:20 Song Two
+            </span>
+          </p>
+          <textarea
+            v-model="timelineDraft"
+            placeholder="e.g. 0:00-3:45 First Track"
+            rows="10"
+            class="w-full bg-theme-bg-item/40 border border-theme-border focus:border-theme-accent/50 rounded-xl p-3 text-xs text-theme-text-secondary outline-hidden resize-none font-mono leading-relaxed custom-scrollbar transition-colors focus:ring-1 focus:ring-theme-accent/20"></textarea>
+        </v-card-text>
+        <v-card-actions class="px-2 pt-2 border-t border-theme-border/30 justify-end gap-2">
+          <custom-btn variant="secondary" @click="isEditingTimeline = false" :disabled="isSavingTimeline">Cancel</custom-btn>
+          <custom-btn variant="primary" @click="handleSaveTimeline" :loading="isSavingTimeline">Save</custom-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -200,16 +278,72 @@
   import { formatDuration } from '@groovex/core'
 
   const player = useAudioPlayer()
-  const { playlist, currentIndex, isPlaying, currentSong } = storeToRefs(player)
+  const { playlist, currentIndex, isPlaying, currentSong, currentTime } = storeToRefs(player)
 
   const activeRowRef = ref<HTMLElement | null>(null)
   const queueListOsInstance = ref<any>(null)
   const dynamicAccentColor = ref('var(--color-theme-accent-glow)')
 
-  // Edit states
+  // Edit states (lyrics & timeline)
   const isEditingLyrics = ref(false)
   const lyricsDraft = ref('')
   const isSavingLyrics = ref(false)
+
+  const isEditingTimeline = ref(false)
+  const timelineDraft = ref('')
+  const isSavingTimeline = ref(false)
+
+  // Timeline Interface
+  interface TimelineSegment {
+    start: number
+    end: number
+    title: string
+  }
+
+  // Parse raw timeline text: "start-end title"
+  const parsedTimeline = computed<TimelineSegment[]>(() => {
+    if (!currentSong.value?.timeline) return []
+    const lines = currentSong.value.timeline.split('\n')
+    const segments: TimelineSegment[] = []
+
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (!trimmed) continue
+
+      const match = trimmed.match(/^([\d:]+)-([\d:]+)\s+(.+)$/)
+      if (match) {
+        const startStr = match[1]
+        const endStr = match[2]
+        const title = match[3]
+
+        const start = parseTimeToSeconds(startStr)
+        const end = parseTimeToSeconds(endStr)
+        segments.push({ start, end, title })
+      }
+    }
+    return segments.sort((a, b) => a.start - b.start)
+  })
+
+  // Convert time string "MM:SS", "HH:MM:SS" or raw seconds to number
+  function parseTimeToSeconds(timeStr: string): number {
+    const parts = timeStr.split(':').map(Number)
+    if (parts.some(isNaN)) return 0
+
+    if (parts.length === 1) {
+      return parts[0]
+    } else if (parts.length === 2) {
+      return parts[0] * 60 + parts[1]
+    } else if (parts.length === 3) {
+      return parts[0] * 3600 + parts[1] * 60 + parts[2]
+    }
+    return 0
+  }
+
+  // Active segment index
+  const activeSegmentIndex = computed(() => {
+    const time = currentTime.value
+    return parsedTimeline.value.findIndex((seg) => time >= seg.start && time <= seg.end)
+  })
 
   const lyricLines = computed(() => {
     if (!currentSong.value?.lyrics) return []
@@ -242,10 +376,36 @@
     }
   }
 
+  async function handleSaveTimeline() {
+    if (!currentSong.value) return
+    isSavingTimeline.value = true
+    try {
+      await invoke('update_song_timeline', {
+        songId: currentSong.value.id,
+        timeline: timelineDraft.value,
+      })
+      player.updateTimeline(currentSong.value.id, timelineDraft.value)
+      isEditingTimeline.value = false
+    } catch (err) {
+      console.error('Failed to save timeline:', err)
+    } finally {
+      isSavingTimeline.value = false
+    }
+  }
+
   // Reset editing mode when song changes
   watch(currentSong, () => {
     isEditingLyrics.value = false
+    isEditingTimeline.value = false
     lyricsDraft.value = ''
+    timelineDraft.value = currentSong.value?.timeline || ''
+  })
+
+  // Pre-populate timeline draft when modal opens
+  watch(isEditingTimeline, (open) => {
+    if (open) {
+      timelineDraft.value = currentSong.value?.timeline || ''
+    }
   })
 
   // Track metadata computeds

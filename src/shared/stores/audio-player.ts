@@ -526,6 +526,16 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     }
   }
 
+  function updateTimeline(songId: number, timeline: string) {
+    if (currentSong.value && currentSong.value.id === songId) {
+      currentSong.value.timeline = timeline
+    }
+    const idx = playlist.value.findIndex((s) => s.id === songId)
+    if (idx !== -1) {
+      playlist.value[idx].timeline = timeline
+    }
+  }
+
   return {
     currentSong,
     playlist,
@@ -548,5 +558,6 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     toggleShuffle,
     toggleRepeat,
     updateLyrics,
+    updateTimeline,
   }
 })

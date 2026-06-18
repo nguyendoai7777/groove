@@ -8,4 +8,5 @@ export interface Song {
   filename: string
   duration: number
   lyrics?: string | null
+  timeline?: string | null
 }

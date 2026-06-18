@@ -85,7 +85,27 @@
       <div class="w-full flex items-center gap-3 text-[11px] text-theme-text-muted leading-none">
         <span class="w-9 text-right font-mono">{{ formatDuration(currentTime) }}</span>
 
-        <div class="flex-1 grx-PlayerSlider flex items-center h-4">
+        <div
+          class="flex-1 grx-PlayerSlider flex items-center h-4 relative group/slider"
+          @mousemove="onSliderMouseMove"
+          @mouseleave="onSliderMouseLeave">
+          <!-- Tooltip on hover -->
+          <div
+            v-if="isHovering && hoverSongName"
+            class="absolute bottom-6 bg-black/95 text-white text-[11px] px-2.5 py-1 rounded-md pointer-events-none transform -translate-x-1/2 whitespace-nowrap shadow-lg border border-white/10 z-50 transition-opacity duration-150"
+            :style="{ left: hoverX + 'px' }">
+            {{ hoverSongName }}
+          </div>
+
+          <!-- Visual chunk dividers -->
+          <div v-if="parsedTimeline.length > 1" class="absolute left-0 right-0 top-0 bottom-0 pointer-events-none z-10 flex">
+            <div
+              v-for="(segment, idx) in parsedTimeline.slice(0, -1)"
+              :key="idx"
+              class="absolute top-1/2 -translate-y-1/2 w-[2px] h-[4px] bg-theme-bg-placeholder"
+              :style="{ left: (segment.end / duration) * 100 + '%' }"></div>
+          </div>
+
           <v-slider
             :model-value="currentTime"
             @update:model-value="player.seek"
@@ -150,6 +170,76 @@
   const player = useAudioPlayer()
   const { currentSong, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isRepeat } = storeToRefs(player)
   const { toggleShuffle, toggleRepeat } = player
+
+  // Timeline Interface
+  interface TimelineSegment {
+    start: number
+    end: number
+    title: string
+  }
+
+  // Parse raw timeline text
+  const parsedTimeline = computed<TimelineSegment[]>(() => {
+    if (!currentSong.value?.timeline) return []
+    const lines = currentSong.value.timeline.split('\n')
+    const segments: TimelineSegment[] = []
+
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (!trimmed) continue
+
+      const match = trimmed.match(/^([\d:]+)-([\d:]+)\s+(.+)$/)
+      if (match) {
+        const startStr = match[1]
+        const endStr = match[2]
+        const title = match[3]
+
+        const start = parseTimeToSeconds(startStr)
+        const end = parseTimeToSeconds(endStr)
+        segments.push({ start, end, title })
+      }
+    }
+    return segments.sort((a, b) => a.start - b.start)
+  })
+
+  // Convert time string to seconds
+  function parseTimeToSeconds(timeStr: string): number {
+    const parts = timeStr.split(':').map(Number)
+    if (parts.some(isNaN)) return 0
+
+    if (parts.length === 1) {
+      return parts[0]
+    } else if (parts.length === 2) {
+      return parts[0] * 60 + parts[1]
+    } else if (parts.length === 3) {
+      return parts[0] * 3600 + parts[1] * 60 + parts[2]
+    }
+    return 0
+  }
+
+  // Hover states & computation
+  const isHovering = ref(false)
+  const hoverTime = ref(0)
+  const hoverX = ref(0)
+  const hoverSongName = computed(() => {
+    if (parsedTimeline.value.length === 0) return ''
+    const match = parsedTimeline.value.find((s) => hoverTime.value >= s.start && hoverTime.value <= s.end)
+    return match ? `${match.title} (${formatDuration(match.start)} - ${formatDuration(match.end)})` : ''
+  })
+
+  function onSliderMouseMove(e: MouseEvent) {
+    const rect = e.currentTarget?.getBoundingClientRect()
+    if (!rect || duration.value === 0) return
+    const x = e.clientX - rect.left
+    const percent = Math.max(0, Math.min(1, x / rect.width))
+    hoverTime.value = percent * duration.value
+    hoverX.value = x
+    isHovering.value = true
+  }
+
+  function onSliderMouseLeave() {
+    isHovering.value = false
+  }
 
   function goToNowPlaying() {
     if (currentSong.value) {

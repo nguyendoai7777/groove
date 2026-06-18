@@ -77,6 +77,7 @@ pub struct Song {
     pub filename: String,
     pub duration: u32,
     pub lyrics: Option<String>,
+    pub timeline: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -91,6 +92,7 @@ pub struct SongSearchResult {
     pub filename: String,
     pub duration: u32,
     pub lyrics: Option<String>,
+    pub timeline: Option<String>,
 }
 
 pub fn init_db(db_path: &Path) -> Result<Connection> {
@@ -152,6 +154,7 @@ pub fn init_db(db_path: &Path) -> Result<Connection> {
             filename TEXT NOT NULL,
             duration INTEGER NOT NULL,
             lyrics TEXT,
+            timeline TEXT,
             FOREIGN KEY(album_id) REFERENCES albums(id) ON DELETE SET NULL,
             FOREIGN KEY(folder_id) REFERENCES folders(id) ON DELETE CASCADE
         );",
@@ -167,6 +170,17 @@ pub fn init_db(db_path: &Path) -> Result<Connection> {
 
     if !has_lyrics_col {
         conn.execute("ALTER TABLE songs ADD COLUMN lyrics TEXT;", []).ok();
+    }
+
+    // Migration: Add timeline column to songs table if it does not exist
+    let has_timeline_col: bool = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('songs') WHERE name='timeline';",
+        [],
+        |row| row.get(0)
+    ).unwrap_or(0) > 0;
+
+    if !has_timeline_col {
+        conn.execute("ALTER TABLE songs ADD COLUMN timeline TEXT;", []).ok();
     }
 
     Ok(conn)
@@ -216,11 +230,19 @@ pub fn insert_song(
     filename: &str,
     duration: u32,
     lyrics: Option<&str>,
+    timeline: Option<&str>,
 ) -> Result<()> {
     conn.execute(
-        "INSERT OR REPLACE INTO songs (title, artist, album_id, folder_id, file_path, filename, duration, lyrics)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-        params![title, artist, album_id, folder_id, file_path, filename, duration, lyrics],
+        "INSERT INTO songs (title, artist, album_id, folder_id, file_path, filename, duration, lyrics, timeline)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+         ON CONFLICT(file_path) DO UPDATE SET
+            title = excluded.title,
+            artist = excluded.artist,
+            album_id = excluded.album_id,
+            folder_id = excluded.folder_id,
+            filename = excluded.filename,
+            duration = excluded.duration",
+        params![title, artist, album_id, folder_id, file_path, filename, duration, lyrics, timeline],
     )?;
     Ok(())
 }
@@ -295,7 +317,7 @@ pub fn fetch_albums(conn: &Connection) -> Result<Vec<Album>> {
 
 pub fn fetch_songs_by_folder(conn: &Connection, folder_id: i64) -> Result<Vec<Song>> {
     let mut stmt = conn.prepare(
-        "SELECT id, title, artist, album_id, folder_id, file_path, filename, duration, lyrics
+        "SELECT id, title, artist, album_id, folder_id, file_path, filename, duration, lyrics, timeline
          FROM songs WHERE folder_id = ?1 ORDER BY filename ASC"
     )?;
 
@@ -310,6 +332,7 @@ pub fn fetch_songs_by_folder(conn: &Connection, folder_id: i64) -> Result<Vec<So
             filename: row.get(6)?,
             duration: row.get(7)?,
             lyrics: row.get(8)?,
+            timeline: row.get(9)?,
         })
     })?;
 
@@ -322,7 +345,7 @@ pub fn fetch_songs_by_folder(conn: &Connection, folder_id: i64) -> Result<Vec<So
 
 pub fn fetch_songs_by_album(conn: &Connection, album_id: i64) -> Result<Vec<Song>> {
     let mut stmt = conn.prepare(
-        "SELECT id, title, artist, album_id, folder_id, file_path, filename, duration, lyrics
+        "SELECT id, title, artist, album_id, folder_id, file_path, filename, duration, lyrics, timeline
          FROM songs WHERE album_id = ?1 ORDER BY filename ASC"
     )?;
 
@@ -337,6 +360,7 @@ pub fn fetch_songs_by_album(conn: &Connection, album_id: i64) -> Result<Vec<Song
             filename: row.get(6)?,
             duration: row.get(7)?,
             lyrics: row.get(8)?,
+            timeline: row.get(9)?,
         })
     })?;
 
@@ -351,7 +375,7 @@ pub fn search_songs(conn: &Connection, query: &str) -> Result<Vec<SongSearchResu
     let clean_query = normalize_string(query);
     let sql_query = format!("%{}%", clean_query);
     let mut stmt = conn.prepare(
-        "SELECT s.id, s.title, s.artist, s.album_id, a.name as album_name, s.folder_id, s.file_path, s.filename, s.duration, s.lyrics
+        "SELECT s.id, s.title, s.artist, s.album_id, a.name as album_name, s.folder_id, s.file_path, s.filename, s.duration, s.lyrics, s.timeline
          FROM songs s
          LEFT JOIN albums a ON s.album_id = a.id
          WHERE normalize_str(s.title) LIKE ?1 
@@ -374,6 +398,7 @@ pub fn search_songs(conn: &Connection, query: &str) -> Result<Vec<SongSearchResu
             filename: row.get(7)?,
             duration: row.get(8)?,
             lyrics: row.get(9)?,
+            timeline: row.get(10)?,
         })
     })?;
 

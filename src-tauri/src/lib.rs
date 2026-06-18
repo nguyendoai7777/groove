@@ -93,6 +93,7 @@ fn import_music_folder(state: State<'_, DbState>) -> Result<CategoriesResponse, 
         let mut duration = 0;
         let mut thumbnail = None;
         let mut lyrics = None;
+        let mut timeline = None;
 
         // Try extracting metadata using lofty
         if let Ok(tagged_file) = Probe::open(&file).and_then(|p| p.read()) {
@@ -120,11 +121,16 @@ fn import_music_folder(state: State<'_, DbState>) -> Result<CategoriesResponse, 
                         lyrics = Some(clean_metadata_string(item.value().text().unwrap_or("")));
                     }
                 }
+                if timeline.is_none() {
+                    if let Some(item) = tag.get(&lofty::tag::ItemKey::Unknown("TIMELINE".to_string())) {
+                        timeline = Some(clean_metadata_string(item.value().text().unwrap_or("")));
+                    }
+                }
             }
         }
 
         // Fallback to the mature `id3` crate if this is an MP3 and any metadata is missing
-        if ext_lower == "mp3" && (album_name.is_none() || title.is_none() || artist.is_none() || thumbnail.is_none() || lyrics.is_none()) {
+        if ext_lower == "mp3" && (album_name.is_none() || title.is_none() || artist.is_none() || thumbnail.is_none() || lyrics.is_none() || timeline.is_none()) {
             if let Ok(tag) = id3::Tag::read_from_path(&file) {
                 if title.is_none() {
                     title = tag.title().map(|s| clean_metadata_string(&s));
@@ -145,6 +151,14 @@ fn import_music_folder(state: State<'_, DbState>) -> Result<CategoriesResponse, 
                 if lyrics.is_none() {
                     if let Some(lyric_frame) = tag.lyrics().next() {
                         lyrics = Some(clean_metadata_string(&lyric_frame.text));
+                    }
+                }
+                if timeline.is_none() {
+                    for txxx in tag.extended_texts() {
+                        if txxx.description == "TIMELINE" {
+                            timeline = Some(clean_metadata_string(&txxx.value));
+                            break;
+                        }
                     }
                 }
             }
@@ -174,6 +188,7 @@ fn import_music_folder(state: State<'_, DbState>) -> Result<CategoriesResponse, 
             &filename,
             duration,
             lyrics.as_deref(),
+            timeline.as_deref(),
         ).map_err(|e| e.to_string())?;
 
         // If the file has a thumbnail, set it as category thumbnail if they don't have one
@@ -358,6 +373,64 @@ fn update_song_lyrics(
 }
 
 #[tauri::command]
+fn update_song_timeline(
+    state: State<'_, DbState>,
+    song_id: i64,
+    timeline: String,
+) -> Result<(), String> {
+    let conn = state.conn.lock().unwrap();
+
+    // 1. Get the file path of the song from the database
+    let mut stmt = conn.prepare("SELECT file_path FROM songs WHERE id = ?1").map_err(|e| e.to_string())?;
+    let file_path_str: String = stmt.query_row([song_id], |row| row.get(0)).map_err(|_| "Song not found in database".to_string())?;
+    let path = Path::new(&file_path_str);
+
+    // 2. Try to write timeline to the file tag on disk
+    if path.exists() {
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+        if ext == "mp3" {
+            // Use ID3 custom text frame (TXXX) with description "TIMELINE"
+            let mut tag = id3::Tag::read_from_path(path).unwrap_or_else(|_| id3::Tag::new());
+            tag.remove_extended_text(Some("TIMELINE"), None);
+            tag.add_frame(id3::Frame::with_content("TXXX", id3::Content::ExtendedText(id3::frame::ExtendedText {
+                description: "TIMELINE".to_string(),
+                value: timeline.clone(),
+            })));
+            if let Err(e) = tag.write_to_path(path, id3::Version::Id3v24) {
+                eprintln!("Failed to write ID3 timeline tag: {}", e);
+            }
+        } else {
+            // Use lofty custom field
+            if let Ok(mut tagged_file) = Probe::open(path).and_then(|p| p.read()) {
+                let key = lofty::tag::ItemKey::Unknown("TIMELINE".to_string());
+                if let Some(tag) = tagged_file.primary_tag_mut() {
+                    tag.insert_text(key, timeline.clone());
+                } else if let Some(tag) = tagged_file.first_tag_mut() {
+                    tag.insert_text(key, timeline.clone());
+                } else {
+                    let tag_type = tagged_file.primary_tag_type();
+                    let mut new_tag = lofty::tag::Tag::new(tag_type);
+                    new_tag.insert_text(key, timeline.clone());
+                    tagged_file.insert_tag(new_tag);
+                }
+
+                if let Err(e) = tagged_file.save_to_path(path, lofty::config::WriteOptions::default()) {
+                    eprintln!("Failed to save lofty timeline tag to path: {}", e);
+                }
+            }
+        }
+    }
+
+    // 3. Update the timeline in the database
+    conn.execute(
+        "UPDATE songs SET timeline = ?1 WHERE id = ?2",
+        rusqlite::params![timeline, song_id],
+    ).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
 fn delete_category(
     state: State<'_, DbState>,
     category_type: String,
@@ -437,7 +510,8 @@ pub fn run() {
             update_category_accent_color,
             search_songs,
             delete_category,
-            update_song_lyrics
+            update_song_lyrics,
+            update_song_timeline
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
