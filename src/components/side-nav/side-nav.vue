@@ -135,8 +135,31 @@
 
               <!-- 10-Band EQ Panel -->
               <div
-                class="flex justify-between items-stretch bg-theme-bg-placeholder/5 border border-theme-border/20 rounded-xl p-3 gap-1 h-fit">
-                <div v-for="(band, idx) in OCTAVE_BANDS" :key="band" class="flex flex-col items-center flex-1 h-full min-w-0">
+                class="flex justify-between items-stretch bg-theme-bg-placeholder/5 border border-theme-border/20 rounded-xl h-fit relative">
+                <!-- Visualizer Curve Line -->
+                <svg
+                  class="absolute pointer-events-none z-0"
+                  style="left: 0; right: 0; width: 100%; top: 20px; height: 300px"
+                  viewBox="0 0 1000 100"
+                  preserveAspectRatio="none">
+                  <!-- Glow path -->
+                  <path
+                    :d="curvePath"
+                    vector-effect="non-scaling-stroke"
+                    fill="none"
+                    stroke="rgba(6, 182, 212, 0.25)"
+                    stroke-width="3"
+                    stroke-linecap="round" />
+                  <!-- Main solid path -->
+                  <path
+                    :d="curvePath"
+                    vector-effect="non-scaling-stroke"
+                    fill="none"
+                    stroke="rgb(34, 211, 238)"
+                    stroke-width="1.2"
+                    stroke-linecap="round" />
+                </svg>
+                <div v-for="(band, idx) in OCTAVE_BANDS" :key="band" class="flex flex-col items-center flex-1 h-fit min-w-0 z-10">
                   <!-- DB value display -->
                   <span class="text-[9px] font-mono text-theme-text-secondary select-none mb-1">
                     {{ getDisplayGain(idx) }}
@@ -152,7 +175,7 @@
                       hide-details
                       color="cyan-accent-3"
                       track-color="rgba(255, 255, 255, 0.1)"
-                      class="cursor-pointer"
+                      class="cursor-pointer h-full"
                       @update:model-value="onSliderChange" />
                   </div>
                   <!-- Band Label -->
@@ -174,7 +197,7 @@
 </template>
 
 <script setup>
-  import { ref, watch } from 'vue'
+  import { ref, watch, computed } from 'vue'
   import { storeToRefs } from 'pinia'
   import { useAudioPlayer } from '@groovex/state'
   import { OCTAVE_BANDS } from '@groovex/core'
@@ -250,6 +273,41 @@
     const gain = eqGains.value[idx]
     return gain > 0 ? `+${gain}` : `${gain}`
   }
+
+  // Catmull-Rom spline interpolation to SVG Cubic Bezier path
+  const catmullRom2bezier = (points) => {
+    if (points.length < 2) return ''
+    let d = `M ${points[0].x} ${points[0].y}`
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[i - 1] || points[0]
+      const p1 = points[i]
+      const p2 = points[i + 1]
+      const p3 = points[i + 2] || p2
+
+      const cp1x = p1.x + (p2.x - p0.x) / 6
+      const cp1y = p1.y + (p2.y - p0.y) / 6
+
+      const cp2x = p2.x - (p3.x - p1.x) / 6
+      const cp2y = p2.y - (p3.y - p1.y) / 6
+
+      d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`
+    }
+    return d
+  }
+
+  const curvePath = computed(() => {
+    // Generate coordinate points for each of the 10 bands
+    // Horizontal center for column i in 1000px wide viewBox: x_i = i * 100 + 50
+    // Vertical value: eqGains value goes from -10 to +10.
+    // Map -10 to 10 dB to vertical viewport range [2, 99.5] where 2 is top (+10dB) and 99.5 is bottom (-10dB)
+    const points = eqGains.value.map((gain, idx) => {
+      const x = idx * 100 + 50
+      const percentage = (10 - gain) / 20 // 0 at +10dB, 1 at -10dB
+      const y = 2 + percentage * 97.5
+      return { x, y }
+    })
+    return catmullRom2bezier(points)
+  })
 
   const formatBandLabel = (band) => {
     if (band >= 1000) {
