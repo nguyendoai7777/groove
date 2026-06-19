@@ -53,7 +53,7 @@
               <label>
                 <div class="block mb-2 text-theme-text-secondary font-medium text-xs tracking-wide">Audio Seek Step (seconds)</div>
                 <v-text-field
-                  v-model.number="seekStepDraft"
+                  v-model.number="seekStep"
                   type="number"
                   min="1"
                   placeholder="5"
@@ -66,7 +66,7 @@
               <label>
                 <div class="block mb-2 text-theme-text-secondary font-medium text-xs tracking-wide">Volume Adjust Step</div>
                 <v-text-field
-                  v-model.number="volumeStepDraft"
+                  v-model.number="volumeStep"
                   type="number"
                   min="1"
                   max="100"
@@ -90,7 +90,7 @@
                         variant="outlined"
                         density="compact"
                         class="text-xs w-[100px] font-semibold border-theme-border! text-theme-text-secondary!">
-                        {{ currentPresetNameDraft }}
+                        {{ currentPresetName }}
                       </v-btn>
                     </template>
                     <v-list class="bg-theme-bg-item border border-theme-border! text-xs" density="compact">
@@ -98,7 +98,7 @@
                         v-for="preset in EQ_PRESETS"
                         :key="preset.name"
                         @click="applyPreset(preset)"
-                        :active="currentPresetNameDraft === preset.name"
+                        :active="currentPresetName === preset.name"
                         color="cyan-accent-3"
                         class="cursor-pointer hover:bg-theme-bg-placeholder/20 px-3">
                         <v-list-item-title class="text-xs">{{ preset.name }}</v-list-item-title>
@@ -119,7 +119,7 @@
                 </div>
                 <div class="flex items-center gap-3 w-44 pr-2">
                   <v-slider
-                    v-model="bassBoostDraft"
+                    v-model="bassBoost"
                     :min="0"
                     :max="10"
                     :step="1"
@@ -129,7 +129,7 @@
                     color="cyan-accent-3"
                     class="cursor-pointer w-full"
                     @update:model-value="onBassBoostChange" />
-                  <span class="text-xs font-mono w-7 text-right text-cyan-accent-3 font-semibold">+{{ bassBoostDraft }}dB</span>
+                  <span class="text-xs font-mono w-7 text-right text-cyan-accent-3 font-semibold">+{{ bassBoost }}dB</span>
                 </div>
               </div>
 
@@ -144,7 +144,7 @@
                   <!-- Slider -->
                   <div class="grow flex justify-center py-1">
                     <v-slider
-                      v-model="eqGainsDraft[idx]"
+                      v-model="eqGains[idx]"
                       direction="vertical"
                       min="-10"
                       max="10"
@@ -188,34 +188,34 @@
   const player = useAudioPlayer()
   const { seekStep, volumeStep, eqGains, bassBoost, currentPresetName } = storeToRefs(player)
 
-  // Draft state variables for OK/Cancel transactions
-  const seekStepDraft = ref(5)
-  const volumeStepDraft = ref(2)
-  const eqGainsDraft = ref([0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-  const bassBoostDraft = ref(0)
-  const currentPresetNameDraft = ref('Flat')
+  // Backup variables for OK/Cancel transactions
+  let originalSeekStep = 5
+  let originalVolumeStep = 2
+  let originalEqGains = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  let originalBassBoost = 0
+  let originalPresetName = 'Flat'
 
-  // Populate draft variables when the settings modal opens
+  // Backup values when the settings modal opens
   watch(showSettings, (open) => {
     if (open) {
-      seekStepDraft.value = seekStep.value
-      volumeStepDraft.value = volumeStep.value
-      eqGainsDraft.value = [...eqGains.value]
-      bassBoostDraft.value = bassBoost.value
-      currentPresetNameDraft.value = currentPresetName.value
+      originalSeekStep = seekStep.value
+      originalVolumeStep = volumeStep.value
+      originalEqGains = [...eqGains.value]
+      originalBassBoost = bassBoost.value
+      originalPresetName = currentPresetName.value
     }
   })
 
   const saveSettings = () => {
-    seekStep.value = seekStepDraft.value
-    volumeStep.value = volumeStepDraft.value
-    eqGains.value = [...eqGainsDraft.value]
-    bassBoost.value = bassBoostDraft.value
-    currentPresetName.value = currentPresetNameDraft.value
     showSettings.value = false
   }
 
   const cancelSettings = () => {
+    seekStep.value = originalSeekStep
+    volumeStep.value = originalVolumeStep
+    eqGains.value = [...originalEqGains]
+    bassBoost.value = originalBassBoost
+    currentPresetName.value = originalPresetName
     showSettings.value = false
   }
 
@@ -232,22 +232,22 @@
   ]
 
   const applyPreset = (preset) => {
-    currentPresetNameDraft.value = preset.name
-    eqGainsDraft.value = [...preset.gains]
+    currentPresetName.value = preset.name
+    eqGains.value = [...preset.gains]
   }
 
   const onSliderChange = () => {
-    currentPresetNameDraft.value = 'Custom'
+    currentPresetName.value = 'Custom'
   }
 
   const onBassBoostChange = () => {
-    if (currentPresetNameDraft.value !== 'Custom' && !currentPresetNameDraft.value.includes('Bass')) {
-      currentPresetNameDraft.value = 'Custom'
+    if (currentPresetName.value !== 'Custom' && !currentPresetName.value.includes('Bass')) {
+      currentPresetName.value = 'Custom'
     }
   }
 
   const getDisplayGain = (idx) => {
-    const gain = eqGainsDraft.value[idx]
+    const gain = eqGains.value[idx]
     return gain > 0 ? `+${gain}` : `${gain}`
   }
 
