@@ -60,7 +60,7 @@
 
           <!-- Grouped Content -->
           <div v-else v-for="section in groupedItems" :key="section.title" class="mb-3 last:mb-0">
-            <div class="text-[10px] font-bold uppercase tracking-wider text-(--cmd-text-secondary) px-3 py-1.5 select-none">
+            <div class="text-[10px] font-bold tracking-wider text-(--cmd-text-secondary) px-3 py-1.5 select-none">
               {{ section.title }}
             </div>
 

@@ -100,7 +100,7 @@
       <div v-else class="overflow-x-auto">
         <table class="w-full text-left border-collapse">
           <thead>
-            <tr class="text-theme-text-disabled text-xs font-semibold uppercase tracking-wider">
+            <tr class="text-theme-text-disabled text-xs font-semibold tracking-wider">
               <th class="py-3.5 px-4 w-12 text-center">#</th>
               <th class="py-3.5 px-4">Name</th>
               <th class="py-3.5 px-4 w-24 text-left min-w-50">Duration</th>

@@ -34,7 +34,7 @@
         v-if="parsedTimeline.length > 0"
         class="w-full flex-1 min-h-0 mt-4 flex flex-col overflow-hidden bg-theme-bg-item/20 border border-theme-border/40 rounded-xl text-left">
         <div
-          class="text-[11px] px-3 py-2 font-bold text-theme-text-muted uppercase tracking-wider mb-2 border-b border-theme-border/30 pb-1.5 flex justify-between items-center shrink-0">
+          class="text-[11px] px-3 py-2 font-bold text-theme-text-muted tracking-wider mb-2 border-b border-theme-border/30 pb-1.5 flex justify-between items-center shrink-0">
           <!-- Simple visualizer animation -->
           <div class="flex items-center gap-1.5 shrink-0">
             <playing-visualizer :paused="!isPlaying" class="w-5 h-5 text-theme-accent-light" />
@@ -46,12 +46,14 @@
         <overlay-scrollbars-component
           :options="{ scrollbars: { autoHide: 'scroll' } }"
           defer
-          class="flex-1 px-2 overflow-y-auto timeline-scroll-container">
+          class="flex-1 px-2 overflow-y-auto timeline-scroll-container"
+          @os-initialized="onTimelineOsInitialized">
           <div class="flex flex-col gap-1">
             <div
               v-for="(seg, idx) in parsedTimeline"
               class="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-all duration-150 border border-transparent snap-start"
               :key="idx"
+              :ref="(el) => setActiveTimelineRowRef(el, idx)"
               :class="[
                 idx === activeSegmentIndex
                   ? 'bg-theme-accent/10 border-theme-accent/30 text-theme-accent-light font-semibold shadow-xs'
@@ -136,22 +138,29 @@
 
       <!-- Edit Mode -->
       <template v-else>
-        <div class="flex flex-col gap-3 flex-1 h-full">
-          <div class="flex items-center justify-between border-b border-theme-border/40 pb-2.5 shrink-0">
-            <span class="text-xs text-theme-text-muted font-semibold uppercase tracking-wider">
+        <div class="flex flex-col flex-1 h-full">
+          <div class="flex items-center justify-between border-b border-theme-border/40 py-2.5 px-2 shrink-0">
+            <span class="text-xs text-theme-text-muted font-semibold tracking-wider">
               {{ currentSong?.lyrics ? 'Edit Lyrics' : 'Add Lyrics' }}
             </span>
             <span class="text-[10px] text-theme-text-disabled">Lưu vào file & database</span>
           </div>
 
-          <!-- Textarea -->
-          <textarea
-            v-model="lyricsDraft"
-            placeholder="Paste or write lyrics here..."
-            class="w-full flex-1 bg-theme-bg-item/40 border border-theme-border focus:border-theme-accent/50 rounded-xl p-3 text-xs text-theme-text-secondary outline-hidden resize-none font-sans leading-relaxed custom-scrollbar transition-colors focus:ring-1 focus:ring-theme-accent/20"></textarea>
+          <!-- Contenteditable wrapped in OverlayScrollbars -->
+          <overlay-scrollbars-component
+            :options="{ scrollbars: { autoHide: 'scroll' } }"
+            defer
+            class="w-full flex-1 bg-theme-bg-item/40 border border-theme-border focus-within:border-theme-accent/50 transition-colors focus-within:ring-1 focus-within:ring-theme-accent/20">
+            <div
+              ref="lyricsEditorRef"
+              contenteditable="true"
+              placeholder="Paste or write lyrics here..."
+              class="w-full min-h-full p-3 text-xs text-theme-text-secondary outline-hidden font-sans leading-relaxed whitespace-pre-wrap wrap-break-word empty:before:content-[attr(placeholder)] empty:before:text-theme-text-disabled/60 empty:before:pointer-events-none"
+              @input="handleLyricsInput"></div>
+          </overlay-scrollbars-component>
 
           <!-- Action buttons -->
-          <div class="flex items-center justify-end gap-3 mt-1 shrink-0">
+          <div class="flex items-center justify-end gap-3 mt-3 shrink-0">
             <custom-btn variant="secondary" @click="cancelEditLyrics" :disabled="isSavingLyrics">Cancel</custom-btn>
             <custom-btn variant="primary" @click="handleSaveLyrics" :loading="isSavingLyrics">Save</custom-btn>
           </div>
@@ -262,7 +271,7 @@
             v-model="timelineDraft"
             placeholder="e.g. 0:00 First Track"
             rows="10"
-            class="w-full bg-theme-bg-item/40 border border-theme-border focus:border-theme-accent/50 rounded-xl p-3 text-xs text-theme-text-secondary outline-hidden resize-none font-mono leading-relaxed custom-scrollbar transition-colors focus:ring-1 focus:ring-theme-accent/20"></textarea>
+            class="w-full bg-theme-bg-item/40 border border-theme-border focus:border-theme-accent/50 rounded-xl p-3 text-xs text-theme-text-secondary outline-hidden resize-none font-mono leading-relaxed transition-colors focus:ring-1 focus:ring-theme-accent/20"></textarea>
         </v-card-text>
         <v-card-actions class="px-2 pt-2 border-t border-theme-border/30 justify-end gap-2">
           <custom-btn variant="secondary" @click="isEditingTimeline = false" :disabled="isSavingTimeline">Cancel</custom-btn>
@@ -289,12 +298,15 @@
 
   const activeRowRef = ref<HTMLElement | null>(null)
   const queueListOsInstance = ref<any>(null)
+  const activeTimelineRowRef = ref<HTMLElement | null>(null)
+  const timelineOsInstance = ref<any>(null)
   const dynamicAccentColor = ref('var(--color-theme-accent-glow)')
 
   // Edit states (lyrics & timeline)
   const isEditingLyrics = ref(false)
   const lyricsDraft = ref('')
   const isSavingLyrics = ref(false)
+  const lyricsEditorRef = ref<HTMLDivElement | null>(null)
 
   const isEditingTimeline = ref(false)
   const timelineDraft = ref('')
@@ -376,6 +388,16 @@
   function startEditLyrics() {
     lyricsDraft.value = currentSong.value?.lyrics || ''
     isEditingLyrics.value = true
+    nextTick(() => {
+      if (lyricsEditorRef.value) {
+        lyricsEditorRef.value.innerText = lyricsDraft.value
+      }
+    })
+  }
+
+  function handleLyricsInput(e: Event) {
+    const target = e.target as HTMLDivElement
+    lyricsDraft.value = target.innerText
   }
 
   function cancelEditLyrics() {
@@ -457,6 +479,38 @@
     queueListOsInstance.value = instance
   }
 
+  function onTimelineOsInitialized(instance: any) {
+    timelineOsInstance.value = instance
+  }
+
+  function setActiveTimelineRowRef(el: any, idx: number) {
+    if (idx === activeSegmentIndex.value) {
+      activeTimelineRowRef.value = el
+    }
+  }
+
+  function scrollToActiveTimeline() {
+    if (timelineOsInstance.value && activeTimelineRowRef.value) {
+      const { viewport } = timelineOsInstance.value.elements()
+      const activeEl = activeTimelineRowRef.value
+
+      const viewportHeight = viewport.clientHeight
+      const elementHeight = activeEl.clientHeight
+
+      const targetTop =
+        activeEl.getBoundingClientRect().top -
+        viewport.getBoundingClientRect().top +
+        viewport.scrollTop -
+        viewportHeight / 2 +
+        elementHeight / 2
+
+      viewport.scrollTo({
+        top: targetTop,
+        behavior: 'smooth',
+      })
+    }
+  }
+
   function scrollToActive() {
     if (queueListOsInstance.value && activeRowRef.value) {
       const { viewport } = queueListOsInstance.value.elements()
@@ -521,6 +575,19 @@
       if (idx !== -1 && activeEl) {
         nextTick(() => {
           scrollToActive()
+        })
+      }
+    },
+    { immediate: true },
+  )
+
+  // Watch activeSegmentIndex to scroll the active segment into the center of viewport
+  watch(
+    [activeSegmentIndex, activeTimelineRowRef],
+    ([idx, activeEl]) => {
+      if (idx !== -1 && activeEl) {
+        nextTick(() => {
+          scrollToActiveTimeline()
         })
       }
     },
