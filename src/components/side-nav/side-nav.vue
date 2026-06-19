@@ -47,13 +47,13 @@
       <v-card
         class="grx-ConfirmerCard bg-theme-bg-item! text-theme-text! border border-theme-border! rounded-xl! overflow-hidden shadow-2xl">
         <v-card-title class="text-md! font-bold! border-b border-theme-border/80 px-6 py-4 text-white">Settings</v-card-title>
-        <v-card-text class="py-5! !px-1 text-sm! text-theme-text-muted flex flex-col gap-4">
-          <OverlayScrollbarsComponent :options="{ scrollbars: { autoHide: 'scroll' } }" defer class="px-6 max-h-[60svh]">
+        <v-card-text class="px-1">
+          <OverlayScrollbarsComponent :options="{ scrollbars: { autoHide: 'scroll' } }" defer class="px-6 py-5 max-h-[70svh]">
             <div class="grid grid-cols-2 gap-3">
               <label>
                 <div class="block mb-2 text-theme-text-secondary font-medium text-xs tracking-wide">Audio Seek Step (seconds)</div>
                 <v-text-field
-                  v-model.number="seekStep"
+                  v-model.number="seekStepDraft"
                   type="number"
                   min="1"
                   placeholder="5"
@@ -66,7 +66,7 @@
               <label>
                 <div class="block mb-2 text-theme-text-secondary font-medium text-xs tracking-wide">Volume Adjust Step</div>
                 <v-text-field
-                  v-model.number="volumeStep"
+                  v-model.number="volumeStepDraft"
                   type="number"
                   min="1"
                   max="100"
@@ -80,7 +80,7 @@
 
             <div class="border-t border-theme-border/30 pt-4 mt-2">
               <div class="flex justify-between items-center mb-3">
-                <div class="text-theme-text-secondary font-medium text-xs tracking-wide uppercase">Equalizer (Bộ cân bằng âm thanh)</div>
+                <div class="text-theme-text-secondary font-medium text-xs tracking-wide">Equalizer</div>
                 <div class="flex items-center gap-1.5">
                   <span class="text-[11px] text-theme-text-muted">Preset:</span>
                   <v-menu>
@@ -89,8 +89,8 @@
                         v-bind="props"
                         variant="outlined"
                         density="compact"
-                        class="text-xs capitalize font-semibold border-theme-border! text-theme-text-secondary!">
-                        {{ currentPresetName }}
+                        class="text-xs w-[100px] font-semibold border-theme-border! text-theme-text-secondary!">
+                        {{ currentPresetNameDraft }}
                       </v-btn>
                     </template>
                     <v-list class="bg-theme-bg-item border border-theme-border! text-xs" density="compact">
@@ -98,9 +98,9 @@
                         v-for="preset in EQ_PRESETS"
                         :key="preset.name"
                         @click="applyPreset(preset)"
-                        :active="currentPresetName === preset.name"
+                        :active="currentPresetNameDraft === preset.name"
                         color="cyan-accent-3"
-                        class="cursor-pointer hover:bg-theme-bg-placeholder/20">
+                        class="cursor-pointer hover:bg-theme-bg-placeholder/20 px-3">
                         <v-list-item-title class="text-xs">{{ preset.name }}</v-list-item-title>
                       </v-list-item>
                     </v-list>
@@ -119,7 +119,7 @@
                 </div>
                 <div class="flex items-center gap-3 w-44 pr-2">
                   <v-slider
-                    v-model="bassBoost"
+                    v-model="bassBoostDraft"
                     :min="0"
                     :max="10"
                     :step="1"
@@ -129,22 +129,22 @@
                     color="cyan-accent-3"
                     class="cursor-pointer w-full"
                     @update:model-value="onBassBoostChange" />
-                  <span class="text-xs font-mono w-7 text-right text-cyan-accent-3 font-semibold">+{{ bassBoost }}dB</span>
+                  <span class="text-xs font-mono w-7 text-right text-cyan-accent-3 font-semibold">+{{ bassBoostDraft }}dB</span>
                 </div>
               </div>
 
               <!-- 10-Band EQ Panel -->
               <div
-                class="flex justify-between items-stretch h-48 bg-theme-bg-placeholder/5 border border-theme-border/20 rounded-xl p-4 gap-2">
+                class="flex justify-between items-stretch bg-theme-bg-placeholder/5 border border-theme-border/20 rounded-xl p-3 gap-1 h-fit">
                 <div v-for="(band, idx) in OCTAVE_BANDS" :key="band" class="flex flex-col items-center flex-1 h-full min-w-0">
                   <!-- DB value display -->
                   <span class="text-[9px] font-mono text-theme-text-secondary select-none mb-1">
                     {{ getDisplayGain(idx) }}
                   </span>
                   <!-- Slider -->
-                  <div class="flex-1 flex justify-center py-2 h-full">
+                  <div class="grow flex justify-center py-1">
                     <v-slider
-                      v-model="eqGains[idx]"
+                      v-model="eqGainsDraft[idx]"
                       direction="vertical"
                       min="-10"
                       max="10"
@@ -164,10 +164,9 @@
             </div>
           </OverlayScrollbarsComponent>
         </v-card-text>
-
         <v-card-actions class="px-6 py-4 flex justify-end gap-2 bg-theme-bg-placeholder/20 border-t border-theme-border/50">
-          <custom-btn variant="secondary" @click="showSettings = false">Cancel</custom-btn>
-          <custom-btn variant="primary" @click="showSettings = false">OK</custom-btn>
+          <custom-btn variant="secondary" @click="cancelSettings">Cancel</custom-btn>
+          <custom-btn variant="primary" @click="saveSettings">OK</custom-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -175,7 +174,7 @@
 </template>
 
 <script setup>
-  import { ref } from 'vue'
+  import { ref, watch } from 'vue'
   import { storeToRefs } from 'pinia'
   import { useAudioPlayer } from '@groovex/state'
   import { OCTAVE_BANDS } from '@groovex/core'
@@ -189,34 +188,66 @@
   const player = useAudioPlayer()
   const { seekStep, volumeStep, eqGains, bassBoost, currentPresetName } = storeToRefs(player)
 
+  // Draft state variables for OK/Cancel transactions
+  const seekStepDraft = ref(5)
+  const volumeStepDraft = ref(2)
+  const eqGainsDraft = ref([0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+  const bassBoostDraft = ref(0)
+  const currentPresetNameDraft = ref('Flat')
+
+  // Populate draft variables when the settings modal opens
+  watch(showSettings, (open) => {
+    if (open) {
+      seekStepDraft.value = seekStep.value
+      volumeStepDraft.value = volumeStep.value
+      eqGainsDraft.value = [...eqGains.value]
+      bassBoostDraft.value = bassBoost.value
+      currentPresetNameDraft.value = currentPresetName.value
+    }
+  })
+
+  const saveSettings = () => {
+    seekStep.value = seekStepDraft.value
+    volumeStep.value = volumeStepDraft.value
+    eqGains.value = [...eqGainsDraft.value]
+    bassBoost.value = bassBoostDraft.value
+    currentPresetName.value = currentPresetNameDraft.value
+    showSettings.value = false
+  }
+
+  const cancelSettings = () => {
+    showSettings.value = false
+  }
+
   const EQ_PRESETS = [
+    { name: 'Custom', gains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
     { name: 'Flat', gains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
-    { name: 'Bass Booster (Strong)', gains: [6, 5, 3, 1, 0, 0, 0, 0, 0, 0] },
-    { name: 'Bass Booster (Moderate)', gains: [4, 3, 2, 1, 0, 0, 0, 0, 0, 0] },
+    { name: 'Bass Strong', gains: [6, 5, 3, 1, 0, 0, 0, 0, 0, 0] },
+    { name: 'Bass Moderate', gains: [4, 3, 2, 1, 0, 0, 0, 0, 0, 0] },
     { name: 'Pop', gains: [-1.5, -1, 0, 2, 4, 4, 2, 0, -1, -1.5] },
     { name: 'Rock', gains: [4, 3, -1.5, -2.5, -1, 1, 3.5, 4.5, 5, 5] },
     { name: 'Electronic', gains: [5, 4, 1, 0, -1, 2, 3, 4, 5, 5] },
-    { name: 'Vocal Booster', gains: [-3, -2, -1, 1, 3, 4, 3, 2, 1, 0] },
-    { name: 'Treble Booster', gains: [0, 0, 0, 0, 0, 1, 3, 5, 7, 9] },
+    { name: 'Vocal', gains: [-3, -2, -1, 1, 3, 4, 3, 2, 1, 0] },
+    { name: 'Treble', gains: [0, 0, 0, 0, 0, 1, 3, 5, 7, 9] },
   ]
 
   const applyPreset = (preset) => {
-    currentPresetName.value = preset.name
-    eqGains.value = [...preset.gains]
+    currentPresetNameDraft.value = preset.name
+    eqGainsDraft.value = [...preset.gains]
   }
 
   const onSliderChange = () => {
-    currentPresetName.value = 'Custom'
+    currentPresetNameDraft.value = 'Custom'
   }
 
   const onBassBoostChange = () => {
-    if (currentPresetName.value !== 'Custom' && !currentPresetName.value.includes('Bass Booster')) {
-      currentPresetName.value = 'Custom'
+    if (currentPresetNameDraft.value !== 'Custom' && !currentPresetNameDraft.value.includes('Bass')) {
+      currentPresetNameDraft.value = 'Custom'
     }
   }
 
   const getDisplayGain = (idx) => {
-    const gain = eqGains.value[idx]
+    const gain = eqGainsDraft.value[idx]
     return gain > 0 ? `+${gain}` : `${gain}`
   }
 
