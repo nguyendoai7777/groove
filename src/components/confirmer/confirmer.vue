@@ -1,7 +1,7 @@
 <template>
   <v-dialog v-model="dialogVisible" max-width="400">
     <v-card class="grx-ConfirmerCard bg-theme-bg-item! text-theme-text! border border-theme-border! rounded-xl! overflow-hidden shadow-2xl">
-      <v-card-title class="text-md! font-bold! border-b border-theme-border/80 px-6 py-4 text-white">
+      <v-card-title class="text-md! font-bold! border-b border-theme-border/80 px-4py-3">
         {{ title }}
       </v-card-title>
 
@@ -9,7 +9,7 @@
         {{ content }}
       </v-card-text>
 
-      <v-card-actions class="px-6 py-4 flex justify-end gap-2 bg-theme-bg-placeholder/20 border-t border-theme-border/50">
+      <v-card-actions class="px-4 py-3 flex justify-end gap-2 bg-theme-bg-placeholder/20 border-t border-theme-border/50">
         <custom-btn variant="secondary" @click="onCancel">Cancel</custom-btn>
         <custom-btn variant="primary" @click="onOk">OK</custom-btn>
       </v-card-actions>

@@ -36,22 +36,6 @@
           </span>
         </div>
 
-        <!-- Settings Button (Commented out)
-        <div class="relative group/btn">
-          <button
-            class="w-12 h-12 rounded-full bg-theme-bg-placeholder/80 hover:bg-theme-bg-card border border-theme-border/50 hover:border-theme-border text-theme-text flex items-center justify-center transition-all duration-200 hover:scale-110 shadow-lg cursor-pointer"
-            @click.stop="$emit('settings', { type, title })"
-          >
-            <svg-sprite src="Settings" class="w-5 h-5" />
-          </button>
-          <span
-            class="absolute bottom-14 left-1/2 -translate-x-1/2 bg-zinc-950/90 text-zinc-100 text-[11px] px-2 py-1 rounded-md border border-zinc-800/80 shadow-md opacity-0 group-hover/btn:opacity-100 transition-opacity duration-150 whitespace-nowrap pointer-events-none"
-          >
-            Settings
-          </span>
-        </div>
-        -->
-
         <!-- Delete Button -->
         <div class="relative group/btn">
           <icon-btn

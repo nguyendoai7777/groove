@@ -25,7 +25,7 @@
               class="w-4 h-4 mr-3"
               :src="getIconForRoute(nav.path)"
               :class="isActive ? 'text-theme-accent-light' : 'text-theme-text-muted group-hover:text-theme-text-secondary'" />
-            <span :class="isActive ? 'text-white font-semibold' : 'text-theme-text-muted group-hover:text-theme-text-secondary'">
+            <span :class="isActive ? 'font-semibold' : 'text-theme-text-muted group-hover:text-theme-text-secondary'">
               {{ nav.meta['title'] }}
             </span>
           </v-btn>
@@ -46,9 +46,9 @@
     <v-dialog v-model="showSettings" max-width="800">
       <v-card
         class="grx-ConfirmerCard bg-theme-bg-item! text-theme-text! border border-theme-border! rounded-xl! overflow-hidden shadow-2xl">
-        <v-card-title class="text-md! font-bold! border-b border-theme-border/80 px-6 py-4 text-white">Settings</v-card-title>
+        <v-card-title class="text-md! font-bold! border-b border-theme-border/80 px-4 py-3">Settings</v-card-title>
         <v-card-text class="px-1">
-          <OverlayScrollbarsComponent :options="{ scrollbars: { autoHide: 'scroll' } }" defer class="px-6 py-5 max-h-[70svh]">
+          <OverlayScrollbarsComponent :options="{ scrollbars: { autoHide: 'scroll' } }" defer class="p-3 max-h-[70svh]">
             <div class="grid grid-cols-2 gap-3">
               <label>
                 <div class="block mb-2 text-theme-text-secondary font-medium text-xs tracking-wide">Audio Seek Step (seconds)</div>
@@ -96,11 +96,11 @@
                     <v-list class="bg-theme-bg-item border border-theme-border! text-xs" density="compact">
                       <v-list-item
                         v-for="preset in EQ_PRESETS"
-                        :key="preset.name"
-                        @click="applyPreset(preset)"
-                        :active="currentPresetName === preset.name"
                         color="cyan-accent-3"
-                        class="cursor-pointer hover:bg-theme-bg-placeholder/20 px-3">
+                        class="cursor-pointer hover:bg-theme-bg-placeholder/20 px-3"
+                        :key="preset.name"
+                        :active="currentPresetName === preset.name"
+                        @click="applyPreset(preset)">
                         <v-list-item-title class="text-xs">{{ preset.name }}</v-list-item-title>
                       </v-list-item>
                     </v-list>
@@ -119,15 +119,15 @@
                 </div>
                 <div class="flex items-center gap-3 w-44 pr-2">
                   <v-slider
+                    hide-details
+                    color="cyan-accent-3"
+                    class="cursor-pointer w-full"
                     v-model="bassBoost"
                     :min="0"
                     :max="10"
                     :step="1"
                     :track-size="2"
                     :thumb-size="10"
-                    hide-details
-                    color="cyan-accent-3"
-                    class="cursor-pointer w-full"
                     @update:model-value="onBassBoostChange" />
                   <span class="text-xs font-mono w-7 text-right text-cyan-accent-3 font-semibold">+{{ bassBoost }}dB</span>
                 </div>
@@ -187,7 +187,7 @@
             </div>
           </OverlayScrollbarsComponent>
         </v-card-text>
-        <v-card-actions class="px-6 py-4 flex justify-end gap-2 bg-theme-bg-placeholder/20 border-t border-theme-border/50">
+        <v-card-actions class="px-4 py-3 flex justify-end gap-2 bg-theme-bg-placeholder/20 border-t border-theme-border/50">
           <custom-btn variant="secondary" @click="cancelSettings">Cancel</custom-btn>
           <custom-btn variant="primary" @click="saveSettings">OK</custom-btn>
         </v-card-actions>

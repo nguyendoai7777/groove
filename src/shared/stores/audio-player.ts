@@ -1,6 +1,6 @@
 import { ref, watch, computed } from 'vue'
 import { defineStore } from 'pinia'
-import { convertFileSrc } from '@tauri-apps/api/core'
+import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 import type { Song } from '@groovex/types'
 import { EStoreKey } from './stores.definition'
 import { AudioEngine } from '@groovex/core'
@@ -16,26 +16,6 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
       return val ? (JSON.parse(val) as PlaybackSong) : null
     } catch {
       return null
-    }
-  }
-
-  const getInitialPlaylist = () => {
-    try {
-      const val = localStorage.getItem('playlist')
-      return val ? (JSON.parse(val) as PlaybackSong[]) : []
-    } catch {
-      return []
-    }
-  }
-
-  const getInitialCurrentIndex = () => {
-    try {
-      const val = localStorage.getItem('currentIndex')
-      if (val === null || val === '') return -1
-      const num = Number(val)
-      return isNaN(num) ? -1 : num
-    } catch {
-      return -1
     }
   }
 
@@ -117,8 +97,57 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
   }
 
   const currentSong = ref(getInitialCurrentSong())
-  const playlist = ref(getInitialPlaylist())
-  const currentIndex = ref(getInitialCurrentIndex())
+
+  const getInitialHistoryPlaylist = () => {
+    try {
+      const val = localStorage.getItem('historyPlaylist')
+      if (val) return JSON.parse(val) as PlaybackSong[]
+
+      // Legacy migration
+      const valLegacy = localStorage.getItem('playlist')
+      const playlistLegacy = valLegacy ? (JSON.parse(valLegacy) as PlaybackSong[]) : []
+      const currentIndexLegacy = Number(localStorage.getItem('currentIndex') || -1)
+      if (playlistLegacy.length > 0 && currentIndexLegacy > 0) {
+        return playlistLegacy.slice(0, currentIndexLegacy)
+      }
+    } catch {}
+    return []
+  }
+
+  const getInitialQueuePlaylist = () => {
+    try {
+      const val = localStorage.getItem('queuePlaylist')
+      if (val) return JSON.parse(val) as PlaybackSong[]
+
+      // Legacy migration
+      const valLegacy = localStorage.getItem('playlist')
+      const playlistLegacy = valLegacy ? (JSON.parse(valLegacy) as PlaybackSong[]) : []
+      const currentIndexLegacy = Number(localStorage.getItem('currentIndex') || -1)
+      if (playlistLegacy.length > 0 && currentIndexLegacy !== -1) {
+        return playlistLegacy.slice(currentIndexLegacy + 1)
+      }
+    } catch {}
+    return []
+  }
+
+  const historyPlaylist = ref<PlaybackSong[]>(getInitialHistoryPlaylist())
+  const queuePlaylist = ref<PlaybackSong[]>(getInitialQueuePlaylist())
+
+  const playlist = computed<PlaybackSong[]>(() => {
+    const list: PlaybackSong[] = []
+    list.push(...historyPlaylist.value)
+    if (currentSong.value) {
+      list.push(currentSong.value)
+    }
+    list.push(...queuePlaylist.value)
+    return list
+  })
+
+  const currentIndex = computed<number>(() => {
+    if (!currentSong.value) return -1
+    return historyPlaylist.value.length
+  })
+
   const isPlaying = ref(false)
   const currentTime = ref(getInitialCurrentTime())
   const duration = ref(currentSong.value?.duration || 0)
@@ -170,9 +199,6 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     }
   })
 
-  const shuffleHistory = ref<number[]>([])
-  const shuffleHistoryIndex = ref(-1)
-
   watch(
     () => isShuffle.value,
     (newVal) => {
@@ -183,16 +209,6 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
       }
       if (newVal) {
         isRepeat.value = false
-        if (currentIndex.value !== -1) {
-          shuffleHistory.value = [currentIndex.value]
-          shuffleHistoryIndex.value = 0
-        } else {
-          shuffleHistory.value = []
-          shuffleHistoryIndex.value = -1
-        }
-      } else {
-        shuffleHistory.value = []
-        shuffleHistoryIndex.value = -1
       }
     },
   )
@@ -212,18 +228,39 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
   )
 
   watch(
+    historyPlaylist,
+    (newVal) => {
+      try {
+        const cleanPlaylist = newVal.map(({ thumbnail, ...rest }) => rest)
+        localStorage.setItem('historyPlaylist', JSON.stringify(cleanPlaylist))
+      } catch (e) {
+        console.error('Failed to save historyPlaylist to localStorage:', e)
+      }
+    },
+    { deep: true },
+  )
+
+  watch(
+    queuePlaylist,
+    (newVal) => {
+      try {
+        const cleanPlaylist = newVal.map(({ thumbnail, ...rest }) => rest)
+        localStorage.setItem('queuePlaylist', JSON.stringify(cleanPlaylist))
+      } catch (e) {
+        console.error('Failed to save queuePlaylist to localStorage:', e)
+      }
+    },
+    { deep: true },
+  )
+
+  watch(
     playlist,
     (newVal) => {
       try {
-        // Strip out base64 thumbnail string to prevent QuotaExceededError (localStorage limit is 5MB)
         const cleanPlaylist = newVal.map(({ thumbnail, ...rest }) => rest)
         localStorage.setItem('playlist', JSON.stringify(cleanPlaylist))
       } catch (e) {
         console.error('Failed to save playlist to localStorage:', e)
-      }
-      if (isShuffle.value) {
-        shuffleHistory.value = currentIndex.value !== -1 ? [currentIndex.value] : []
-        shuffleHistoryIndex.value = currentIndex.value !== -1 ? 0 : -1
       }
     },
     { deep: true },
@@ -248,7 +285,6 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
       }
       if (newVal) {
         try {
-          // Strip out base64 thumbnail string to prevent QuotaExceededError
           const { thumbnail, ...rest } = newVal
           localStorage.setItem('currentSong', JSON.stringify(rest))
         } catch (e) {
@@ -398,7 +434,6 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
   audio.addEventListener('timeupdate', () => {
     if (isSeeking) return
     updateCurrentTime()
-    // Save to localStorage at most once per second to avoid performance issues
     if (Math.abs(audio.currentTime - lastSavedTime) >= 1) {
       try {
         localStorage.setItem('currentTime', String(audio.currentTime))
@@ -420,80 +455,12 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
       audio.currentTime = 0
       audio.play().catch((err) => console.error('Error replaying song:', err))
     } else {
-      const isLastSong = currentIndex.value >= playlist.value.length - 1
-
-      if (isShuffle.value) {
-        const playedSet = new Set(shuffleHistory.value)
-        const unplayedIndices = playlist.value.map((_, index) => index).filter((index) => !playedSet.has(index))
-        const allPlayed = unplayedIndices.length === 0 && shuffleHistoryIndex.value >= shuffleHistory.value.length - 1
-
-        if (allPlayed) {
-          isPlaying.value = false
-          audio.currentTime = 0
-          try {
-            localStorage.setItem('currentTime', '0')
-          } catch (e) {
-            console.error('Failed to save currentTime to localStorage:', e)
-          }
-          lastSavedTime = 0
-          shuffleHistory.value = []
-          shuffleHistoryIndex.value = -1
-          return
-        }
-      } else if (isLastSong) {
-        isPlaying.value = false
-        audio.currentTime = 0
-        try {
-          localStorage.setItem('currentTime', '0')
-        } catch (e) {
-          console.error('Failed to save currentTime to localStorage:', e)
-        }
-        lastSavedTime = 0
-        return
-      }
-
       nextTrack()
     }
   })
 
-  // Play a song
-  async function playSong(song: PlaybackSong, newPlaylist?: PlaybackSong[]) {
-    if (currentSong.value?.id === song.id) {
-      if (!isPlaying.value) {
-        try {
-          audioEngine.resume()
-          await audio.play()
-          isPlaying.value = true
-        } catch (err) {
-          console.error('Playback error:', err)
-          isPlaying.value = false
-        }
-      }
-      return
-    }
-
-    if (newPlaylist && newPlaylist.length > 0) {
-      playlist.value = newPlaylist
-      const idx = newPlaylist.findIndex((s) => s.id === song.id)
-      currentIndex.value = idx !== -1 ? idx : 0
-    } else {
-      const idx = playlist.value.findIndex((s) => s.id === song.id)
-      if (idx !== -1) {
-        currentIndex.value = idx
-      } else {
-        playlist.value.push(song)
-        currentIndex.value = playlist.value.length - 1
-      }
-    }
-
-    if (isShuffle.value) {
-      const expectedIndex = shuffleHistory.value[shuffleHistoryIndex.value]
-      if (currentIndex.value !== expectedIndex) {
-        shuffleHistory.value = [currentIndex.value]
-        shuffleHistoryIndex.value = 0
-      }
-    }
-
+  // Load and play song audio
+  async function loadAndPlay(song: PlaybackSong) {
     currentSong.value = song
     currentTime.value = 0
     duration.value = song.duration
@@ -515,6 +482,52 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
       console.error('Playback error:', err)
       isPlaying.value = false
     }
+  }
+
+  // Play a song
+  async function playSong(song: PlaybackSong, newPlaylist?: PlaybackSong[]) {
+    if (currentSong.value?.id === song.id) {
+      if (!isPlaying.value) {
+        try {
+          audioEngine.resume()
+          await audio.play()
+          isPlaying.value = true
+        } catch (err) {
+          console.error('Playback error:', err)
+          isPlaying.value = false
+        }
+      }
+      return
+    }
+
+    const oldSong = currentSong.value
+
+    if (newPlaylist && newPlaylist.length > 0) {
+      historyPlaylist.value = []
+      queuePlaylist.value = newPlaylist.filter((s) => s.id !== song.id)
+    } else {
+      // playing from existing lists
+      const qIdx = queuePlaylist.value.findIndex((s) => s.id === song.id)
+      const hIdx = historyPlaylist.value.findIndex((s) => s.id === song.id)
+
+      if (qIdx !== -1) {
+        queuePlaylist.value.splice(qIdx, 1)
+        if (oldSong) {
+          historyPlaylist.value.push(oldSong)
+        }
+      } else if (hIdx !== -1) {
+        historyPlaylist.value.splice(hIdx, 1)
+        if (oldSong) {
+          historyPlaylist.value.push(oldSong)
+        }
+      } else {
+        if (oldSong) {
+          historyPlaylist.value.push(oldSong)
+        }
+      }
+    }
+
+    await loadAndPlay(song)
   }
 
   function togglePlay() {
@@ -583,66 +596,80 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
   }
 
   function nextTrack() {
-    if (playlist.value.length === 0) return
+    if (queuePlaylist.value.length === 0 && historyPlaylist.value.length === 0 && !currentSong.value) return
+
+    const oldSong = currentSong.value
 
     if (isShuffle.value) {
-      if (shuffleHistoryIndex.value < shuffleHistory.value.length - 1) {
-        shuffleHistoryIndex.value++
-        currentIndex.value = shuffleHistory.value[shuffleHistoryIndex.value]
-      } else {
-        const playedSet = new Set(shuffleHistory.value)
-        const unplayedIndices = playlist.value.map((_, index) => index).filter((index) => !playedSet.has(index))
-
-        if (unplayedIndices.length > 0) {
-          const randomIndex = unplayedIndices[Math.floor(Math.random() * unplayedIndices.length)]
-          shuffleHistory.value.push(randomIndex)
-          shuffleHistoryIndex.value = shuffleHistory.value.length - 1
-          currentIndex.value = randomIndex
+      if (queuePlaylist.value.length === 0) {
+        if (isRepeat.value && historyPlaylist.value.length > 0) {
+          queuePlaylist.value = [...historyPlaylist.value]
+          historyPlaylist.value = []
         } else {
-          // All songs played, start a new shuffle cycle
-          const randomIndex = Math.floor(Math.random() * playlist.value.length)
-          shuffleHistory.value = [randomIndex]
-          shuffleHistoryIndex.value = 0
-          currentIndex.value = randomIndex
+          isPlaying.value = false
+          audio.currentTime = 0
+          try {
+            localStorage.setItem('currentTime', '0')
+          } catch (e) {
+            console.error('Failed to save currentTime to localStorage:', e)
+          }
+          lastSavedTime = 0
+          return
         }
       }
-    } else {
-      if (currentIndex.value < playlist.value.length - 1) {
-        currentIndex.value++
-      } else {
-        currentIndex.value = 0
-      }
-    }
 
-    const nextSong = playlist.value[currentIndex.value]
-    if (nextSong) {
-      playSong(nextSong)
+      if (queuePlaylist.value.length > 0) {
+        const randomIndex = Math.floor(Math.random() * queuePlaylist.value.length)
+        const nextSong = queuePlaylist.value[randomIndex]
+        queuePlaylist.value.splice(randomIndex, 1)
+        if (oldSong) {
+          historyPlaylist.value.push(oldSong)
+        }
+        loadAndPlay(nextSong)
+      }
+    } else {
+      if (queuePlaylist.value.length === 0) {
+        if (isRepeat.value && historyPlaylist.value.length > 0) {
+          queuePlaylist.value = [...historyPlaylist.value]
+          historyPlaylist.value = []
+        } else {
+          isPlaying.value = false
+          audio.currentTime = 0
+          try {
+            localStorage.setItem('currentTime', '0')
+          } catch (e) {
+            console.error('Failed to save currentTime to localStorage:', e)
+          }
+          lastSavedTime = 0
+          return
+        }
+      }
+
+      if (queuePlaylist.value.length > 0) {
+        const nextSong = queuePlaylist.value[0]
+        queuePlaylist.value.shift()
+        if (oldSong) {
+          historyPlaylist.value.push(oldSong)
+        }
+        loadAndPlay(nextSong)
+      }
     }
   }
 
   function prevTrack() {
-    if (playlist.value.length === 0) return
-
-    if (isShuffle.value) {
-      if (shuffleHistoryIndex.value > 0) {
-        shuffleHistoryIndex.value--
-        currentIndex.value = shuffleHistory.value[shuffleHistoryIndex.value]
-      } else {
-        // At start of shuffle history, restart current song
-        seek(0)
-        return
-      }
-    } else {
-      if (currentIndex.value > 0) {
-        currentIndex.value--
-      } else {
-        currentIndex.value = playlist.value.length - 1
-      }
+    if (historyPlaylist.value.length === 0) {
+      seek(0)
+      return
     }
 
-    const prevSong = playlist.value[currentIndex.value]
+    const oldSong = currentSong.value
+    const prevSong = historyPlaylist.value.pop()
+
     if (prevSong) {
-      playSong(prevSong)
+      if (oldSong) {
+        queuePlaylist.value.unshift(oldSong)
+      }
+      loadAndPlay(prevSong)
     }
   }
 
@@ -658,9 +685,13 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     if (currentSong.value && currentSong.value.id === songId) {
       currentSong.value.lyrics = lyrics
     }
-    const idx = playlist.value.findIndex((s) => s.id === songId)
-    if (idx !== -1) {
-      playlist.value[idx].lyrics = lyrics
+    const hIdx = historyPlaylist.value.findIndex((s) => s.id === songId)
+    if (hIdx !== -1) {
+      historyPlaylist.value[hIdx].lyrics = lyrics
+    }
+    const qIdx = queuePlaylist.value.findIndex((s) => s.id === songId)
+    if (qIdx !== -1) {
+      queuePlaylist.value[qIdx].lyrics = lyrics
     }
   }
 
@@ -668,14 +699,82 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     if (currentSong.value && currentSong.value.id === songId) {
       currentSong.value.timeline = timeline
     }
-    const idx = playlist.value.findIndex((s) => s.id === songId)
-    if (idx !== -1) {
-      playlist.value[idx].timeline = timeline
+    const hIdx = historyPlaylist.value.findIndex((s) => s.id === songId)
+    if (hIdx !== -1) {
+      historyPlaylist.value[hIdx].timeline = timeline
+    }
+    const qIdx = queuePlaylist.value.findIndex((s) => s.id === songId)
+    if (qIdx !== -1) {
+      queuePlaylist.value[qIdx].timeline = timeline
+    }
+  }
+
+  async function updateSongMetadata(
+    songId: number,
+    metadata: {
+      filename: string
+      title: string
+      artist: string
+      album_name: string
+      track_number: string
+      thumbnail: string
+    },
+  ) {
+    try {
+      const updatedSong = await invoke<Song>('update_song_metadata', {
+        songId,
+        filename: metadata.filename,
+        title: metadata.title,
+        artist: metadata.artist,
+        albumName: metadata.album_name,
+        trackNumber: metadata.track_number,
+        newThumbnail: metadata.thumbnail,
+      })
+
+      if (currentSong.value && currentSong.value.id === songId) {
+        currentSong.value.title = updatedSong.title
+        currentSong.value.artist = updatedSong.artist
+        currentSong.value.album_id = updatedSong.album_id
+        currentSong.value.file_path = updatedSong.file_path
+        currentSong.value.filename = updatedSong.filename
+        if (metadata.thumbnail) {
+          currentSong.value.thumbnail = metadata.thumbnail
+        }
+      }
+
+      const hIdx = historyPlaylist.value.findIndex((s) => s.id === songId)
+      if (hIdx !== -1) {
+        historyPlaylist.value[hIdx].title = updatedSong.title
+        historyPlaylist.value[hIdx].artist = updatedSong.artist
+        historyPlaylist.value[hIdx].album_id = updatedSong.album_id
+        historyPlaylist.value[hIdx].file_path = updatedSong.file_path
+        historyPlaylist.value[hIdx].filename = updatedSong.filename
+        if (metadata.thumbnail) {
+          historyPlaylist.value[hIdx].thumbnail = metadata.thumbnail
+        }
+      }
+
+      const qIdx = queuePlaylist.value.findIndex((s) => s.id === songId)
+      if (qIdx !== -1) {
+        queuePlaylist.value[qIdx].title = updatedSong.title
+        queuePlaylist.value[qIdx].artist = updatedSong.artist
+        queuePlaylist.value[qIdx].album_id = updatedSong.album_id
+        queuePlaylist.value[qIdx].file_path = updatedSong.file_path
+        queuePlaylist.value[qIdx].filename = updatedSong.filename
+        if (metadata.thumbnail) {
+          queuePlaylist.value[qIdx].thumbnail = metadata.thumbnail
+        }
+      }
+    } catch (err) {
+      console.error('Failed to update song metadata:', err)
+      throw err
     }
   }
 
   return {
     currentSong,
+    historyPlaylist,
+    queuePlaylist,
     playlist,
     currentIndex,
     isPlaying,
@@ -700,5 +799,6 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     toggleRepeat,
     updateLyrics,
     updateTimeline,
+    updateSongMetadata,
   }
 })

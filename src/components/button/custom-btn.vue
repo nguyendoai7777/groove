@@ -39,7 +39,7 @@
   })
 </script>
 
-<style scoped>
+<style>
   .grx-CustomBtn {
     min-width: unset !important;
   }

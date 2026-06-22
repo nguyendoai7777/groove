@@ -3,8 +3,8 @@
     <!-- Back Button -->
     <icon-btn
       src="AngleLeft"
-      :class="['transition-all duration-200', canGoBack ? 'opacity-100' : 'opacity-20 cursor-not-allowed pointer-events-none']"
       data-tauri-no-drag
+      :class="['transition-all duration-200', canGoBack ? 'opacity-100' : 'opacity-20 cursor-not-allowed pointer-events-none']"
       @click="handleBack" />
 
     <!-- Window Controls -->

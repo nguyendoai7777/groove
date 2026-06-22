@@ -79,6 +79,18 @@
         <div class="flex items-center justify-between mb-3 border-b border-theme-border/40 p-2.5 shrink-0 relative">
           <span class="text-2xl font-semibold tracking-wider absolute top-1/2 left-1/2 -translate-1/2">Lyrics</span>
           <div class="ml-auto flex gap-2">
+            <!-- Edit Metadata Button -->
+            <v-btn
+              v-slot:default
+              v-if="currentSong"
+              @click="startEditMetadata"
+              class="flex rounded-full items-center gap-1.5 px-3 py-1 bg-theme-bg-placeholder/50 hover:bg-theme-border-hover/50 text-xs text-theme-accent-light font-semibold border border-theme-border-hover/30 hover:scale-[1.02] active:scale-95 text-none h-auto shadow-none cursor-pointer"
+              variant="flat">
+              <div class="flex items-center gap-1.5 py-0.5">
+                <svg-sprite src="Album" class="w-3.5 h-3.5" />
+                <span>Metadata</span>
+              </div>
+            </v-btn>
             <!-- Timeline Edit Button -->
             <v-btn
               v-slot:default
@@ -169,90 +181,111 @@
     </div>
 
     <!-- Right side: Playlist Queue List -->
-    <div
-      class="w-now-playing-right-w min-w-now-playing-right-min-w max-w-now-playing-right-max-w flex flex-col h-full backdrop-blur-xs rounded-2xl border border-theme-border/50 overflow-hidden">
-      <div class="flex items-center justify-between pb-2 border-b border-theme-border/30 shrink-0">
-        <h3 class="text-sm font-bold text-white tracking-wide flex items-center gap-2 pt-3 px-3">
-          <span>Queue / Playlist</span>
-          <span class="text-[10px] font-normal text-theme-text-disabled">({{ playlist.length }} tracks)</span>
-        </h3>
-      </div>
+    <playlist-history class="shrink-0" />
 
-      <!-- Queue List Viewport -->
-      <div class="relative flex-1 min-h-0">
-        <!-- Fade-out gradient at the top of scrollable area -->
-        <div class="absolute top-0 left-0 right-0 h-3 bg-linear-to-b from-[#121212] to-transparent pointer-events-none z-10"></div>
-        <overlay-scrollbars-component
-          :options="{ scrollbars: { autoHide: 'scroll' } }"
-          defer
-          class="h-full px-1"
-          @os-initialized="onQueueListOsInitialized">
-          <div class="flex flex-col gap-1.5 px-2 pt-3">
-            <template v-if="playlist.length > 0">
-              <div
-                v-for="(song, idx) in playlist"
-                :key="song.id + '-' + idx"
-                :id="'queue-item-' + song.id"
-                :ref="(el) => setActiveRowRef(el, idx)"
-                class="group/item flex items-center gap-2.5 p-2 rounded-xl transition-all duration-200 cursor-pointer border border-transparent"
-                :class="[
-                  idx < currentIndex ? 'opacity-25 hover:opacity-50' : 'opacity-100',
-                  idx === currentIndex
-                    ? 'bg-theme-accent/10 border-theme-accent/30 shadow-md text-white'
-                    : 'hover:bg-theme-bg-placeholder/40 text-theme-text-secondary',
-                ]"
-                @click="handlePlaySongAt(idx)">
-                <!-- Index / Status -->
-                <div class="w-6 flex items-center justify-center text-[10px] font-mono text-theme-text-disabled">
-                  <span v-if="idx !== currentIndex" class="group-hover/item:hidden">{{ idx + 1 }}</span>
-                  <svg-sprite
-                    v-if="idx !== currentIndex"
-                    src="Play"
-                    class="w-2.5 h-2.5 text-theme-accent-light fill-theme-accent-light hidden group-hover/item:block" />
-                  <playing-visualizer v-if="idx === currentIndex" :paused="!isPlaying" class="w-3 h-3 text-theme-accent-light" />
-                </div>
-
-                <!-- Thumbnail -->
-                <div class="w-8 h-8 rounded-md overflow-hidden bg-theme-bg-placeholder shrink-0 shadow-xs">
-                  <img v-if="song.thumbnail" :src="song.thumbnail" class="w-full h-full object-cover" />
+    <!-- Metadata Edit Dialog -->
+    <v-dialog v-model="isEditingMetadata" max-width="800">
+      <v-card
+        class="grx-ConfirmerCard bg-theme-bg-item! text-theme-text! border border-theme-border! rounded-xl! overflow-hidden shadow-2xl">
+        <v-card-title class="px-4 py-3 text-base font-bold border-b border-theme-border/30 bg-theme-bg-placeholder/20">
+          Edit Metadata
+        </v-card-title>
+        <v-card-text class="px-1">
+          <overlay-scrollbars-component :options="{ scrollbars: { autoHide: 'scroll' } }" defer class="p-3 max-h-[70svh]">
+            <div class="flex gap-4 items-start">
+              <!-- Thumbnail cover selection -->
+              <div class="flex flex-col gap-4 items-center">
+                <div
+                  class="relative w-[200px] h-[200px] rounded-lg overflow-hidden bg-theme-bg-placeholder border border-theme-border/50 shrink-0 group">
+                  <img v-if="metadataDraft.thumbnail" :src="metadataDraft.thumbnail" class="w-full h-full object-cover" />
                   <div v-else class="w-full h-full flex items-center justify-center bg-theme-bg-item">
-                    <svg-sprite src="Album" class="w-4 h-4 text-theme-text-disabled" />
+                    <svg-sprite src="Album" class="w-6 h-6 text-theme-text-disabled" />
                   </div>
+                  <label
+                    class="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer text-[9px] text-cyan-accent-3 font-semibold select-none">
+                    Upload
+                    <input type="file" accept="image/*" class="hidden" @change="handleThumbnailChange" />
+                  </label>
                 </div>
-
-                <!-- Title & Artist -->
                 <div class="flex-1 min-w-0 text-left">
-                  <div
-                    class="text-xs font-semibold truncate"
-                    :class="idx === currentIndex ? 'text-theme-accent-light' : 'text-theme-text-secondary group-hover/item:text-white'">
-                    {{ song.title || song.filename.replace(/\.[^/.]+$/, '') }}
-                  </div>
-                  <div class="text-[10px] text-theme-text-muted truncate mt-0.5">
-                    {{ song.artist || 'Unknown Artist' }}
-                  </div>
-                </div>
-
-                <!-- Duration -->
-                <div class="text-[10px] font-mono text-theme-text-disabled pr-1 tabular-nums">
-                  {{ formatDuration(song.duration) }}
+                  <div class="text-xs text-white font-semibold mb-0.5">Cover Image</div>
+                  <div class="text-[9px] text-theme-text-muted leading-tight">Pick a PNG, JPG, or WEBP to embed as cover art.</div>
+                  <v-btn
+                    v-if="metadataDraft.thumbnail"
+                    @click="metadataDraft.thumbnail = ''"
+                    variant="outlined"
+                    density="compact"
+                    class="text-[9px] border-theme-border! text-red-400! mt-1.5 h-auto py-0.5 px-1.5 text-none">
+                    Remove Cover
+                  </v-btn>
                 </div>
               </div>
-            </template>
 
-            <!-- Empty State -->
-            <div v-else class="flex flex-col items-center justify-center py-20 text-center">
-              <svg-sprite src="Song" class="w-10 h-10 text-theme-border-hover mb-2" />
-              <span class="text-xs font-semibold text-theme-text-disabled">No songs in queue</span>
+              <!-- Compact text inputs -->
+              <div class="grid grid-cols-2 gap-3 w-stretch">
+                <label class="col-span-2 text-left">
+                  <div class="block mb-1.5 text-theme-text-secondary font-medium text-xs tracking-wide">Filename (Name)</div>
+                  <v-text-field
+                    v-model="metadataDraft.filename"
+                    placeholder="e.g. SANYO.mp3"
+                    density="compact"
+                    variant="outlined"
+                    color="cyan-accent-3"
+                    hide-details />
+                </label>
+
+                <label class="col-span-2 text-left">
+                  <div class="block mb-1.5 text-theme-text-secondary font-medium text-xs tracking-wide">Title</div>
+                  <v-text-field
+                    v-model="metadataDraft.title"
+                    placeholder="Title"
+                    density="compact"
+                    variant="outlined"
+                    color="cyan-accent-3"
+                    hide-details />
+                </label>
+
+                <label class="text-left">
+                  <div class="block mb-1.5 text-theme-text-secondary font-medium text-xs tracking-wide">Album</div>
+                  <v-text-field
+                    v-model="metadataDraft.album_name"
+                    placeholder="Album"
+                    density="compact"
+                    variant="outlined"
+                    color="cyan-accent-3"
+                    hide-details />
+                </label>
+
+                <!-- <label class="text-left">
+									<div class="block mb-1.5 text-theme-text-secondary font-medium text-xs tracking-wide">Artist</div>
+									<v-text-field v-model="metadataDraft.artist" placeholder="Artist" density="compact" variant="outlined" color="cyan-accent-3" hide-details />
+								</label> -->
+
+                <label class="text-left">
+                  <div class="block mb-1.5 text-theme-text-secondary font-medium text-xs tracking-wide">Track Number (#)</div>
+                  <v-text-field
+                    v-model="metadataDraft.track_number"
+                    placeholder="e.g. 1"
+                    density="compact"
+                    variant="outlined"
+                    color="cyan-accent-3"
+                    hide-details />
+                </label>
+              </div>
             </div>
-          </div>
-        </overlay-scrollbars-component>
-      </div>
-    </div>
+          </overlay-scrollbars-component>
+        </v-card-text>
+        <v-card-actions class="px-4 py-3 flex justify-end gap-2 bg-theme-bg-placeholder/20 border-t border-theme-border/50">
+          <custom-btn variant="secondary" @click="isEditingMetadata = false" :disabled="isSavingMetadata">Cancel</custom-btn>
+          <custom-btn variant="primary" @click="handleSaveMetadata" :loading="isSavingMetadata">Save</custom-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <!-- Timeline Edit Dialog -->
     <v-dialog v-model="isEditingTimeline" max-width="500px">
       <v-card class="bg-theme-bg-card border border-theme-border/60 text-theme-text rounded-2xl overflow-hidden p-4 shadow-xl">
-        <v-card-title class="px-2 pb-2 text-base font-bold text-white border-b border-theme-border/30">Edit Timeline</v-card-title>
+        <v-card-title class="px-2 pb-2 text-base font-bold border-b border-theme-border/30">Edit Timeline</v-card-title>
         <v-card-text class="px-2 py-4">
           <p class="text-xs text-theme-text-muted mb-3 leading-relaxed text-left">
             Format:
@@ -283,7 +316,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, watch, nextTick, onMounted } from 'vue'
+  import { ref, computed, watch, nextTick } from 'vue'
   import { storeToRefs } from 'pinia'
   import { invoke } from '@tauri-apps/api/core'
   import { useAudioPlayer } from '@groovex/state'
@@ -292,12 +325,11 @@
   import CustomBtn from '@groovex/ui/button/custom-btn.vue'
   import { OverlayScrollbarsComponent } from 'overlayscrollbars-vue'
   import { formatDuration } from '@groovex/core'
+  import PlaylistHistory from './components/playlist-history.vue'
 
   const player = useAudioPlayer()
-  const { playlist, currentIndex, isPlaying, currentSong, currentTime, duration } = storeToRefs(player)
+  const { isPlaying, currentSong, currentTime, duration } = storeToRefs(player)
 
-  const activeRowRef = ref<HTMLElement | null>(null)
-  const queueListOsInstance = ref<any>(null)
   const activeTimelineRowRef = ref<HTMLElement | null>(null)
   const timelineOsInstance = ref<any>(null)
   const dynamicAccentColor = ref('var(--color-theme-accent-glow)')
@@ -311,6 +343,17 @@
   const isEditingTimeline = ref(false)
   const timelineDraft = ref('')
   const isSavingTimeline = ref(false)
+
+  const isEditingMetadata = ref(false)
+  const isSavingMetadata = ref(false)
+  const metadataDraft = ref({
+    filename: '',
+    title: '',
+    artist: '',
+    album_name: '',
+    track_number: '',
+    thumbnail: '',
+  })
 
   // Timeline Interface
   interface TimelineSegment {
@@ -438,10 +481,61 @@
     }
   }
 
+  async function startEditMetadata() {
+    if (!currentSong.value) return
+    try {
+      const meta = await invoke<any>('get_song_metadata', { songId: currentSong.value.id })
+      metadataDraft.value = {
+        filename: meta.filename,
+        title: meta.title || '',
+        artist: meta.artist || '',
+        album_name: meta.album_name || '',
+        track_number: meta.track_number || '',
+        thumbnail: meta.thumbnail || '',
+      }
+      isEditingMetadata.value = true
+    } catch (err) {
+      console.error('Failed to get song metadata:', err)
+    }
+  }
+
+  function handleThumbnailChange(e: Event) {
+    const target = e.target as HTMLInputElement
+    const file = target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        metadataDraft.value.thumbnail = event.target?.result as string
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  async function handleSaveMetadata() {
+    if (!currentSong.value) return
+    isSavingMetadata.value = true
+    try {
+      await player.updateSongMetadata(currentSong.value.id, {
+        filename: metadataDraft.value.filename,
+        title: metadataDraft.value.title,
+        artist: metadataDraft.value.artist,
+        album_name: metadataDraft.value.album_name,
+        track_number: metadataDraft.value.track_number,
+        thumbnail: metadataDraft.value.thumbnail,
+      })
+      isEditingMetadata.value = false
+    } catch (err) {
+      console.error('Failed to save song metadata:', err)
+    } finally {
+      isSavingMetadata.value = false
+    }
+  }
+
   // Reset editing mode when song changes
   watch(currentSong, () => {
     isEditingLyrics.value = false
     isEditingTimeline.value = false
+    isEditingMetadata.value = false
     lyricsDraft.value = ''
     timelineDraft.value = currentSong.value?.timeline || ''
   })
@@ -461,23 +555,6 @@
       currentSong.value?.thumbnail ||
       'https://photo-resize-zmp3.zmdcdn.me/w240_r1x1_jpeg/cover/b/4/b/9/b4b96e865b138912ffc25bbb203f0c55.jpg',
   )
-
-  function setActiveRowRef(el: any, idx: number) {
-    if (idx === currentIndex.value) {
-      activeRowRef.value = el
-    }
-  }
-
-  function handlePlaySongAt(idx: number) {
-    const song = playlist.value[idx]
-    if (song) {
-      player.playSong(song)
-    }
-  }
-
-  function onQueueListOsInitialized(instance: any) {
-    queueListOsInstance.value = instance
-  }
 
   function onTimelineOsInitialized(instance: any) {
     timelineOsInstance.value = instance
@@ -503,21 +580,6 @@
         viewport.scrollTop -
         viewportHeight / 2 +
         elementHeight / 2
-
-      viewport.scrollTo({
-        top: targetTop,
-        behavior: 'smooth',
-      })
-    }
-  }
-
-  function scrollToActive() {
-    if (queueListOsInstance.value && activeRowRef.value) {
-      const { viewport } = queueListOsInstance.value.elements()
-      const activeEl = activeRowRef.value
-
-      // Calculate offset relative to the scrollable container using bounding rects
-      const targetTop = activeEl.getBoundingClientRect().top - viewport.getBoundingClientRect().top + viewport.scrollTop - 80
 
       viewport.scrollTo({
         top: targetTop,
@@ -560,26 +622,6 @@
       img.src = imageUrl
     })
   }
-
-  // Auto scroll on mount and when references resolve
-  onMounted(() => {
-    nextTick(() => {
-      scrollToActive()
-    })
-  })
-
-  // Watch state changes to dynamically scroll active row
-  watch(
-    [currentIndex, activeRowRef],
-    ([idx, activeEl]) => {
-      if (idx !== -1 && activeEl) {
-        nextTick(() => {
-          scrollToActive()
-        })
-      }
-    },
-    { immediate: true },
-  )
 
   // Watch activeSegmentIndex to scroll the active segment into the center of viewport
   watch(

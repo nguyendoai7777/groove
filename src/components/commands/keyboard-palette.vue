@@ -54,7 +54,7 @@
 							<line x1="8" y1="12" x2="16" y2="12"></line>
 						</svg> -->
 
-            <div class="text-3xl">Empty Placegolder</div>
+            <div class="text-3xl">Empty Placeholder</div>
             <span>Không tìm thấy kết quả cho "{{ searchQuery }}"</span>
           </div>
 
@@ -123,6 +123,7 @@
   import { invoke } from '@tauri-apps/api/core'
   import SearchItem from './search-item.vue'
   import type { PartialOptions } from 'overlayscrollbars'
+  import { CmdQuickActions, KeyboardShortcuts } from './command.const.ts'
 
   const store = useCommandPaletteStore()
   const player = useAudioPlayer()
@@ -141,97 +142,10 @@
   })
 
   // List of Built-in CLI commands
-  const COMMANDS = [
-    {
-      id: 'c-play',
-      type: 'command',
-      title: '/play <tên bài>',
-      description: 'Phát ngay một bài hát theo tên',
-      shortcut: 'Tab',
-      commandName: '/play',
-    },
-    {
-      id: 'c-playall',
-      type: 'command',
-      title: '/playall',
-      description: 'Phát toàn bộ danh sách bài hát',
-      shortcut: 'Tab',
-      commandName: '/playall',
-    },
-    {
-      id: 'c-queue',
-      type: 'command',
-      title: '/queue <tên bài>',
-      description: 'Thêm bài hát vào hàng chờ phát',
-      shortcut: 'Tab',
-      commandName: '/queue',
-    },
-    {
-      id: 'c-pause',
-      type: 'command',
-      title: '/pause',
-      description: 'Tạm dừng bài hát đang phát',
-      shortcut: 'Tab',
-      commandName: '/pause',
-    },
-    {
-      id: 'c-next',
-      type: 'command',
-      title: '/next',
-      description: 'Chuyển sang bài hát tiếp theo',
-      shortcut: 'Tab',
-      commandName: '/next',
-    },
-    {
-      id: 'c-volume',
-      type: 'command',
-      title: '/volume <0-100>',
-      description: 'Điều chỉnh mức âm lượng phát',
-      shortcut: 'Tab',
-      commandName: '/volume',
-    },
-    {
-      id: 'c-theme',
-      type: 'command',
-      title: '/theme <dark|light>',
-      description: 'Thay đổi giao diện sáng hoặc tối',
-      shortcut: 'Tab',
-      commandName: '/theme',
-    },
-    {
-      id: 'c-help',
-      type: 'command',
-      title: '/help',
-      description: 'Hiển thị danh sách tất cả câu lệnh',
-      shortcut: 'Tab',
-      commandName: '/help',
-    },
-  ]
+  const COMMANDS = KeyboardShortcuts
 
   // Default Quick Actions when empty input
-  const QUICK_ACTIONS = [
-    {
-      id: 'qa-1',
-      type: 'action',
-      title: 'Phát ngẫu nhiên thư viện',
-      description: 'Chức năng • Trộn bài hát ngẫu nhiên',
-      shortcut: '⌥P',
-    },
-    {
-      id: 'qa-2',
-      type: 'action',
-      title: 'Đi tới Thư viện nhạc',
-      description: 'Điều hướng • Mở trang My Music',
-      shortcut: 'G M',
-    },
-    {
-      id: 'qa-3',
-      type: 'action',
-      title: 'Đi tới Đang phát',
-      description: 'Điều hướng • Mở trang Now Playing',
-      shortcut: 'G P',
-    },
-  ]
+  const QUICK_ACTIONS = CmdQuickActions
 
   // Watch searchQuery to perform debounced DB queries
   watch(searchQuery, (newQuery) => {

@@ -305,7 +305,7 @@
     handleDragUpdate(e)
   }
 
-  function handleDragEnd(e: MouseEvent) {
+  function handleDragEnd(_e: MouseEvent) {
     if (!isDragging.value) return
     isDragging.value = false
     window.removeEventListener('mousemove', handleDragMove)

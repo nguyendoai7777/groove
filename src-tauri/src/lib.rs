@@ -508,6 +508,337 @@ fn update_song_timeline(
     Ok(())
 }
 
+#[derive(serde::Serialize)]
+struct FullMetadata {
+    filename: String,
+    title: Option<String>,
+    artist: Option<String>,
+    album_name: Option<String>,
+    track_number: Option<String>,
+    thumbnail: Option<String>,
+}
+
+#[tauri::command]
+fn get_song_metadata(state: State<'_, DbState>, song_id: i64) -> Result<FullMetadata, String> {
+    let conn = state.conn.lock().unwrap();
+
+    let mut stmt = conn.prepare("SELECT file_path, filename FROM songs WHERE id = ?1").map_err(|e| e.to_string())?;
+    let (file_path_str, filename) = stmt.query_row([song_id], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    }).map_err(|_| "Song not found in database".to_string())?;
+    
+    let path = Path::new(&file_path_str);
+
+    let mut title = None;
+    let mut artist = None;
+    let mut album_name = None;
+    let mut track_number = None;
+    let mut thumbnail = None;
+
+    if path.exists() {
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+        if ext == "mp3" {
+            if let Ok(tag) = id3::Tag::read_from_path(path) {
+                title = tag.title().map(|s| clean_metadata_string(&s));
+                artist = tag.artist().map(|s| clean_metadata_string(&s));
+                album_name = tag.album().map(|s| clean_metadata_string(&s));
+                track_number = tag.track().map(|t| t.to_string());
+                if let Some(pic) = tag.pictures().next() {
+                    let b64 = BASE64_STANDARD.encode(&pic.data);
+                    let mime = pic.mime_type.to_string();
+                    thumbnail = Some(format!("data:{};base64,{}", mime, b64));
+                }
+            }
+        } else {
+            if let Ok(tagged_file) = Probe::open(path).and_then(|p| p.read()) {
+                for tag in tagged_file.tags() {
+                    if title.is_none() {
+                        title = tag.title().map(|s| clean_metadata_string(&s));
+                    }
+                    if artist.is_none() {
+                        artist = tag.artist().map(|s| clean_metadata_string(&s));
+                    }
+                    if album_name.is_none() {
+                        album_name = tag.album().map(|s| clean_metadata_string(&s));
+                    }
+                    if track_number.is_none() {
+                        if let Some(item) = tag.get(&lofty::tag::ItemKey::TrackNumber) {
+                            track_number = Some(clean_metadata_string(item.value().text().unwrap_or("")));
+                        }
+                    }
+                    if thumbnail.is_none() {
+                        if let Some(pic) = tag.pictures().first() {
+                            let b64 = BASE64_STANDARD.encode(pic.data());
+                            let mime = pic.mime_type().map(|m| m.to_string()).unwrap_or_else(|| "image/png".to_string());
+                            thumbnail = Some(format!("data:{};base64,{}", mime, b64));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if title.is_none() || artist.is_none() || album_name.is_none() {
+        let mut stmt = conn.prepare(
+            "SELECT s.title, s.artist, a.name 
+             FROM songs s 
+             LEFT JOIN albums a ON s.album_id = a.id 
+             WHERE s.id = ?1"
+        ).map_err(|e| e.to_string())?;
+        
+        let (db_title, db_artist, db_album): (Option<String>, Option<String>, Option<String>) = stmt.query_row([song_id], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+        }).unwrap_or((None, None, None));
+
+        if title.is_none() {
+            title = db_title;
+        }
+        if artist.is_none() {
+            artist = db_artist;
+        }
+        if album_name.is_none() {
+            album_name = db_album;
+        }
+    }
+
+    Ok(FullMetadata {
+        filename,
+        title,
+        artist,
+        album_name,
+        track_number,
+        thumbnail,
+    })
+}
+
+#[tauri::command]
+fn update_song_metadata(
+    state: State<'_, DbState>,
+    song_id: i64,
+    filename: Option<String>,
+    title: Option<String>,
+    artist: Option<String>,
+    album_name: Option<String>,
+    track_number: Option<String>,
+    new_thumbnail: Option<String>,
+) -> Result<db::Song, String> {
+    let conn = state.conn.lock().unwrap();
+
+    let mut stmt = conn.prepare("SELECT file_path, folder_id, filename, duration, lyrics, timeline FROM songs WHERE id = ?1").map_err(|e| e.to_string())?;
+    let (file_path_str, folder_id, original_filename, duration, lyrics, timeline) = stmt.query_row([song_id], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, i64>(1)?,
+            row.get::<_, String>(2)?,
+            row.get::<_, u32>(3)?,
+            row.get::<_, Option<String>>(4)?,
+            row.get::<_, Option<String>>(5)?,
+        ))
+    }).map_err(|_| "Song not found in database".to_string())?;
+    
+    let path = Path::new(&file_path_str);
+    let mut current_path = path.to_path_buf();
+    let mut final_file_path_str = file_path_str.clone();
+    let mut final_filename = original_filename.clone();
+
+    if let Some(ref new_name) = filename {
+        let trimmed_name = new_name.trim();
+        if !trimmed_name.is_empty() && trimmed_name != original_filename {
+            if let Some(parent) = path.parent() {
+                let new_path = parent.join(trimmed_name);
+                std::fs::rename(path, &new_path).map_err(|e| format!("Failed to rename file: {}", e))?;
+                current_path = new_path;
+                final_file_path_str = current_path.to_string_lossy().to_string();
+                final_filename = trimmed_name.to_string();
+            }
+        }
+    }
+
+    if current_path.exists() {
+        let ext = current_path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+        if ext == "mp3" {
+            let mut tag = id3::Tag::read_from_path(&current_path).unwrap_or_else(|_| id3::Tag::new());
+            
+            if let Some(ref t) = title {
+                tag.set_title(t);
+            } else {
+                tag.remove_title();
+            }
+
+            if let Some(ref a) = artist {
+                tag.set_artist(a);
+            } else {
+                tag.remove_artist();
+            }
+
+            if let Some(ref al) = album_name {
+                tag.set_album(al);
+            } else {
+                tag.remove_album();
+            }
+
+            if let Some(ref tr) = track_number {
+                let trimmed = tr.trim();
+                if trimmed.is_empty() {
+                    tag.remove_track();
+                    tag.remove("TRCK");
+                    tag.remove("TRCP");
+                } else if let Ok(num) = trimmed.parse::<u32>() {
+                    tag.set_track(num);
+                } else {
+                    tag.remove_track();
+                }
+            } else {
+                tag.remove_track();
+            }
+
+            if let Some(ref thumb_b64) = new_thumbnail {
+                tag.remove_all_pictures();
+                if !thumb_b64.is_empty() {
+                    if let Some(comma_idx) = thumb_b64.find(',') {
+                        let b64_data = &thumb_b64[comma_idx + 1..];
+                        if let Ok(bytes) = BASE64_STANDARD.decode(b64_data) {
+                            let mime_type = if thumb_b64.contains("image/jpeg") || thumb_b64.contains("image/jpg") {
+                                "image/jpeg"
+                            } else if thumb_b64.contains("image/webp") {
+                                "image/webp"
+                            } else {
+                                "image/png"
+                            };
+                            tag.add_frame(id3::Frame::with_content("APIC", id3::Content::Picture(id3::frame::Picture {
+                                mime_type: mime_type.to_string(),
+                                picture_type: id3::frame::PictureType::CoverFront,
+                                description: "Cover".to_string(),
+                                data: bytes,
+                            })));
+                        }
+                    }
+                }
+            }
+
+            tag.write_to_path(&current_path, id3::Version::Id3v24).map_err(|e| e.to_string())?;
+        } else {
+            if let Ok(mut tagged_file) = Probe::open(&current_path).and_then(|p| p.read()) {
+                let tag = if let Some(t) = tagged_file.primary_tag_mut() {
+                    t
+                } else if let Some(t) = tagged_file.first_tag_mut() {
+                    t
+                } else {
+                    let tag_type = tagged_file.primary_tag_type();
+                    let new_tag = lofty::tag::Tag::new(tag_type);
+                    tagged_file.insert_tag(new_tag);
+                    tagged_file.primary_tag_mut().unwrap()
+                };
+
+                if let Some(ref t) = title {
+                    tag.set_title(t.clone());
+                } else {
+                    tag.remove_key(&lofty::tag::ItemKey::TrackTitle);
+                }
+
+                if let Some(ref a) = artist {
+                    tag.set_artist(a.clone());
+                } else {
+                    tag.remove_key(&lofty::tag::ItemKey::TrackArtist);
+                }
+
+                if let Some(ref al) = album_name {
+                    tag.set_album(al.clone());
+                } else {
+                    tag.remove_key(&lofty::tag::ItemKey::AlbumTitle);
+                }
+
+                if let Some(ref tr) = track_number {
+                    let trimmed = tr.trim();
+                    if trimmed.is_empty() {
+                        tag.remove_key(&lofty::tag::ItemKey::TrackNumber);
+                        tag.remove_key(&lofty::tag::ItemKey::TrackTotal);
+                    } else if let Ok(num) = trimmed.parse::<u32>() {
+                        tag.insert_text(lofty::tag::ItemKey::TrackNumber, num.to_string());
+                    } else {
+                        tag.remove_key(&lofty::tag::ItemKey::TrackNumber);
+                    }
+                } else {
+                    tag.remove_key(&lofty::tag::ItemKey::TrackNumber);
+                }
+
+                if let Some(ref thumb_b64) = new_thumbnail {
+                    while !tag.pictures().is_empty() {
+                        tag.remove_picture(0);
+                    }
+                    if !thumb_b64.is_empty() {
+                        if let Some(comma_idx) = thumb_b64.find(',') {
+                            let b64_data = &thumb_b64[comma_idx + 1..];
+                            if let Ok(bytes) = BASE64_STANDARD.decode(b64_data) {
+                                let mime_str = if thumb_b64.contains("image/jpeg") || thumb_b64.contains("image/jpg") {
+                                    "image/jpeg"
+                                } else if thumb_b64.contains("image/webp") {
+                                    "image/webp"
+                                } else {
+                                    "image/png"
+                                };
+                                let mime_type = lofty::picture::MimeType::from_str(mime_str);
+                                let pic = lofty::picture::Picture::new_unchecked(
+                                    lofty::picture::PictureType::CoverFront,
+                                    Some(mime_type),
+                                    None,
+                                    bytes,
+                                );
+                                tag.push_picture(pic);
+                            }
+                        }
+                    }
+                }
+
+                tagged_file.save_to_path(&current_path, lofty::config::WriteOptions::default()).map_err(|e| e.to_string())?;
+            }
+        }
+    }
+
+    let album_id = if let Some(ref name) = album_name {
+        let trimmed_name = name.trim();
+        if !trimmed_name.is_empty() {
+            let id = db::get_or_create_album(&conn, trimmed_name, artist.as_deref())
+                .map_err(|e| e.to_string())?;
+            Some(id)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    conn.execute(
+        "UPDATE songs SET title = ?1, artist = ?2, album_id = ?3, file_path = ?4, filename = ?5 WHERE id = ?6",
+        rusqlite::params![title, artist, album_id, final_file_path_str, final_filename, song_id],
+    ).map_err(|e| e.to_string())?;
+
+    if let Some(ref thumb) = new_thumbnail {
+        if !thumb.is_empty() {
+            db::update_folder_thumbnail(&conn, folder_id, thumb, "#06b6d4").ok();
+            if let Some(a_id) = album_id {
+                db::update_album_thumbnail(&conn, a_id, thumb, "#06b6d4").ok();
+            }
+        }
+    }
+
+    conn.execute("DELETE FROM albums WHERE id NOT IN (SELECT DISTINCT album_id FROM songs WHERE album_id IS NOT NULL)", []).ok();
+    conn.execute("DELETE FROM folders WHERE id NOT IN (SELECT DISTINCT folder_id FROM songs)", []).ok();
+
+    Ok(db::Song {
+        id: song_id,
+        title,
+        artist,
+        album_id,
+        folder_id,
+        file_path: final_file_path_str,
+        filename: final_filename,
+        duration,
+        lyrics,
+        timeline,
+    })
+}
+
 #[tauri::command]
 fn delete_category(
     state: State<'_, DbState>,
@@ -589,7 +920,9 @@ pub fn run() {
             search_songs,
             delete_category,
             update_song_lyrics,
-            update_song_timeline
+            update_song_timeline,
+            get_song_metadata,
+            update_song_metadata
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
