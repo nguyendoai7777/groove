@@ -23,6 +23,14 @@ fn clean_metadata_string(s: &str) -> String {
      .to_string()
 }
 
+fn clean_multiline_metadata_string(s: &str) -> String {
+    s.replace('\0', "")
+     .replace('\r', "")
+     .replace('\u{a0}', " ")
+     .trim()
+     .to_string()
+}
+
 #[derive(serde::Serialize)]
 struct CategoriesResponse {
     folders: Vec<db::Folder>,
@@ -196,12 +204,12 @@ fn import_music_folder(state: State<'_, DbState>) -> Result<ImportResponse, Stri
                 }
                 if lyrics.is_none() {
                     if let Some(item) = tag.get(&lofty::tag::ItemKey::Lyrics) {
-                        lyrics = Some(clean_metadata_string(item.value().text().unwrap_or("")));
+                        lyrics = Some(clean_multiline_metadata_string(item.value().text().unwrap_or("")));
                     }
                 }
                 if timeline.is_none() {
                     if let Some(item) = tag.get(&lofty::tag::ItemKey::Unknown("TIMELINE".to_string())) {
-                        timeline = Some(clean_metadata_string(item.value().text().unwrap_or("")));
+                        timeline = Some(clean_multiline_metadata_string(item.value().text().unwrap_or("")));
                     }
                 }
             }
@@ -228,13 +236,13 @@ fn import_music_folder(state: State<'_, DbState>) -> Result<ImportResponse, Stri
                 }
                 if lyrics.is_none() {
                     if let Some(lyric_frame) = tag.lyrics().next() {
-                        lyrics = Some(clean_metadata_string(&lyric_frame.text));
+                        lyrics = Some(clean_multiline_metadata_string(&lyric_frame.text));
                     }
                 }
                 if timeline.is_none() {
                     for txxx in tag.extended_texts() {
                         if txxx.description == "TIMELINE" {
-                            timeline = Some(clean_metadata_string(&txxx.value));
+                            timeline = Some(clean_multiline_metadata_string(&txxx.value));
                             break;
                         }
                     }

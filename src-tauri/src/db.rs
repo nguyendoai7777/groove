@@ -241,7 +241,9 @@ pub fn insert_song(
             album_id = excluded.album_id,
             folder_id = excluded.folder_id,
             filename = excluded.filename,
-            duration = excluded.duration",
+            duration = excluded.duration,
+            lyrics = excluded.lyrics,
+            timeline = excluded.timeline",
         params![title, artist, album_id, folder_id, file_path, filename, duration, lyrics, timeline],
     )?;
     Ok(())

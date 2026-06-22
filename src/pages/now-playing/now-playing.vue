@@ -196,14 +196,30 @@
               <!-- Thumbnail cover selection -->
               <div class="flex flex-col gap-4 items-center">
                 <div
-                  class="relative w-[200px] h-[200px] rounded-lg overflow-hidden bg-theme-bg-placeholder border border-theme-border/50 shrink-0 group">
+                  class="relative w-[200px] h-[200px] rounded-lg overflow-hidden bg-theme-bg-placeholder border border-theme-border/50 shrink-0 group"
+                  @mouseenter="isHoveringUpload = true"
+                  @mouseleave="isHoveringUpload = false"
+                  @dragenter.prevent="handleDragEnter"
+                  @dragleave.prevent="handleDragLeave"
+                  @dragover.prevent
+                  @drop.prevent="handleDrop">
                   <img v-if="metadataDraft.thumbnail" :src="metadataDraft.thumbnail" class="w-full h-full object-cover" />
                   <div v-else class="w-full h-full flex items-center justify-center bg-theme-bg-item">
                     <svg-sprite src="Album" class="w-6 h-6 text-theme-text-disabled" />
                   </div>
                   <label
-                    class="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer text-[9px] text-cyan-accent-3 font-semibold select-none">
-                    Upload
+                    class="absolute inset-0 bg-black/70 flex items-center justify-center cursor-pointer text-[9px] text-cyan-accent-3 font-semibold select-none transition-all duration-200"
+                    :class="[
+                      isDraggingOver
+                        ? 'opacity-100 bg-black/85 border-2 border-dashed border-theme-accent!'
+                        : 'opacity-0 group-hover:opacity-100',
+                    ]">
+                    <span v-if="isDraggingOver">Drop Cover Here</span>
+                    <span v-else class="text-center px-2">
+                      Click to Upload
+                      <br />
+                      or Drag & Drop / Paste
+                    </span>
                     <input type="file" accept="image/*" class="hidden" @change="handleThumbnailChange" />
                   </label>
                 </div>
@@ -316,7 +332,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, watch, nextTick } from 'vue'
+  import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
   import { storeToRefs } from 'pinia'
   import { invoke } from '@tauri-apps/api/core'
   import { useAudioPlayer } from '@groovex/state'
@@ -354,6 +370,9 @@
     track_number: '',
     thumbnail: '',
   })
+
+  const isHoveringUpload = ref(false)
+  const isDraggingOver = ref(false)
 
   // Timeline Interface
   interface TimelineSegment {
@@ -499,17 +518,69 @@
     }
   }
 
+  function readImageFile(file: File) {
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      metadataDraft.value.thumbnail = event.target?.result as string
+    }
+    reader.readAsDataURL(file)
+  }
+
   function handleThumbnailChange(e: Event) {
     const target = e.target as HTMLInputElement
     const file = target.files?.[0]
     if (file) {
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        metadataDraft.value.thumbnail = event.target?.result as string
-      }
-      reader.readAsDataURL(file)
+      readImageFile(file)
     }
   }
+
+  let dragCounter = 0
+  function handleDragEnter() {
+    dragCounter++
+    isDraggingOver.value = true
+  }
+
+  function handleDragLeave() {
+    dragCounter--
+    if (dragCounter === 0) {
+      isDraggingOver.value = false
+    }
+  }
+
+  function handleDrop(e: DragEvent) {
+    dragCounter = 0
+    isDraggingOver.value = false
+    const file = e.dataTransfer?.files?.[0]
+    if (file && file.type.startsWith('image/')) {
+      readImageFile(file)
+    }
+  }
+
+  function handlePaste(e: ClipboardEvent) {
+    if (!isEditingMetadata.value || !isHoveringUpload.value) return
+
+    const items = e.clipboardData?.items
+    if (!items) return
+
+    for (const item of items) {
+      if (item.type.indexOf('image') !== -1) {
+        const file = item.getAsFile()
+        if (file) {
+          readImageFile(file)
+          e.preventDefault()
+          break
+        }
+      }
+    }
+  }
+
+  onMounted(() => {
+    window.addEventListener('paste', handlePaste)
+  })
+
+  onBeforeUnmount(() => {
+    window.removeEventListener('paste', handlePaste)
+  })
 
   async function handleSaveMetadata() {
     if (!currentSong.value) return

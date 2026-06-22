@@ -471,6 +471,17 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     }
     lastSavedTime = 0
 
+    // Fetch song-specific metadata dynamically (to get the real embedded thumbnail if any)
+    invoke<any>('get_song_metadata', { songId: song.id })
+      .then((meta) => {
+        if (meta && meta.thumbnail && currentSong.value && currentSong.value.id === song.id) {
+          currentSong.value.thumbnail = meta.thumbnail
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to get song metadata during loadAndPlay:', err)
+      })
+
     try {
       const srcUrl = convertFileSrc(song.file_path)
       audio.src = srcUrl
