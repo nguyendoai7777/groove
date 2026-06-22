@@ -489,8 +489,10 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
       audioEngine.resume()
       await audio.play()
       isPlaying.value = true
-    } catch (err) {
-      console.error('Playback error:', err)
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.error('Playback error:', err)
+      }
       isPlaying.value = false
     }
   }
@@ -503,8 +505,10 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
           audioEngine.resume()
           await audio.play()
           isPlaying.value = true
-        } catch (err) {
-          console.error('Playback error:', err)
+        } catch (err: any) {
+          if (err.name !== 'AbortError') {
+            console.error('Playback error:', err)
+          }
           isPlaying.value = false
         }
       }
