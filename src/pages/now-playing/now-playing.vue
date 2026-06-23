@@ -9,8 +9,7 @@
     <div
       class="w-1/4 min-w-now-playing-left-min-w max-w-now-playing-left-max-w flex flex-col items-center justify-start shrink-0 @container h-full overflow-hidden">
       <!-- Album Cover Card -->
-      <div
-        class="relative group w-full aspect-square rounded-2xl overflow-hidden shadow-now-playing-cover bg-theme-bg-placeholder transition-all duration-500 hover:shadow-now-playing-cover-hover shrink-0">
+      <div class="relative group w-full aspect-square rounded-2xl overflow-hidden transition-all duration-500 shrink-0">
         <img
           v-if="thumbnailUrl"
           :src="thumbnailUrl"

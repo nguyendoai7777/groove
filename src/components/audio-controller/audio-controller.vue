@@ -13,7 +13,7 @@
         <img
           v-if="currentSong && thumbnailUrl"
           :src="thumbnailUrl"
-          class="transition-transform duration-300 group-hover:scale-105"
+          class="transition-transform duration-300 group-hover:scale-105 absolute top-1/2 left-1/2 -translate-1/2"
           alt="Song Cover" />
         <div v-else class="w-full h-full p-2 flex items-center justify-center">
           <svg-sprite src="Album" class="w-full h-full text-disabled" />

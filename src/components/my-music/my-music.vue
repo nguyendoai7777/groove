@@ -225,7 +225,7 @@
   import IconBtn from '@groovex/ui/button/icon-btn.vue'
   import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
   import { MusicCard } from '@groovex/ui/music-card'
-  import MusicList from '@groovex/pages/my-music/music-list.vue'
+  import MusicList from '@groovex/ui/music-list/music-list.vue'
   import { useAudioPlayer } from '@groovex/state'
   import type { Song } from '@groovex/types'
   import { useToast } from '@groovex/composables'

@@ -12,12 +12,8 @@
 
     <!-- Category Header Info -->
     <div
-      class="sticky top-0 p-3 z-20 flex transition-all duration-300 ease-in-out"
-      :class="[
-        isScrolled
-          ? 'flex-row items-center gap-4 py-3 backdrop-blur-md px-4'
-          : 'flex-col md:flex-row gap-6 items-start md:items-end pb-2 mb-8',
-      ]">
+      class="sticky top-0 p-3 z-20 flex transition-all duration-300 ease-in-out backdrop-blur-md"
+      :class="[isScrolled ? 'flex-row items-center gap-4 py-3 px-4' : 'flex-col md:flex-row gap-6 items-start md:items-end pb-2 mb-8']">
       <!-- Big cover image -->
       <div
         class="relative rounded-xl overflow-hidden bg-theme-bg-placeholder shadow-xl shrink-0 transition-all duration-300 ease-in-out"
@@ -120,28 +116,42 @@
               :key="song.id"
               :data-src="song.file_path"
               class="group/row hover:bg-gray-400/10 border-b border-theme-border/40 transition-colors duration-150 text-sm cursor-pointer"
+              :class="{
+                'bg-gray-400/10 text-white': showContextMenu && selectedSongForMenu?.id === song.id,
+              }"
               @click="handlePlaySong(song)"
               @contextmenu.prevent="onRowContextMenu($event, song)">
-              <td class="py-3 px-4 text-center text-theme-text-disabled group-hover/row:text-theme-accent-light transition-colors w-12">
+              <td
+                class="py-3 px-4 text-center text-theme-text-disabled group-hover/row:text-theme-accent-light transition-colors w-12"
+                :class="{ 'text-theme-accent-light': showContextMenu && selectedSongForMenu?.id === song.id }">
                 <div class="relative flex items-center justify-center w-full h-full">
                   <!-- If this song is NOT currently selected/playing in the player -->
                   <template v-if="player.currentSong?.id !== song.id">
                     <!-- Default state: show index number -->
-                    <span class="group-hover/row:hidden font-mono text-xs">{{ idx + 1 }}</span>
+                    <span
+                      class="font-mono text-xs"
+                      :class="[showContextMenu && selectedSongForMenu?.id === song.id ? 'hidden' : 'group-hover/row:hidden']">
+                      {{ idx + 1 }}
+                    </span>
                     <!-- Hover state: show Play icon -->
                     <svg-sprite
                       src="Play"
-                      class="w-3 h-3 mx-auto hidden group-hover/row:block text-theme-accent-light fill-theme-accent-light" />
+                      class="w-3 h-3 mx-auto text-theme-accent-light fill-theme-accent-light"
+                      :class="[showContextMenu && selectedSongForMenu?.id === song.id ? 'block' : 'hidden group-hover/row:block']" />
                   </template>
 
                   <!-- If this song IS currently selected/playing in the player -->
                   <template v-else>
                     <!-- Default state: show bouncing visualizer SVG -->
-                    <div class="group-hover/row:hidden flex items-center justify-center text-theme-accent-light">
+                    <div
+                      class="text-theme-accent-light"
+                      :class="[showContextMenu && selectedSongForMenu?.id === song.id ? 'hidden' : 'group-hover/row:hidden']">
                       <playing-visualizer :paused="!player.isPlaying" class="w-3.5 h-3.5" />
                     </div>
                     <!-- Hover state: show Play/Pause icon depending on state -->
-                    <div class="hidden group-hover/row:block text-theme-accent-light">
+                    <div
+                      class="text-theme-accent-light"
+                      :class="[showContextMenu && selectedSongForMenu?.id === song.id ? 'block' : 'hidden group-hover/row:block']">
                       <!-- If playing, show Pause icon -->
                       <svg
                         v-if="player.isPlaying"
@@ -159,9 +169,13 @@
 
               <td
                 class="py-3 px-4 font-medium truncate max-w-xs sm:max-w-sm transition-colors duration-150"
-                :class="
-                  player.currentSong?.id === song.id ? 'text-theme-accent-light' : 'text-theme-text-secondary group-hover/row:text-white'
-                ">
+                :class="[
+                  player.currentSong?.id === song.id
+                    ? 'text-theme-accent-light'
+                    : showContextMenu && selectedSongForMenu?.id === song.id
+                      ? 'text-white'
+                      : 'text-theme-text-secondary group-hover/row:text-white',
+                ]">
                 {{ song.filename.replace(/\.[^/.]+$/, '') }}
               </td>
               <td class="py-3 px-4 text-left text-theme-text-muted tabular-nums">
@@ -189,10 +203,10 @@
         pointerEvents: 'none',
         zIndex: 9999,
       }">
-      <v-menu v-model="showContextMenu" :close-on-content-click="true">
+      <v-menu v-model="showContextMenu" activator="parent" :close-on-content-click="true">
         <v-list class="bg-theme-bg-item border border-theme-border! text-xs py-1" density="compact">
           <!-- Add to Playlist Submenu -->
-          <v-list-item class="cursor-pointer hover:bg-theme-bg-placeholder/20">
+          <v-list-item class="cursor-pointer hover:bg-theme-bg-placeholder/20 px-3">
             <template #prepend>
               <svg-sprite src="Play" class="w-3.5 h-3.5 mr-2 text-theme-text-secondary" />
             </template>
@@ -204,7 +218,7 @@
                 <v-list-item
                   v-for="playlist in playlists"
                   :key="playlist.id"
-                  class="cursor-pointer hover:bg-theme-bg-placeholder/20"
+                  class="cursor-pointer px-3 hover:bg-theme-bg-placeholder/20"
                   @click="addSongToPlaylist(playlist.id)">
                   <div class="flex items-center gap-2">
                     <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ backgroundColor: playlist.color }"></span>
@@ -213,12 +227,12 @@
                 </v-list-item>
                 <v-divider class="my-1 border-theme-border/30" v-if="playlists.length > 0"></v-divider>
                 <v-list-item
-                  class="cursor-pointer hover:bg-theme-bg-placeholder/20 text-theme-accent-light"
+                  class="cursor-pointer px-3 hover:bg-theme-bg-placeholder/20 text-theme-accent-light"
                   @click="openCreatePlaylistDialogFromMenu">
                   <template #prepend>
                     <svg-sprite src="Album" class="w-3 h-3 mr-1 text-theme-accent-light" />
                   </template>
-                  <v-list-item-title>Tạo danh sách mới...</v-list-item-title>
+                  <v-list-item-title>Tạo danh sách mới</v-list-item-title>
                 </v-list-item>
               </v-list>
             </v-menu>
@@ -227,7 +241,7 @@
           <v-divider class="my-1 border-theme-border/30"></v-divider>
 
           <!-- Edit Timeline -->
-          <v-list-item class="cursor-pointer hover:bg-theme-bg-placeholder/20" @click="openEditTimeline">
+          <v-list-item class="cursor-pointer hover:bg-theme-bg-placeholder/20 px-3" @click="openEditTimeline">
             <template #prepend>
               <svg-sprite src="Loop" class="w-3.5 h-3.5 mr-2 text-theme-text-secondary" />
             </template>
@@ -235,7 +249,7 @@
           </v-list-item>
 
           <!-- Edit Lyrics -->
-          <v-list-item class="cursor-pointer hover:bg-theme-bg-placeholder/20" @click="openEditLyrics">
+          <v-list-item class="cursor-pointer hover:bg-theme-bg-placeholder/20 px-3" @click="openEditLyrics">
             <template #prepend>
               <svg-sprite src="Edit" class="w-3.5 h-3.5 mr-2 text-theme-text-secondary" />
             </template>
@@ -243,7 +257,7 @@
           </v-list-item>
 
           <!-- Edit Metadata -->
-          <v-list-item class="cursor-pointer hover:bg-theme-bg-placeholder/20" @click="openEditMetadata">
+          <v-list-item class="cursor-pointer hover:bg-theme-bg-placeholder/20 px-3" @click="openEditMetadata">
             <template #prepend>
               <svg-sprite src="Album" class="w-3.5 h-3.5 mr-2 text-theme-text-secondary" />
             </template>
@@ -253,7 +267,7 @@
           <!-- If type is playlist, support removing song from playlist -->
           <template v-if="type === 'playlist'">
             <v-divider class="my-1 border-theme-border/30"></v-divider>
-            <v-list-item class="cursor-pointer hover:bg-theme-bg-placeholder/20 text-red-400!" @click="removeSongFromPlaylist">
+            <v-list-item class="cursor-pointer hover:bg-theme-bg-placeholder/20 px-3 text-red-400!" @click="removeSongFromPlaylist">
               <template #prepend>
                 <svg-sprite src="Delete" class="w-3.5 h-3.5 mr-2 text-red-400" />
               </template>
@@ -359,7 +373,16 @@
 
   useLayoutScroll((instance) => {
     const { viewport } = instance.elements()
-    isScrolled.value = viewport.scrollTop > 40
+    const scrollTop = viewport.scrollTop
+    if (isScrolled.value) {
+      if (scrollTop < 15) {
+        isScrolled.value = false
+      }
+    } else {
+      if (scrollTop > 120) {
+        isScrolled.value = true
+      }
+    }
   })
 
   const dynamicAccentColor = ref(props.accentColor || 'rgba(6, 182, 212, 0.4)')
