@@ -319,6 +319,7 @@
   const getIconForRoute = (path) => {
     if (path === 'my-music') return 'Song'
     if (path === 'playing') return 'NowPlaying'
+    if (path === 'playlists') return 'Album'
     return 'Song'
   }
 </script>

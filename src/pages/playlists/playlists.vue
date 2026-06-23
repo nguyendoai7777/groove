@@ -1,5 +1,5 @@
 <template>
-  <my-music-grid mode="my-music" />
+  <my-music-grid mode="playlists" />
 </template>
 
 <script setup lang="ts">

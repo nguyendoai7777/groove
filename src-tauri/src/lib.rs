@@ -890,6 +890,43 @@ fn delete_category(
     Ok(CategoriesResponse { folders, albums })
 }
 
+#[tauri::command]
+fn get_playlists(state: State<'_, DbState>) -> Result<Vec<db::Playlist>, String> {
+    let conn = state.conn.lock().unwrap();
+    db::fetch_playlists(&conn).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn create_playlist(state: State<'_, DbState>, name: String, color: String) -> Result<i64, String> {
+    let conn = state.conn.lock().unwrap();
+    db::create_playlist(&conn, &name, &color).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn delete_playlist(state: State<'_, DbState>, id: i64) -> Result<(), String> {
+    let conn = state.conn.lock().unwrap();
+    db::delete_playlist(&conn, id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn add_song_to_playlist(state: State<'_, DbState>, playlist_id: i64, song_id: i64) -> Result<(), String> {
+    let conn = state.conn.lock().unwrap();
+    db::add_song_to_playlist(&conn, playlist_id, song_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn remove_song_from_playlist(state: State<'_, DbState>, playlist_id: i64, song_id: i64) -> Result<(), String> {
+    let conn = state.conn.lock().unwrap();
+    db::remove_song_from_playlist(&conn, playlist_id, song_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_playlist_songs(state: State<'_, DbState>, playlist_id: i64) -> Result<Vec<db::Song>, String> {
+    let conn = state.conn.lock().unwrap();
+    db::fetch_songs_by_playlist(&conn, playlist_id).map_err(|e| e.to_string())
+}
+
+
 
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -948,7 +985,13 @@ pub fn run() {
             update_song_lyrics,
             update_song_timeline,
             get_song_metadata,
-            update_song_metadata
+            update_song_metadata,
+            get_playlists,
+            create_playlist,
+            delete_playlist,
+            add_song_to_playlist,
+            remove_song_from_playlist,
+            get_playlist_songs
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

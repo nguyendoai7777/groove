@@ -1,61 +1,61 @@
 * {
-	font-weight: 300;
+  font-weight: 300;
 }
 .w-stretch {
-	width: stretch;
+  width: stretch;
 }
 *[data-tauri-drag-region] {
-	app-region: drag;
+  app-region: drag;
 }
 
 /* Custom Premium Input Styling */
 .v-text-field .v-field {
-	background-color: var(--input-border-bg) !important;
-	border: 1px solid var(--input-border-color) !important;
-	border-radius: 8px !important;
-	transition:
-		border-color 0.25s ease,
-		box-shadow 0.25s ease,
-		background-color 0.25s ease !important;
+  background-color: var(--input-border-bg) !important;
+  border: 1px solid var(--input-border-color) !important;
+  border-radius: 8px !important;
+  transition:
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    background-color 0.25s ease !important;
 }
 
 .v-field__input,
 .v-text-field__suffix,
 .v-field__field {
-	--v-input-control-height: var(--control-height) !important;
-	min-height: var(--control-height) !important;
-	max-height: var(--control-height);
+  --v-input-control-height: var(--control-height) !important;
+  min-height: var(--control-height) !important;
+  max-height: var(--control-height);
 }
 .v-field__field {
-	padding: 0 8px;
+  padding: 0 8px;
 }
 .v-text-field__suffix__text {
-	font-size: 10px;
-	padding: 1px 3px;
-	border-radius: 3px;
-	background-color: var(--color-theme-bg-placeholder);
+  font-size: 10px;
+  padding: 1px 3px;
+  border-radius: 3px;
+  background-color: var(--color-theme-bg-placeholder);
 }
 .v-text-field .v-field:hover {
-	border-color: var(--input-border-color-hover) !important;
+  border-color: var(--input-border-color-hover) !important;
 }
 
 .v-text-field .v-field--focused {
-	border-color: var(--input-border-focus) !important;
-	box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.15) !important;
+  border-color: var(--input-border-focus) !important;
+  box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.15) !important;
 }
 
 /* Hide the default Vuetify borders and outlines */
 .v-text-field .v-field__outline {
-	display: none !important;
+  display: none !important;
 }
 
 .v-slider-thumb__surface {
-	&,
-	&::after,
-	&::before {
-		width: 12px !important;
-		height: 12px !important;
-	}
+  &,
+  &::after,
+  &::before {
+    width: 12px !important;
+    height: 12px !important;
+  }
 }
 
 /* Standard HTML Inputs styling for completeness */

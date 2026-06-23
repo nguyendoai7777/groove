@@ -25,6 +25,10 @@
     Settings: '/icons/action.svg#Settings',
     Play: '/icons/action.svg#Play',
     Folder: '/icons/action.svg#Folder',
+    LyricsBubble: '/icons/action.svg#LyricsBubble',
+    HelpCircle: '/icons/action.svg#HelpCircle',
+    Delete: '/icons/action.svg#Delete',
+    Edit: '/icons/action.svg#Edit',
 
     Command: '/icons/cli.svg#Command',
     Song: '/icons/cli.svg#Song',
@@ -38,9 +42,6 @@
     LoopBadge: '/icons/media-ctrl.svg#LoopBadge',
     Next: '/icons/media-ctrl.svg#Next',
     Prev: '/icons/media-ctrl.svg#Prev',
-    Delete: '/icons/action.svg#Delete',
-    Edit: '/icons/action.svg#Edit',
-    LyricsBubble: '/icons/action.svg#LyricsBubble',
-    HelpCircle: '/icons/action.svg#HelpCircle',
+    NowPlaying: '/icons/media-ctrl.svg#NowPlaying',
   }
 </script>

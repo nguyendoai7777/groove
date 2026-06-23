@@ -14,8 +14,14 @@
     <symbol id="Prev" viewBox="0 0 36 36">
         <path d="M12.087 8V16.6984L26 8V28L12.087 19.3016V28H10V8H12.087Z" fill="currentColor"/>
     </symbol>
+
     <symbol id="Next" viewBox="0 0 36 36">
         <path d="M23.913 8V16.6984L10 8V28L23.913 19.3016V28H26V8H23.913Z" fill="currentColor"/>
     </symbol>
-
+  <symbol id="NowPlaying" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="6" y1="18" x2="6" y2="12" />
+    <line x1="10" y1="18" x2="10" y2="6" />
+    <line x1="14" y1="18" x2="14" y2="10" />
+    <line x1="18" y1="18" x2="18" y2="8" />
+  </symbol>
 </svg>

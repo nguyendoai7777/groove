@@ -14,10 +14,17 @@
         :alt="title"
         class="w-full h-full object-cover select-none pointer-events-none transition-transform duration-500 group-hover:scale-105" />
       <!-- Fallback Placeholder -->
-      <div v-else class="w-full h-full flex items-center justify-center select-none" :class="placeholderClass">
+      <div
+        v-else
+        class="w-full h-full flex items-center justify-center select-none"
+        :class="placeholderClass"
+        :style="type === 'playlist' ? { backgroundColor: accentColor || '#06b6d4' } : {}">
         <svg-sprite
           :src="type === 'folder' ? 'Play' : 'Album'"
-          :class="type === 'folder' ? 'w-16 h-16 text-theme-text-on-accent drop-shadow-lg' : 'w-16 h-16 text-theme-text-disabled'" />
+          :class="[
+            type === 'folder' ? 'w-16 h-16 text-theme-text-on-accent drop-shadow-lg' : 'w-16 h-16 text-theme-text-disabled',
+            type === 'playlist' ? 'text-white/90! drop-shadow-md' : '',
+          ]" />
       </div>
 
       <!-- Hover Overlay -->
@@ -65,7 +72,9 @@
     <confirmer
       v-model="showConfirm"
       title="Xóa nhé"
-      content="Bạn có chắc chắn muốn xóa album/thư mục này không?"
+      :content="
+        type === 'playlist' ? 'Bạn có chắc chắn muốn xóa danh sách phát này không?' : 'Bạn có chắc chắn muốn xóa album/thư mục này không?'
+      "
       @ok="onConfirmOk"
       @cancel="onConfirmCancel" />
   </div>
@@ -84,9 +93,9 @@
 
   const emit = defineEmits<{
     (e: 'click'): void
-    (e: 'play', payload: { type: 'album' | 'folder'; title: string }): void
-    (e: 'settings', payload: { type: 'album' | 'folder'; title: string }): void
-    (e: 'delete', payload: { type: 'album' | 'folder'; title: string }): void
+    (e: 'play', payload: { type: 'album' | 'folder' | 'playlist'; title: string }): void
+    (e: 'settings', payload: { type: 'album' | 'folder' | 'playlist'; title: string }): void
+    (e: 'delete', payload: { type: 'album' | 'folder' | 'playlist'; title: string }): void
   }>()
 
   const showConfirm = ref(false)
@@ -122,6 +131,9 @@
 
   // Display subtitle based on props
   const displaySubtitle = computed(() => {
+    if (props.type === 'playlist') {
+      return `${props.songsCount} items`
+    }
     if (props.subtitle) return props.subtitle
     if (props.type === 'folder') {
       return props.songsCount > 0 ? `${props.songsCount} songs` : 'Folder'
@@ -133,6 +145,9 @@
   const placeholderClass = computed(() => {
     if (props.type === 'folder') {
       return 'bg-gradient-to-br from-theme-accent to-theme-accent-secondary shadow-music-placeholder-inset'
+    }
+    if (props.type === 'playlist') {
+      return 'border border-theme-border/30 shadow-md'
     }
     return 'bg-theme-bg-placeholder border border-theme-border/50'
   })

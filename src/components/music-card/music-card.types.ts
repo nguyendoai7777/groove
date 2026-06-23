@@ -1,4 +1,4 @@
-export type MusicCardType = 'album' | 'folder'
+export type MusicCardType = 'album' | 'folder' | 'playlist'
 
 export interface MusicCardProps {
   type: MusicCardType

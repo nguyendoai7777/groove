@@ -183,6 +183,26 @@ pub fn init_db(db_path: &Path) -> Result<Connection> {
         conn.execute("ALTER TABLE songs ADD COLUMN timeline TEXT;", []).ok();
     }
 
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS playlists (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            color TEXT NOT NULL
+        );",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS playlist_songs (
+            playlist_id INTEGER NOT NULL,
+            song_id INTEGER NOT NULL,
+            FOREIGN KEY(playlist_id) REFERENCES playlists(id) ON DELETE CASCADE,
+            FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE,
+            PRIMARY KEY(playlist_id, song_id)
+        );",
+        [],
+    )?;
+
     Ok(conn)
 }
 
@@ -401,6 +421,99 @@ pub fn search_songs(conn: &Connection, query: &str) -> Result<Vec<SongSearchResu
             duration: row.get(8)?,
             lyrics: row.get(9)?,
             timeline: row.get(10)?,
+        })
+    })?;
+
+    let mut songs = Vec::new();
+    for song in song_iter {
+        songs.push(song?);
+    }
+    Ok(songs)
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Playlist {
+    pub id: i64,
+    pub name: String,
+    pub color: String,
+    pub songs_count: i32,
+}
+
+pub fn fetch_playlists(conn: &Connection) -> Result<Vec<Playlist>> {
+    let mut stmt = conn.prepare(
+        "SELECT p.id, p.name, p.color, COUNT(ps.song_id) as songs_count
+         FROM playlists p
+         LEFT JOIN playlist_songs ps ON ps.playlist_id = p.id
+         GROUP BY p.id
+         ORDER BY p.name ASC"
+    )?;
+
+    let playlist_iter = stmt.query_map([], |row| {
+        Ok(Playlist {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            color: row.get(2)?,
+            songs_count: row.get(3)?,
+        })
+    })?;
+
+    let mut playlists = Vec::new();
+    for playlist in playlist_iter {
+        playlists.push(playlist?);
+    }
+    Ok(playlists)
+}
+
+pub fn create_playlist(conn: &Connection, name: &str, color: &str) -> Result<i64> {
+    conn.execute(
+        "INSERT INTO playlists (name, color) VALUES (?1, ?2)",
+        params![name, color],
+    )?;
+    Ok(conn.last_insert_rowid())
+}
+
+pub fn delete_playlist(conn: &Connection, id: i64) -> Result<()> {
+    conn.execute("DELETE FROM playlists WHERE id = ?1", params![id])?;
+    Ok(())
+}
+
+pub fn add_song_to_playlist(conn: &Connection, playlist_id: i64, song_id: i64) -> Result<()> {
+    conn.execute(
+        "INSERT OR IGNORE INTO playlist_songs (playlist_id, song_id) VALUES (?1, ?2)",
+        params![playlist_id, song_id],
+    )?;
+    Ok(())
+}
+
+pub fn remove_song_from_playlist(conn: &Connection, playlist_id: i64, song_id: i64) -> Result<()> {
+    conn.execute(
+        "DELETE FROM playlist_songs WHERE playlist_id = ?1 AND song_id = ?2",
+        params![playlist_id, song_id],
+    )?;
+    Ok(())
+}
+
+pub fn fetch_songs_by_playlist(conn: &Connection, playlist_id: i64) -> Result<Vec<Song>> {
+    let mut stmt = conn.prepare(
+        "SELECT s.id, s.title, s.artist, s.album_id, s.folder_id, s.file_path, s.filename, s.duration, s.lyrics, s.timeline
+         FROM songs s
+         INNER JOIN playlist_songs ps ON ps.song_id = s.id
+         WHERE ps.playlist_id = ?1
+         ORDER BY s.filename ASC"
+    )?;
+
+    let song_iter = stmt.query_map(params![playlist_id], |row| {
+        Ok(Song {
+            id: row.get(0)?,
+            title: row.get(1)?,
+            artist: row.get(2)?,
+            album_id: row.get(3)?,
+            folder_id: row.get(4)?,
+            file_path: row.get(5)?,
+            filename: row.get(6)?,
+            duration: row.get(7)?,
+            lyrics: row.get(8)?,
+            timeline: row.get(9)?,
         })
     })?;
 

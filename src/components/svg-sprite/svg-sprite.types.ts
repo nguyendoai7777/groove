@@ -27,6 +27,7 @@ export type SVGSrc =
   | 'Edit'
   | 'LyricsBubble'
   | 'HelpCircle'
+  | 'NowPlaying'
 
 export interface SVGSpriteProps {
   src: CastString<SVGSrc>
