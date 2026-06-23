@@ -10,8 +10,12 @@
       <div
         class="relative overflow-hidden group shrink-0 cursor-pointer shadow-md aspect-square h-(--audio-controller-h)"
         @click="goToNowPlaying">
-        <img v-if="currentSong" :src="thumbnailUrl" class="transition-transform duration-300 group-hover:scale-105" alt="Song Cover" />
-        <div v-else class="w-full h-full p-2">
+        <img
+          v-if="currentSong && thumbnailUrl"
+          :src="thumbnailUrl"
+          class="transition-transform duration-300 group-hover:scale-105"
+          alt="Song Cover" />
+        <div v-else class="w-full h-full p-2 flex items-center justify-center">
           <svg-sprite src="Album" class="w-full h-full text-disabled" />
         </div>
         <div
@@ -335,9 +339,9 @@
   const artistName = computed(() => currentSong.value?.artist || 'Unknown Artist')
   const subArtists = computed(() => '') // Song model doesn't have sub-artists
   const thumbnailUrl = computed(
-    () =>
-      currentSong.value?.thumbnail ||
+    () => currentSong.value?.thumbnail /* ||
       'https://photo-resize-zmp3.zmdcdn.me/w240_r1x1_jpeg/cover/b/4/b/9/b4b96e865b138912ffc25bbb203f0c55.jpg',
+ */,
   )
 
   function checkOverflow() {

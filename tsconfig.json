@@ -1,35 +1,36 @@
 {
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"],
-  "references": [{ "path": "./tsconfig.node.json" }],
-  "compilerOptions": {
-    "target": "ES2020",
-    "useDefineForClassFields": true,
-    "module": "ESNext",
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "skipLibCheck": true,
+	"include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"],
+	"references": [{ "path": "./tsconfig.node.json" }],
+	"compilerOptions": {
+		"target": "ES2020",
+		"useDefineForClassFields": true,
+		"module": "ESNext",
+		"lib": ["ES2020", "DOM", "DOM.Iterable"],
+		"skipLibCheck": true,
 
-    /* Bundler mode */
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noEmit": true,
-    "jsx": "preserve",
+		/* Bundler mode */
+		"moduleResolution": "bundler",
+		"allowImportingTsExtensions": true,
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"noEmit": true,
+		"jsx": "preserve",
 
-    /* Linting */
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
-    "baseUrl": ".",
-    "paths": {
-      "@groovex/state": ["./src/shared/states"],
-      "@groovex/types": ["./src/shared/types"],
-      "@groovex/store": ["./src/shared/stores"],
-      "@groovex/core": ["./src/shared/core"],
-      "@groovex/store/*": ["./src/shared/stores/*"],
-      "@groovex/pages/*": ["./src/pages/*"],
-      "@groovex/ui/*": ["./src/components/*"]
-    }
-  }
+		/* Linting */
+		"strict": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"noFallthroughCasesInSwitch": true,
+		"baseUrl": ".",
+		"paths": {
+			"@groovex/state": ["./src/shared/states"],
+			"@groovex/types": ["./src/shared/types"],
+			"@groovex/store": ["./src/shared/stores"],
+			"@groovex/composables": ["./src/shared/composables"],
+			"@groovex/core": ["./src/shared/core"],
+			"@groovex/store/*": ["./src/shared/stores/*"],
+			"@groovex/pages/*": ["./src/pages/*"],
+			"@groovex/ui/*": ["./src/components/*"]
+		}
+	}
 }

@@ -205,7 +205,7 @@
                   @drop.prevent="handleDrop">
                   <img v-if="metadataDraft.thumbnail" :src="metadataDraft.thumbnail" class="w-full h-full object-cover" />
                   <div v-else class="w-full h-full flex items-center justify-center bg-theme-bg-item">
-                    <svg-sprite src="Album" class="w-6 h-6 text-theme-text-disabled" />
+                    <svg-sprite src="DefaultCover" class="w-6 h-6 text-theme-text-disabled" />
                   </div>
                   <label
                     class="absolute inset-0 bg-black/70 flex items-center justify-center cursor-pointer text-[9px] text-cyan-accent-3 font-semibold select-none transition-all duration-200"
@@ -621,11 +621,7 @@
   // Track metadata computeds
   const songTitle = computed(() => currentSong.value?.title || currentSong.value?.filename || 'No song selected')
   const artistName = computed(() => currentSong.value?.artist || 'Unknown Artist')
-  const thumbnailUrl = computed(
-    () =>
-      currentSong.value?.thumbnail ||
-      'https://photo-resize-zmp3.zmdcdn.me/w240_r1x1_jpeg/cover/b/4/b/9/b4b96e865b138912ffc25bbb203f0c55.jpg',
-  )
+  const thumbnailUrl = computed(() => currentSong.value?.thumbnail || null)
 
   function onTimelineOsInitialized(instance: any) {
     timelineOsInstance.value = instance

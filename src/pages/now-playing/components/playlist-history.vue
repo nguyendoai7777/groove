@@ -81,7 +81,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, watch, nextTick, onMounted } from 'vue'
+  import { ref, computed, watch, nextTick } from 'vue'
   import { storeToRefs } from 'pinia'
   import { useAudioPlayer } from '@groovex/state'
   import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
@@ -142,20 +142,29 @@
       const { viewport } = queueListOsInstance.value.elements()
       const activeEl = activeRowRef.value
 
-      const targetTop = activeEl.getBoundingClientRect().top - viewport.getBoundingClientRect().top + viewport.scrollTop - 80
+      const viewportHeight = viewport.clientHeight
+      const elementHeight = activeEl.clientHeight
+
+      const targetTop =
+        activeEl.getBoundingClientRect().top -
+        viewport.getBoundingClientRect().top +
+        viewport.scrollTop -
+        viewportHeight / 2 +
+        elementHeight / 2
 
       viewport.scrollTo({
         top: targetTop,
         behavior: 'smooth',
+        // Use logical scroll positioning
       })
     }
   }
 
   // Watch state changes to dynamically scroll active row
   watch(
-    [() => currentSong.value?.id, activeRowRef],
-    ([songId, activeEl]) => {
-      if (songId && activeEl) {
+    [() => currentSong.value?.id, activeRowRef, queueListOsInstance],
+    ([songId, activeEl, osInst]) => {
+      if (songId && activeEl && osInst) {
         nextTick(() => {
           scrollToActive()
         })
@@ -163,10 +172,4 @@
     },
     { immediate: true },
   )
-
-  onMounted(() => {
-    nextTick(() => {
-      scrollToActive()
-    })
-  })
 </script>

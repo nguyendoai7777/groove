@@ -1,4 +1,4 @@
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, nextTick } from 'vue'
 import { defineStore } from 'pinia'
 import { convertFileSrc, invoke } from '@tauri-apps/api/core'
 import type { Song } from '@groovex/types'
@@ -285,8 +285,7 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
       }
       if (newVal) {
         try {
-          const { thumbnail, ...rest } = newVal
-          localStorage.setItem('currentSong', JSON.stringify(rest))
+          localStorage.setItem('currentSong', JSON.stringify(newVal))
         } catch (e) {
           console.error('Failed to save currentSong to localStorage:', e)
         }
@@ -312,17 +311,29 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
   if (currentSong.value) {
     try {
       const srcUrl = convertFileSrc(currentSong.value.file_path)
-      audio.src = srcUrl
-      audio.load()
 
-      const onLoadedMetadata = () => {
+      const onCanPlay = () => {
         audio.currentTime = currentTime.value
         duration.value = audio.duration || currentSong.value?.duration || 0
-        audio.removeEventListener('loadedmetadata', onLoadedMetadata)
+        audio.removeEventListener('canplay', onCanPlay)
+        nextTick(() => {
+          isInitialLoad = false
+        })
       }
-      audio.addEventListener('loadedmetadata', onLoadedMetadata)
+      audio.addEventListener('canplay', onCanPlay)
+
+      // Fallback timeout to ensure isInitialLoad is cleared in case load fails
+      setTimeout(() => {
+        if (isInitialLoad) {
+          isInitialLoad = false
+        }
+      }, 3000)
+
+      audio.src = srcUrl
+      audio.load()
     } catch (err) {
       console.error('Error loading initial song:', err)
+      isInitialLoad = false
     }
   }
 
@@ -402,6 +413,7 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
 
   // Sync playback progress from Audio element
   let isSeeking = false
+  let isInitialLoad = !!currentSong.value
   let targetSeekTime: number | null = null
   let lastSavedTime = currentTime.value
 
@@ -432,7 +444,7 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
   })
 
   audio.addEventListener('timeupdate', () => {
-    if (isSeeking) return
+    if (isSeeking || isInitialLoad) return
     updateCurrentTime()
     if (Math.abs(audio.currentTime - lastSavedTime) >= 1) {
       try {

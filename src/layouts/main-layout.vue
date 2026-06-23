@@ -20,7 +20,8 @@
   import SideNav from '@groovex/ui/side-nav/side-nav.vue'
   import AppBar from '@groovex/ui/app-bar/app-bar.vue'
   import { OverlayScrollbarsComponent } from 'overlayscrollbars-vue'
-  import { provideLayoutScroll } from '../shared/composables/use-layout-scroll'
+  import { provideLayoutScroll } from '@groovex/composables'
+
   const osInstance = ref<any>(null)
 
   function onOsInitialized(instance: any) {

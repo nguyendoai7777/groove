@@ -25,7 +25,8 @@ fn clean_metadata_string(s: &str) -> String {
 
 fn clean_multiline_metadata_string(s: &str) -> String {
     s.replace('\0', "")
-     .replace('\r', "")
+     .replace("\r\n", "\n")
+     .replace('\r', "\n")
      .replace('\u{a0}', " ")
      .trim()
      .to_string()
