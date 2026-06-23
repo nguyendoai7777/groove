@@ -792,6 +792,7 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
           queuePlaylist.value[qIdx].thumbnail = metadata.thumbnail
         }
       }
+      return updatedSong
     } catch (err) {
       console.error('Failed to update song metadata:', err)
       throw err

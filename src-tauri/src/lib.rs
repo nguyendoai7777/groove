@@ -525,6 +525,7 @@ struct FullMetadata {
     album_name: Option<String>,
     track_number: Option<String>,
     thumbnail: Option<String>,
+    timeline: Option<String>,
 }
 
 #[tauri::command]
@@ -543,6 +544,7 @@ fn get_song_metadata(state: State<'_, DbState>, song_id: i64) -> Result<FullMeta
     let mut album_name = None;
     let mut track_number = None;
     let mut thumbnail = None;
+    let mut timeline = None;
 
     if path.exists() {
         let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
@@ -556,6 +558,12 @@ fn get_song_metadata(state: State<'_, DbState>, song_id: i64) -> Result<FullMeta
                     let b64 = BASE64_STANDARD.encode(&pic.data);
                     let mime = pic.mime_type.to_string();
                     thumbnail = Some(format!("data:{};base64,{}", mime, b64));
+                }
+                for txxx in tag.extended_texts() {
+                    if txxx.description == "TIMELINE" {
+                        timeline = Some(clean_multiline_metadata_string(&txxx.value));
+                        break;
+                    }
                 }
             }
         } else {
@@ -582,22 +590,27 @@ fn get_song_metadata(state: State<'_, DbState>, song_id: i64) -> Result<FullMeta
                             thumbnail = Some(format!("data:{};base64,{}", mime, b64));
                         }
                     }
+                    if timeline.is_none() {
+                        if let Some(item) = tag.get(&lofty::tag::ItemKey::Unknown("TIMELINE".to_string())) {
+                            timeline = Some(clean_multiline_metadata_string(item.value().text().unwrap_or("")));
+                        }
+                    }
                 }
             }
         }
     }
 
-    if title.is_none() || artist.is_none() || album_name.is_none() {
+    if title.is_none() || artist.is_none() || album_name.is_none() || timeline.is_none() {
         let mut stmt = conn.prepare(
-            "SELECT s.title, s.artist, a.name 
+            "SELECT s.title, s.artist, a.name, s.timeline 
              FROM songs s 
              LEFT JOIN albums a ON s.album_id = a.id 
              WHERE s.id = ?1"
         ).map_err(|e| e.to_string())?;
         
-        let (db_title, db_artist, db_album): (Option<String>, Option<String>, Option<String>) = stmt.query_row([song_id], |row| {
-            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
-        }).unwrap_or((None, None, None));
+        let (db_title, db_artist, db_album, db_timeline): (Option<String>, Option<String>, Option<String>, Option<String>) = stmt.query_row([song_id], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+        }).unwrap_or((None, None, None, None));
 
         if title.is_none() {
             title = db_title;
@@ -608,6 +621,9 @@ fn get_song_metadata(state: State<'_, DbState>, song_id: i64) -> Result<FullMeta
         if album_name.is_none() {
             album_name = db_album;
         }
+        if timeline.is_none() {
+            timeline = db_timeline;
+        }
     }
 
     Ok(FullMetadata {
@@ -617,6 +633,7 @@ fn get_song_metadata(state: State<'_, DbState>, song_id: i64) -> Result<FullMeta
         album_name,
         track_number,
         thumbnail,
+        timeline,
     })
 }
 
