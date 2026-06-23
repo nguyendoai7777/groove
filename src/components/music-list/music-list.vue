@@ -85,7 +85,7 @@
     </div>
 
     <!-- Songs Table -->
-    <div class="flex-1 bg-theme-bg-card overflow-hidden">
+    <div class="flex-1 overflow-hidden">
       <!-- Loading State -->
       <div v-if="isLoading" class="flex flex-col items-center justify-center py-20 gap-3">
         <div class="w-8 h-8 rounded-full border-2 border-theme-accent/20 border-t-theme-accent animate-spin"></div>

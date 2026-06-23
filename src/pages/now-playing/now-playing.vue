@@ -22,10 +22,10 @@
 
       <!-- Metadata -->
       <div class="text-center mt-4 w-full px-2 shrink-0">
-        <h1 class="text-base font-bold truncate text-white mb-1" id="now-playing-title">
+        <h1 class="text-base font-bold text-white mb-1" id="now-playing-title">
           {{ songTitle }}
         </h1>
-        <p class="text-theme-text-muted text-xs truncate">{{ artistName }}</p>
+        <p class="text-theme-text-muted text-xs">{{ artistName }}</p>
       </div>
 
       <!-- Timeline segments box -->
