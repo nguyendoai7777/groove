@@ -1,7 +1,7 @@
 <template>
   <v-dialog v-model="dialogVisible" max-width="400">
     <v-card class="grx-ConfirmerCard bg-theme-bg-item! text-theme-text! border border-theme-border! rounded-xl! overflow-hidden shadow-2xl">
-      <v-card-title class="text-md! font-bold! border-b border-theme-border/80 px-4py-3">
+      <v-card-title class="text-md! font-bold! border-b border-theme-border/80 px-4py-3 v-card-title text-md! px-4 py-3">
         {{ title }}
       </v-card-title>
 
