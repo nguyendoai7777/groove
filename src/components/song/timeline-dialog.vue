@@ -16,11 +16,17 @@
             0:25 Nu Sieu Anh Hung
           </span>
         </p>
-        <textarea
-          v-model="timelineDraft"
-          placeholder="e.g. 0:00 First Track"
-          rows="10"
-          class="w-full bg-theme-bg-item/40 border border-theme-border focus:border-theme-accent/50 rounded-xl p-3 text-xs text-theme-text-secondary outline-hidden resize-none font-mono leading-relaxed transition-colors focus:ring-1 focus:ring-theme-accent/20"></textarea>
+        <overlay-scrollbars-component
+          :options="{ scrollbars: { autoHide: 'scroll' } }"
+          defer
+          class="w-full h-48 bg-theme-bg-item/40 border border-theme-border focus-within:border-theme-accent/50 rounded-xl transition-colors focus-within:ring-1 focus-within:ring-theme-accent/20">
+          <div
+            ref="timelineEditorRef"
+            contenteditable="true"
+            placeholder="e.g. 0:00 First Track"
+            class="w-full min-h-full p-3 text-xs text-theme-text-secondary outline-hidden font-mono leading-relaxed whitespace-pre-wrap wrap-break-word empty:before:content-[attr(placeholder)] empty:before:text-theme-text-disabled/60 empty:before:pointer-events-none"
+            @input="handleTimelineInput"></div>
+        </overlay-scrollbars-component>
       </v-card-text>
       <v-card-actions class="px-2 pt-2 border-t border-theme-border/30 justify-end gap-2">
         <custom-btn variant="secondary" @click="dialogVisible = false" :disabled="isSavingTimeline">Cancel</custom-btn>
@@ -31,10 +37,11 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, watch } from 'vue';
+  import { ref, computed, watch, nextTick } from 'vue';
   import { invoke } from '@tauri-apps/api/core';
   import { useAudioPlayer } from '@groovex/store';
   import CustomBtn from '@groovex/ui/button/custom-btn.vue';
+  import { OverlayScrollbarsComponent } from 'overlayscrollbars-vue';
 
   const props = defineProps<{
     modelValue: boolean;
@@ -56,16 +63,32 @@
 
   const isSavingTimeline = ref(false);
   const timelineDraft = ref('');
+  const timelineEditorRef = ref<HTMLDivElement | null>(null);
+
+  function handleTimelineInput(e: Event) {
+    const target = e.target as HTMLDivElement;
+    timelineDraft.value = target.innerText;
+  }
+
+  function updateEditorContent() {
+    nextTick(() => {
+      if (timelineEditorRef.value) {
+        timelineEditorRef.value.innerText = timelineDraft.value;
+      }
+    });
+  }
 
   async function loadTimeline() {
     if (!props.songId) return;
     if (props.initialTimeline !== undefined && props.initialTimeline !== null) {
       timelineDraft.value = props.initialTimeline;
+      updateEditorContent();
       return;
     }
     try {
       const meta = await invoke<any>('get_song_metadata', { songId: props.songId });
       timelineDraft.value = meta.timeline || '';
+      updateEditorContent();
     } catch (err) {
       console.error('Failed to get song timeline:', err);
     }

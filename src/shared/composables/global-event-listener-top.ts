@@ -7,7 +7,7 @@ interface KeyboardCommand {
   ctrl?: boolean;
   shift?: boolean;
   alt?: boolean;
-  action: () => void;
+  action(): void;
 }
 
 export function useKeyboardShortcuts() {
