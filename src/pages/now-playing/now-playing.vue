@@ -194,7 +194,7 @@
   import { ref, computed, watch, nextTick } from 'vue'
   import { storeToRefs } from 'pinia'
   import { invoke } from '@tauri-apps/api/core'
-  import { useAudioPlayer } from '@groovex/state'
+  import { useAudioPlayer } from '@groovex/store'
   import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
   import PlayingVisualizer from '@groovex/ui/playing-visualizer/playing-visualizer.vue'
   import CustomBtn from '@groovex/ui/button/custom-btn.vue'

@@ -343,7 +343,7 @@
   import CustomBtn from '@groovex/ui/button/custom-btn.vue'
   import { useLayoutScroll } from '../../shared/composables/use-layout-scroll'
   import { formatDuration } from '@groovex/core'
-  import { useAudioPlayer } from '@groovex/state'
+  import { useAudioPlayer } from '@groovex/store'
   import type { Song } from '@groovex/types'
 
   // Dialog component imports

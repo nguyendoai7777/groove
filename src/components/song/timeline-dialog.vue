@@ -33,7 +33,7 @@
 <script setup lang="ts">
   import { ref, computed, watch } from 'vue'
   import { invoke } from '@tauri-apps/api/core'
-  import { useAudioPlayer } from '@groovex/state'
+  import { useAudioPlayer } from '@groovex/store'
   import CustomBtn from '@groovex/ui/button/custom-btn.vue'
 
   const props = defineProps<{

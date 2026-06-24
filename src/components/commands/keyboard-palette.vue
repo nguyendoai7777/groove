@@ -117,8 +117,7 @@
 <script setup lang="ts">
   import { ref, computed, watch, nextTick } from 'vue'
   import { OverlayScrollbarsComponent } from 'overlayscrollbars-vue'
-  import { useCommandPaletteStore } from '@groovex/store'
-  import { useAudioPlayer } from '@groovex/state'
+  import { useCommandPaletteStore, useAudioPlayer } from '@groovex/store'
   import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
   import { invoke } from '@tauri-apps/api/core'
   import SearchItem from './search-item.vue'

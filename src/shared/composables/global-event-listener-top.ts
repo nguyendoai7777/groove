@@ -1,7 +1,6 @@
 // composables/useKeyboardShortcuts.ts
 import { onMounted, onUnmounted, watch } from 'vue'
-import { useCommandPaletteStore } from '@groovex/store'
-import { useAudioPlayer } from '@groovex/state'
+import { useCommandPaletteStore, useAudioPlayer } from '@groovex/store'
 
 interface KeyboardCommand {
   key: string

@@ -112,7 +112,7 @@
 <script setup lang="ts">
   import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
   import { invoke } from '@tauri-apps/api/core'
-  import { useAudioPlayer } from '@groovex/state'
+  import { useAudioPlayer } from '@groovex/store'
   import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
   import CustomBtn from '@groovex/ui/button/custom-btn.vue'
   import { OverlayScrollbarsComponent } from 'overlayscrollbars-vue'

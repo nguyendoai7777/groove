@@ -83,7 +83,7 @@
 <script setup lang="ts">
   import { ref, computed, watch, nextTick } from 'vue'
   import { storeToRefs } from 'pinia'
-  import { useAudioPlayer } from '@groovex/state'
+  import { useAudioPlayer } from '@groovex/store'
   import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
   import PlayingVisualizer from '@groovex/ui/playing-visualizer/playing-visualizer.vue'
   import { OverlayScrollbarsComponent } from 'overlayscrollbars-vue'

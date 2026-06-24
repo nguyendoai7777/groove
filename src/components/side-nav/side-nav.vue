@@ -199,7 +199,7 @@
 <script setup>
   import { ref, watch, computed } from 'vue'
   import { storeToRefs } from 'pinia'
-  import { useAudioPlayer } from '@groovex/state'
+  import { useAudioPlayer } from '@groovex/store'
   import { OCTAVE_BANDS } from '@groovex/core'
   import appInfo from '../../../app.json' with { type: 'json' }
   import { APP_ROUTES } from '../../app.route.ts'

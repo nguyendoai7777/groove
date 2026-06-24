@@ -62,7 +62,7 @@
   import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
   import type { SVGSrc } from '@groovex/ui/svg-sprite'
   import PlayingVisualizer from '@groovex/ui/playing-visualizer/playing-visualizer.vue'
-  import { useAudioPlayer } from '@groovex/state'
+  import { useAudioPlayer } from '@groovex/store'
 
   interface Props {
     item: {

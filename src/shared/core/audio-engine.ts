@@ -17,7 +17,7 @@ export class AudioEngine {
    * Khởi tạo AudioContext và cắm dây hệ thống.
    * Cần gọi hàm này sau tương tác đầu tiên của người dùng (click play) để tránh cơ chế chặn của trình duyệt.
    */
-  public init(): void {
+  public init() {
     if (this.isInitialized) return
 
     // 1. Khởi tạo nhà máy
@@ -51,7 +51,7 @@ export class AudioEngine {
   /**
    * Tạo chuỗi 10 bộ lọc tần số
    */
-  private initEqualizer(): void {
+  private initEqualizer() {
     if (!this.ctx) return
 
     OCTAVE_BANDS.forEach((freq, index) => {
@@ -77,7 +77,7 @@ export class AudioEngine {
   /**
    * Thay thế cho Audio.volume (Nhận giá trị từ 0.0 đến 1.0)
    */
-  public setVolume(volume: number): void {
+  public setVolume(volume: number) {
     this.init() // Đảm bảo đã init nếu người dùng chỉnh volume trước khi bấm play
     if (!this.masterGainNode) return
 
@@ -95,7 +95,7 @@ export class AudioEngine {
   /**
    * Lấy âm lượng hiện tại (0.0 -> 1.0)
    */
-  public getVolume(): number {
+  public getVolume() {
     return this.masterGainNode ? this.masterGainNode.gain.value : 1
   }
 
@@ -104,7 +104,7 @@ export class AudioEngine {
    * @param bandIndex Chỉ số của dải tần (0 đến 9 tương ứng từ 31Hz đến 16kHz)
    * @param dbValue Biên độ muốn tăng/giảm, giới hạn từ -10 đến 10 dB
    */
-  public setEQBand(bandIndex: number, dbValue: number): void {
+  public setEQBand(bandIndex: number, dbValue: number) {
     this.init()
     if (!this.eqNodes[bandIndex]) return
 
@@ -122,14 +122,14 @@ export class AudioEngine {
   /**
    * Lấy mảng giá trị hiện tại của bộ EQ (để đồng bộ lên UI Slider)
    */
-  public getEQGains(): number[] {
+  public getEQGains() {
     return this.eqNodes.map((node) => node.gain.value)
   }
 
   /**
    * Khởi động lại AudioContext khi bị tạm dừng bởi trình duyệt
    */
-  public resume(): void {
+  public resume() {
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume().catch((err) => {
         console.error('Không thể kích hoạt lại AudioContext:', err)

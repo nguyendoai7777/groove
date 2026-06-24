@@ -161,11 +161,11 @@
   import { computed, ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
   import { storeToRefs } from 'pinia'
   import { useRouter } from 'vue-router'
-  import { useAudioPlayer } from '@groovex/state'
   import IconBtn from '@groovex/ui/button/icon-btn.vue'
   import TogglePlay from './toggle-play.vue'
   import { formatDuration } from '@groovex/core'
   import SvgSprite from '../svg-sprite/svg-sprite.vue'
+  import { useAudioPlayer } from '@groovex/store'
 
   const router = useRouter()
   const player = useAudioPlayer()
