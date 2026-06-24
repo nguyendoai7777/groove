@@ -21,10 +21,10 @@
           <template v-if="displayQueue.length > 0">
             <div
               v-for="(item, idx) in displayQueue"
+              class="group/item flex items-center gap-2.5 p-2 rounded-xl transition-all duration-200 cursor-pointer border border-transparent"
               :key="item.song.id + '-' + idx"
               :id="'queue-item-' + item.song.id"
               :ref="(el) => setActiveRowRef(el, item)"
-              class="group/item flex items-center gap-2.5 p-2 rounded-xl transition-all duration-200 cursor-pointer border border-transparent"
               :class="[
                 item.isPlayed ? 'opacity-25 hover:opacity-50' : 'opacity-100',
                 item.isCurrent

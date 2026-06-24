@@ -600,6 +600,28 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     }
   }
 
+  async function playSongFromPath(filePath: string) {
+    try {
+      console.log('[Player] playSongFromPath:', filePath);
+      const song = await invoke<Song>('get_song_by_path', { filePath });
+      await playSong(song);
+    } catch (err) {
+      console.error('Failed to play song from path:', err);
+    }
+  }
+
+  listen<any>('open-file', (event) => {
+    const args = event.payload.args;
+    console.log('[Player] open-file event received args:', args);
+    const audioFile = args.find(
+      (arg: string) =>
+        arg.endsWith('.mp3') || arg.endsWith('.flac') || arg.endsWith('.wav') || arg.endsWith('.m4a') || arg.endsWith('.ogg'),
+    );
+    if (audioFile) {
+      playSongFromPath(audioFile);
+    }
+  });
+
   initTaskbarControls();
 
   // ==========================================
@@ -635,5 +657,6 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     updateLyrics,
     updateTimeline,
     updateSongMetadata,
+    playSongFromPath,
   };
 });

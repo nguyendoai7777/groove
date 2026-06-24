@@ -21,9 +21,7 @@
 		"noUnusedLocals": true,
 		"noUnusedParameters": true,
 		"noFallthroughCasesInSwitch": true,
-		"baseUrl": ".",
 		"paths": {
-			"@groovex/state": ["./src/shared/states"],
 			"@groovex/types": ["./src/shared/types"],
 			"@groovex/store": ["./src/shared/stores"],
 			"@groovex/composables": ["./src/shared/composables"],

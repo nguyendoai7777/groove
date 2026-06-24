@@ -32,7 +32,45 @@
 		"active": true,
 		"targets": "all",
 		"icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
-		"resources": ["icons/taskbar/*"]
+		"resources": ["icons/taskbar/*"],
+		"fileAssociations": [
+			{
+				"ext": ["mp3"],
+				"name": "MP3 Audio",
+				"mimeType": "audio/mpeg",
+				"role": "Viewer"
+			},
+			{
+				"ext": ["flac"],
+				"name": "FLAC Audio",
+				"mimeType": "audio/flac",
+				"role": "Viewer"
+			},
+			{
+				"ext": ["wav"],
+				"name": "WAV Audio",
+				"mimeType": "audio/wav",
+				"role": "Viewer"
+			},
+			{
+				"ext": ["m4a"],
+				"name": "M4A Audio",
+				"mimeType": "audio/mp4",
+				"role": "Viewer"
+			},
+			{
+				"ext": ["m4r"],
+				"name": "M4R Audio",
+				"mimeType": "audio/mp4",
+				"role": "Viewer"
+			},
+			{
+				"ext": ["ogg"],
+				"name": "Ogg Audio",
+				"mimeType": "audio/ogg",
+				"role": "Viewer"
+			}
+		]
 	},
 	"plugins": {
 		"taskbar": {

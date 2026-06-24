@@ -5,7 +5,7 @@ use base64::prelude::*;
 use lofty::prelude::*;
 use lofty::probe::Probe;
 use rusqlite::Connection;
-use tauri::{Manager, State};
+use tauri::{Manager, State, Emitter};
 use id3::TagLike;
 
 mod db;
@@ -926,12 +926,132 @@ fn get_playlist_songs(state: State<'_, DbState>, playlist_id: i64) -> Result<Vec
     db::fetch_songs_by_playlist(&conn, playlist_id).map_err(|e| e.to_string())
 }
 
+#[derive(Clone, serde::Serialize)]
+struct SingleInstancePayload {
+    args: Vec<String>,
+    cwd: String,
+}
 
-
+#[tauri::command]
+fn get_song_by_path(state: State<'_, DbState>, file_path: String) -> Result<db::Song, String> {
+    let conn = state.conn.lock().unwrap();
+    
+    // 1. Try to find the song in the database first
+    let mut stmt = conn.prepare(
+        "SELECT id, title, artist, album_id, folder_id, file_path, filename, duration, lyrics, timeline 
+         FROM songs WHERE file_path = ?1"
+    ).map_err(|e| e.to_string())?;
+    
+    let song_opt: Option<db::Song> = stmt.query_row([&file_path], |row| {
+        Ok(db::Song {
+            id: row.get(0)?,
+            title: row.get(1)?,
+            artist: row.get(2)?,
+            album_id: row.get(3)?,
+            folder_id: row.get(4)?,
+            file_path: row.get(5)?,
+            filename: row.get(6)?,
+            duration: row.get(7)?,
+            lyrics: row.get(8)?,
+            timeline: row.get(9)?,
+        })
+    }).ok();
+    
+    if let Some(song) = song_opt {
+        return Ok(song);
+    }
+    
+    // 2. If not found in DB, parse metadata from the file on disk
+    let path = Path::new(&file_path);
+    if !path.exists() {
+        return Err("File does not exist".to_string());
+    }
+    
+    let filename = path.file_name()
+        .and_then(|f| f.to_str())
+        .unwrap_or("Unknown File")
+        .to_string();
+        
+    let mut title = None;
+    let mut artist = None;
+    let mut duration = 0;
+    let mut lyrics = None;
+    let mut timeline = None;
+    
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+    if ext == "mp3" {
+        // Read via id3
+        if let Ok(tag) = id3::Tag::read_from_path(path) {
+            title = tag.title().map(|s| clean_metadata_string(&s));
+            artist = tag.artist().map(|s| clean_metadata_string(&s));
+            if let Some(lyric_frame) = tag.lyrics().next() {
+                lyrics = Some(clean_multiline_metadata_string(&lyric_frame.text));
+            }
+            for txxx in tag.extended_texts() {
+                if txxx.description == "TIMELINE" {
+                    timeline = Some(clean_multiline_metadata_string(&txxx.value));
+                    break;
+                }
+            }
+        }
+        
+        // Duration from lofty
+        if let Ok(tagged_file) = Probe::open(path).and_then(|p| p.read()) {
+            duration = tagged_file.properties().duration().as_secs() as u32;
+        }
+    } else {
+        // Read via lofty
+        if let Ok(tagged_file) = Probe::open(path).and_then(|p| p.read()) {
+            duration = tagged_file.properties().duration().as_secs() as u32;
+            
+            for tag in tagged_file.tags() {
+                if title.is_none() {
+                    title = tag.title().map(|s| clean_metadata_string(&s));
+                }
+                if artist.is_none() {
+                    artist = tag.artist().map(|s| clean_metadata_string(&s));
+                }
+                if lyrics.is_none() {
+                    if let Some(item) = tag.get(&lofty::tag::ItemKey::Lyrics) {
+                        lyrics = Some(clean_multiline_metadata_string(item.value().text().unwrap_or("")));
+                    }
+                }
+                if timeline.is_none() {
+                    if let Some(item) = tag.get(&lofty::tag::ItemKey::Unknown("TIMELINE".to_string())) {
+                        timeline = Some(clean_multiline_metadata_string(item.value().text().unwrap_or("")));
+                    }
+                }
+            }
+        }
+    }
+    
+    // Construct a temporary Song object with id = -1 (not saved in DB)
+    Ok(db::Song {
+        id: -1,
+        title,
+        artist,
+        album_id: None,
+        folder_id: -1,
+        file_path,
+        filename,
+        duration,
+        lyrics,
+        timeline,
+    })
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_focus();
+            }
+            let _ = app.emit("open-file", SingleInstancePayload {
+                args: argv,
+                cwd: cwd.to_string(),
+            });
+        }))
         .setup(|app| {
             // Initialize database path in App Data directory
             let app_data_dir = app.path().app_data_dir().unwrap_or_else(|_| PathBuf::from("."));
@@ -950,6 +1070,26 @@ pub fn run() {
             app.manage(DbState {
                 conn: Mutex::new(conn),
             });
+
+            // Parse initial startup arguments (when launched via "Open with")
+            let args: Vec<String> = std::env::args().collect();
+            if args.len() > 1 {
+                let file_path = args[1].clone();
+                let path = Path::new(&file_path);
+                if path.exists() {
+                    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+                    if ext == "mp3" || ext == "flac" || ext == "wav" || ext == "m4a" || ext == "ogg" {
+                        let app_handle = app.handle().clone();
+                        tauri::async_runtime::spawn(async move {
+                            tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+                            let _ = app_handle.emit("open-file", SingleInstancePayload {
+                                args,
+                                cwd: String::new(),
+                            });
+                        });
+                    }
+                }
+            }
 
             // Apply window vibrancy and transparency (Aero Blur is smooth and lag-free on Windows 10/11 with transparent: true)
             let window = app.get_webview_window("main").unwrap();
@@ -992,7 +1132,8 @@ pub fn run() {
             delete_playlist,
             add_song_to_playlist,
             remove_song_from_playlist,
-            get_playlist_songs
+            get_playlist_songs,
+            get_song_by_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
