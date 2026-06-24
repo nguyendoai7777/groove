@@ -22,28 +22,41 @@
 
     <!-- Search Bar -->
     <div
-      class="grx-SearchBar absolute top-1/2 left-1/2 -translate-1/2 w-search-bar-w cursor-pointer rounded-full border border-solid flex items-center justify-center py-1 select-none pointer-events-none">
-      <div class="text-xs text-theme-text-disabled font-light">search all</div>
+      class="absolute top-1/2 left-1/2 -translate-1/2 w-search-bar-w cursor-pointer rounded-full border border-solid flex items-center justify-between px-3 py-1 select-none transition-all duration-200 gap-2"
+      :class="[
+        commandPalette.isOpen
+          ? 'bg-(--input-border-bg) border-(--input-border-focus) shadow-[0_0_0_2px_rgba(6,182,212,0.15)]'
+          : 'bg-(--bg-search) border-(--color-border-search) hover:border-(--input-border-color-hover) hover:bg-zinc-800/40',
+      ]"
+      @click="commandPalette.open()">
+      <div class="flex items-center gap-2 overflow-hidden flex-1">
+        <svg-sprite
+          src="Search"
+          class="w-3.5 h-3.5 text-theme-text-disabled shrink-0 transition-colors duration-200"
+          :class="{ 'text-(--input-border-focus)': commandPalette.isOpen }" />
+        <span class="text-xs text-theme-text-disabled font-light truncate">Search songs, commands...</span>
+      </div>
+      <div class="flex items-center gap-0.5 text-[10px] text-theme-text-disabled shrink-0 select-none">
+        <kbd class="px-1.5 py-px rounded bg-zinc-700/30 border border-zinc-600/30 font-sans shadow-sm">Ctrl</kbd>
+        <span class="opacity-50">+</span>
+        <kbd class="px-1.5 py-px rounded bg-zinc-700/30 border border-zinc-600/30 font-sans shadow-sm">K</kbd>
+      </div>
     </div>
   </div>
 </template>
-
-<style>
-  .grx-SearchBar {
-    border: var(--border-search);
-    background: var(--bg-search);
-  }
-</style>
 
 <script setup lang="ts">
   import { ref, computed, onMounted } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
   import { getCurrentWindow } from '@tauri-apps/api/window'
   import IconBtn from '@groovex/ui/button/icon-btn.vue'
+  import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
+  import { useCommandPaletteStore } from '@groovex/store'
 
   const router = useRouter()
   const route = useRoute()
   const appWindow = getCurrentWindow()
+  const commandPalette = useCommandPaletteStore()
 
   const isMaximized = ref(false)
 
