@@ -158,82 +158,82 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
-  import { storeToRefs } from 'pinia'
-  import { useRouter } from 'vue-router'
-  import IconBtn from '@groovex/ui/button/icon-btn.vue'
-  import TogglePlay from './toggle-play.vue'
-  import { formatDuration } from '@groovex/core'
-  import SvgSprite from '../svg-sprite/svg-sprite.vue'
-  import { useAudioPlayer } from '@groovex/store'
+  import { computed, ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
+  import { storeToRefs } from 'pinia';
+  import { useRouter } from 'vue-router';
+  import IconBtn from '@groovex/ui/button/icon-btn.vue';
+  import TogglePlay from './toggle-play.vue';
+  import { formatDuration } from '@groovex/core';
+  import SvgSprite from '../svg-sprite/svg-sprite.vue';
+  import { useAudioPlayer } from '@groovex/store';
 
-  const router = useRouter()
-  const player = useAudioPlayer()
-  const { currentSong, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isRepeat } = storeToRefs(player)
-  const { toggleShuffle, toggleRepeat } = player
+  const router = useRouter();
+  const player = useAudioPlayer();
+  const { currentSong, isPlaying, currentTime, duration, volume, isMuted, isShuffle, isRepeat } = storeToRefs(player);
+  const { toggleShuffle, toggleRepeat } = player;
 
   // Timeline Interface
   interface TimelineSegment {
-    start: number
-    end: number
-    title: string
+    start: number;
+    end: number;
+    title: string;
   }
 
   // Convert time string to seconds
   function parseTimeToSeconds(timeStr: string): number {
-    const parts = timeStr.split(':').map(Number)
-    if (parts.some(isNaN)) return 0
+    const parts = timeStr.split(':').map(Number);
+    if (parts.some(isNaN)) return 0;
 
     if (parts.length === 1) {
-      return parts[0]
+      return parts[0];
     } else if (parts.length === 2) {
-      return parts[0] * 60 + parts[1]
+      return parts[0] * 60 + parts[1];
     } else if (parts.length === 3) {
-      return parts[0] * 3600 + parts[1] * 60 + parts[2]
+      return parts[0] * 3600 + parts[1] * 60 + parts[2];
     }
-    return 0
+    return 0;
   }
 
   // Parse raw timeline text:
   // e.g. "0:00 SANYO"
   // e.g. "0:25 Nu Sieu Anh Hung"
   const parsedTimeline = computed<TimelineSegment[]>(() => {
-    if (!currentSong.value?.timeline) return []
-    const lines = currentSong.value.timeline.split('\n')
-    const rawSegments: { start: number; title: string }[] = []
+    if (!currentSong.value?.timeline) return [];
+    const lines = currentSong.value.timeline.split('\n');
+    const rawSegments: { start: number; title: string }[] = [];
 
     for (const line of lines) {
-      const trimmed = line.trim()
-      if (!trimmed) continue
+      const trimmed = line.trim();
+      if (!trimmed) continue;
 
-      const match = trimmed.match(/^([\d:]+)\s+(.+)$/)
+      const match = trimmed.match(/^([\d:]+)\s+(.+)$/);
       if (match) {
-        const startStr = match[1]
-        const title = match[2].trim()
-        const start = parseTimeToSeconds(startStr)
-        rawSegments.push({ start, title })
+        const startStr = match[1];
+        const title = match[2].trim();
+        const start = parseTimeToSeconds(startStr);
+        rawSegments.push({ start, title });
       }
     }
 
-    rawSegments.sort((a, b) => a.start - b.start)
+    rawSegments.sort((a, b) => a.start - b.start);
 
-    const segments: TimelineSegment[] = []
-    const totalDuration = duration.value || 0
+    const segments: TimelineSegment[] = [];
+    const totalDuration = duration.value || 0;
 
     for (let i = 0; i < rawSegments.length; i++) {
-      const start = rawSegments[i].start
-      const title = rawSegments[i].title
-      const nextStart = i < rawSegments.length - 1 ? rawSegments[i + 1].start : totalDuration
-      const end = Math.max(start, nextStart)
-      segments.push({ start, end, title })
+      const start = rawSegments[i].start;
+      const title = rawSegments[i].title;
+      const nextStart = i < rawSegments.length - 1 ? rawSegments[i + 1].start : totalDuration;
+      const end = Math.max(start, nextStart);
+      segments.push({ start, end, title });
     }
 
-    return segments
-  })
+    return segments;
+  });
 
   // Extended segment with duration for flexGrow
   interface ExtendedSegment extends TimelineSegment {
-    duration: number
+    duration: number;
   }
 
   const segmentsWithFallback = computed<ExtendedSegment[]>(() => {
@@ -241,9 +241,9 @@
       return parsedTimeline.value.map((seg) => ({
         ...seg,
         duration: Math.max(0, seg.end - seg.start),
-      }))
+      }));
     }
-    const totalDuration = duration.value || 1
+    const totalDuration = duration.value || 1;
     return [
       {
         start: 0,
@@ -251,165 +251,165 @@
         title: '',
         duration: totalDuration,
       },
-    ]
-  })
+    ];
+  });
 
   function getSegmentFillWidth(segment: TimelineSegment): string {
-    const time = currentTime.value
-    if (time <= segment.start) return '0%'
-    if (time >= segment.end) return '100%'
-    const segmentDuration = segment.end - segment.start
-    if (segmentDuration <= 0) return '0%'
-    const filled = time - segment.start
-    const percentage = Math.max(0, Math.min(100, (filled / segmentDuration) * 100))
-    return `${percentage}%`
+    const time = currentTime.value;
+    if (time <= segment.start) return '0%';
+    if (time >= segment.end) return '100%';
+    const segmentDuration = segment.end - segment.start;
+    if (segmentDuration <= 0) return '0%';
+    const filled = time - segment.start;
+    const percentage = Math.max(0, Math.min(100, (filled / segmentDuration) * 100));
+    return `${percentage}%`;
   }
 
   // Hover states & computation
-  const isHovering = ref(false)
-  const hoverTime = ref(0)
-  const hoverX = ref(0)
+  const isHovering = ref(false);
+  const hoverTime = ref(0);
+  const hoverX = ref(0);
   const hoverSongName = computed(() => {
-    if (parsedTimeline.value.length === 0) return ''
+    if (parsedTimeline.value.length === 0) return '';
     const match = parsedTimeline.value.find((s, idx) => {
-      const isLast = idx === parsedTimeline.value.length - 1
-      return hoverTime.value >= s.start && (isLast ? hoverTime.value <= s.end : hoverTime.value < s.end)
-    })
-    return match ? `${match.title} (${formatDuration(match.start)} - ${formatDuration(match.end)})` : ''
-  })
+      const isLast = idx === parsedTimeline.value.length - 1;
+      return hoverTime.value >= s.start && (isLast ? hoverTime.value <= s.end : hoverTime.value < s.end);
+    });
+    return match ? `${match.title} (${formatDuration(match.start)} - ${formatDuration(match.end)})` : '';
+  });
 
   function onSliderMouseMove(e: MouseEvent) {
-    const rect = (e.currentTarget as HTMLElement)?.getBoundingClientRect()
-    if (!rect || duration.value === 0) return
-    const x = e.clientX - rect.left
-    const percent = Math.max(0, Math.min(1, x / rect.width))
-    hoverTime.value = percent * duration.value
-    hoverX.value = x
-    isHovering.value = true
+    const rect = (e.currentTarget as HTMLElement)?.getBoundingClientRect();
+    if (!rect || duration.value === 0) return;
+    const x = e.clientX - rect.left;
+    const percent = Math.max(0, Math.min(1, x / rect.width));
+    hoverTime.value = percent * duration.value;
+    hoverX.value = x;
+    isHovering.value = true;
   }
 
   function onSliderMouseLeave() {
-    isHovering.value = false
+    isHovering.value = false;
   }
 
   // Mouse Drag / Seek Logic
-  const isDragging = ref(false)
-  const sliderRef = ref<HTMLElement | null>(null)
+  const isDragging = ref(false);
+  const sliderRef = ref<HTMLElement | null>(null);
 
   function startDrag(e: MouseEvent) {
-    if (duration.value === 0 || !sliderRef.value) return
-    isDragging.value = true
-    handleDragUpdate(e)
-    window.addEventListener('mousemove', handleDragMove)
-    window.addEventListener('mouseup', handleDragEnd)
+    if (duration.value === 0 || !sliderRef.value) return;
+    isDragging.value = true;
+    handleDragUpdate(e);
+    window.addEventListener('mousemove', handleDragMove);
+    window.addEventListener('mouseup', handleDragEnd);
   }
 
   function handleDragMove(e: MouseEvent) {
-    if (!isDragging.value) return
-    handleDragUpdate(e)
+    if (!isDragging.value) return;
+    handleDragUpdate(e);
   }
 
   function handleDragEnd(_e: MouseEvent) {
-    if (!isDragging.value) return
-    isDragging.value = false
-    window.removeEventListener('mousemove', handleDragMove)
-    window.removeEventListener('mouseup', handleDragEnd)
+    if (!isDragging.value) return;
+    isDragging.value = false;
+    window.removeEventListener('mousemove', handleDragMove);
+    window.removeEventListener('mouseup', handleDragEnd);
   }
 
   function handleDragUpdate(e: MouseEvent) {
-    if (!sliderRef.value || duration.value === 0) return
-    const rect = sliderRef.value.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const percent = Math.max(0, Math.min(1, x / rect.width))
-    const targetTime = percent * duration.value
-    player.seek(targetTime)
+    if (!sliderRef.value || duration.value === 0) return;
+    const rect = sliderRef.value.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const percent = Math.max(0, Math.min(1, x / rect.width));
+    const targetTime = percent * duration.value;
+    player.seek(targetTime);
   }
 
   function goToNowPlaying() {
     if (currentSong.value) {
-      router.push('/playing')
+      router.push('/playing');
     }
   }
 
-  const titleContainerRef = ref<HTMLElement | null>(null)
-  const titleInnerRef = ref<HTMLElement | null>(null)
-  const isTitleOverflow = ref(false)
+  const titleContainerRef = ref<HTMLElement | null>(null);
+  const titleInnerRef = ref<HTMLElement | null>(null);
+  const isTitleOverflow = ref(false);
   // Track metadata computed properties
-  const songTitle = computed(() => currentSong.value?.title || currentSong.value?.filename || 'No song selected')
-  const artistName = computed(() => currentSong.value?.artist || 'Unknown Artist')
-  const subArtists = computed(() => '') // Song model doesn't have sub-artists
+  const songTitle = computed(() => currentSong.value?.title || currentSong.value?.filename || 'No song selected');
+  const artistName = computed(() => currentSong.value?.artist || 'Unknown Artist');
+  const subArtists = computed(() => ''); // Song model doesn't have sub-artists
   const thumbnailUrl = computed(
     () => currentSong.value?.thumbnail /* ||
       'https://photo-resize-zmp3.zmdcdn.me/w240_r1x1_jpeg/cover/b/4/b/9/b4b96e865b138912ffc25bbb203f0c55.jpg',
  */,
-  )
+  );
 
   function checkOverflow() {
     if (titleContainerRef.value && titleInnerRef.value) {
-      isTitleOverflow.value = titleInnerRef.value.offsetWidth > titleContainerRef.value.clientWidth
+      isTitleOverflow.value = titleInnerRef.value.offsetWidth > titleContainerRef.value.clientWidth;
     }
   }
 
   watch(songTitle, () => {
-    isTitleOverflow.value = false
+    isTitleOverflow.value = false;
     nextTick(() => {
-      checkOverflow()
-    })
-  })
+      checkOverflow();
+    });
+  });
 
-  let resizeObserver: ResizeObserver | null = null
+  let resizeObserver: ResizeObserver | null = null;
 
   onMounted(() => {
-    checkOverflow()
+    checkOverflow();
     if (typeof ResizeObserver !== 'undefined' && titleContainerRef.value) {
       resizeObserver = new ResizeObserver(() => {
-        checkOverflow()
-      })
-      resizeObserver.observe(titleContainerRef.value)
+        checkOverflow();
+      });
+      resizeObserver.observe(titleContainerRef.value);
     }
-  })
+  });
 
   onBeforeUnmount(() => {
     if (resizeObserver) {
-      resizeObserver.disconnect()
+      resizeObserver.disconnect();
     }
-  })
+  });
 
   function onPlayStateChange(state: boolean) {
-    player.setPlaying(state)
+    player.setPlaying(state);
   }
 
   // Volume control & dynamic icon mapping
   const volumeIcon = computed(() => {
     if (isMuted.value || volume.value === 0) {
-      return 'VMute'
+      return 'VMute';
     }
     if (volume.value >= 1 && volume.value <= 35) {
-      return 'VMin'
+      return 'VMin';
     }
     if (volume.value >= 36 && volume.value <= 65) {
-      return 'VMedium'
+      return 'VMedium';
     }
-    return 'VMax'
-  })
+    return 'VMax';
+  });
 
   function toggleMute() {
-    isMuted.value = !isMuted.value
+    isMuted.value = !isMuted.value;
   }
 
   function prevTrack() {
-    player.prevTrack()
+    player.prevTrack();
   }
 
   function nextTrack() {
-    player.nextTrack()
+    player.nextTrack();
   }
 
   function onVolumeWheel(event: WheelEvent) {
     if (event.deltaY < 0) {
-      volume.value = Math.min(100, (volume.value || 0) + 1)
+      volume.value = Math.min(100, (volume.value || 0) + 1);
     } else if (event.deltaY > 0) {
-      volume.value = Math.max(0, (volume.value || 0) - 1)
+      volume.value = Math.max(0, (volume.value || 0) - 1);
     }
   }
 </script>

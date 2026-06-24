@@ -1,12 +1,12 @@
-import { createApp } from 'vue'
-import App from './App.vue'
-import { createVuetify } from 'vuetify'
-import { createPinia } from 'pinia'
-import 'vuetify/styles'
-import 'overlayscrollbars/overlayscrollbars.css'
-import './tailwind.css'
-import './style.css'
-import { AppRouter } from './app.route'
+import { createApp } from 'vue';
+import App from './App.vue';
+import { createVuetify } from 'vuetify';
+import { createPinia } from 'pinia';
+import 'vuetify/styles';
+import 'overlayscrollbars/overlayscrollbars.css';
+import './tailwind.css';
+import './style.css';
+import { AppRouter } from './app.route';
 import {
   VBtn,
   VCard,
@@ -25,9 +25,9 @@ import {
   VTabsWindow,
   VTabsWindowItem,
   VTextField,
-} from 'vuetify/components'
+} from 'vuetify/components';
 
-const app = createApp(App)
+const app = createApp(App);
 const vtx = createVuetify({
   components: {
     'v-btn': VBtn,
@@ -48,5 +48,5 @@ const vtx = createVuetify({
     'v-menu': VMenu,
     'v-list-item-title': VListItemTitle,
   },
-})
-app.use(AppRouter).use(createPinia()).use(vtx).mount('#app')
+});
+app.use(AppRouter).use(createPinia()).use(vtx).mount('#app');

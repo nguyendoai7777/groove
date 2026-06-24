@@ -81,76 +81,76 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed } from 'vue'
-  import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
-  import IconBtn from '@groovex/ui/button/icon-btn.vue'
-  import Confirmer from '@groovex/ui/confirmer/confirmer.vue'
-  import { MusicCardProps } from '@groovex/ui/music-card/music-card.types.ts'
+  import { ref, computed } from 'vue';
+  import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue';
+  import IconBtn from '@groovex/ui/button/icon-btn.vue';
+  import Confirmer from '@groovex/ui/confirmer/confirmer.vue';
+  import { MusicCardProps } from '@groovex/ui/music-card/music-card.types.ts';
 
   const props = withDefaults(defineProps<MusicCardProps>(), {
     songsCount: 0,
-  })
+  });
 
   const emit = defineEmits<{
-    (e: 'click'): void
-    (e: 'play', payload: { type: 'album' | 'folder' | 'playlist'; title: string }): void
-    (e: 'settings', payload: { type: 'album' | 'folder' | 'playlist'; title: string }): void
-    (e: 'delete', payload: { type: 'album' | 'folder' | 'playlist'; title: string }): void
-  }>()
+    (e: 'click'): void;
+    (e: 'play', payload: { type: 'album' | 'folder' | 'playlist'; title: string }): void;
+    (e: 'settings', payload: { type: 'album' | 'folder' | 'playlist'; title: string }): void;
+    (e: 'delete', payload: { type: 'album' | 'folder' | 'playlist'; title: string }): void;
+  }>();
 
-  const showConfirm = ref(false)
+  const showConfirm = ref(false);
 
   function onDeleteClick() {
-    showConfirm.value = true
+    showConfirm.value = true;
   }
 
   function onConfirmOk() {
-    emit('delete', { type: props.type, title: props.title })
+    emit('delete', { type: props.type, title: props.title });
   }
 
   function onConfirmCancel() {
-    console.log('Delete cancelled')
+    console.log('Delete cancelled');
   }
 
   // Generate border glow and shadow color based on accentColor
   const borderGlowColor = computed(() => {
-    return props.accentColor || '#06b6d4' // defaults to cyan
-  })
+    return props.accentColor || '#06b6d4'; // defaults to cyan
+  });
 
   const glowColor = computed(() => {
-    const baseColor = props.accentColor || '#06b6d4'
+    const baseColor = props.accentColor || '#06b6d4';
     // If it's hex, add opacity
     if (baseColor.startsWith('#')) {
-      return `${baseColor}40` // 25% opacity
+      return `${baseColor}40`; // 25% opacity
     }
     if (baseColor.startsWith('rgb')) {
-      return baseColor.replace('rgb', 'rgba').replace(')', ', 0.25)')
+      return baseColor.replace('rgb', 'rgba').replace(')', ', 0.25)');
     }
-    return baseColor
-  })
+    return baseColor;
+  });
 
   // Display subtitle based on props
   const displaySubtitle = computed(() => {
     if (props.type === 'playlist') {
-      return `${props.songsCount} items`
+      return `${props.songsCount} items`;
     }
-    if (props.subtitle) return props.subtitle
+    if (props.subtitle) return props.subtitle;
     if (props.type === 'folder') {
-      return props.songsCount > 0 ? `${props.songsCount} songs` : 'Folder'
+      return props.songsCount > 0 ? `${props.songsCount} songs` : 'Folder';
     }
-    return 'Unknown Artist'
-  })
+    return 'Unknown Artist';
+  });
 
   // Dynamic classes for placeholder background
   const placeholderClass = computed(() => {
     if (props.type === 'folder') {
-      return 'bg-gradient-to-br from-theme-accent to-theme-accent-secondary shadow-music-placeholder-inset'
+      return 'bg-gradient-to-br from-theme-accent to-theme-accent-secondary shadow-music-placeholder-inset';
     }
     if (props.type === 'playlist') {
-      return 'border border-theme-border/30 shadow-md'
+      return 'border border-theme-border/30 shadow-md';
     }
-    return 'bg-theme-bg-placeholder border border-theme-border/50'
-  })
+    return 'bg-theme-bg-placeholder border border-theme-border/50';
+  });
 </script>
 
 <style>

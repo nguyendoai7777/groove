@@ -14,8 +14,8 @@
 
 <script setup lang="ts">
   defineProps<{
-    paused: boolean
-  }>()
+    paused: boolean;
+  }>();
 </script>
 
 <style>

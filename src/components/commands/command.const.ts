@@ -63,7 +63,7 @@ export const KeyboardShortcuts = [
     shortcut: 'Tab',
     commandName: '/help',
   },
-]
+];
 
 export const CmdQuickActions = [
   {
@@ -87,4 +87,4 @@ export const CmdQuickActions = [
     description: 'Điều hướng • Mở trang Now Playing',
     shortcut: 'G P',
   },
-]
+];

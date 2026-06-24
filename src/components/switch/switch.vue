@@ -16,16 +16,16 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed } from 'vue'
+  import { ref, computed } from 'vue';
   interface Props {
     /** Kích thước của ô tròn switch */
-    size?: number
+    size?: number;
     /** Chiều rộng của track switch */
-    width?: number
+    width?: number;
     /** Màu sắc khi switch được bật */
-    activeColor?: string
+    activeColor?: string;
     /** Màu sắc khi switch được tắt */
-    inactiveColor?: string
+    inactiveColor?: string;
   }
 
   const props = withDefaults(defineProps<Props>(), {
@@ -33,33 +33,33 @@
     width: undefined,
     activeColor: 'bg-green-500',
     inactiveColor: 'bg-gray-300',
-  })
-  const modelValue = defineModel<boolean>({ default: false })
-  const isPressing = ref(false)
+  });
+  const modelValue = defineModel<boolean>({ default: false });
+  const isPressing = ref(false);
 
-  const PADDING = 2
+  const PADDING = 2;
 
   const actualTrackWidth = computed(() => {
-    if (props.width) return props.width
-    return Math.round(props.size * 1.88)
-  })
+    if (props.width) return props.width;
+    return Math.round(props.size * 1.88);
+  });
 
   const trackStyle = computed(() => {
-    const height = props.size + PADDING * 2
+    const height = props.size + PADDING * 2;
 
     return {
       width: `${actualTrackWidth.value}px`,
       height: `${height}px`,
       borderRadius: `${height / 2}px`,
-    }
-  })
+    };
+  });
 
   const thumbStyle = computed(() => {
-    const d = props.size
-    const currentWidth = isPressing.value ? Math.round(d * 1.25) : d
-    let translateX = 0
+    const d = props.size;
+    const currentWidth = isPressing.value ? Math.round(d * 1.25) : d;
+    let translateX = 0;
     if (modelValue.value) {
-      translateX = actualTrackWidth.value - PADDING - currentWidth - PADDING
+      translateX = actualTrackWidth.value - PADDING - currentWidth - PADDING;
     }
 
     return {
@@ -68,8 +68,8 @@
       height: `${d}px`,
       width: `${currentWidth}px`,
       transform: `translateX(${translateX}px)`,
-    }
-  })
+    };
+  });
 </script>
 
 <script lang="ts">
@@ -81,5 +81,5 @@
    * <Switch v-model="status" :size="30" activeColor="bg-blue-500" />
    * ```
    */
-  export default {}
+  export default {};
 </script>

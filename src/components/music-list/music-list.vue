@@ -336,141 +336,141 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, onMounted, nextTick } from 'vue'
-  import { invoke } from '@tauri-apps/api/core'
-  import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
-  import PlayingVisualizer from '@groovex/ui/playing-visualizer/playing-visualizer.vue'
-  import CustomBtn from '@groovex/ui/button/custom-btn.vue'
-  import { useLayoutScroll } from '../../shared/composables/use-layout-scroll'
-  import { formatDuration } from '@groovex/core'
-  import { useAudioPlayer } from '@groovex/store'
-  import type { Song } from '@groovex/types'
+  import { ref, computed, onMounted, nextTick } from 'vue';
+  import { invoke } from '@tauri-apps/api/core';
+  import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue';
+  import PlayingVisualizer from '@groovex/ui/playing-visualizer/playing-visualizer.vue';
+  import CustomBtn from '@groovex/ui/button/custom-btn.vue';
+  import { useLayoutScroll } from '../../shared/composables/use-layout-scroll';
+  import { formatDuration } from '@groovex/core';
+  import { useAudioPlayer } from '@groovex/store';
+  import type { Song } from '@groovex/types';
 
   // Dialog component imports
-  import MetadataDialog from '@groovex/ui/song/metadata-dialog.vue'
-  import TimelineDialog from '@groovex/ui/song/timeline-dialog.vue'
-  import LyricsDialog from '@groovex/ui/song/lyrics-dialog.vue'
-  import { useToast } from '@groovex/composables'
+  import MetadataDialog from '@groovex/ui/song/metadata-dialog.vue';
+  import TimelineDialog from '@groovex/ui/song/timeline-dialog.vue';
+  import LyricsDialog from '@groovex/ui/song/lyrics-dialog.vue';
+  import { useToast } from '@groovex/composables';
 
   const props = defineProps<{
-    type: 'album' | 'folder' | 'playlist'
-    id: number
-    title: string
-    subtitle?: string
-    thumbnail?: string
-    accentColor?: string
-    songsCount?: number
-  }>()
+    type: 'album' | 'folder' | 'playlist';
+    id: number;
+    title: string;
+    subtitle?: string;
+    thumbnail?: string;
+    accentColor?: string;
+    songsCount?: number;
+  }>();
 
   defineEmits<{
-    (e: 'back'): void
-  }>()
+    (e: 'back'): void;
+  }>();
 
-  const songs = ref<Song[]>([])
-  const isLoading = ref(true)
+  const songs = ref<Song[]>([]);
+  const isLoading = ref(true);
 
-  const isScrolled = ref(false)
+  const isScrolled = ref(false);
 
   useLayoutScroll((instance) => {
-    const { viewport } = instance.elements()
-    const scrollTop = viewport.scrollTop
+    const { viewport } = instance.elements();
+    const scrollTop = viewport.scrollTop;
     if (isScrolled.value) {
       if (scrollTop < 15) {
-        isScrolled.value = false
+        isScrolled.value = false;
       }
     } else {
       if (scrollTop > 120) {
-        isScrolled.value = true
+        isScrolled.value = true;
       }
     }
-  })
+  });
 
-  const dynamicAccentColor = ref(props.accentColor || 'rgba(6, 182, 212, 0.4)')
+  const dynamicAccentColor = ref(props.accentColor || 'rgba(6, 182, 212, 0.4)');
 
   // Accent glow background color
   const accentBgColor = computed(() => {
-    return dynamicAccentColor.value
-  })
+    return dynamicAccentColor.value;
+  });
 
   // Subtitle string
   const displaySubtitle = computed(() => {
-    if (props.subtitle) return props.subtitle
-    if (props.type === 'folder') return 'Local Folder'
-    if (props.type === 'playlist') return 'Playlist'
-    return 'Unknown Artist'
-  })
+    if (props.subtitle) return props.subtitle;
+    if (props.type === 'folder') return 'Local Folder';
+    if (props.type === 'playlist') return 'Playlist';
+    return 'Unknown Artist';
+  });
 
   // Fallback placeholder class
   const placeholderClass = computed(() => {
     if (props.type === 'folder') {
-      return 'bg-gradient-to-br from-theme-accent to-theme-accent-secondary shadow-music-placeholder-inset'
+      return 'bg-gradient-to-br from-theme-accent to-theme-accent-secondary shadow-music-placeholder-inset';
     }
     if (props.type === 'playlist') {
-      return 'shadow-md border border-theme-border/30'
+      return 'shadow-md border border-theme-border/30';
     }
-    return 'bg-theme-bg-placeholder border border-theme-border/50'
-  })
+    return 'bg-theme-bg-placeholder border border-theme-border/50';
+  });
 
   // Helper function to extract average dominant color from image URL or base64
   function getAverageColor(imageUrl: string): Promise<string> {
     return new Promise((resolve) => {
-      const img = new Image()
-      img.crossOrigin = 'Anonymous'
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
       img.onload = () => {
-        const canvas = document.createElement('canvas')
-        canvas.width = 1
-        canvas.height = 1
-        const ctx = canvas.getContext('2d')
+        const canvas = document.createElement('canvas');
+        canvas.width = 1;
+        canvas.height = 1;
+        const ctx = canvas.getContext('2d');
         if (ctx) {
-          ctx.drawImage(img, 0, 0, 1, 1)
-          const pixel = ctx.getImageData(0, 0, 1, 1).data
-          let r = pixel[0]
-          let g = pixel[1]
-          let b = pixel[2]
+          ctx.drawImage(img, 0, 0, 1, 1);
+          const pixel = ctx.getImageData(0, 0, 1, 1).data;
+          let r = pixel[0];
+          let g = pixel[1];
+          let b = pixel[2];
 
           // Keep brightness under control for dark mode text readability
-          const brightness = (r * 299 + g * 587 + b * 114) / 1000
+          const brightness = (r * 299 + g * 587 + b * 114) / 1000;
           if (brightness > 120) {
-            const factor = 120 / brightness
-            r = Math.round(r * factor)
-            g = Math.round(g * factor)
-            b = Math.round(b * factor)
+            const factor = 120 / brightness;
+            r = Math.round(r * factor);
+            g = Math.round(g * factor);
+            b = Math.round(b * factor);
           }
-          resolve(`rgb(${r}, ${g}, ${b})`)
+          resolve(`rgb(${r}, ${g}, ${b})`);
         } else {
-          resolve('#06b6d4')
+          resolve('#06b6d4');
         }
-      }
-      img.onerror = () => resolve('#06b6d4')
-      img.src = imageUrl
-    })
+      };
+      img.onerror = () => resolve('#06b6d4');
+      img.src = imageUrl;
+    });
   }
 
   // Playlists and context menu states
-  const playlists = ref<any[]>([])
-  const contextMenuX = ref(0)
-  const contextMenuY = ref(0)
-  const showContextMenu = ref(false)
-  const selectedSongForMenu = ref<Song | null>(null)
+  const playlists = ref<any[]>([]);
+  const contextMenuX = ref(0);
+  const contextMenuY = ref(0);
+  const showContextMenu = ref(false);
+  const selectedSongForMenu = ref<Song | null>(null);
 
   // Dialog states
-  const isEditingMetadata = ref(false)
-  const isEditingTimeline = ref(false)
-  const isEditingLyrics = ref(false)
+  const isEditingMetadata = ref(false);
+  const isEditingTimeline = ref(false);
+  const isEditingLyrics = ref(false);
 
   // Create playlist from menu states
-  const createDialogVisible = ref(false)
-  const isCreatingPlaylist = ref(false)
-  const newPlaylistName = ref('')
-  const newPlaylistColor = ref('#06b6d4')
+  const createDialogVisible = ref(false);
+  const isCreatingPlaylist = ref(false);
+  const newPlaylistName = ref('');
+  const newPlaylistColor = ref('#06b6d4');
 
-  const toast = useToast()
+  const toast = useToast();
 
   async function loadPlaylists() {
     try {
-      playlists.value = await invoke<any[]>('get_playlists')
+      playlists.value = await invoke<any[]>('get_playlists');
     } catch (err) {
-      console.error('Failed to load playlists:', err)
+      console.error('Failed to load playlists:', err);
     }
   }
 
@@ -478,120 +478,120 @@
   onMounted(async () => {
     if (props.thumbnail) {
       try {
-        const avgColor = await getAverageColor(props.thumbnail)
-        dynamicAccentColor.value = avgColor
+        const avgColor = await getAverageColor(props.thumbnail);
+        dynamicAccentColor.value = avgColor;
       } catch (e) {
-        console.error('Failed to extract dominant color:', e)
+        console.error('Failed to extract dominant color:', e);
       }
     } else if (props.accentColor) {
-      dynamicAccentColor.value = props.accentColor
+      dynamicAccentColor.value = props.accentColor;
     }
 
     try {
       if (props.type === 'playlist') {
         songs.value = await invoke<Song[]>('get_playlist_songs', {
           playlistId: props.id,
-        })
+        });
       } else {
         songs.value = await invoke<Song[]>('get_category_songs', {
           categoryType: props.type,
           categoryId: props.id,
-        })
+        });
       }
     } catch (err) {
-      console.error('Error fetching songs:', err)
+      console.error('Error fetching songs:', err);
     } finally {
-      isLoading.value = false
+      isLoading.value = false;
     }
 
-    await loadPlaylists()
-  })
+    await loadPlaylists();
+  });
 
-  const player = useAudioPlayer()
+  const player = useAudioPlayer();
 
   function handlePlayAll() {
-    if (songs.value.length === 0) return
+    if (songs.value.length === 0) return;
     const playlist = songs.value.map((s) => ({
       ...s,
       thumbnail: props.thumbnail,
-    }))
-    player.playSong(playlist[0], playlist)
+    }));
+    player.playSong(playlist[0], playlist);
   }
 
   function handlePlaySong(song: Song) {
     if (player.currentSong?.id === song.id) {
-      player.togglePlay()
-      return
+      player.togglePlay();
+      return;
     }
     const playlist = songs.value.map((s) => ({
       ...s,
       thumbnail: props.thumbnail,
-    }))
+    }));
     const playSongItem = playlist.find((s) => s.id === song.id) || {
       ...song,
       thumbnail: props.thumbnail,
-    }
-    player.playSong(playSongItem, playlist)
+    };
+    player.playSong(playSongItem, playlist);
   }
 
   // Context Menu Actions
   function onRowContextMenu(e: MouseEvent, song: Song) {
-    selectedSongForMenu.value = song
-    contextMenuX.value = e.clientX
-    contextMenuY.value = e.clientY
-    showContextMenu.value = false
+    selectedSongForMenu.value = song;
+    contextMenuX.value = e.clientX;
+    contextMenuY.value = e.clientY;
+    showContextMenu.value = false;
     nextTick(() => {
-      showContextMenu.value = true
-    })
+      showContextMenu.value = true;
+    });
   }
 
   async function addSongToPlaylist(playlistId: number) {
-    if (!selectedSongForMenu.value) return
+    if (!selectedSongForMenu.value) return;
     try {
       await invoke('add_song_to_playlist', {
         playlistId,
         songId: selectedSongForMenu.value.id,
-      })
-      toast.show('Đã thêm bài hát vào danh sách phát.')
+      });
+      toast.show('Đã thêm bài hát vào danh sách phát.');
     } catch (err) {
-      console.error('Failed to add song to playlist:', err)
-      toast.show('Lỗi khi thêm bài hát vào danh sách phát.')
+      console.error('Failed to add song to playlist:', err);
+      toast.show('Lỗi khi thêm bài hát vào danh sách phát.');
     }
   }
 
   async function removeSongFromPlaylist() {
-    if (!selectedSongForMenu.value || props.type !== 'playlist') return
+    if (!selectedSongForMenu.value || props.type !== 'playlist') return;
     try {
       await invoke('remove_song_from_playlist', {
         playlistId: props.id,
         songId: selectedSongForMenu.value.id,
-      })
-      toast.show('Đã xóa bài hát khỏi danh sách phát.')
+      });
+      toast.show('Đã xóa bài hát khỏi danh sách phát.');
 
       // Refresh list
       songs.value = await invoke<Song[]>('get_playlist_songs', {
         playlistId: props.id,
-      })
+      });
     } catch (err) {
-      console.error('Failed to remove song from playlist:', err)
-      toast.show('Lỗi khi xóa bài hát.')
+      console.error('Failed to remove song from playlist:', err);
+      toast.show('Lỗi khi xóa bài hát.');
     }
   }
 
   function openEditMetadata() {
-    isEditingMetadata.value = true
+    isEditingMetadata.value = true;
   }
 
   function openEditTimeline() {
-    isEditingTimeline.value = true
+    isEditingTimeline.value = true;
   }
 
   function openEditLyrics() {
-    isEditingLyrics.value = true
+    isEditingLyrics.value = true;
   }
 
   function onMetadataSaved(updatedSong: any) {
-    const idx = songs.value.findIndex((s) => s.id === updatedSong.id)
+    const idx = songs.value.findIndex((s) => s.id === updatedSong.id);
     if (idx !== -1) {
       songs.value[idx] = {
         ...songs.value[idx],
@@ -599,64 +599,64 @@
         title: updatedSong.title,
         artist: updatedSong.artist,
         album_id: updatedSong.album_id,
-      }
+      };
     }
   }
 
   function onTimelineSaved(newTimeline: string) {
     if (selectedSongForMenu.value) {
-      const idx = songs.value.findIndex((s) => s.id === selectedSongForMenu.value!.id)
+      const idx = songs.value.findIndex((s) => s.id === selectedSongForMenu.value!.id);
       if (idx !== -1) {
-        songs.value[idx].timeline = newTimeline
+        songs.value[idx].timeline = newTimeline;
       }
     }
   }
 
   function onLyricsSaved(newLyrics: string) {
     if (selectedSongForMenu.value) {
-      const idx = songs.value.findIndex((s) => s.id === selectedSongForMenu.value!.id)
+      const idx = songs.value.findIndex((s) => s.id === selectedSongForMenu.value!.id);
       if (idx !== -1) {
-        songs.value[idx].lyrics = newLyrics
+        songs.value[idx].lyrics = newLyrics;
       }
     }
   }
 
   function openCreatePlaylistDialogFromMenu() {
-    newPlaylistName.value = ''
-    newPlaylistColor.value = '#06b6d4'
-    createDialogVisible.value = true
+    newPlaylistName.value = '';
+    newPlaylistColor.value = '#06b6d4';
+    createDialogVisible.value = true;
   }
 
   async function handleCreatePlaylist() {
-    const name = newPlaylistName.value.trim()
+    const name = newPlaylistName.value.trim();
     if (!name) {
-      toast.show('Vui lòng nhập tên danh sách phát.')
-      return
+      toast.show('Vui lòng nhập tên danh sách phát.');
+      return;
     }
-    isCreatingPlaylist.value = true
+    isCreatingPlaylist.value = true;
     try {
       const playlistId = await invoke<number>('create_playlist', {
         name,
         color: newPlaylistColor.value,
-      })
+      });
 
       if (selectedSongForMenu.value) {
         await invoke('add_song_to_playlist', {
           playlistId,
           songId: selectedSongForMenu.value.id,
-        })
-        toast.show(`Đã tạo danh sách "${name}" và thêm bài hát.`)
+        });
+        toast.show(`Đã tạo danh sách "${name}" và thêm bài hát.`);
       } else {
-        toast.show(`Đã tạo danh sách phát "${name}".`)
+        toast.show(`Đã tạo danh sách phát "${name}".`);
       }
 
-      createDialogVisible.value = false
-      await loadPlaylists()
+      createDialogVisible.value = false;
+      await loadPlaylists();
     } catch (err: any) {
-      console.error('Error creating playlist from context menu:', err)
-      toast.show(err.toString() || 'Lỗi khi tạo danh sách phát.')
+      console.error('Error creating playlist from context menu:', err);
+      toast.show(err.toString() || 'Lỗi khi tạo danh sách phát.');
     } finally {
-      isCreatingPlaylist.value = false
+      isCreatingPlaylist.value = false;
     }
   }
 </script>

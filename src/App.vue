@@ -1,14 +1,14 @@
 <script setup lang="ts">
-  import KeyboardPalette from '@groovex/ui/commands/keyboard-palette.vue'
-  import { useKeyboardShortcuts } from './shared/composables/global-event-listener-top'
-  import AudioController from './components/audio-controller/audio-controller.vue'
-  import { useToast } from './shared/composables/use-toast'
-  import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
+  import KeyboardPalette from '@groovex/ui/commands/keyboard-palette.vue';
+  import { useKeyboardShortcuts } from './shared/composables/global-event-listener-top';
+  import AudioController from './components/audio-controller/audio-controller.vue';
+  import { useToast } from './shared/composables/use-toast';
+  import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue';
 
-  const { initShortcuts } = useKeyboardShortcuts()
-  initShortcuts()
+  const { initShortcuts } = useKeyboardShortcuts();
+  initShortcuts();
 
-  const { toasts, remove } = useToast()
+  const { toasts, remove } = useToast();
 </script>
 <template>
   <router-view />

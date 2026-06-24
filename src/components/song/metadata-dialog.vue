@@ -110,34 +110,34 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-  import { invoke } from '@tauri-apps/api/core'
-  import { useAudioPlayer } from '@groovex/store'
-  import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
-  import CustomBtn from '@groovex/ui/button/custom-btn.vue'
-  import { OverlayScrollbarsComponent } from 'overlayscrollbars-vue'
+  import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
+  import { invoke } from '@tauri-apps/api/core';
+  import { useAudioPlayer } from '@groovex/store';
+  import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue';
+  import CustomBtn from '@groovex/ui/button/custom-btn.vue';
+  import { OverlayScrollbarsComponent } from 'overlayscrollbars-vue';
 
   const props = defineProps<{
-    modelValue: boolean
-    songId: number | undefined | null
-  }>()
+    modelValue: boolean;
+    songId: number | undefined | null;
+  }>();
 
   const emit = defineEmits<{
-    (e: 'update:modelValue', value: boolean): void
-    (e: 'saved', updatedSong: any): void
-  }>()
+    (e: 'update:modelValue', value: boolean): void;
+    (e: 'saved', updatedSong: any): void;
+  }>();
 
-  const player = useAudioPlayer()
+  const player = useAudioPlayer();
 
   const dialogVisible = computed({
     get: () => props.modelValue,
     set: (val) => emit('update:modelValue', val),
-  })
+  });
 
-  const isSavingMetadata = ref(false)
-  const isHoveringUpload = ref(false)
-  const isDraggingOver = ref(false)
-  let dragCounter = 0
+  const isSavingMetadata = ref(false);
+  const isHoveringUpload = ref(false);
+  const isDraggingOver = ref(false);
+  let dragCounter = 0;
 
   const metadataDraft = ref({
     filename: '',
@@ -146,156 +146,156 @@
     album_name: '',
     track_number: '',
     thumbnail: '',
-  })
+  });
 
-  const fileExtension = ref('')
+  const fileExtension = ref('');
 
   async function loadMetadata() {
-    if (!props.songId) return
+    if (!props.songId) return;
     try {
-      const meta = await invoke<any>('get_song_metadata', { songId: props.songId })
+      const meta = await invoke<any>('get_song_metadata', { songId: props.songId });
 
-      const filename = meta.filename || ''
-      const lastDot = filename.lastIndexOf('.')
+      const filename = meta.filename || '';
+      const lastDot = filename.lastIndexOf('.');
       if (lastDot !== -1) {
-        metadataDraft.value.filename = filename.substring(0, lastDot)
-        fileExtension.value = filename.substring(lastDot)
+        metadataDraft.value.filename = filename.substring(0, lastDot);
+        fileExtension.value = filename.substring(lastDot);
       } else {
-        metadataDraft.value.filename = filename
-        fileExtension.value = ''
+        metadataDraft.value.filename = filename;
+        fileExtension.value = '';
       }
 
-      metadataDraft.value.title = meta.title || ''
-      metadataDraft.value.artist = meta.artist || ''
-      metadataDraft.value.album_name = meta.album_name || ''
-      metadataDraft.value.track_number = meta.track_number || ''
-      metadataDraft.value.thumbnail = meta.thumbnail || ''
+      metadataDraft.value.title = meta.title || '';
+      metadataDraft.value.artist = meta.artist || '';
+      metadataDraft.value.album_name = meta.album_name || '';
+      metadataDraft.value.track_number = meta.track_number || '';
+      metadataDraft.value.thumbnail = meta.thumbnail || '';
     } catch (err) {
-      console.error('Failed to get song metadata:', err)
+      console.error('Failed to get song metadata:', err);
     }
   }
 
   function stripExtension(filename: string, originalExt: string): string {
-    if (!filename) return ''
+    if (!filename) return '';
 
     // 1. Check original extension (case-insensitive)
     if (originalExt) {
-      const extEscaped = originalExt.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
-      const regex = new RegExp(extEscaped + '$', 'i')
+      const extEscaped = originalExt.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      const regex = new RegExp(extEscaped + '$', 'i');
       if (regex.test(filename)) {
-        return filename.replace(regex, '')
+        return filename.replace(regex, '');
       }
     }
 
     // 2. Check other common audio extensions (case-insensitive)
-    const AUDIO_EXTENSIONS = ['.mp3', '.wav', '.flac', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.mp4', '.m4r', '.webm']
+    const AUDIO_EXTENSIONS = ['.mp3', '.wav', '.flac', '.m4a', '.aac', '.ogg', '.opus', '.wma', '.mp4', '.m4r', '.webm'];
     for (const ext of AUDIO_EXTENSIONS) {
-      const extEscaped = ext.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
-      const regex = new RegExp(extEscaped + '$', 'i')
+      const extEscaped = ext.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      const regex = new RegExp(extEscaped + '$', 'i');
       if (regex.test(filename)) {
-        return filename.replace(regex, '')
+        return filename.replace(regex, '');
       }
     }
 
-    return filename
+    return filename;
   }
 
   watch(
     () => metadataDraft.value.filename,
     (newVal) => {
-      const stripped = stripExtension(newVal, fileExtension.value)
+      const stripped = stripExtension(newVal, fileExtension.value);
       if (stripped !== newVal) {
-        metadataDraft.value.filename = stripped
+        metadataDraft.value.filename = stripped;
       }
     },
-  )
+  );
 
   watch(
     () => props.modelValue,
     async (isOpen) => {
       if (isOpen && props.songId) {
-        await loadMetadata()
+        await loadMetadata();
       }
     },
-  )
+  );
 
   watch(
     () => props.songId,
     async (newId) => {
       if (props.modelValue && newId) {
-        await loadMetadata()
+        await loadMetadata();
       }
     },
-  )
+  );
 
   function readImageFile(file: File) {
-    const reader = new FileReader()
+    const reader = new FileReader();
     reader.onload = (event) => {
-      metadataDraft.value.thumbnail = event.target?.result as string
-    }
-    reader.readAsDataURL(file)
+      metadataDraft.value.thumbnail = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
   }
 
   function handleThumbnailChange(e: Event) {
-    const target = e.target as HTMLInputElement
-    const file = target.files?.[0]
+    const target = e.target as HTMLInputElement;
+    const file = target.files?.[0];
     if (file) {
-      readImageFile(file)
+      readImageFile(file);
     }
   }
 
   function handleDragEnter() {
-    dragCounter++
-    isDraggingOver.value = true
+    dragCounter++;
+    isDraggingOver.value = true;
   }
 
   function handleDragLeave() {
-    dragCounter--
+    dragCounter--;
     if (dragCounter === 0) {
-      isDraggingOver.value = false
+      isDraggingOver.value = false;
     }
   }
 
   function handleDrop(e: DragEvent) {
-    dragCounter = 0
-    isDraggingOver.value = false
-    const file = e.dataTransfer?.files?.[0]
+    dragCounter = 0;
+    isDraggingOver.value = false;
+    const file = e.dataTransfer?.files?.[0];
     if (file && file.type.startsWith('image/')) {
-      readImageFile(file)
+      readImageFile(file);
     }
   }
 
   function handlePaste(e: ClipboardEvent) {
-    if (!dialogVisible.value || !isHoveringUpload.value) return
+    if (!dialogVisible.value || !isHoveringUpload.value) return;
 
-    const items = e.clipboardData?.items
-    if (!items) return
+    const items = e.clipboardData?.items;
+    if (!items) return;
 
     for (const item of items) {
       if (item.type.indexOf('image') !== -1) {
-        const file = item.getAsFile()
+        const file = item.getAsFile();
         if (file) {
-          readImageFile(file)
-          e.preventDefault()
-          break
+          readImageFile(file);
+          e.preventDefault();
+          break;
         }
       }
     }
   }
 
   onMounted(() => {
-    window.addEventListener('paste', handlePaste)
-  })
+    window.addEventListener('paste', handlePaste);
+  });
 
   onBeforeUnmount(() => {
-    window.removeEventListener('paste', handlePaste)
-  })
+    window.removeEventListener('paste', handlePaste);
+  });
 
   async function handleSaveMetadata() {
-    if (!props.songId) return
-    isSavingMetadata.value = true
+    if (!props.songId) return;
+    isSavingMetadata.value = true;
     try {
-      const fullFilename = metadataDraft.value.filename + fileExtension.value
+      const fullFilename = metadataDraft.value.filename + fileExtension.value;
       const updatedSong = await player.updateSongMetadata(props.songId, {
         filename: fullFilename,
         title: metadataDraft.value.title,
@@ -303,13 +303,13 @@
         album_name: metadataDraft.value.album_name,
         track_number: metadataDraft.value.track_number,
         thumbnail: metadataDraft.value.thumbnail,
-      })
-      emit('saved', updatedSong)
-      dialogVisible.value = false
+      });
+      emit('saved', updatedSong);
+      dialogVisible.value = false;
     } catch (err) {
-      console.error('Failed to save song metadata:', err)
+      console.error('Failed to save song metadata:', err);
     } finally {
-      isSavingMetadata.value = false
+      isSavingMetadata.value = false;
     }
   }
 </script>

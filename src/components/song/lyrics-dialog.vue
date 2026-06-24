@@ -18,38 +18,38 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, watch } from 'vue'
-  import { invoke } from '@tauri-apps/api/core'
-  import { useAudioPlayer } from '@groovex/store'
-  import CustomBtn from '@groovex/ui/button/custom-btn.vue'
+  import { ref, computed, watch } from 'vue';
+  import { invoke } from '@tauri-apps/api/core';
+  import { useAudioPlayer } from '@groovex/store';
+  import CustomBtn from '@groovex/ui/button/custom-btn.vue';
 
   const props = defineProps<{
-    modelValue: boolean
-    songId: number | undefined | null
-  }>()
+    modelValue: boolean;
+    songId: number | undefined | null;
+  }>();
 
   const emit = defineEmits<{
-    (e: 'update:modelValue', value: boolean): void
-    (e: 'saved', lyrics: string): void
-  }>()
+    (e: 'update:modelValue', value: boolean): void;
+    (e: 'saved', lyrics: string): void;
+  }>();
 
-  const player = useAudioPlayer()
+  const player = useAudioPlayer();
 
   const dialogVisible = computed({
     get: () => props.modelValue,
     set: (val) => emit('update:modelValue', val),
-  })
+  });
 
-  const isSavingLyrics = ref(false)
-  const lyricsDraft = ref('')
+  const isSavingLyrics = ref(false);
+  const lyricsDraft = ref('');
 
   async function loadLyrics() {
-    if (!props.songId) return
+    if (!props.songId) return;
     try {
-      const meta = await invoke<any>('get_song_metadata', { songId: props.songId })
-      lyricsDraft.value = meta.lyrics || ''
+      const meta = await invoke<any>('get_song_metadata', { songId: props.songId });
+      lyricsDraft.value = meta.lyrics || '';
     } catch (err) {
-      console.error('Failed to get song lyrics:', err)
+      console.error('Failed to get song lyrics:', err);
     }
   }
 
@@ -57,35 +57,35 @@
     () => props.modelValue,
     async (isOpen) => {
       if (isOpen) {
-        await loadLyrics()
+        await loadLyrics();
       }
     },
-  )
+  );
 
   watch(
     () => props.songId,
     async (newId) => {
       if (props.modelValue && newId) {
-        await loadLyrics()
+        await loadLyrics();
       }
     },
-  )
+  );
 
   async function handleSaveLyrics() {
-    if (!props.songId) return
-    isSavingLyrics.value = true
+    if (!props.songId) return;
+    isSavingLyrics.value = true;
     try {
       await invoke('update_song_lyrics', {
         songId: props.songId,
         lyrics: lyricsDraft.value,
-      })
-      player.updateLyrics(props.songId, lyricsDraft.value)
-      emit('saved', lyricsDraft.value)
-      dialogVisible.value = false
+      });
+      player.updateLyrics(props.songId, lyricsDraft.value);
+      emit('saved', lyricsDraft.value);
+      dialogVisible.value = false;
     } catch (err) {
-      console.error('Failed to save lyrics:', err)
+      console.error('Failed to save lyrics:', err);
     } finally {
-      isSavingLyrics.value = false
+      isSavingLyrics.value = false;
     }
   }
 </script>

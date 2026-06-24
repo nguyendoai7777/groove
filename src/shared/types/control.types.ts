@@ -1,1 +1,1 @@
-export type ControlSize = 'sm' | 'md' | 'lg'
+export type ControlSize = 'sm' | 'md' | 'lg';

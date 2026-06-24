@@ -59,46 +59,46 @@
 </template>
 
 <script setup lang="ts">
-  import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
-  import type { SVGSrc } from '@groovex/ui/svg-sprite'
-  import PlayingVisualizer from '@groovex/ui/playing-visualizer/playing-visualizer.vue'
-  import { useAudioPlayer } from '@groovex/store'
+  import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue';
+  import type { SVGSrc } from '@groovex/ui/svg-sprite';
+  import PlayingVisualizer from '@groovex/ui/playing-visualizer/playing-visualizer.vue';
+  import { useAudioPlayer } from '@groovex/store';
 
   interface Props {
     item: {
-      id: string
-      type: string
-      title: string
-      description: string
-      shortcut?: string
-      globalIndex: number
-      rawSong?: any
-    }
-    isActive: boolean
+      id: string;
+      type: string;
+      title: string;
+      description: string;
+      shortcut?: string;
+      globalIndex: number;
+      rawSong?: any;
+    };
+    isActive: boolean;
   }
 
-  defineProps<Props>()
+  defineProps<Props>();
   defineEmits<{
-    (e: 'select', item: Props['item']): void
-    (e: 'hover', index: number): void
-  }>()
+    (e: 'select', item: Props['item']): void;
+    (e: 'hover', index: number): void;
+  }>();
 
-  const player = useAudioPlayer()
+  const player = useAudioPlayer();
 
   function getIconSrc(type: string): SVGSrc {
     switch (type) {
       case 'command':
-        return 'Command'
+        return 'Command';
       case 'song':
-        return 'Song'
+        return 'Song';
       case 'artist':
-        return 'Artist'
+        return 'Artist';
       case 'album':
-        return 'Album'
+        return 'Album';
       case 'action':
-        return 'Action'
+        return 'Action';
       default:
-        return 'Search'
+        return 'Search';
     }
   }
 </script>

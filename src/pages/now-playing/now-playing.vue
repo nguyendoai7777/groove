@@ -191,222 +191,222 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, watch, nextTick } from 'vue'
-  import { storeToRefs } from 'pinia'
-  import { invoke } from '@tauri-apps/api/core'
-  import { useAudioPlayer } from '@groovex/store'
-  import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
-  import PlayingVisualizer from '@groovex/ui/playing-visualizer/playing-visualizer.vue'
-  import CustomBtn from '@groovex/ui/button/custom-btn.vue'
-  import { OverlayScrollbarsComponent } from 'overlayscrollbars-vue'
-  import { formatDuration } from '@groovex/core'
-  import MetadataDialog from '@groovex/ui/song/metadata-dialog.vue'
-  import TimelineDialog from '@groovex/ui/song/timeline-dialog.vue'
-  import PlaylistHistory from '@groovex/ui/play-list/playlist-history.vue'
+  import { ref, computed, watch, nextTick } from 'vue';
+  import { storeToRefs } from 'pinia';
+  import { invoke } from '@tauri-apps/api/core';
+  import { useAudioPlayer } from '@groovex/store';
+  import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue';
+  import PlayingVisualizer from '@groovex/ui/playing-visualizer/playing-visualizer.vue';
+  import CustomBtn from '@groovex/ui/button/custom-btn.vue';
+  import { OverlayScrollbarsComponent } from 'overlayscrollbars-vue';
+  import { formatDuration } from '@groovex/core';
+  import MetadataDialog from '@groovex/ui/song/metadata-dialog.vue';
+  import TimelineDialog from '@groovex/ui/song/timeline-dialog.vue';
+  import PlaylistHistory from '@groovex/ui/play-list/playlist-history.vue';
 
-  const player = useAudioPlayer()
-  const { isPlaying, currentSong, currentTime, duration } = storeToRefs(player)
+  const player = useAudioPlayer();
+  const { isPlaying, currentSong, currentTime, duration } = storeToRefs(player);
 
-  const activeTimelineRowRef = ref<HTMLElement | null>(null)
-  const timelineOsInstance = ref<any>(null)
-  const dynamicAccentColor = ref('var(--color-theme-accent-glow)')
+  const activeTimelineRowRef = ref<HTMLElement | null>(null);
+  const timelineOsInstance = ref<any>(null);
+  const dynamicAccentColor = ref('var(--color-theme-accent-glow)');
 
   // Edit states (lyrics & timeline)
-  const isEditingLyrics = ref(false)
-  const lyricsDraft = ref('')
-  const isSavingLyrics = ref(false)
-  const lyricsEditorRef = ref<HTMLDivElement | null>(null)
+  const isEditingLyrics = ref(false);
+  const lyricsDraft = ref('');
+  const isSavingLyrics = ref(false);
+  const lyricsEditorRef = ref<HTMLDivElement | null>(null);
 
-  const isEditingTimeline = ref(false)
-  const isEditingMetadata = ref(false)
+  const isEditingTimeline = ref(false);
+  const isEditingMetadata = ref(false);
 
   // Timeline Interface
   interface TimelineSegment {
-    start: number
-    end: number
-    title: string
+    start: number;
+    end: number;
+    title: string;
   }
 
   // Convert time string "MM:SS", "HH:MM:SS" or raw seconds to number
   function parseTimeToSeconds(timeStr: string): number {
-    const parts = timeStr.split(':').map(Number)
-    if (parts.some(isNaN)) return 0
+    const parts = timeStr.split(':').map(Number);
+    if (parts.some(isNaN)) return 0;
 
     if (parts.length === 1) {
-      return parts[0]
+      return parts[0];
     } else if (parts.length === 2) {
-      return parts[0] * 60 + parts[1]
+      return parts[0] * 60 + parts[1];
     } else if (parts.length === 3) {
-      return parts[0] * 3600 + parts[1] * 60 + parts[2]
+      return parts[0] * 3600 + parts[1] * 60 + parts[2];
     }
-    return 0
+    return 0;
   }
 
   // Parse raw timeline text:
   // e.g. "0:00 SANYO"
   // e.g. "0:25 Nu Sieu Anh Hung"
   const parsedTimeline = computed<TimelineSegment[]>(() => {
-    if (!currentSong.value?.timeline) return []
-    const lines = currentSong.value.timeline.split('\n')
-    const rawSegments: { start: number; title: string }[] = []
+    if (!currentSong.value?.timeline) return [];
+    const lines = currentSong.value.timeline.split('\n');
+    const rawSegments: { start: number; title: string }[] = [];
 
     for (const line of lines) {
-      const trimmed = line.trim()
-      if (!trimmed) continue
+      const trimmed = line.trim();
+      if (!trimmed) continue;
 
-      const match = trimmed.match(/^([\d:]+)\s+(.+)$/)
+      const match = trimmed.match(/^([\d:]+)\s+(.+)$/);
       if (match) {
-        const startStr = match[1]
-        const title = match[2].trim()
-        const start = parseTimeToSeconds(startStr)
-        rawSegments.push({ start, title })
+        const startStr = match[1];
+        const title = match[2].trim();
+        const start = parseTimeToSeconds(startStr);
+        rawSegments.push({ start, title });
       }
     }
 
-    rawSegments.sort((a, b) => a.start - b.start)
+    rawSegments.sort((a, b) => a.start - b.start);
 
-    const segments: TimelineSegment[] = []
-    const totalDuration = duration.value || 0
+    const segments: TimelineSegment[] = [];
+    const totalDuration = duration.value || 0;
 
     for (let i = 0; i < rawSegments.length; i++) {
-      const start = rawSegments[i].start
-      const title = rawSegments[i].title
-      const nextStart = i < rawSegments.length - 1 ? rawSegments[i + 1].start : totalDuration
-      const end = Math.max(start, nextStart)
-      segments.push({ start, end, title })
+      const start = rawSegments[i].start;
+      const title = rawSegments[i].title;
+      const nextStart = i < rawSegments.length - 1 ? rawSegments[i + 1].start : totalDuration;
+      const end = Math.max(start, nextStart);
+      segments.push({ start, end, title });
     }
 
-    return segments
-  })
+    return segments;
+  });
 
   // Active segment index
   const activeSegmentIndex = computed(() => {
-    const time = currentTime.value
+    const time = currentTime.value;
     return parsedTimeline.value.findIndex((seg, idx) => {
-      const isLast = idx === parsedTimeline.value.length - 1
-      return time >= seg.start && (isLast ? time <= seg.end : time < seg.end)
-    })
-  })
+      const isLast = idx === parsedTimeline.value.length - 1;
+      return time >= seg.start && (isLast ? time <= seg.end : time < seg.end);
+    });
+  });
 
   const lyricLines = computed(() => {
-    if (!currentSong.value?.lyrics) return []
-    return currentSong.value.lyrics.split('\n')
-  })
+    if (!currentSong.value?.lyrics) return [];
+    return currentSong.value.lyrics.split('\n');
+  });
 
   function startEditLyrics() {
-    lyricsDraft.value = currentSong.value?.lyrics || ''
-    isEditingLyrics.value = true
+    lyricsDraft.value = currentSong.value?.lyrics || '';
+    isEditingLyrics.value = true;
     nextTick(() => {
       if (lyricsEditorRef.value) {
-        lyricsEditorRef.value.innerText = lyricsDraft.value
+        lyricsEditorRef.value.innerText = lyricsDraft.value;
       }
-    })
+    });
   }
 
   function handleLyricsInput(e: Event) {
-    const target = e.target as HTMLDivElement
-    lyricsDraft.value = target.innerText
+    const target = e.target as HTMLDivElement;
+    lyricsDraft.value = target.innerText;
   }
 
   function cancelEditLyrics() {
-    isEditingLyrics.value = false
+    isEditingLyrics.value = false;
   }
 
   async function handleSaveLyrics() {
-    if (!currentSong.value) return
-    isSavingLyrics.value = true
+    if (!currentSong.value) return;
+    isSavingLyrics.value = true;
     try {
       await invoke('update_song_lyrics', {
         songId: currentSong.value.id,
         lyrics: lyricsDraft.value,
-      })
-      player.updateLyrics(currentSong.value.id, lyricsDraft.value)
-      isEditingLyrics.value = false
+      });
+      player.updateLyrics(currentSong.value.id, lyricsDraft.value);
+      isEditingLyrics.value = false;
     } catch (err) {
-      console.error('Failed to save lyrics:', err)
+      console.error('Failed to save lyrics:', err);
     } finally {
-      isSavingLyrics.value = false
+      isSavingLyrics.value = false;
     }
   }
 
   // Reset editing mode when song changes
   watch(currentSong, () => {
-    isEditingLyrics.value = false
-    isEditingTimeline.value = false
-    isEditingMetadata.value = false
-    lyricsDraft.value = ''
-  })
+    isEditingLyrics.value = false;
+    isEditingTimeline.value = false;
+    isEditingMetadata.value = false;
+    lyricsDraft.value = '';
+  });
 
   // Track metadata computeds
-  const songTitle = computed(() => currentSong.value?.title || currentSong.value?.filename || 'No song selected')
-  const artistName = computed(() => currentSong.value?.artist || 'Unknown Artist')
-  const thumbnailUrl = computed(() => currentSong.value?.thumbnail || null)
+  const songTitle = computed(() => currentSong.value?.title || currentSong.value?.filename || 'No song selected');
+  const artistName = computed(() => currentSong.value?.artist || 'Unknown Artist');
+  const thumbnailUrl = computed(() => currentSong.value?.thumbnail || null);
 
   function onTimelineOsInitialized(instance: any) {
-    timelineOsInstance.value = instance
+    timelineOsInstance.value = instance;
   }
 
   function setActiveTimelineRowRef(el: any, idx: number) {
     if (idx === activeSegmentIndex.value) {
-      activeTimelineRowRef.value = el
+      activeTimelineRowRef.value = el;
     }
   }
 
   function scrollToActiveTimeline() {
     if (timelineOsInstance.value && activeTimelineRowRef.value) {
-      const { viewport } = timelineOsInstance.value.elements()
-      const activeEl = activeTimelineRowRef.value
+      const { viewport } = timelineOsInstance.value.elements();
+      const activeEl = activeTimelineRowRef.value;
 
-      const viewportHeight = viewport.clientHeight
-      const elementHeight = activeEl.clientHeight
+      const viewportHeight = viewport.clientHeight;
+      const elementHeight = activeEl.clientHeight;
 
       const targetTop =
         activeEl.getBoundingClientRect().top -
         viewport.getBoundingClientRect().top +
         viewport.scrollTop -
         viewportHeight / 2 +
-        elementHeight / 2
+        elementHeight / 2;
 
       viewport.scrollTo({
         top: targetTop,
         behavior: 'smooth',
-      })
+      });
     }
   }
 
   // Dominant average color extraction
   function getAverageColor(imageUrl: string): Promise<string> {
     return new Promise((resolve) => {
-      const img = new Image()
-      img.crossOrigin = 'Anonymous'
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
       img.onload = () => {
-        const canvas = document.createElement('canvas')
-        canvas.width = 1
-        canvas.height = 1
-        const ctx = canvas.getContext('2d')
+        const canvas = document.createElement('canvas');
+        canvas.width = 1;
+        canvas.height = 1;
+        const ctx = canvas.getContext('2d');
         if (ctx) {
-          ctx.drawImage(img, 0, 0, 1, 1)
-          const pixel = ctx.getImageData(0, 0, 1, 1).data
-          let r = pixel[0]
-          let g = pixel[1]
-          let b = pixel[2]
+          ctx.drawImage(img, 0, 0, 1, 1);
+          const pixel = ctx.getImageData(0, 0, 1, 1).data;
+          let r = pixel[0];
+          let g = pixel[1];
+          let b = pixel[2];
 
           // Regulate brightness to keep background clean and text legible
-          const brightness = (r * 299 + g * 587 + b * 114) / 1000
+          const brightness = (r * 299 + g * 587 + b * 114) / 1000;
           if (brightness > 120) {
-            const factor = 120 / brightness
-            r = Math.round(r * factor)
-            g = Math.round(g * factor)
-            b = Math.round(b * factor)
+            const factor = 120 / brightness;
+            r = Math.round(r * factor);
+            g = Math.round(g * factor);
+            b = Math.round(b * factor);
           }
-          resolve(`rgb(${r}, ${g}, ${b})`)
+          resolve(`rgb(${r}, ${g}, ${b})`);
         } else {
-          resolve('var(--color-theme-accent-glow)')
+          resolve('var(--color-theme-accent-glow)');
         }
-      }
-      img.onerror = () => resolve('var(--color-theme-accent-glow)')
-      img.src = imageUrl
-    })
+      };
+      img.onerror = () => resolve('var(--color-theme-accent-glow)');
+      img.src = imageUrl;
+    });
   }
 
   // Watch activeSegmentIndex to scroll the active segment into the center of viewport
@@ -415,25 +415,25 @@
     ([idx, activeEl]) => {
       if (idx !== -1 && activeEl) {
         nextTick(() => {
-          scrollToActiveTimeline()
-        })
+          scrollToActiveTimeline();
+        });
       }
     },
     { immediate: true },
-  )
+  );
 
   // Dynamic page title update (SEO best practice)
   watch(
     currentSong,
     (song) => {
       if (song) {
-        document.title = `${song.title || song.filename.replace(/\.[^/.]+$/, '')} - ${song.artist || 'Unknown Artist'} | GrooveX`
+        document.title = `${song.title || song.filename.replace(/\.[^/.]+$/, '')} - ${song.artist || 'Unknown Artist'} | GrooveX`;
       } else {
-        document.title = 'Now Playing | GrooveX'
+        document.title = 'Now Playing | GrooveX';
       }
     },
     { immediate: true },
-  )
+  );
 
   // Extract accent color whenever song cover changes
   watch(
@@ -441,18 +441,18 @@
     async (newVal) => {
       if (newVal) {
         try {
-          const avgColor = await getAverageColor(newVal)
-          dynamicAccentColor.value = avgColor
+          const avgColor = await getAverageColor(newVal);
+          dynamicAccentColor.value = avgColor;
         } catch (e) {
-          console.error('Failed to extract color:', e)
-          dynamicAccentColor.value = 'var(--color-theme-accent-glow)'
+          console.error('Failed to extract color:', e);
+          dynamicAccentColor.value = 'var(--color-theme-accent-glow)';
         }
       } else {
-        dynamicAccentColor.value = 'var(--color-theme-accent-glow)'
+        dynamicAccentColor.value = 'var(--color-theme-accent-glow)';
       }
     },
     { immediate: true },
-  )
+  );
 </script>
 
 <style>

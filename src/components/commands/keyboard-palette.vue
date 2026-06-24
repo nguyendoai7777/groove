@@ -115,179 +115,179 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, watch, nextTick } from 'vue'
-  import { OverlayScrollbarsComponent } from 'overlayscrollbars-vue'
-  import { useCommandPaletteStore, useAudioPlayer } from '@groovex/store'
-  import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
-  import { invoke } from '@tauri-apps/api/core'
-  import SearchItem from './search-item.vue'
-  import type { PartialOptions } from 'overlayscrollbars'
-  import { CmdQuickActions, KeyboardShortcuts } from './command.const.ts'
+  import { ref, computed, watch, nextTick } from 'vue';
+  import { OverlayScrollbarsComponent } from 'overlayscrollbars-vue';
+  import { useCommandPaletteStore, useAudioPlayer } from '@groovex/store';
+  import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue';
+  import { invoke } from '@tauri-apps/api/core';
+  import SearchItem from './search-item.vue';
+  import type { PartialOptions } from 'overlayscrollbars';
+  import { CmdQuickActions, KeyboardShortcuts } from './command.const.ts';
 
-  const store = useCommandPaletteStore()
-  const player = useAudioPlayer()
-  const OSOptions: PartialOptions = { scrollbars: { autoHide: 'scroll' } }
+  const store = useCommandPaletteStore();
+  const player = useAudioPlayer();
+  const OSOptions: PartialOptions = { scrollbars: { autoHide: 'scroll' } };
 
-  const searchQuery = ref('')
-  const activeIndex = ref(0)
-  const inputRef = ref<HTMLInputElement | null>(null)
-  const itemRefs = ref<Record<number, HTMLElement>>({})
-  const searchResults = ref<any[]>([])
-  let searchTimeout: number
+  const searchQuery = ref('');
+  const activeIndex = ref(0);
+  const inputRef = ref<HTMLInputElement | null>(null);
+  const itemRefs = ref<Record<number, HTMLElement>>({});
+  const searchResults = ref<any[]>([]);
+  let searchTimeout: number;
 
   // Mode Detector (Starts with /)
   const isCommandMode = computed(() => {
-    return searchQuery.value.trim().startsWith('/')
-  })
+    return searchQuery.value.trim().startsWith('/');
+  });
 
   // List of Built-in CLI commands
-  const COMMANDS = KeyboardShortcuts
+  const COMMANDS = KeyboardShortcuts;
 
   // Default Quick Actions when empty input
-  const QUICK_ACTIONS = CmdQuickActions
+  const QUICK_ACTIONS = CmdQuickActions;
 
   // Watch searchQuery to perform debounced DB queries
   watch(searchQuery, (newQuery) => {
-    if (searchTimeout) clearTimeout(searchTimeout)
+    if (searchTimeout) clearTimeout(searchTimeout);
 
-    const query = newQuery.trim()
+    const query = newQuery.trim();
     if (!query || query.startsWith('/')) {
-      searchResults.value = []
-      return
+      searchResults.value = [];
+      return;
     }
 
     searchTimeout = window.setTimeout(async () => {
       try {
-        const dbSongs = await invoke<any[]>('search_songs', { query })
+        const dbSongs = await invoke<any[]>('search_songs', { query });
         searchResults.value = dbSongs.map((song) => ({
           id: `song-${song.id}`,
           type: 'song',
           title: song.title || song.filename,
           description: `Bài hát • ${song.artist || 'Chưa rõ nghệ sĩ'}${song.album_name ? ` • ${song.album_name}` : ''}`,
           rawSong: song,
-        }))
+        }));
       } catch (err) {
-        console.error('Lỗi tìm kiếm bài hát:', err)
+        console.error('Lỗi tìm kiếm bài hát:', err);
       }
-    }, 250)
-  })
+    }, 250);
+  });
 
   // Filter based on input value
   const filteredItems = computed(() => {
-    const rawQuery = searchQuery.value.trim()
-    const query = rawQuery.toLowerCase()
+    const rawQuery = searchQuery.value.trim();
+    const query = rawQuery.toLowerCase();
 
     if (rawQuery.startsWith('/')) {
-      if (rawQuery === '/') return COMMANDS
-      return COMMANDS.filter((c) => c.commandName.toLowerCase().includes(query))
+      if (rawQuery === '/') return COMMANDS;
+      return COMMANDS.filter((c) => c.commandName.toLowerCase().includes(query));
     } else {
-      if (!query) return QUICK_ACTIONS
-      return searchResults.value
+      if (!query) return QUICK_ACTIONS;
+      return searchResults.value;
     }
-  })
+  });
 
   // Group items by type for nice visual sectioning
   const groupedItems = computed(() => {
-    const items = filteredItems.value
-    const groups: Record<string, any[]> = {}
+    const items = filteredItems.value;
+    const groups: Record<string, any[]> = {};
 
     items.forEach((item, index) => {
       // Create a shallow copy to store globalIndex without mutating mock data
-      const itemWithIndex = { ...item, globalIndex: index }
+      const itemWithIndex = { ...item, globalIndex: index };
 
-      let groupTitle = 'Kết quả'
+      let groupTitle = 'Kết quả';
       if (item.type === 'command') {
-        groupTitle = 'Lệnh hệ thống (CLI Commands)'
+        groupTitle = 'Lệnh hệ thống (CLI Commands)';
       } else if (item.type === 'song') {
-        groupTitle = 'Bài hát'
+        groupTitle = 'Bài hát';
       } else if (item.type === 'artist') {
-        groupTitle = 'Nghệ sĩ'
+        groupTitle = 'Nghệ sĩ';
       } else if (item.type === 'album') {
-        groupTitle = 'Album'
+        groupTitle = 'Album';
       } else if (item.type === 'action') {
-        groupTitle = 'Hành động nhanh (Quick Actions)'
+        groupTitle = 'Hành động nhanh (Quick Actions)';
       }
 
       if (!groups[groupTitle]) {
-        groups[groupTitle] = []
+        groups[groupTitle] = [];
       }
-      groups[groupTitle].push(itemWithIndex)
-    })
+      groups[groupTitle].push(itemWithIndex);
+    });
 
     return Object.keys(groups).map((title) => ({
       title,
       items: groups[title],
-    }))
-  })
+    }));
+  });
 
   // Reset indices and auto focus input on open
   watch(
     () => store.isOpen,
     async (isOpen) => {
       if (isOpen) {
-        searchQuery.value = ''
-        searchResults.value = []
-        activeIndex.value = 0
-        itemRefs.value = {}
-        await nextTick()
-        inputRef.value?.focus()
+        searchQuery.value = '';
+        searchResults.value = [];
+        activeIndex.value = 0;
+        itemRefs.value = {};
+        await nextTick();
+        inputRef.value?.focus();
       }
     },
-  )
+  );
 
   // Auto bounds correction for navigation index
   watch(
     () => filteredItems.value.length,
     (len) => {
       if (activeIndex.value >= len) {
-        activeIndex.value = Math.max(0, len - 1)
+        activeIndex.value = Math.max(0, len - 1);
       }
     },
-  )
+  );
 
   // Ref assignments
   function setItemRef(el: any, index: number) {
     if (el) {
-      itemRefs.value[index] = el.$el || el
+      itemRefs.value[index] = el.$el || el;
     }
   }
 
   // Keyboard navigation, autocomplete & execution
   function handleKeyDown(e: KeyboardEvent) {
-    const len = filteredItems.value.length
+    const len = filteredItems.value.length;
 
     if (e.key === 'Tab') {
       if (len > 0) {
-        e.preventDefault() // Prevent focus from changing
-        const selected = filteredItems.value[activeIndex.value]
+        e.preventDefault(); // Prevent focus from changing
+        const selected = filteredItems.value[activeIndex.value];
         if (selected) {
           if (selected.type === 'command') {
-            autocompleteCommand(selected)
+            autocompleteCommand(selected);
           } else {
-            selectItem(selected)
+            selectItem(selected);
           }
         }
       }
     } else if (e.key === 'ArrowDown') {
-      if (len === 0) return
-      e.preventDefault()
-      activeIndex.value = (activeIndex.value + 1) % len
-      scrollToActiveItem()
+      if (len === 0) return;
+      e.preventDefault();
+      activeIndex.value = (activeIndex.value + 1) % len;
+      scrollToActiveItem();
     } else if (e.key === 'ArrowUp') {
-      if (len === 0) return
-      e.preventDefault()
-      activeIndex.value = (activeIndex.value - 1 + len) % len
-      scrollToActiveItem()
+      if (len === 0) return;
+      e.preventDefault();
+      activeIndex.value = (activeIndex.value - 1 + len) % len;
+      scrollToActiveItem();
     } else if (e.key === 'Enter') {
-      e.preventDefault()
+      e.preventDefault();
       if (isCommandMode.value) {
         // Run typed command text
-        runCommand(searchQuery.value)
+        runCommand(searchQuery.value);
       } else {
         if (len > 0) {
-          const selected = filteredItems.value[activeIndex.value]
+          const selected = filteredItems.value[activeIndex.value];
           if (selected) {
-            selectItem(selected)
+            selectItem(selected);
           }
         }
       }
@@ -296,101 +296,101 @@
 
   // Handle selection (click or select via non-command action)
   function selectItem(item: any) {
-    console.log(`selected item`, item)
+    console.log(`selected item`, item);
 
     if (item.type === 'command') {
-      autocompleteCommand(item)
+      autocompleteCommand(item);
     } else if (item.type === 'action') {
-      console.log(`Triggered Quick Action: ${item.title}`)
+      console.log(`Triggered Quick Action: ${item.title}`);
       if (item.id === 'qa-1') {
         // Play random from library if we can, or play the active list shuffled
         if (player.playlist && player.playlist.length > 0) {
-          player.isShuffle = true
-          player.playSong(player.playlist[Math.floor(Math.random() * player.playlist.length)])
+          player.isShuffle = true;
+          player.playSong(player.playlist[Math.floor(Math.random() * player.playlist.length)]);
         }
       }
       // store.close();  // dont enable this
     } else if (item.type === 'song') {
-      const song = item.rawSong
+      const song = item.rawSong;
       if (player.currentSong?.id === song.id) {
-        player.togglePlay()
+        player.togglePlay();
       } else {
-        player.playSong(song, [song])
+        player.playSong(song, [song]);
       }
       // store.close();  // dont enable this
     } else {
-      console.log(`Selected Search Result: ${item.title} (${item.type})`)
+      console.log(`Selected Search Result: ${item.title} (${item.type})`);
     }
   }
 
   // Autocomplete command into the input field
   function autocompleteCommand(item: any) {
-    const needsArgs = ['/play', '/queue', '/volume', '/theme'].includes(item.commandName)
+    const needsArgs = ['/play', '/queue', '/volume', '/theme'].includes(item.commandName);
     if (needsArgs) {
-      searchQuery.value = item.commandName + ' '
+      searchQuery.value = item.commandName + ' ';
     } else {
-      searchQuery.value = item.commandName
+      searchQuery.value = item.commandName;
     }
-    activeIndex.value = 0
+    activeIndex.value = 0;
     nextTick(() => {
-      inputRef.value?.focus()
-    })
+      inputRef.value?.focus();
+    });
   }
 
   // Run the command specified in the search query
   function runCommand(queryText: string) {
-    const trimmed = queryText.trim()
-    if (!trimmed.startsWith('/')) return
+    const trimmed = queryText.trim();
+    if (!trimmed.startsWith('/')) return;
 
-    const spaceIndex = trimmed.indexOf(' ')
-    const cmd = spaceIndex === -1 ? trimmed : trimmed.substring(0, spaceIndex)
-    const args = spaceIndex === -1 ? '' : trimmed.substring(spaceIndex + 1).trim()
+    const spaceIndex = trimmed.indexOf(' ');
+    const cmd = spaceIndex === -1 ? trimmed : trimmed.substring(0, spaceIndex);
+    const args = spaceIndex === -1 ? '' : trimmed.substring(spaceIndex + 1).trim();
 
-    console.log(`[CLI Run] Running command: "${cmd}" with args: "${args}"`)
+    console.log(`[CLI Run] Running command: "${cmd}" with args: "${args}"`);
 
     if (cmd === '/play') {
       if (args) {
         invoke<any[]>('search_songs', { query: args })
           .then((songs) => {
             if (songs && songs.length > 0) {
-              player.playSong(songs[0], songs)
+              player.playSong(songs[0], songs);
             }
           })
-          .catch((err) => console.error(err))
+          .catch((err) => console.error(err));
       } else {
-        player.setPlaying(true)
+        player.setPlaying(true);
       }
     } else if (cmd === '/pause') {
-      player.setPlaying(false)
+      player.setPlaying(false);
     } else if (cmd === '/next') {
-      player.nextTrack()
+      player.nextTrack();
     } else if (cmd === '/prev') {
-      player.prevTrack()
+      player.prevTrack();
     } else if (cmd === '/playall') {
       if (player.playlist && player.playlist.length > 0) {
-        player.playSong(player.playlist[0])
+        player.playSong(player.playlist[0]);
       }
     } else if (cmd === '/volume') {
-      const vol = parseInt(args)
+      const vol = parseInt(args);
       if (!isNaN(vol)) {
-        player.volume = Math.max(0, Math.min(100, vol))
+        player.volume = Math.max(0, Math.min(100, vol));
       }
     } else {
       // For other commands (like theme/help) we can log or show default alert
-      alert(`[CLI Run] Đang thực thi lệnh: ${cmd}${args ? ` với đối số: "${args}"` : ''}`)
+      alert(`[CLI Run] Đang thực thi lệnh: ${cmd}${args ? ` với đối số: "${args}"` : ''}`);
     }
 
     // Close the command palette
-    store.close()
+    store.close();
   }
 
   // Scroll active item smoothly into view
   function scrollToActiveItem() {
     nextTick(() => {
-      const activeEl = itemRefs.value[activeIndex.value]
+      const activeEl = itemRefs.value[activeIndex.value];
       if (activeEl) {
-        activeEl.scrollIntoView({ block: 'nearest' })
+        activeEl.scrollIntoView({ block: 'nearest' });
       }
-    })
+    });
   }
 </script>

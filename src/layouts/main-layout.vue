@@ -16,19 +16,19 @@
 </template>
 
 <script setup lang="ts">
-  import { ref } from 'vue'
-  import SideNav from '@groovex/ui/side-nav/side-nav.vue'
-  import AppBar from '@groovex/ui/app-bar/app-bar.vue'
-  import { OverlayScrollbarsComponent } from 'overlayscrollbars-vue'
-  import { provideLayoutScroll } from '@groovex/composables'
+  import { ref } from 'vue';
+  import SideNav from '@groovex/ui/side-nav/side-nav.vue';
+  import AppBar from '@groovex/ui/app-bar/app-bar.vue';
+  import { OverlayScrollbarsComponent } from 'overlayscrollbars-vue';
+  import { provideLayoutScroll } from '@groovex/composables';
 
-  const osInstance = ref<any>(null)
+  const osInstance = ref<any>(null);
 
   function onOsInitialized(instance: any) {
-    osInstance.value = instance
+    osInstance.value = instance;
   }
 
-  provideLayoutScroll(osInstance)
+  provideLayoutScroll(osInstance);
 </script>
 
 <style>

@@ -5,9 +5,9 @@
 </template>
 
 <script setup lang="ts">
-  import { SVGSpriteProps, SVGSrc } from '@groovex/ui/svg-sprite/svg-sprite.types.ts'
+  import { SVGSpriteProps, SVGSrc } from '@groovex/ui/svg-sprite/svg-sprite.types.ts';
 
-  const { src } = defineProps<SVGSpriteProps>()
+  const { src } = defineProps<SVGSpriteProps>();
 
   const sourceMap: Record<SVGSrc, string> = {
     VMute: '/icons/volume.svg#VMute',
@@ -43,5 +43,5 @@
     Next: '/icons/media-ctrl.svg#Next',
     Prev: '/icons/media-ctrl.svg#Prev',
     NowPlaying: '/icons/media-ctrl.svg#NowPlaying',
-  }
+  };
 </script>

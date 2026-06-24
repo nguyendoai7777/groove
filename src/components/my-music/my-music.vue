@@ -219,42 +219,42 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, onMounted, watch } from 'vue'
-  import { useRoute, useRouter } from 'vue-router'
-  import { invoke } from '@tauri-apps/api/core'
-  import IconBtn from '@groovex/ui/button/icon-btn.vue'
-  import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
-  import { MusicCard } from '@groovex/ui/music-card'
-  import MusicList from '@groovex/ui/music-list/music-list.vue'
-  import { useAudioPlayer } from '@groovex/store'
-  import type { Song } from '@groovex/types'
-  import { useToast } from '@groovex/composables'
+  import { ref, computed, onMounted, watch } from 'vue';
+  import { useRoute, useRouter } from 'vue-router';
+  import { invoke } from '@tauri-apps/api/core';
+  import IconBtn from '@groovex/ui/button/icon-btn.vue';
+  import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue';
+  import { MusicCard } from '@groovex/ui/music-card';
+  import MusicList from '@groovex/ui/music-list/music-list.vue';
+  import { useAudioPlayer } from '@groovex/store';
+  import type { Song } from '@groovex/types';
+  import { useToast } from '@groovex/composables';
 
   interface MusicItemCard {
-    id: number
-    type: 'album' | 'folder' | 'playlist'
-    title: string
-    subtitle: string
-    thumbnail?: string
-    songsCount?: number
-    accentColor?: string
+    id: number;
+    type: 'album' | 'folder' | 'playlist';
+    title: string;
+    subtitle: string;
+    thumbnail?: string;
+    songsCount?: number;
+    accentColor?: string;
   }
 
   const props = withDefaults(
     defineProps<{
-      mode?: 'my-music' | 'playlists'
+      mode?: 'my-music' | 'playlists';
     }>(),
     {
       mode: 'my-music',
     },
-  )
+  );
 
-  const route = useRoute()
-  const router = useRouter()
+  const route = useRoute();
+  const router = useRouter();
 
-  const currentView = computed(() => (route.query.view === 'list' ? 'list' : 'grid'))
+  const currentView = computed(() => (route.query.view === 'list' ? 'list' : 'grid'));
   const selectedCategory = computed(() => {
-    if (route.query.view !== 'list') return null
+    if (route.query.view !== 'list') return null;
     return {
       id: Number(route.query.id),
       type: route.query.type as 'album' | 'folder' | 'playlist',
@@ -263,28 +263,28 @@
       thumbnail: (route.query.thumbnail as string) || undefined,
       accentColor: (route.query.accentColor as string) || undefined,
       songsCount: route.query.songsCount ? Number(route.query.songsCount) : undefined,
-    }
-  })
+    };
+  });
 
-  const isImporting = ref(false)
-  const musicItems = ref<MusicItemCard[]>([])
-  const playlists = ref<MusicItemCard[]>([])
+  const isImporting = ref(false);
+  const musicItems = ref<MusicItemCard[]>([]);
+  const playlists = ref<MusicItemCard[]>([]);
 
-  const activeTab = ref<'albums' | 'folders'>('albums')
-  const albums = computed(() => musicItems.value.filter((item) => item.type === 'album'))
-  const folders = computed(() => musicItems.value.filter((item) => item.type === 'folder'))
+  const activeTab = ref<'albums' | 'folders'>('albums');
+  const albums = computed(() => musicItems.value.filter((item) => item.type === 'album'));
+  const folders = computed(() => musicItems.value.filter((item) => item.type === 'folder'));
 
   // Playlist creation states
-  const createDialogVisible = ref(false)
-  const isCreatingPlaylist = ref(false)
-  const newPlaylistName = ref('')
-  const newPlaylistColor = ref('#06b6d4')
+  const createDialogVisible = ref(false);
+  const isCreatingPlaylist = ref(false);
+  const newPlaylistName = ref('');
+  const newPlaylistColor = ref('#06b6d4');
 
   // Load imported items from SQLite DB
   async function loadCategories() {
     try {
       if (props.mode === 'playlists') {
-        const res = await invoke<any[]>('get_playlists')
+        const res = await invoke<any[]>('get_playlists');
         playlists.value = res.map((p) => ({
           id: p.id,
           type: 'playlist' as const,
@@ -292,9 +292,9 @@
           subtitle: '',
           songsCount: p.songs_count,
           accentColor: p.color || '#06b6d4',
-        }))
+        }));
       } else {
-        const res = await invoke<{ folders: any[]; albums: any[] }>('get_music_categories')
+        const res = await invoke<{ folders: any[]; albums: any[] }>('get_music_categories');
 
         const folderCards = res.folders.map((f) => ({
           id: f.id,
@@ -304,7 +304,7 @@
           thumbnail: f.thumbnail,
           songsCount: f.songs_count,
           accentColor: f.accent_color || '#0ea5e9',
-        }))
+        }));
 
         const albumCards = res.albums.map((a) => ({
           id: a.id,
@@ -314,39 +314,39 @@
           thumbnail: a.thumbnail,
           songsCount: a.songs_count,
           accentColor: a.accent_color || '#4b5563',
-        }))
+        }));
 
-        musicItems.value = [...folderCards, ...albumCards]
+        musicItems.value = [...folderCards, ...albumCards];
       }
     } catch (err) {
-      console.error('Error loading categories:', err)
+      console.error('Error loading categories:', err);
     }
   }
 
   onMounted(() => {
-    loadCategories()
-  })
+    loadCategories();
+  });
 
   // Watch for mode changes to refresh categories
   watch(
     () => props.mode,
     () => {
-      loadCategories()
+      loadCategories();
     },
-  )
+  );
 
-  const toast = useToast()
+  const toast = useToast();
 
   // Trigger folder picker and scanning
   async function handleImportClick() {
-    isImporting.value = true
+    isImporting.value = true;
     try {
       const res = await invoke<{
-        folders: any[]
-        albums: any[]
-        added_count: number
-        removed_count: number
-      }>('import_music_folder')
+        folders: any[];
+        albums: any[];
+        added_count: number;
+        removed_count: number;
+      }>('import_music_folder');
 
       const folderCards = res.folders.map((f) => ({
         id: f.id,
@@ -356,7 +356,7 @@
         thumbnail: f.thumbnail,
         songsCount: f.songs_count,
         accentColor: f.accent_color || '#0ea5e9',
-      }))
+      }));
 
       const albumCards = res.albums.map((a) => ({
         id: a.id,
@@ -366,25 +366,25 @@
         thumbnail: a.thumbnail,
         songsCount: a.songs_count,
         accentColor: a.accent_color || '#4b5563',
-      }))
+      }));
 
-      musicItems.value = [...folderCards, ...albumCards]
+      musicItems.value = [...folderCards, ...albumCards];
 
       // Show toast notification
       if (res.added_count > 0 && res.removed_count > 0) {
-        toast.show(`Có ${res.added_count} bài vừa được thêm và ${res.removed_count} bài vừa được xóa.`)
+        toast.show(`Có ${res.added_count} bài vừa được thêm và ${res.removed_count} bài vừa được xóa.`);
       } else if (res.added_count > 0) {
-        toast.show(`Có ${res.added_count} bài vừa được thêm.`)
+        toast.show(`Có ${res.added_count} bài vừa được thêm.`);
       } else if (res.removed_count > 0) {
-        toast.show(`Có ${res.removed_count} bài vừa được xóa.`)
+        toast.show(`Có ${res.removed_count} bài vừa được xóa.`);
       } else {
-        toast.show('Không có bài hát nào mới được thêm hoặc xóa.')
+        toast.show('Không có bài hát nào mới được thêm hoặc xóa.');
       }
     } catch (err) {
-      console.error('Error scanning folder:', err)
-      toast.show('Đã xảy ra lỗi khi quét thư mục.')
+      console.error('Error scanning folder:', err);
+      toast.show('Đã xảy ra lỗi khi quét thư mục.');
     } finally {
-      isImporting.value = false
+      isImporting.value = false;
     }
   }
 
@@ -402,33 +402,33 @@
         accentColor: item.accentColor || '',
         songsCount: item.songsCount ? item.songsCount.toString() : '',
       },
-    })
+    });
   }
 
   // Custom thumbnail setting picker
   async function handleSettings(item: MusicItemCard) {
-    if (item.type === 'playlist') return
+    if (item.type === 'playlist') return;
     try {
       const newThumbnailBase64 = await invoke<string>('update_music_thumbnail', {
         categoryType: item.type,
         categoryId: item.id,
-      })
+      });
 
       // Extract accent color using HTML canvas on the fly
-      const accentColor = await getAverageColor(newThumbnailBase64)
+      const accentColor = await getAverageColor(newThumbnailBase64);
 
       // Save accent color in DB
       await invoke('update_category_accent_color', {
         categoryType: item.type,
         categoryId: item.id,
         accentColor,
-      })
+      });
 
       // Reload list to refresh accent Color and thumbnail
-      await loadCategories()
+      await loadCategories();
     } catch (err) {
       if (err !== 'Cancelled') {
-        console.error('Error updating custom cover art:', err)
+        console.error('Error updating custom cover art:', err);
       }
     }
   }
@@ -436,14 +436,14 @@
   async function handleDeleteCategory(item: MusicItemCard) {
     try {
       if (item.type === 'playlist') {
-        await invoke('delete_playlist', { id: item.id })
-        toast.show(`Đã xóa danh sách phát "${item.title}".`)
-        await loadCategories()
+        await invoke('delete_playlist', { id: item.id });
+        toast.show(`Đã xóa danh sách phát "${item.title}".`);
+        await loadCategories();
       } else {
         const res = await invoke<{ folders: any[]; albums: any[] }>('delete_category', {
           categoryType: item.type,
           categoryId: item.id,
-        })
+        });
 
         const folderCards = res.folders.map((f) => ({
           id: f.id,
@@ -453,7 +453,7 @@
           thumbnail: f.thumbnail,
           songsCount: f.songs_count,
           accentColor: f.accent_color || '#0ea5e9',
-        }))
+        }));
 
         const albumCards = res.albums.map((a) => ({
           id: a.id,
@@ -463,43 +463,43 @@
           thumbnail: a.thumbnail,
           songsCount: a.songs_count,
           accentColor: a.accent_color || '#4b5563',
-        }))
+        }));
 
-        musicItems.value = [...folderCards, ...albumCards]
+        musicItems.value = [...folderCards, ...albumCards];
       }
     } catch (err) {
-      console.error('Error deleting category:', err)
+      console.error('Error deleting category:', err);
     }
   }
 
   async function handlePlay(item: { type: 'album' | 'folder' | 'playlist'; title: string }) {
-    const listToSearch = props.mode === 'playlists' ? playlists.value : musicItems.value
-    const matched = listToSearch.find((i) => i.type === item.type && i.title === item.title)
+    const listToSearch = props.mode === 'playlists' ? playlists.value : musicItems.value;
+    const matched = listToSearch.find((i) => i.type === item.type && i.title === item.title);
     if (matched) {
       try {
-        let categorySongs: Song[] = []
+        let categorySongs: Song[] = [];
         if (matched.type === 'playlist') {
           categorySongs = await invoke<Song[]>('get_playlist_songs', {
             playlistId: matched.id,
-          })
+          });
         } else {
           categorySongs = await invoke<Song[]>('get_category_songs', {
             categoryType: matched.type,
             categoryId: matched.id,
-          })
+          });
         }
         if (categorySongs.length > 0) {
           const playlist = categorySongs.map((s) => ({
             ...s,
             thumbnail: matched.thumbnail,
-          }))
-          const player = useAudioPlayer()
-          player.playSong(playlist[0], playlist)
+          }));
+          const player = useAudioPlayer();
+          player.playSong(playlist[0], playlist);
         } else {
-          toast.show('Danh sách phát này chưa có bài hát nào.')
+          toast.show('Danh sách phát này chưa có bài hát nào.');
         }
       } catch (err) {
-        console.error('Error playing category:', err)
+        console.error('Error playing category:', err);
       }
     }
   }
@@ -507,53 +507,53 @@
   // Helper function to extract average dominant color from base64 string
   function getAverageColor(base64Image: string): Promise<string> {
     return new Promise((resolve) => {
-      const img = new Image()
+      const img = new Image();
       img.onload = () => {
-        const canvas = document.createElement('canvas')
-        canvas.width = 1
-        canvas.height = 1
-        const ctx = canvas.getContext('2d')
+        const canvas = document.createElement('canvas');
+        canvas.width = 1;
+        canvas.height = 1;
+        const ctx = canvas.getContext('2d');
         if (ctx) {
-          ctx.drawImage(img, 0, 0, 1, 1)
-          const pixel = ctx.getImageData(0, 0, 1, 1).data
+          ctx.drawImage(img, 0, 0, 1, 1);
+          const pixel = ctx.getImageData(0, 0, 1, 1).data;
           // Return format rgb(r, g, b)
-          resolve(`rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`)
+          resolve(`rgb(${pixel[0]}, ${pixel[1]}, ${pixel[2]})`);
         } else {
-          resolve('#06b6d4')
+          resolve('#06b6d4');
         }
-      }
-      img.onerror = () => resolve('#06b6d4')
-      img.src = base64Image
-    })
+      };
+      img.onerror = () => resolve('#06b6d4');
+      img.src = base64Image;
+    });
   }
 
   // Playlist creation dialog triggers
   function openCreatePlaylistDialog() {
-    newPlaylistName.value = ''
-    newPlaylistColor.value = '#06b6d4'
-    createDialogVisible.value = true
+    newPlaylistName.value = '';
+    newPlaylistColor.value = '#06b6d4';
+    createDialogVisible.value = true;
   }
 
   async function handleCreatePlaylist() {
-    const name = newPlaylistName.value.trim()
+    const name = newPlaylistName.value.trim();
     if (!name) {
-      toast.show('Vui lòng nhập tên danh sách phát.')
-      return
+      toast.show('Vui lòng nhập tên danh sách phát.');
+      return;
     }
-    isCreatingPlaylist.value = true
+    isCreatingPlaylist.value = true;
     try {
       await invoke('create_playlist', {
         name,
         color: newPlaylistColor.value,
-      })
-      toast.show(`Đã tạo danh sách phát "${name}".`)
-      createDialogVisible.value = false
-      await loadCategories()
+      });
+      toast.show(`Đã tạo danh sách phát "${name}".`);
+      createDialogVisible.value = false;
+      await loadCategories();
     } catch (err: any) {
-      console.error('Error creating playlist:', err)
-      toast.show(err.toString() || 'Đã xảy ra lỗi khi tạo danh sách phát.')
+      console.error('Error creating playlist:', err);
+      toast.show(err.toString() || 'Đã xảy ra lỗi khi tạo danh sách phát.');
     } finally {
-      isCreatingPlaylist.value = false
+      isCreatingPlaylist.value = false;
     }
   }
 </script>

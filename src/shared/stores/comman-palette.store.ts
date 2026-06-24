@@ -1,5 +1,5 @@
-import { defineStore } from 'pinia'
-import { EStoreKey } from '@groovex/store'
+import { defineStore } from 'pinia';
+import { EStoreKey } from '@groovex/store';
 
 export const useCommandPaletteStore = defineStore(EStoreKey.CommandPalette, {
   state: () => ({
@@ -8,14 +8,14 @@ export const useCommandPaletteStore = defineStore(EStoreKey.CommandPalette, {
   }),
   actions: {
     toggle() {
-      this.isOpen = !this.isOpen
+      this.isOpen = !this.isOpen;
     },
     open() {
-      this.isOpen = true
+      this.isOpen = true;
     },
     close() {
-      this.isOpen = false
-      this.searchQuery = '' // Reset khi đóng
+      this.isOpen = false;
+      this.searchQuery = ''; // Reset khi đóng
     },
   },
-})
+});

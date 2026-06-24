@@ -18,34 +18,34 @@
 </template>
 
 <script setup lang="ts">
-  import { computed } from 'vue'
-  import CustomBtn from '@groovex/ui/button/custom-btn.vue'
+  import { computed } from 'vue';
+  import CustomBtn from '@groovex/ui/button/custom-btn.vue';
 
   const props = defineProps<{
-    modelValue: boolean
-    title: string
-    content: string
-  }>()
+    modelValue: boolean;
+    title: string;
+    content: string;
+  }>();
 
   const emit = defineEmits<{
-    (e: 'update:modelValue', value: boolean): void
-    (e: 'ok'): void
-    (e: 'cancel'): void
-  }>()
+    (e: 'update:modelValue', value: boolean): void;
+    (e: 'ok'): void;
+    (e: 'cancel'): void;
+  }>();
 
   const dialogVisible = computed({
     get: () => props.modelValue,
     set: (val) => emit('update:modelValue', val),
-  })
+  });
 
   function onCancel() {
-    dialogVisible.value = false
-    emit('cancel')
+    dialogVisible.value = false;
+    emit('cancel');
   }
 
   function onOk() {
-    dialogVisible.value = false
-    emit('ok')
+    dialogVisible.value = false;
+    emit('ok');
   }
 </script>
 

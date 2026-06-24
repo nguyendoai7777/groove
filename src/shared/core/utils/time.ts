@@ -5,18 +5,18 @@
  * @returns Formatted duration string.
  */
 export function formatDuration(secs: number): string {
-  if (!secs || isNaN(secs)) return '0:00'
+  if (!secs || isNaN(secs)) return '0:00';
 
-  const hours = Math.floor(secs / 3600)
-  const minutes = Math.floor((secs % 3600) / 60)
-  const seconds = Math.floor(secs % 60)
+  const hours = Math.floor(secs / 3600);
+  const minutes = Math.floor((secs % 3600) / 60);
+  const seconds = Math.floor(secs % 60);
 
-  const secondsStr = seconds < 10 ? `0${seconds}` : seconds
+  const secondsStr = seconds < 10 ? `0${seconds}` : seconds;
 
   if (hours > 0) {
-    const minutesStr = minutes < 10 ? `0${minutes}` : minutes
-    return `${hours}:${minutesStr}:${secondsStr}`
+    const minutesStr = minutes < 10 ? `0${minutes}` : minutes;
+    return `${hours}:${minutesStr}:${secondsStr}`;
   }
 
-  return `${minutes}:${secondsStr}`
+  return `${minutes}:${secondsStr}`;
 }

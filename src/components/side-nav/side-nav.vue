@@ -197,50 +197,50 @@
 </template>
 
 <script setup>
-  import { ref, watch, computed } from 'vue'
-  import { storeToRefs } from 'pinia'
-  import { useAudioPlayer } from '@groovex/store'
-  import { OCTAVE_BANDS } from '@groovex/core'
-  import appInfo from '../../../app.json' with { type: 'json' }
-  import { APP_ROUTES } from '../../app.route.ts'
-  import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
-  import CustomBtn from '@groovex/ui/button/custom-btn.vue'
-  import { OverlayScrollbarsComponent } from 'overlayscrollbars-vue'
+  import { ref, watch, computed } from 'vue';
+  import { storeToRefs } from 'pinia';
+  import { useAudioPlayer } from '@groovex/store';
+  import { OCTAVE_BANDS } from '@groovex/core';
+  import appInfo from '../../../app.json' with { type: 'json' };
+  import { APP_ROUTES } from '../../app.route.ts';
+  import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue';
+  import CustomBtn from '@groovex/ui/button/custom-btn.vue';
+  import { OverlayScrollbarsComponent } from 'overlayscrollbars-vue';
 
-  const showSettings = ref(false)
-  const player = useAudioPlayer()
-  const { seekStep, volumeStep, eqGains, bassBoost, currentPresetName } = storeToRefs(player)
+  const showSettings = ref(false);
+  const player = useAudioPlayer();
+  const { seekStep, volumeStep, eqGains, bassBoost, currentPresetName } = storeToRefs(player);
 
   // Backup variables for OK/Cancel transactions
-  let originalSeekStep = 5
-  let originalVolumeStep = 2
-  let originalEqGains = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-  let originalBassBoost = 0
-  let originalPresetName = 'Flat'
+  let originalSeekStep = 5;
+  let originalVolumeStep = 2;
+  let originalEqGains = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+  let originalBassBoost = 0;
+  let originalPresetName = 'Flat';
 
   // Backup values when the settings modal opens
   watch(showSettings, (open) => {
     if (open) {
-      originalSeekStep = seekStep.value
-      originalVolumeStep = volumeStep.value
-      originalEqGains = [...eqGains.value]
-      originalBassBoost = bassBoost.value
-      originalPresetName = currentPresetName.value
+      originalSeekStep = seekStep.value;
+      originalVolumeStep = volumeStep.value;
+      originalEqGains = [...eqGains.value];
+      originalBassBoost = bassBoost.value;
+      originalPresetName = currentPresetName.value;
     }
-  })
+  });
 
   const saveSettings = () => {
-    showSettings.value = false
-  }
+    showSettings.value = false;
+  };
 
   const cancelSettings = () => {
-    seekStep.value = originalSeekStep
-    volumeStep.value = originalVolumeStep
-    eqGains.value = [...originalEqGains]
-    bassBoost.value = originalBassBoost
-    currentPresetName.value = originalPresetName
-    showSettings.value = false
-  }
+    seekStep.value = originalSeekStep;
+    volumeStep.value = originalVolumeStep;
+    eqGains.value = [...originalEqGains];
+    bassBoost.value = originalBassBoost;
+    currentPresetName.value = originalPresetName;
+    showSettings.value = false;
+  };
 
   const EQ_PRESETS = [
     { name: 'Custom', gains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
@@ -252,48 +252,48 @@
     { name: 'Electronic', gains: [5, 4, 1, 0, -1, 2, 3, 4, 5, 5] },
     { name: 'Vocal', gains: [-3, -2, -1, 1, 3, 4, 3, 2, 1, 0] },
     { name: 'Treble', gains: [0, 0, 0, 0, 0, 1, 3, 5, 7, 9] },
-  ]
+  ];
 
   const applyPreset = (preset) => {
-    currentPresetName.value = preset.name
-    eqGains.value = [...preset.gains]
-  }
+    currentPresetName.value = preset.name;
+    eqGains.value = [...preset.gains];
+  };
 
   const onSliderChange = () => {
-    currentPresetName.value = 'Custom'
-  }
+    currentPresetName.value = 'Custom';
+  };
 
   const onBassBoostChange = () => {
     if (currentPresetName.value !== 'Custom' && !currentPresetName.value.includes('Bass')) {
-      currentPresetName.value = 'Custom'
+      currentPresetName.value = 'Custom';
     }
-  }
+  };
 
   const getDisplayGain = (idx) => {
-    const gain = eqGains.value[idx]
-    return gain > 0 ? `+${gain}` : `${gain}`
-  }
+    const gain = eqGains.value[idx];
+    return gain > 0 ? `+${gain}` : `${gain}`;
+  };
 
   // Catmull-Rom spline interpolation to SVG Cubic Bezier path
   const catmullRom2bezier = (points) => {
-    if (points.length < 2) return ''
-    let d = `M ${points[0].x} ${points[0].y}`
+    if (points.length < 2) return '';
+    let d = `M ${points[0].x} ${points[0].y}`;
     for (let i = 0; i < points.length - 1; i++) {
-      const p0 = points[i - 1] || points[0]
-      const p1 = points[i]
-      const p2 = points[i + 1]
-      const p3 = points[i + 2] || p2
+      const p0 = points[i - 1] || points[0];
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const p3 = points[i + 2] || p2;
 
-      const cp1x = p1.x + (p2.x - p0.x) / 6
-      const cp1y = p1.y + (p2.y - p0.y) / 6
+      const cp1x = p1.x + (p2.x - p0.x) / 6;
+      const cp1y = p1.y + (p2.y - p0.y) / 6;
 
-      const cp2x = p2.x - (p3.x - p1.x) / 6
-      const cp2y = p2.y - (p3.y - p1.y) / 6
+      const cp2x = p2.x - (p3.x - p1.x) / 6;
+      const cp2y = p2.y - (p3.y - p1.y) / 6;
 
-      d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`
+      d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
     }
-    return d
-  }
+    return d;
+  };
 
   const curvePath = computed(() => {
     // Generate coordinate points for each of the 10 bands
@@ -301,25 +301,25 @@
     // Vertical value: eqGains value goes from -10 to +10.
     // Map -10 to 10 dB to vertical viewport range [2, 99.5] where 2 is top (+10dB) and 99.5 is bottom (-10dB)
     const points = eqGains.value.map((gain, idx) => {
-      const x = idx * 100 + 50
-      const percentage = (10 - gain) / 20 // 0 at +10dB, 1 at -10dB
-      const y = 2 + percentage * 97.5
-      return { x, y }
-    })
-    return catmullRom2bezier(points)
-  })
+      const x = idx * 100 + 50;
+      const percentage = (10 - gain) / 20; // 0 at +10dB, 1 at -10dB
+      const y = 2 + percentage * 97.5;
+      return { x, y };
+    });
+    return catmullRom2bezier(points);
+  });
 
   const formatBandLabel = (band) => {
     if (band >= 1000) {
-      return `${band / 1000}k`
+      return `${band / 1000}k`;
     }
-    return `${band}`
-  }
+    return `${band}`;
+  };
 
   const getIconForRoute = (path) => {
-    if (path === 'my-music') return 'Song'
-    if (path === 'playing') return 'NowPlaying'
-    if (path === 'playlists') return 'Album'
-    return 'Song'
-  }
+    if (path === 'my-music') return 'Song';
+    if (path === 'playing') return 'NowPlaying';
+    if (path === 'playlists') return 'Album';
+    return 'Song';
+  };
 </script>

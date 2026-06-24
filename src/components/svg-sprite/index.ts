@@ -1,1 +1,1 @@
-export * from './svg-sprite.types'
+export * from './svg-sprite.types';

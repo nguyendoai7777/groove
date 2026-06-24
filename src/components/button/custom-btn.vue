@@ -21,12 +21,12 @@
 
 <script setup lang="ts">
   interface Props {
-    variant?: 'primary' | 'secondary'
-    disabled?: boolean
-    loading?: boolean
-    block?: boolean
-    rounded?: 'md' | 'lg' | 'full'
-    size?: 'sm' | 'md' | 'lg'
+    variant?: 'primary' | 'secondary';
+    disabled?: boolean;
+    loading?: boolean;
+    block?: boolean;
+    rounded?: 'md' | 'lg' | 'full';
+    size?: 'sm' | 'md' | 'lg';
   }
 
   withDefaults(defineProps<Props>(), {
@@ -36,7 +36,7 @@
     block: false,
     rounded: 'lg',
     size: 'md',
-  })
+  });
 </script>
 
 <style>

@@ -46,54 +46,54 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, onMounted } from 'vue'
-  import { useRouter, useRoute } from 'vue-router'
-  import { getCurrentWindow } from '@tauri-apps/api/window'
-  import IconBtn from '@groovex/ui/button/icon-btn.vue'
-  import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
-  import { useCommandPaletteStore } from '@groovex/store'
+  import { ref, computed, onMounted } from 'vue';
+  import { useRouter, useRoute } from 'vue-router';
+  import { getCurrentWindow } from '@tauri-apps/api/window';
+  import IconBtn from '@groovex/ui/button/icon-btn.vue';
+  import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue';
+  import { useCommandPaletteStore } from '@groovex/store';
 
-  const router = useRouter()
-  const route = useRoute()
-  const appWindow = getCurrentWindow()
-  const commandPalette = useCommandPaletteStore()
+  const router = useRouter();
+  const route = useRoute();
+  const appWindow = getCurrentWindow();
+  const commandPalette = useCommandPaletteStore();
 
-  const isMaximized = ref(false)
+  const isMaximized = ref(false);
 
   const canGoBack = computed(() => {
-    return route.query.view === 'list' || !!(window.history.state && window.history.state.back)
-  })
+    return route.query.view === 'list' || !!(window.history.state && window.history.state.back);
+  });
 
   function handleBack() {
     if (canGoBack.value) {
-      router.back()
+      router.back();
     }
   }
 
   async function minimize() {
-    await appWindow.minimize()
+    await appWindow.minimize();
   }
 
   async function restore() {
-    await appWindow.unmaximize()
-    isMaximized.value = false
+    await appWindow.unmaximize();
+    isMaximized.value = false;
   }
 
   async function maximize() {
-    await appWindow.maximize()
-    isMaximized.value = true
+    await appWindow.maximize();
+    isMaximized.value = true;
   }
 
   async function close() {
-    await appWindow.close()
+    await appWindow.close();
   }
 
   onMounted(async () => {
-    isMaximized.value = await appWindow.isMaximized()
+    isMaximized.value = await appWindow.isMaximized();
 
     // Listen for resize to update maximized icon state
     appWindow.onResized(async () => {
-      isMaximized.value = await appWindow.isMaximized()
-    })
-  })
+      isMaximized.value = await appWindow.isMaximized();
+    });
+  });
 </script>

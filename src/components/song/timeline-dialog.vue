@@ -31,43 +31,43 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, watch } from 'vue'
-  import { invoke } from '@tauri-apps/api/core'
-  import { useAudioPlayer } from '@groovex/store'
-  import CustomBtn from '@groovex/ui/button/custom-btn.vue'
+  import { ref, computed, watch } from 'vue';
+  import { invoke } from '@tauri-apps/api/core';
+  import { useAudioPlayer } from '@groovex/store';
+  import CustomBtn from '@groovex/ui/button/custom-btn.vue';
 
   const props = defineProps<{
-    modelValue: boolean
-    songId: number | undefined | null
-    initialTimeline?: string | null
-  }>()
+    modelValue: boolean;
+    songId: number | undefined | null;
+    initialTimeline?: string | null;
+  }>();
 
   const emit = defineEmits<{
-    (e: 'update:modelValue', value: boolean): void
-    (e: 'saved', timeline: string): void
-  }>()
+    (e: 'update:modelValue', value: boolean): void;
+    (e: 'saved', timeline: string): void;
+  }>();
 
-  const player = useAudioPlayer()
+  const player = useAudioPlayer();
 
   const dialogVisible = computed({
     get: () => props.modelValue,
     set: (val) => emit('update:modelValue', val),
-  })
+  });
 
-  const isSavingTimeline = ref(false)
-  const timelineDraft = ref('')
+  const isSavingTimeline = ref(false);
+  const timelineDraft = ref('');
 
   async function loadTimeline() {
-    if (!props.songId) return
+    if (!props.songId) return;
     if (props.initialTimeline !== undefined && props.initialTimeline !== null) {
-      timelineDraft.value = props.initialTimeline
-      return
+      timelineDraft.value = props.initialTimeline;
+      return;
     }
     try {
-      const meta = await invoke<any>('get_song_metadata', { songId: props.songId })
-      timelineDraft.value = meta.timeline || ''
+      const meta = await invoke<any>('get_song_metadata', { songId: props.songId });
+      timelineDraft.value = meta.timeline || '';
     } catch (err) {
-      console.error('Failed to get song timeline:', err)
+      console.error('Failed to get song timeline:', err);
     }
   }
 
@@ -75,35 +75,35 @@
     () => props.modelValue,
     async (isOpen) => {
       if (isOpen) {
-        await loadTimeline()
+        await loadTimeline();
       }
     },
-  )
+  );
 
   watch(
     () => props.songId,
     async (newId) => {
       if (props.modelValue && newId) {
-        await loadTimeline()
+        await loadTimeline();
       }
     },
-  )
+  );
 
   async function handleSaveTimeline() {
-    if (!props.songId) return
-    isSavingTimeline.value = true
+    if (!props.songId) return;
+    isSavingTimeline.value = true;
     try {
       await invoke('update_song_timeline', {
         songId: props.songId,
         timeline: timelineDraft.value,
-      })
-      player.updateTimeline(props.songId, timelineDraft.value)
-      emit('saved', timelineDraft.value)
-      dialogVisible.value = false
+      });
+      player.updateTimeline(props.songId, timelineDraft.value);
+      emit('saved', timelineDraft.value);
+      dialogVisible.value = false;
     } catch (err) {
-      console.error('Failed to save timeline:', err)
+      console.error('Failed to save timeline:', err);
     } finally {
-      isSavingTimeline.value = false
+      isSavingTimeline.value = false;
     }
   }
 </script>

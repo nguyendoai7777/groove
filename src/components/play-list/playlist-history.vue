@@ -81,23 +81,24 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, watch, nextTick } from 'vue';
+  import { ref, computed, watch, nextTick, type ComponentPublicInstance } from 'vue';
   import { storeToRefs } from 'pinia';
-  import { useAudioPlayer } from '@groovex/store';
+  import { useAudioPlayer, type PlaybackSong } from '@groovex/store';
   import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue';
   import PlayingVisualizer from '@groovex/ui/playing-visualizer/playing-visualizer.vue';
   import { OverlayScrollbarsComponent } from 'overlayscrollbars-vue';
   import { formatDuration } from '@groovex/core';
+  import { OverlayScrollbars } from 'overlayscrollbars';
 
   const player = useAudioPlayer();
   const { historyPlaylist, queuePlaylist, currentSong, isPlaying } = storeToRefs(player);
 
   const activeRowRef = ref<HTMLElement | null>(null);
-  const queueListOsInstance = ref<any>(null);
+  const queueListOsInstance = ref<OverlayScrollbars | null>(null);
   let skipNextScroll = false;
 
   interface DisplayItem {
-    song: any;
+    song: PlaybackSong;
     isPlayed: boolean;
     isCurrent: boolean;
   }
@@ -124,7 +125,7 @@
     return displayQueue.value.length;
   });
 
-  function handlePlaySong(song: any) {
+  function handlePlaySong(song: PlaybackSong) {
     skipNextScroll = true;
     player.playSong(song);
     setTimeout(() => {
@@ -132,13 +133,15 @@
     }, 150);
   }
 
-  function onQueueListOsInitialized(instance: any) {
+  function onQueueListOsInitialized(instance: OverlayScrollbars) {
     queueListOsInstance.value = instance;
   }
 
-  function setActiveRowRef(el: any, item: DisplayItem) {
+  function setActiveRowRef(el: Element | ComponentPublicInstance | null, item: DisplayItem) {
+    console.log(`@@ elêmnt`, el);
+
     if (item.isCurrent) {
-      activeRowRef.value = el;
+      activeRowRef.value = el as HTMLElement | null;
     }
   }
 

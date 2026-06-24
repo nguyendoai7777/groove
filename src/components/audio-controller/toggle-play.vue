@@ -10,17 +10,17 @@
 <script setup lang="ts">
   const props = withDefaults(
     defineProps<{
-      isPlaying?: boolean
+      isPlaying?: boolean;
     }>(),
     {
       isPlaying: false,
     },
-  )
+  );
 
-  const emit = defineEmits<{ (e: 'state', state: boolean): void }>()
+  const emit = defineEmits<{ (e: 'state', state: boolean): void }>();
 
   function togglePlay() {
-    emit('state', !props.isPlaying)
+    emit('state', !props.isPlaying);
   }
 </script>
 <style>
