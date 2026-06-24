@@ -615,7 +615,12 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     console.log('[Player] open-file event received args:', args);
     const audioFile = args.find(
       (arg: string) =>
-        arg.endsWith('.mp3') || arg.endsWith('.flac') || arg.endsWith('.wav') || arg.endsWith('.m4a') || arg.endsWith('.ogg'),
+        arg.endsWith('.mp3') ||
+        arg.endsWith('.flac') ||
+        arg.endsWith('.wav') ||
+        arg.endsWith('.m4a') ||
+        arg.endsWith('.ogg') ||
+        arg.endsWith('.m4r'),
     );
     if (audioFile) {
       playSongFromPath(audioFile);

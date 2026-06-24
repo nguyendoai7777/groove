@@ -1078,10 +1078,10 @@ pub fn run() {
                 let path = Path::new(&file_path);
                 if path.exists() {
                     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
-                    if ext == "mp3" || ext == "flac" || ext == "wav" || ext == "m4a" || ext == "ogg" {
+                    if ext == "mp3" || ext == "flac" || ext == "wav" || ext == "m4a" || ext == "ogg" || ext == "m4r" {
                         let app_handle = app.handle().clone();
-                        tauri::async_runtime::spawn(async move {
-                            tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+                        std::thread::spawn(move || {
+                            std::thread::sleep(std::time::Duration::from_millis(800));
                             let _ = app_handle.emit("open-file", SingleInstancePayload {
                                 args,
                                 cwd: String::new(),
