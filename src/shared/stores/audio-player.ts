@@ -1,6 +1,13 @@
 import { ref, watch, computed, nextTick } from 'vue'
 import { defineStore } from 'pinia'
 import { convertFileSrc, invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
+import {
+  initialize as initTaskbar,
+  isSupported as isTaskbarSupported,
+  setNavigationEnabled as setTaskbarNavigation,
+  setPlaybackState as setTaskbarPlaybackState,
+} from 'tauri-plugin-taskbar'
 import type { Song } from '@groovex/types'
 import { EStoreKey } from './stores.definition'
 import { AudioEngine } from '@groovex/core'
@@ -803,6 +810,65 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
       throw err
     }
   }
+
+  // Taskbar media controls setup
+  let taskbarSetupDone = false
+  async function initTaskbarControls() {
+    try {
+      if (await isTaskbarSupported()) {
+        await initTaskbar()
+        taskbarSetupDone = true
+
+        // Set initial state
+        await setTaskbarPlaybackState(isPlaying.value)
+        await setTaskbarNavigation(!!currentSong.value, !!currentSong.value)
+
+        // Listen for taskbar clicks
+        await listen('media-prev', () => {
+          prevTrack()
+        })
+        await listen('media-toggle', () => {
+          togglePlay()
+        })
+        await listen('media-next', () => {
+          nextTrack()
+        })
+      }
+    } catch (err) {
+      console.error('Failed to initialize taskbar controls:', err)
+    }
+  }
+
+  // Watchers to sync state with taskbar
+  watch(
+    () => isPlaying.value,
+    async (newValue) => {
+      if (taskbarSetupDone) {
+        try {
+          await setTaskbarPlaybackState(newValue)
+        } catch (err) {
+          console.error('Failed to update taskbar playback state:', err)
+        }
+      }
+    },
+  )
+
+  watch(
+    () => currentSong.value,
+    async (newSong) => {
+      if (taskbarSetupDone) {
+        try {
+          await setTaskbarNavigation(!!newSong, !!newSong)
+          await setTaskbarPlaybackState(isPlaying.value)
+        } catch (err) {
+          console.error('Failed to update taskbar on song change:', err)
+        }
+      }
+    },
+  )
+
+  // Initialize taskbar controls
+  initTaskbarControls()
 
   return {
     currentSong,
