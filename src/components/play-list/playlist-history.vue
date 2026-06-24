@@ -81,82 +81,87 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, watch, nextTick } from 'vue'
-  import { storeToRefs } from 'pinia'
-  import { useAudioPlayer } from '@groovex/store'
-  import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue'
-  import PlayingVisualizer from '@groovex/ui/playing-visualizer/playing-visualizer.vue'
-  import { OverlayScrollbarsComponent } from 'overlayscrollbars-vue'
-  import { formatDuration } from '@groovex/core'
+  import { ref, computed, watch, nextTick } from 'vue';
+  import { storeToRefs } from 'pinia';
+  import { useAudioPlayer } from '@groovex/store';
+  import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue';
+  import PlayingVisualizer from '@groovex/ui/playing-visualizer/playing-visualizer.vue';
+  import { OverlayScrollbarsComponent } from 'overlayscrollbars-vue';
+  import { formatDuration } from '@groovex/core';
 
-  const player = useAudioPlayer()
-  const { historyPlaylist, queuePlaylist, currentSong, isPlaying } = storeToRefs(player)
+  const player = useAudioPlayer();
+  const { historyPlaylist, queuePlaylist, currentSong, isPlaying } = storeToRefs(player);
 
-  const activeRowRef = ref<HTMLElement | null>(null)
-  const queueListOsInstance = ref<any>(null)
+  const activeRowRef = ref<HTMLElement | null>(null);
+  const queueListOsInstance = ref<any>(null);
+  let skipNextScroll = false;
 
   interface DisplayItem {
-    song: any
-    isPlayed: boolean
-    isCurrent: boolean
+    song: any;
+    isPlayed: boolean;
+    isCurrent: boolean;
   }
 
   const displayQueue = computed<DisplayItem[]>(() => {
-    const list: DisplayItem[] = []
+    const list: DisplayItem[] = [];
 
     historyPlaylist.value.forEach((song) => {
-      list.push({ song, isPlayed: true, isCurrent: false })
-    })
+      list.push({ song, isPlayed: true, isCurrent: false });
+    });
 
     if (currentSong.value) {
-      list.push({ song: currentSong.value, isPlayed: false, isCurrent: true })
+      list.push({ song: currentSong.value, isPlayed: false, isCurrent: true });
     }
 
     queuePlaylist.value.forEach((song) => {
-      list.push({ song, isPlayed: false, isCurrent: false })
-    })
+      list.push({ song, isPlayed: false, isCurrent: false });
+    });
 
-    return list
-  })
+    return list;
+  });
 
   const playlistCount = computed(() => {
-    return displayQueue.value.length
-  })
+    return displayQueue.value.length;
+  });
 
   function handlePlaySong(song: any) {
-    player.playSong(song)
+    skipNextScroll = true;
+    player.playSong(song);
+    setTimeout(() => {
+      skipNextScroll = false;
+    }, 150);
   }
 
   function onQueueListOsInitialized(instance: any) {
-    queueListOsInstance.value = instance
+    queueListOsInstance.value = instance;
   }
 
   function setActiveRowRef(el: any, item: DisplayItem) {
     if (item.isCurrent) {
-      activeRowRef.value = el
+      activeRowRef.value = el;
     }
   }
 
   function scrollToActive() {
     if (queueListOsInstance.value && activeRowRef.value) {
-      const { viewport } = queueListOsInstance.value.elements()
-      const activeEl = activeRowRef.value
+      const { viewport } = queueListOsInstance.value.elements();
+      const activeEl = activeRowRef.value;
 
-      const viewportHeight = viewport.clientHeight
-      const elementHeight = activeEl.clientHeight
+      const viewportHeight = viewport.clientHeight;
+      const elementHeight = activeEl.clientHeight;
 
       const targetTop =
         activeEl.getBoundingClientRect().top -
         viewport.getBoundingClientRect().top +
         viewport.scrollTop -
         viewportHeight / 2 +
-        elementHeight / 2
+        elementHeight / 2;
 
       viewport.scrollTo({
         top: targetTop,
         behavior: 'smooth',
         // Use logical scroll positioning
-      })
+      });
     }
   }
 
@@ -165,11 +170,14 @@
     [() => currentSong.value?.id, activeRowRef, queueListOsInstance],
     ([songId, activeEl, osInst]) => {
       if (songId && activeEl && osInst) {
+        if (skipNextScroll) {
+          return;
+        }
         nextTick(() => {
-          scrollToActive()
-        })
+          scrollToActive();
+        });
       }
     },
     { immediate: true },
-  )
+  );
 </script>
