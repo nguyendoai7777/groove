@@ -34,32 +34,17 @@
     </div>
 
     <span class="flex items-center">
-      <kbd
-        v-if="item.shortcut"
-        class="font-mono text-[10px] font-medium rounded px-1.5 py-0.5 transition-colors duration-150 border"
-        :class="
-          isActive
-            ? 'bg-(--cmd-kbd-bg-active) text-(--cmd-kbd-text-active) border-(--cmd-kbd-border-active)'
-            : 'bg-(--cmd-kbd-bg) text-(--cmd-kbd-text) border-(--cmd-kbd-border) shadow-kbd-bottom'
-        ">
+      <x-kbd v-if="item.shortcut" size="md" :active="isActive">
         {{ item.shortcut }}
-      </kbd>
-      <kbd
-        v-else-if="item.type === 'command'"
-        class="font-mono text-[10px] font-medium rounded px-1.5 py-0.5 transition-colors duration-150 border"
-        :class="
-          isActive
-            ? 'bg-(--cmd-kbd-bg-active) text-(--cmd-kbd-text-active) border-(--cmd-kbd-border-active)'
-            : 'bg-(--cmd-kbd-bg) text-(--cmd-kbd-text) border-(--cmd-kbd-border) shadow-kbd-bottom'
-        ">
-        Tab Chọn
-      </kbd>
+      </x-kbd>
+      <x-kbd v-else-if="item.type === 'command'" size="md" :active="isActive">Tab Chọn</x-kbd>
     </span>
   </div>
 </template>
 
 <script setup lang="ts">
   import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue';
+  import XKbd from '@groovex/ui/kbd/x-kbd.vue';
   import type { SVGSrc } from '@groovex/ui/svg-sprite';
   import PlayingVisualizer from '@groovex/ui/playing-visualizer/playing-visualizer.vue';
   import { useAudioPlayer } from '@groovex/store';

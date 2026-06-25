@@ -58,7 +58,10 @@
                   ? 'bg-theme-accent/10 border-theme-accent/30 text-theme-accent-light font-semibold shadow-xs'
                   : 'hover:bg-theme-bg-placeholder/25 text-theme-text-secondary',
               ]"
-              @click="player.seek(seg.start)">
+              @click="
+                player.seek(seg.start);
+                player.setPlaying(true);
+              ">
               <span
                 class="font-mono text-[12px] shrink-0 opacity-70 mt-px"
                 :class="{ 'text-theme-accent-light': idx === activeSegmentIndex }">
@@ -72,11 +75,12 @@
     </div>
 
     <!-- Middle side: Lyrics View & Editor -->
-    <div class="flex-1 min-w-0 flex flex-col h-full backdrop-blur-xs overflow-hidden rounded-2xl border border-theme-border/50 pb-2">
+    <div
+      class="flex-1 min-w-0 flex flex-col h-full backdrop-blur-xs overflow-hidden rounded-2xl border border-theme-border/50 pb-2 @container">
       <!-- View Mode -->
       <template v-if="!isEditingLyrics">
         <div class="flex items-center justify-between mb-3 border-b border-theme-border/40 p-2.5 shrink-0 relative">
-          <span class="text-2xl font-semibold tracking-wider absolute top-1/2 left-1/2 -translate-1/2">Lyrics</span>
+          <span class="text-2xl font-semibold tracking-wider absolute top-1/2 left-1/2 -translate-1/2 @max-[724px]:hidden">Lyrics</span>
           <div class="ml-auto flex gap-2">
             <!-- Edit Metadata Button -->
             <v-btn

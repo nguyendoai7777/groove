@@ -1,31 +1,53 @@
 <template>
-  <div class="min-w-57.5 bg-(--nav-bg) flex flex-col" style="backdrop-filter: blur(23px); height: calc(100svh - var(--audio-controller-h))">
+  <div
+    class="bg-(--nav-bg) flex flex-col transition-all duration-300 ease-in-out shrink-0"
+    :class="isCollapsed ? 'w-14 min-w-14' : 'w-57.5 min-w-57.5'"
+    style="backdrop-filter: blur(23px); height: calc(100svh - var(--audio-controller-h))">
     <div
-      class="h-(--nav-head-h) duration-200 hover:bg-side-nav-header-hover flex items-center px-2 select-none font-light text-xs cursor-default shrink-0"
+      class="h-(--nav-head-h) hover:bg-side-nav-header-hover flex items-center select-none font-light text-xs cursor-default shrink-0 transition-all duration-300"
+      :class="isCollapsed ? 'justify-center px-0' : 'justify-between px-3'"
       data-tauri-drag-region>
-      {{ appInfo.name }}
+      <span v-if="!isCollapsed" class="truncate font-semibold tracking-wider">{{ appInfo.name }}</span>
+      <custom-btn
+        icon
+        variant="text"
+        density="compact"
+        class="text-theme-text-muted hover:text-theme-text rounded-none"
+        @click="toggleCollapse"
+        :title="isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'">
+        <svg-sprite :src="isCollapsed ? 'AngleRight' : 'AngleLeft'" class="w-4 h-4" />
+      </custom-btn>
     </div>
 
-    <div class="flex-1 flex flex-col overflow-y-auto">
+    <div class="flex-1 flex flex-col overflow-x-hidden">
       <RouterLink
+        class="flex"
         v-for="nav in APP_ROUTES[0].children.filter((c) => c.meta && c.meta.title)"
         :key="nav.path"
         :to="'/' + nav.path"
         v-slot="{ isActive }">
         <div
-          class="group border-l-[3px] transition-all duration-200"
+          class="group border-l-[3px] transition-all duration-200 flex-1"
           :class="
             isActive
               ? 'border-theme-accent-light bg-theme-bg-placeholder/30'
               : 'border-transparent hover:border-theme-border-hover/70 hover:bg-theme-bg-placeholder/10'
           ">
           <v-btn
-            class="w-full flex justify-start items-center px-4 text-sm h-(--nav-link-h) shadow-none bg-transparent rounded-none text-left">
+            class="w-full flex items-center text-sm h-(--nav-link-h) shadow-none bg-transparent rounded-none min-w-0!"
+            :class="isCollapsed ? 'justify-center px-0' : 'justify-start px-4 text-left'"
+            :title="isCollapsed ? nav.meta['title'] : ''">
             <svg-sprite
-              class="w-4 h-4 mr-3"
+              class="w-4 h-4"
               :src="getIconForRoute(nav.path)"
-              :class="isActive ? 'text-theme-accent-light' : 'text-theme-text-muted group-hover:text-theme-text-secondary'" />
-            <span :class="isActive ? 'font-semibold' : 'text-theme-text-muted group-hover:text-theme-text-secondary'">
+              :class="[
+                isCollapsed ? 'mr-0' : 'mr-3',
+                isActive ? 'text-theme-accent-light' : 'text-theme-text-muted group-hover:text-theme-text-secondary',
+              ]" />
+            <span
+              v-if="!isCollapsed"
+              class="truncate"
+              :class="isActive ? 'font-semibold' : 'text-theme-text-muted group-hover:text-theme-text-secondary'">
               {{ nav.meta['title'] }}
             </span>
           </v-btn>
@@ -36,9 +58,11 @@
     <div class="border-t border-theme-border/30 shrink-0">
       <v-btn
         @click="showSettings = true"
-        class="w-full flex justify-start items-center px-4 text-sm h-(--nav-link-h) shadow-none bg-transparent hover:bg-theme-bg-placeholder/10 rounded-none text-left text-theme-text-muted hover:text-theme-text-secondary border-l-[3px] border-transparent hover:border-theme-border-hover/70 transition-all duration-200">
-        <svg-sprite src="Settings" class="w-4 h-4 mr-3" />
-        <span>Settings</span>
+        class="w-full flex items-center text-sm h-(--nav-link-h) shadow-none bg-transparent hover:bg-theme-bg-placeholder/10 rounded-none text-theme-text-muted hover:text-theme-text-secondary border-l-[3px] border-transparent hover:border-theme-border-hover/70 transition-all duration-200 min-w-0!"
+        :class="isCollapsed ? 'justify-center px-0' : 'justify-start px-4 text-left'"
+        :title="isCollapsed ? 'Settings' : ''">
+        <svg-sprite src="Settings" class="w-4 h-4" :class="isCollapsed ? 'mr-0' : 'mr-3'" />
+        <span v-if="!isCollapsed" class="truncate">Settings</span>
       </v-btn>
     </div>
 
@@ -167,7 +191,6 @@
                   <!-- Slider -->
                   <div class="grow flex justify-center py-1">
                     <v-slider
-                      v-model="eqGains[idx]"
                       direction="vertical"
                       min="-10"
                       max="10"
@@ -176,6 +199,9 @@
                       color="cyan-accent-3"
                       track-color="rgba(255, 255, 255, 0.1)"
                       class="cursor-pointer h-full"
+                      v-model="eqGains[idx]"
+                      :thumb-size="12"
+                      :track-size="2"
                       @update:model-value="onSliderChange" />
                   </div>
                   <!-- Band Label -->
@@ -208,8 +234,16 @@
   import { OverlayScrollbarsComponent } from 'overlayscrollbars-vue';
 
   const showSettings = ref(false);
+  const isCollapsed = ref(typeof localStorage !== 'undefined' ? localStorage.getItem('side-nav-collapsed') === 'true' : false);
   const player = useAudioPlayer();
   const { seekStep, volumeStep, eqGains, bassBoost, currentPresetName } = storeToRefs(player);
+
+  const toggleCollapse = () => {
+    isCollapsed.value = !isCollapsed.value;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('side-nav-collapsed', String(isCollapsed.value));
+    }
+  };
 
   // Backup variables for OK/Cancel transactions
   let originalSeekStep = 5;

@@ -25,8 +25,8 @@
       class="absolute top-1/2 left-1/2 -translate-1/2 w-search-bar-w cursor-pointer rounded-full border border-solid flex items-center justify-between px-3 py-1 select-none transition-all duration-200 gap-2"
       :class="[
         commandPalette.isOpen
-          ? 'bg-(--input-border-bg) border-(--input-border-focus) shadow-[0_0_0_2px_rgba(6,182,212,0.15)]'
-          : 'bg-(--bg-search) border-(--color-border-search) hover:border-(--input-border-color-hover) hover:bg-zinc-800/40',
+          ? 'bg-(--input-border-bg) border-(--input-border-color-hover) shadow-[0_0_0_2px_rgba(6,182,212,0.15)]'
+          : 'bg-(--bg-search) border-transparent hover:border-(--input-border-color-hover) hover:bg-theme-bg-placeholder/40',
       ]"
       @click="commandPalette.open()">
       <div class="flex items-center gap-2 overflow-hidden flex-1">
@@ -34,12 +34,12 @@
           src="Search"
           class="w-3.5 h-3.5 text-theme-text-disabled shrink-0 transition-colors duration-200"
           :class="{ 'text-(--input-border-focus)': commandPalette.isOpen }" />
-        <span class="text-xs text-theme-text-disabled font-light truncate">Search songs, commands...</span>
+        <span class="text-xs text-theme-text-disabled font-light truncate leading-[15px]">Search songs, commands...</span>
       </div>
       <div class="flex items-center gap-0.5 text-[10px] text-theme-text-disabled shrink-0 select-none">
-        <kbd class="px-1.5 py-px rounded bg-zinc-700/30 border border-zinc-600/30 font-sans shadow-sm">Ctrl</kbd>
+        <x-kbd>Ctrl</x-kbd>
         <span class="opacity-50">+</span>
-        <kbd class="px-1.5 py-px rounded bg-zinc-700/30 border border-zinc-600/30 font-sans shadow-sm">K</kbd>
+        <x-kbd>K</x-kbd>
       </div>
     </div>
   </div>
@@ -51,6 +51,7 @@
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import IconBtn from '@groovex/ui/button/icon-btn.vue';
   import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue';
+  import XKbd from '@groovex/ui/kbd/x-kbd.vue';
   import { useCommandPaletteStore } from '@groovex/store';
 
   const router = useRouter();

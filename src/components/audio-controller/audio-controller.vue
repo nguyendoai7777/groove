@@ -142,6 +142,7 @@
           :step="1"
           :track-size="2"
           :thumb-size="8"
+          :tick-size="4"
           hide-details
           density="compact"
           class="w-full cursor-pointer" />

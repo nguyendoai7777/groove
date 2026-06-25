@@ -7,9 +7,9 @@
         <!-- Header -->
         <div class="flex pb-4 justify-between items-center mb-6">
           <h1 class="text-3xl font-light text-theme-text">{{ mode === 'playlists' ? 'Playlists' : 'My Music' }}</h1>
-          <div class="flex gap-2">
+          <!--  <div class="flex gap-2">
             <icon-btn title="Settings" :size="{ icon: 'sm' }" src="Settings" />
-          </div>
+          </div> -->
         </div>
 
         <!-- Create Playlist Banner (Playlists Mode) -->

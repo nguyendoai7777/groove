@@ -80,33 +80,23 @@
       <div
         class="flex items-center justify-between px-5 py-2.5 bg-(--cmd-footer-bg) border-t border-(--cmd-footer-border) text-[11px] text-(--cmd-text-secondary)">
         <div class="flex items-center gap-1.5">
-          <kbd class="font-mono text-[9px] bg-(--cmd-kbd-bg) text-(--cmd-kbd-text) border border-(--cmd-kbd-border) rounded px-1 py-0.25">
-            ↑↓
-          </kbd>
+          <x-kbd>↑↓</x-kbd>
           Di chuyển
           <span class="opacity-50">•</span>
           <span v-if="isCommandMode" class="flex items-center gap-1.5">
-            <kbd class="font-mono text-[9px] bg-(--cmd-kbd-bg) text-(--cmd-kbd-text) border border-(--cmd-kbd-border) rounded px-1 py-0.25">
-              Tab
-            </kbd>
+            <x-kbd>Tab</x-kbd>
             Chọn lệnh
             <span class="opacity-50">•</span>
-            <kbd class="font-mono text-[9px] bg-(--cmd-kbd-bg) text-(--cmd-kbd-text) border border-(--cmd-kbd-border) rounded px-1 py-0.25">
-              ↵ Enter
-            </kbd>
+            <x-kbd>↵ Enter</x-kbd>
             Chạy lệnh
           </span>
           <span v-else class="flex items-center gap-1.5">
-            <kbd class="font-mono text-[9px] bg-(--cmd-kbd-bg) text-(--cmd-kbd-text) border border-(--cmd-kbd-border) rounded px-1 py-0.25">
-              ↵ Enter
-            </kbd>
+            <x-kbd>↵ Enter</x-kbd>
             Chọn
           </span>
         </div>
         <div class="flex items-center gap-1.5">
-          <kbd class="font-mono text-[9px] bg-(--cmd-kbd-bg) text-(--cmd-kbd-text) border border-(--cmd-kbd-border) rounded px-1 py-0.25">
-            Esc
-          </kbd>
+          <x-kbd>Esc</x-kbd>
           Đóng
         </div>
       </div>
@@ -119,6 +109,7 @@
   import { OverlayScrollbarsComponent } from 'overlayscrollbars-vue';
   import { useCommandPaletteStore, useAudioPlayer } from '@groovex/store';
   import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue';
+  import XKbd from '@groovex/ui/kbd/x-kbd.vue';
   import { invoke } from '@tauri-apps/api/core';
   import SearchItem from './search-item.vue';
   import type { PartialOptions } from 'overlayscrollbars';
