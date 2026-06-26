@@ -1,6 +1,6 @@
 <template>
   <kbd
-    class="font-mono border rounded transition-colors duration-150"
+    class="grx-XKbd font-mono border rounded transition-colors duration-150"
     :class="[
       size === 'sm' ? 'text-[9px] px-1 py-0.25' : 'text-[10px] px-1.5 py-0.5',
       active

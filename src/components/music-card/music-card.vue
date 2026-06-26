@@ -1,6 +1,6 @@
 <template>
   <div
-    class="music-card group relative flex flex-col p-3 rounded-xl transition-all duration-300 border-2 border-transparent bg-theme-bg-card hover:bg-theme-bg-card-hover cursor-pointer"
+    class="grx-MusicCard music-card group relative flex flex-col p-3 rounded-xl transition-all duration-300 border-2 border-transparent bg-theme-bg-card hover:bg-theme-bg-card-hover cursor-pointer"
     :style="{
       '--glow-color': glowColor,
       '--border-glow': borderGlowColor,

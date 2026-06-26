@@ -1,6 +1,7 @@
 <template>
   <v-dialog v-model="dialogVisible" max-width="800">
-    <v-card class="grx-ConfirmerCard bg-theme-bg-item! text-theme-text! border border-theme-border! rounded-xl! overflow-hidden shadow-2xl">
+    <v-card
+      class="grx-MetadataDialog grx-ConfirmerCard bg-theme-bg-item! text-theme-text! border border-theme-border! rounded-xl! overflow-hidden shadow-2xl">
       <v-card-title class="px-4 py-3 text-base font-bold border-b border-theme-border/30 bg-theme-bg-placeholder/20">
         Edit Metadata
       </v-card-title>

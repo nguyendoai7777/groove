@@ -1,6 +1,6 @@
 <template>
   <div
-    class="flex flex-col min-h-full text-theme-text select-none"
+    class="grx-MusicList flex flex-col min-h-full text-theme-text select-none"
     :style="{
       '--accent-bg': accentBgColor,
     }">

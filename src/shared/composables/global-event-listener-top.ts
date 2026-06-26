@@ -1,6 +1,26 @@
 // composables/useKeyboardShortcuts.ts
-import { onMounted, onUnmounted, watch } from 'vue';
+import { onMounted, onUnmounted, watch, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { useCommandPaletteStore, useAudioPlayer } from '@groovex/store';
+
+export interface Keybinding {
+  key: string;
+  command: string;
+}
+
+export const DEFAULT_KEYBINDINGS: Keybinding[] = [
+  { key: 'ctrl+k', command: 'open_search' },
+  { key: 'space', command: 'toggle_play' },
+  { key: 'arrowleft', command: 'seek_backward' },
+  { key: 'arrowright', command: 'seek_forward' },
+  { key: 'alt+arrowleft', command: 'prev_track' },
+  { key: 'alt+arrowright', command: 'next_track' },
+  { key: 'arrowup', command: 'volume_up' },
+  { key: 'arrowdown', command: 'volume_down' },
+  { key: 'alt+p', command: 'play_random' },
+  { key: 'g m', command: 'go_to_library' },
+  { key: 'g p', command: 'go_to_now_playing' },
+];
 
 interface KeyboardCommand {
   key: string;
@@ -13,6 +33,26 @@ interface KeyboardCommand {
 export function useKeyboardShortcuts() {
   const commandPalette = useCommandPaletteStore();
   const player = useAudioPlayer();
+  const router = useRouter();
+
+  // Load custom keybindings from localStorage with fallback to default
+  const loadKeybindings = (): Keybinding[] => {
+    try {
+      const saved = localStorage.getItem('custom-keybindings');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error('Failed to parse custom keybindings, using defaults', e);
+    }
+    return DEFAULT_KEYBINDINGS;
+  };
+
+  const keybindings = ref<Keybinding[]>(loadKeybindings());
+
+  const reloadKeybindings = () => {
+    keybindings.value = loadKeybindings();
+  };
 
   // ----------------------------------------------------
   // 1. CÁC PHÍM TẮT CẤP 2 (Chỉ chạy khi Dialog ĐANG MỞ)
@@ -20,18 +60,16 @@ export function useKeyboardShortcuts() {
   const dialogShortcuts: KeyboardCommand[] = [
     {
       key: 'd',
-      ctrl: true, // Ví dụ: Ctrl + D để chuyển nhanh sang Dark Mode khi đang mở Dialog
+      ctrl: true,
       action: () => console.log('Chuyển chế độ Dark mode!'),
     },
     {
       key: 'p',
-      ctrl: true, // Ví dụ: Ctrl + P để đi tới trang Profile
+      ctrl: true,
       action: () => console.log('Đi tới trang cá nhân!'),
     },
-    // Bạn định nghĩa thêm các combo phím phụ dành riêng cho Dialog ở đây...
   ];
 
-  // Hàm xử lý phím tắt Cấp 2
   const handleDialogKeyDown = (event: KeyboardEvent) => {
     const pressedKey = event.key.toLowerCase();
     const isCtrlPressed = event.ctrlKey || event.metaKey;
@@ -45,115 +83,164 @@ export function useKeyboardShortcuts() {
     if (matched) {
       event.preventDefault();
       matched.action();
-      // commandPalette.close() // Thêm dòng này nếu muốn chạy lệnh xong thì tự đóng dialog
     }
   };
 
   // ----------------------------------------------------
   // 2. PHÍM TẮT CẤP 1 (Luôn lắng nghe toàn cục)
   // ----------------------------------------------------
+  const getKeyEventString = (e: KeyboardEvent): string => {
+    const parts: string[] = [];
+    if (e.ctrlKey || e.metaKey) parts.push('ctrl');
+    if (e.altKey) parts.push('alt');
+    if (e.shiftKey) parts.push('shift');
+
+    const key = e.key.toLowerCase();
+    if (key !== 'control' && key !== 'alt' && key !== 'shift' && key !== 'meta') {
+      if (key === ' ' || key === 'spacebar') {
+        parts.push('space');
+      } else {
+        parts.push(key);
+      }
+    }
+    return parts.join('+');
+  };
+
+  const pressedHistory = ref<string[]>([]);
+  let historyTimeout: number | undefined;
+
+  const executeCommand = (command: string) => {
+    switch (command) {
+      case 'open_search':
+        commandPalette.open();
+        break;
+      case 'toggle_play':
+        if (player.currentSong) {
+          player.togglePlay();
+        }
+        break;
+      case 'prev_track':
+        if (player.currentSong) {
+          player.prevTrack();
+        }
+        break;
+      case 'next_track':
+        if (player.currentSong) {
+          player.nextTrack();
+        }
+        break;
+      case 'volume_up': {
+        const step = Number(player.volumeStep);
+        const finalStep = isNaN(step) || !isFinite(step) || step <= 0 ? 2 : step;
+        player.volume = Math.min(100, (player.volume || 0) + finalStep);
+        break;
+      }
+      case 'volume_down': {
+        const step = Number(player.volumeStep);
+        const finalStep = isNaN(step) || !isFinite(step) || step <= 0 ? 2 : step;
+        player.volume = Math.max(0, (player.volume || 0) - finalStep);
+        break;
+      }
+      case 'seek_backward': {
+        if (player.currentSong) {
+          const step = Number(player.seekStep);
+          const finalStep = isNaN(step) || !isFinite(step) || step <= 0 ? 5 : step;
+          player.seek(Math.max(0, (player.currentTime || 0) - finalStep));
+        }
+        break;
+      }
+      case 'seek_forward': {
+        if (player.currentSong) {
+          const step = Number(player.seekStep);
+          const finalStep = isNaN(step) || !isFinite(step) || step <= 0 ? 5 : step;
+          player.seek(Math.min(player.duration || 0, (player.currentTime || 0) + finalStep));
+        }
+        break;
+      }
+      case 'play_random':
+        if (player.playlist && player.playlist.length > 0) {
+          player.isShuffle = true;
+          player.playSong(player.playlist[Math.floor(Math.random() * player.playlist.length)]);
+        }
+        break;
+      case 'go_to_library':
+        router.push('/my-music');
+        break;
+      case 'go_to_now_playing':
+        router.push('/playing');
+        break;
+    }
+  };
+
   const handleGlobalKeyDown = (event: KeyboardEvent) => {
     const target = event.target as HTMLElement;
-    // Nếu đang gõ trong input (trừ ô search của chính dialog), không kích hoạt Ctrl+K ngoài ý muốn
+    // Don't trigger keybinds when typing in input, textarea, or contenteditable
     if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
-      // Cho phép phím Escape hoạt động để đóng modal kể cả khi đang gõ
       if (event.key.toLowerCase() === 'escape' && commandPalette.isOpen) {
         commandPalette.close();
       }
       return;
     }
 
-    const pressedKey = event.key.toLowerCase();
-    const isCtrlPressed = event.ctrlKey || event.metaKey;
+    const currentKey = getKeyEventString(event);
+    if (!currentKey) return;
 
-    // Bấm Ctrl + K để MỞ
-    if (isCtrlPressed && pressedKey === 'k') {
-      event.preventDefault();
-      commandPalette.open();
+    // Track sequence history (max 2 keys)
+    pressedHistory.value.push(currentKey);
+    if (pressedHistory.value.length > 2) {
+      pressedHistory.value.shift();
     }
 
-    // Bấm Space để play/pause
-    if (event.key === ' ' || event.code === 'Space') {
-      if (player.currentSong) {
-        event.preventDefault();
-        player.togglePlay();
-      }
+    // Reset sequence history after a timeout of 800ms
+    if (historyTimeout) window.clearTimeout(historyTimeout);
+    historyTimeout = window.setTimeout(() => {
+      pressedHistory.value = [];
+    }, 800);
+
+    const fullSequence = pressedHistory.value.join(' ');
+
+    // 1. Match full sequence (e.g. "g m")
+    let matched = keybindings.value.find((k) => k.key.toLowerCase().trim() === fullSequence);
+    if (matched) {
+      event.preventDefault();
+      executeCommand(matched.command);
+      pressedHistory.value = [];
+      return;
     }
 
-    // Bấm ArrowLeft / ArrowRight để tua nhạc (seek)
-    if (event.key === 'ArrowLeft') {
-      if (player.currentSong) {
-        event.preventDefault();
-        if (event.altKey) {
-          player.prevTrack();
-        } else {
-          const step = Number(player.seekStep);
-          const finalStep = isNaN(step) || !isFinite(step) || step <= 0 ? 5 : step;
-          const newTime = Math.max(0, (player.currentTime || 0) - finalStep);
-          if (!isNaN(newTime) && isFinite(newTime)) {
-            player.seek(newTime);
-          }
-        }
-      }
-    } else if (event.key === 'ArrowRight') {
-      if (player.currentSong) {
-        event.preventDefault();
-        if (event.altKey) {
-          player.nextTrack();
-        } else {
-          const step = Number(player.seekStep);
-          const finalStep = isNaN(step) || !isFinite(step) || step <= 0 ? 5 : step;
-          const newTime = Math.min(player.duration || 0, (player.currentTime || 0) + finalStep);
-          if (!isNaN(newTime) && isFinite(newTime)) {
-            player.seek(newTime);
-          }
-        }
-      }
-    }
-
-    // Bấm ArrowUp / ArrowDown để tăng giảm âm lượng (volume)
-    if (event.key === 'ArrowUp') {
+    // 2. Match single combo (e.g. "ctrl+k")
+    matched = keybindings.value.find((k) => k.key.toLowerCase().trim() === currentKey);
+    if (matched) {
       event.preventDefault();
-      const step = Number(player.volumeStep);
-      const finalStep = isNaN(step) || !isFinite(step) || step <= 0 ? 2 : step;
-      player.volume = Math.min(100, (player.volume || 0) + finalStep);
-    } else if (event.key === 'ArrowDown') {
-      event.preventDefault();
-      const step = Number(player.volumeStep);
-      const finalStep = isNaN(step) || !isFinite(step) || step <= 0 ? 2 : step;
-      player.volume = Math.max(0, (player.volume || 0) - finalStep);
+      executeCommand(matched.command);
+      pressedHistory.value = [];
+      return;
     }
   };
 
   // ----------------------------------------------------
   // 3. QUẢN LÝ VÒNG ĐỜI (Lifecycle & Watcher)
   // ----------------------------------------------------
-
-  // Theo dõi trạng thái isOpen của Dialog để Đăng ký / Hủy đăng ký sự kiện cấp 2
   watch(
     () => commandPalette.isOpen,
     (isOpenNow) => {
       if (isOpenNow) {
-        // Khi Dialog MỞ -> Bắt đầu lắng nghe các combo phím phụ
         window.addEventListener('keydown', handleDialogKeyDown);
-        console.log('Đã kích hoạt bộ lắng nghe phím tắt Cấp 2 (Dialog mở)');
       } else {
-        // Khi Dialog ĐÓNG -> Hủy lắng nghe ngay lập tức để tránh rò rỉ bộ nhớ
         window.removeEventListener('keydown', handleDialogKeyDown);
-        console.log('Đã gỡ bỏ bộ lắng nghe phím tắt Cấp 2 (Dialog đóng)');
       }
     },
   );
 
-  // Khởi tạo lắng nghe toàn cục (Chỉ dành cho Ctrl + K)
   const initShortcuts = () => {
     onMounted(() => {
       window.addEventListener('keydown', handleGlobalKeyDown);
+      window.addEventListener('keybindings-updated', reloadKeybindings);
     });
 
     onUnmounted(() => {
       window.removeEventListener('keydown', handleGlobalKeyDown);
-      // Đảm bảo dọn dẹp sạch sẽ nếu component chứa bị unmount
+      window.removeEventListener('keybindings-updated', reloadKeybindings);
       window.removeEventListener('keydown', handleDialogKeyDown);
     });
   };

@@ -1,5 +1,5 @@
 <template>
-  <svg :class="className ?? ''">
+  <svg :class="['grx-SvgSprite', className ?? '']">
     <use :href="sourceMap[src as SVGSrc]" />
   </svg>
 </template>

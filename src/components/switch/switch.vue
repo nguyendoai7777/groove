@@ -1,6 +1,6 @@
 <template>
   <label
-    class="inline-flex items-center cursor-pointer select-none touch-none"
+    class="grx-Switch inline-flex items-center cursor-pointer select-none touch-none"
     @mousedown="isPressing = true"
     @mouseup="isPressing = false"
     @mouseleave="isPressing = false"

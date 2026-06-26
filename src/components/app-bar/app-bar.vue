@@ -1,5 +1,5 @@
 <template>
-  <div class="h-(--nav-head-h) w-full flex items-center relative select-none" data-tauri-drag-region>
+  <div class="grx-AppBar h-(--nav-head-h) w-full flex items-center relative select-none" data-tauri-drag-region>
     <!-- Back Button -->
     <icon-btn
       src="AngleLeft"

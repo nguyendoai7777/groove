@@ -2,7 +2,7 @@
   <div
     :class="[
       currentSong ? '' : 'disabled',
-      'AudioController fixed bottom-0 left-0 w-full z-50 border-t border-theme-border bg-audio-controller-bg pr-6 flex items-center justify-between text-theme-text select-none',
+      'grx-AudioController AudioController fixed bottom-0 left-0 w-full z-50 border-t border-theme-border bg-audio-controller-bg pr-6 flex items-center justify-between text-theme-text select-none',
     ]">
     <!-- Left Section: Song Info -->
     <div class="flex items-center gap-3 w-1/4 min-w-60">

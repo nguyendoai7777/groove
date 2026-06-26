@@ -1,6 +1,6 @@
 <template>
   <div
-    class="flex items-center px-3 py-2.5 rounded-lg cursor-pointer gap-3 transition-all duration-150 border-l-2"
+    class="grx-SearchItem flex items-center px-3 py-2.5 rounded-lg cursor-pointer gap-3 transition-all duration-150 border-l-2"
     :class="
       isActive
         ? 'bg-(--cmd-item-bg-active) border-l-(--cmd-item-border-active) text-(--cmd-text-primary)'

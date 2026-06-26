@@ -1,6 +1,6 @@
 <template>
   <svg
-    class="PlayingIndicator"
+    class="grx-PlayingVisualizer PlayingIndicator"
     :class="{ PlayingIndicatorPaused: paused }"
     viewBox="0 0 14 14"
     fill="none"

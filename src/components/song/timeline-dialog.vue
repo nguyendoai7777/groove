@@ -1,6 +1,7 @@
 <template>
   <v-dialog v-model="dialogVisible" max-width="500px">
-    <v-card class="bg-theme-bg-card border border-theme-border/60 text-theme-text rounded-2xl overflow-hidden p-4 shadow-xl">
+    <v-card
+      class="grx-TimelineDialog bg-theme-bg-card border border-theme-border/60 text-theme-text rounded-2xl overflow-hidden p-4 shadow-xl">
       <v-card-title class="px-2 pb-2 text-base font-bold border-b border-theme-border/30">Edit Timeline</v-card-title>
       <v-card-text class="px-2 py-4">
         <p class="text-xs text-theme-text-muted mb-3 leading-relaxed text-left">

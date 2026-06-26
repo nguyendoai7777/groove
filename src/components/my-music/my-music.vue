@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full">
+  <div class="grx-MyMusic h-full">
     <!-- View Switcher -->
     <transition name="fade" mode="out-in">
       <!-- Grid Category View -->

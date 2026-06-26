@@ -1,5 +1,5 @@
 <template>
-  <v-btn :class="sized.box" class="grx-IconButton shadow-none">
+  <v-btn :class="sized.box" class="grx-IconButton min-w-auto! shadow-none">
     <svg-sprite :src="src" :class="sized.icon" class="select-none" />
   </v-btn>
 </template>
@@ -19,9 +19,3 @@
     };
   });
 </script>
-
-<style>
-  .grx-IconButton {
-    min-width: unset !important;
-  }
-</style>

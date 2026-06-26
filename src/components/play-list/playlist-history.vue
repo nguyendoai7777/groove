@@ -1,6 +1,6 @@
 <template>
   <div
-    class="w-now-playing-right-w min-w-now-playing-right-min-w max-w-now-playing-right-max-w flex flex-col h-full backdrop-blur-xs rounded-2xl border border-theme-border/50 overflow-hidden">
+    class="grx-PlaylistHistory w-now-playing-right-w min-w-now-playing-right-min-w max-w-now-playing-right-max-w flex flex-col h-full backdrop-blur-xs rounded-2xl border border-theme-border/50 overflow-hidden">
     <div class="flex items-center justify-between pb-2 border-b border-theme-border/30 shrink-0">
       <h3 class="text-sm font-bold text-white tracking-wide flex items-center gap-2 pt-3 px-3">
         <span>Queue / Playlist</span>

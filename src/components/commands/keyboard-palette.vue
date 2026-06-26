@@ -2,7 +2,7 @@
   <v-dialog v-model="store.isOpen" max-width="600" attach="body" position="top" transition="dialog-transition">
     <!-- Main Dialog Container with Tailwind & CSS Variables -->
     <div
-      class="bg-(--cmd-bg) border border-(--cmd-border) rounded-2xl overflow-hidden shadow-2xl backdrop-blur-md text-(--cmd-text-primary) font-sans">
+      class="grx-KeyboardPalette bg-(--cmd-bg) border border-(--cmd-border) rounded-2xl overflow-hidden shadow-2xl backdrop-blur-md text-(--cmd-text-primary) font-sans">
       <!-- Search Input Wrapper -->
       <div class="flex items-center px-5 py-3.5 border-b border-(--cmd-border) gap-3">
         <!-- Dynamic Header Icon via SvgSprite -->
