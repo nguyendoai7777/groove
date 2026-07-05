@@ -222,7 +222,6 @@
   import { ref, computed, onMounted, watch } from 'vue';
   import { useRoute, useRouter } from 'vue-router';
   import { invoke } from '@tauri-apps/api/core';
-  import IconBtn from '@groovex/ui/button/icon-btn.vue';
   import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue';
   import { MusicCard } from '@groovex/ui/music-card';
   import MusicList from '@groovex/ui/music-list/music-list.vue';

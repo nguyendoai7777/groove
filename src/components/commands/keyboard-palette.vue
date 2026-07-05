@@ -153,7 +153,7 @@
         searchResults.value = dbSongs.map((song) => ({
           id: `song-${song.id}`,
           type: 'song',
-          title: song.title || song.filename,
+          title: song.title || song.filename.replace(/\.[^/.]+$/, ''),
           description: `Bài hát • ${song.artist || 'Chưa rõ nghệ sĩ'}${song.album_name ? ` • ${song.album_name}` : ''}`,
           rawSong: song,
         }));

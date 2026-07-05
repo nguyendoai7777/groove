@@ -342,7 +342,7 @@
   });
 
   // Track metadata computeds
-  const songTitle = computed(() => currentSong.value?.title || currentSong.value?.filename || 'No song selected');
+  const songTitle = computed(() => currentSong.value?.title || currentSong.value?.filename?.replace(/\.[^/.]+$/, '') || 'No song selected');
   const artistName = computed(() => currentSong.value?.artist || 'Unknown Artist');
   const thumbnailUrl = computed(() => currentSong.value?.thumbnail || null);
 

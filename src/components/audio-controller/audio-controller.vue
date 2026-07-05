@@ -336,7 +336,7 @@
   const titleInnerRef = ref<HTMLElement | null>(null);
   const isTitleOverflow = ref(false);
   // Track metadata computed properties
-  const songTitle = computed(() => currentSong.value?.title || currentSong.value?.filename || 'No song selected');
+  const songTitle = computed(() => currentSong.value?.title || currentSong.value?.filename?.replace(/\.[^/.]+$/, '') || 'No song selected');
   const artistName = computed(() => currentSong.value?.artist || 'Unknown Artist');
   const subArtists = computed(() => ''); // Song model doesn't have sub-artists
   const thumbnailUrl = computed(

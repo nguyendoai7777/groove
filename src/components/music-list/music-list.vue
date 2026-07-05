@@ -105,7 +105,7 @@
           <thead>
             <tr class="text-theme-text-disabled text-xs font-semibold tracking-wider">
               <th class="py-3.5 px-4 w-12 text-center">#</th>
-              <th class="py-3.5 px-4">Name</th>
+              <th class="py-3.5 px-4">Title</th>
               <th class="py-3.5 px-4 w-24 text-left min-w-50">Duration</th>
               <th class="py-3.5 px-4 hidden md:table-cell">Artist</th>
             </tr>
@@ -176,7 +176,7 @@
                       ? 'text-white'
                       : 'text-theme-text-secondary group-hover/row:text-white',
                 ]">
-                {{ song.filename.replace(/\.[^/.]+$/, '') }}
+                {{ song.title || song.filename.replace(/\.[^/.]+$/, '') }}
               </td>
               <td class="py-3 px-4 text-left text-theme-text-muted tabular-nums">
                 {{ formatDuration(song.duration) }}
