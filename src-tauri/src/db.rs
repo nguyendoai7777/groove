@@ -183,6 +183,17 @@ pub fn init_db(db_path: &Path) -> Result<Connection> {
         conn.execute("ALTER TABLE songs ADD COLUMN timeline TEXT;", []).ok();
     }
 
+    // The folders the user actually picked in the import dialog. `folders` only
+    // records the parent directory of each file, which is not enough for the
+    // watcher: a brand new subdirectory would have no row to watch.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS watched_roots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            path TEXT UNIQUE NOT NULL
+        );",
+        [],
+    )?;
+
     conn.execute(
         "CREATE TABLE IF NOT EXISTS playlists (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -230,6 +241,16 @@ pub fn get_or_create_album(conn: &Connection, name: &str, artist: Option<&str>) 
         .ok();
 
     if let Some(id) = id_opt {
+        // Backfill the artist when the album was first created from a file whose
+        // album-artist frame was empty; otherwise the card stays "Unknown Artist"
+        // even after the tags are fixed. An existing value is left alone, since
+        // tracks within one album legitimately differ.
+        if let Some(artist) = artist.map(str::trim).filter(|s| !s.is_empty()) {
+            conn.execute(
+                "UPDATE albums SET artist = ?1 WHERE id = ?2 AND (artist IS NULL OR TRIM(artist) = '')",
+                params![artist, id],
+            )?;
+        }
         Ok(id)
     } else {
         conn.execute(
@@ -522,4 +543,157 @@ pub fn fetch_songs_by_playlist(conn: &Connection, playlist_id: i64) -> Result<Ve
         songs.push(song?);
     }
     Ok(songs)
+}
+
+// ---------------------------------------------------------------------------
+// Watched roots
+// ---------------------------------------------------------------------------
+
+use crate::paths::is_under;
+
+pub fn add_watched_root(conn: &Connection, path: &str) -> Result<()> {
+    conn.execute(
+        "INSERT OR IGNORE INTO watched_roots (path) VALUES (?1)",
+        params![path],
+    )?;
+    // Picking a parent of something already watched makes the old entry redundant;
+    // leaving both would register overlapping recursive watches for the same tree.
+    let existing = fetch_watched_roots_raw(conn)?;
+    for other in existing {
+        if other != path && is_under(&other, path) {
+            conn.execute("DELETE FROM watched_roots WHERE path = ?1", params![other])?;
+        }
+    }
+    Ok(())
+}
+
+fn fetch_watched_roots_raw(conn: &Connection) -> Result<Vec<String>> {
+    let mut stmt = conn.prepare("SELECT path FROM watched_roots ORDER BY path")?;
+    let iter = stmt.query_map([], |row| row.get::<_, String>(0))?;
+    iter.collect()
+}
+
+/// Roots to hand the watcher, with nested entries collapsed into their ancestor.
+///
+/// Seeds itself from `folders` the first time it runs, so a library imported
+/// before the watcher existed still gets watched without a re-import.
+pub fn fetch_watched_roots(conn: &Connection) -> Result<Vec<String>> {
+    let mut roots = fetch_watched_roots_raw(conn)?;
+
+    if roots.is_empty() {
+        let mut stmt = conn.prepare("SELECT DISTINCT path FROM folders")?;
+        let folders: Vec<String> = stmt
+            .query_map([], |row| row.get::<_, String>(0))?
+            .collect::<Result<_>>()?;
+        for path in &folders {
+            conn.execute(
+                "INSERT OR IGNORE INTO watched_roots (path) VALUES (?1)",
+                params![path],
+            )?;
+        }
+        roots = folders;
+    }
+
+    // Drop any root contained in another so each tree is watched exactly once.
+    let mut deduped: Vec<String> = Vec::new();
+    for candidate in roots {
+        if deduped.iter().any(|kept| is_under(&candidate, kept)) {
+            continue;
+        }
+        deduped.retain(|kept| !is_under(kept, &candidate));
+        deduped.push(candidate);
+    }
+    Ok(deduped)
+}
+
+/// Deletes a song row by its path, returning whether anything was removed.
+pub fn delete_song_by_path(conn: &Connection, file_path: &str) -> Result<bool> {
+    let affected = conn.execute("DELETE FROM songs WHERE file_path = ?1", params![file_path])?;
+    Ok(affected > 0)
+}
+
+pub fn song_exists(conn: &Connection, file_path: &str) -> Result<bool> {
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM songs WHERE file_path = ?1",
+        params![file_path],
+        |row| row.get(0),
+    )?;
+    Ok(count > 0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn memory_db() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute(
+            "CREATE TABLE watched_roots (id INTEGER PRIMARY KEY AUTOINCREMENT, path TEXT UNIQUE NOT NULL);",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "CREATE TABLE folders (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, path TEXT UNIQUE NOT NULL, thumbnail TEXT, accent_color TEXT);",
+            [],
+        )
+        .unwrap();
+        conn
+    }
+
+    #[test]
+    fn adding_a_parent_root_absorbs_its_children() {
+        let conn = memory_db();
+        add_watched_root(&conn, r"C:\Music\Pop").unwrap();
+        add_watched_root(&conn, r"C:\Music\K Pop").unwrap();
+        assert_eq!(fetch_watched_roots(&conn).unwrap().len(), 2);
+
+        // Importing the parent makes both child watches redundant.
+        add_watched_root(&conn, r"C:\Music").unwrap();
+        assert_eq!(fetch_watched_roots(&conn).unwrap(), vec![r"C:\Music".to_string()]);
+    }
+
+    #[test]
+    fn adding_a_child_of_an_existing_root_is_collapsed_on_read() {
+        let conn = memory_db();
+        add_watched_root(&conn, r"C:\Music").unwrap();
+        add_watched_root(&conn, r"C:\Music\Pop").unwrap();
+
+        // Watching one tree twice would register overlapping recursive watches.
+        assert_eq!(fetch_watched_roots(&conn).unwrap(), vec![r"C:\Music".to_string()]);
+    }
+
+    #[test]
+    fn roots_seed_from_existing_folders_on_first_read() {
+        let conn = memory_db();
+        for path in [r"C:\Music\Pop", r"C:\Music\K Pop"] {
+            conn.execute(
+                "INSERT INTO folders (name, path) VALUES ('x', ?1)",
+                params![path],
+            )
+            .unwrap();
+        }
+
+        // A library imported before the watcher existed must still get watched.
+        let mut roots = fetch_watched_roots(&conn).unwrap();
+        roots.sort();
+        assert_eq!(roots, vec![r"C:\Music\K Pop".to_string(), r"C:\Music\Pop".to_string()]);
+
+        // Seeding writes the rows rather than deriving them each time, so a later
+        // read is driven by watched_roots and not by whatever folders now contains.
+        conn.execute("DELETE FROM folders", []).unwrap();
+        let mut again = fetch_watched_roots(&conn).unwrap();
+        again.sort();
+        assert_eq!(again, roots);
+    }
+
+    #[test]
+    fn unrelated_roots_are_all_kept() {
+        let conn = memory_db();
+        add_watched_root(&conn, r"C:\Music").unwrap();
+        add_watched_root(&conn, r"D:\Archive\Audio").unwrap();
+
+        let mut roots = fetch_watched_roots(&conn).unwrap();
+        roots.sort();
+        assert_eq!(roots, vec![r"C:\Music".to_string(), r"D:\Archive\Audio".to_string()]);
+    }
 }

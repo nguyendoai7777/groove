@@ -8,7 +8,7 @@ import {
   setNavigationEnabled as setTaskbarNavigation,
   setPlaybackState as setTaskbarPlaybackState,
 } from 'tauri-plugin-taskbar';
-import type { Song } from '@groovex/types';
+import type { BulkMetadataResult, MetadataWriteMode, Song, SongMetadata } from '@groovex/types';
 import { EStoreKey } from './stores.definition';
 import { AudioEngine, StorageLocal, StorageKey, StorageKeys } from '@groovex/core';
 
@@ -354,26 +354,13 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     });
   }
 
-  async function updateSongMetadata(
-    songId: number,
-    metadata: {
-      filename: string;
-      title: string;
-      artist: string;
-      album_name: string;
-      track_number: string;
-      thumbnail: string;
-    },
-  ) {
+  async function updateSongMetadata(songId: number, filename: string, metadata: SongMetadata, mode: MetadataWriteMode = 'clean_keep') {
     try {
       const updatedSong = await invoke<Song>('update_song_metadata', {
         songId,
-        filename: metadata.filename,
-        title: metadata.title,
-        artist: metadata.artist,
-        albumName: metadata.album_name,
-        trackNumber: metadata.track_number,
-        newThumbnail: metadata.thumbnail,
+        filename,
+        metadata,
+        mode,
       });
 
       updateSongProperty(songId, (s) => {
@@ -390,6 +377,33 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
       console.error('Failed to update song metadata:', err);
       throw err;
     }
+  }
+
+  /**
+   * Writes the same fields to many tracks at once. This is the fix for an album
+   * that other players split apart: setting `album_artist` identically across
+   * every track gives them all the same grouping key.
+   */
+  async function applyMetadataToSongs(songIds: number[], metadata: SongMetadata, mode: MetadataWriteMode = 'clean_keep') {
+    try {
+      return await invoke<BulkMetadataResult>('apply_metadata_to_songs', {
+        songIds,
+        metadata,
+        mode,
+      });
+    } catch (err) {
+      console.error('Failed to apply metadata to songs:', err);
+      throw err;
+    }
+  }
+
+  async function getCategorySongIds(categoryType: 'album' | 'folder', categoryId: number) {
+    return invoke<number[]>('get_category_song_ids', { categoryType, categoryId });
+  }
+
+  /** Re-reads tags from disk, repairing rows that went stale after an external edit. */
+  async function rescanSongs(songIds?: number[]) {
+    return invoke<{ scanned: number; missing: number }>('rescan_songs', { songIds });
   }
 
   // --- TASKBAR MEDIA CONTROLS SETUP ---
@@ -662,6 +676,9 @@ export const useAudioPlayer = defineStore(EStoreKey.Player, () => {
     updateLyrics,
     updateTimeline,
     updateSongMetadata,
+    applyMetadataToSongs,
+    getCategorySongIds,
+    rescanSongs,
     playSongFromPath,
   };
 });

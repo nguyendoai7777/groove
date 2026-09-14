@@ -279,7 +279,13 @@
     </div>
 
     <!-- Dialog components -->
-    <metadata-dialog v-model="isEditingMetadata" :song-id="selectedSongForMenu?.id" @saved="onMetadataSaved" />
+    <metadata-dialog
+      v-model="isEditingMetadata"
+      :song-id="selectedSongForMenu?.id"
+      :category-type="props.type === 'playlist' ? undefined : props.type"
+      :category-id="props.id"
+      @saved="onMetadataSaved"
+      @bulk-saved="onBulkMetadataSaved" />
     <timeline-dialog
       v-model="isEditingTimeline"
       :song-id="selectedSongForMenu?.id"
@@ -336,8 +342,9 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, onMounted, nextTick } from 'vue';
+  import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
   import { invoke } from '@tauri-apps/api/core';
+  import { listen, type UnlistenFn } from '@tauri-apps/api/event';
   import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue';
   import PlayingVisualizer from '@groovex/ui/playing-visualizer/playing-visualizer.vue';
   import CustomBtn from '@groovex/ui/button/custom-btn.vue';
@@ -474,6 +481,19 @@
     }
   }
 
+  let unlistenSync: UnlistenFn | null = null;
+
+  async function loadSongs() {
+    if (props.type === 'playlist') {
+      songs.value = await invoke<Song[]>('get_playlist_songs', { playlistId: props.id });
+    } else {
+      songs.value = await invoke<Song[]>('get_category_songs', {
+        categoryType: props.type,
+        categoryId: props.id,
+      });
+    }
+  }
+
   // Fetch category songs on mount
   onMounted(async () => {
     if (props.thumbnail) {
@@ -488,16 +508,7 @@
     }
 
     try {
-      if (props.type === 'playlist') {
-        songs.value = await invoke<Song[]>('get_playlist_songs', {
-          playlistId: props.id,
-        });
-      } else {
-        songs.value = await invoke<Song[]>('get_category_songs', {
-          categoryType: props.type,
-          categoryId: props.id,
-        });
-      }
+      await loadSongs();
     } catch (err) {
       console.error('Error fetching songs:', err);
     } finally {
@@ -505,6 +516,16 @@
     }
 
     await loadPlaylists();
+
+    // Keeps an open album or folder in step with files added or removed on disk.
+    unlistenSync = await listen('library-synced', () => {
+      loadSongs().catch((err) => console.error('Error refreshing songs after sync:', err));
+    });
+  });
+
+  onBeforeUnmount(() => {
+    unlistenSync?.();
+    unlistenSync = null;
   });
 
   const player = useAudioPlayer();
@@ -600,6 +621,16 @@
         artist: updatedSong.artist,
         album_id: updatedSong.album_id,
       };
+    }
+  }
+
+  // A bulk retag can move tracks between albums, so the list is refetched rather
+  // than patched in place.
+  async function onBulkMetadataSaved() {
+    try {
+      await loadSongs();
+    } catch (err) {
+      console.error('Failed to refresh songs after bulk metadata save:', err);
     }
   }
 

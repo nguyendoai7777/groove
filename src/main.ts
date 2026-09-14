@@ -50,3 +50,16 @@ const vtx = createVuetify({
   },
 });
 app.use(AppRouter).use(createPinia()).use(vtx).mount('#app');
+
+// Boot timing, so a slow start can be attributed instead of guessed at. `startTime`
+// is when the document began loading, so this covers script download, parse and
+// execution as well as Vue's first render. Open devtools and read the two numbers:
+// a large "bundle ready" means the front end is the cost, while a small one with a
+// slow-feeling window points at window compositing (transparency + blur) instead.
+if (import.meta.env.DEV || location.search.includes('boot-timing')) {
+  const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+  requestAnimationFrame(() => {
+    const now = Math.round(performance.now());
+    console.info(`[boot] bundle ready ${Math.round(nav?.domContentLoadedEventEnd ?? 0)}ms · first frame ${now}ms`);
+  });
+}

@@ -29,18 +29,38 @@
         </div>
 
         <!-- Import Banner (My Music Mode) -->
-        <div
-          v-else
-          @click="handleImportClick"
-          class="flex items-start gap-3.5 p-4 bg-theme-bg-card hover:bg-theme-bg-card-hover border border-theme-border/80 hover:border-theme-border-hover/80 rounded-lg cursor-pointer transition-all duration-200 mb-8 max-w-xl select-none">
-          <div class="shrink-0 mt-0.5">
-            <svg-sprite src="Folder" class="w-5 h-5 text-theme-text-muted" />
+        <div v-else class="flex flex-wrap items-stretch gap-3 mb-8">
+          <div
+            @click="handleImportClick"
+            class="flex items-start gap-3.5 p-4 bg-theme-bg-card hover:bg-theme-bg-card-hover border border-theme-border/80 hover:border-theme-border-hover/80 rounded-lg cursor-pointer transition-all duration-200 max-w-xl select-none">
+            <div class="shrink-0 mt-0.5">
+              <svg-sprite src="Folder" class="w-5 h-5 text-theme-text-muted" />
+            </div>
+            <div class="flex flex-col text-left">
+              <span class="text-[13px] font-semibold text-theme-text-secondary">Not finding everything?</span>
+              <span class="text-xs text-theme-accent-light hover:text-theme-accent hover:underline mt-1 font-medium">
+                Show us where to look for music
+              </span>
+            </div>
           </div>
-          <div class="flex flex-col text-left">
-            <span class="text-[13px] font-semibold text-theme-text-secondary">Not finding everything?</span>
-            <span class="text-xs text-theme-accent-light hover:text-theme-accent hover:underline mt-1 font-medium">
-              Show us where to look for music
-            </span>
+
+          <!--
+            Albums are grouped from a cached copy of each file's tags. When files are
+            retagged outside GrooveX that cache goes stale, which is what leaves a
+            track sitting in an album it no longer belongs to.
+          -->
+          <div
+            @click="handleRescanClick"
+            class="flex items-start gap-3.5 p-4 bg-theme-bg-card hover:bg-theme-bg-card-hover border border-theme-border/80 hover:border-theme-border-hover/80 rounded-lg cursor-pointer transition-all duration-200 max-w-xl select-none">
+            <div class="shrink-0 mt-0.5">
+              <svg-sprite src="Loop" class="w-5 h-5 text-theme-text-muted" />
+            </div>
+            <div class="flex flex-col text-left">
+              <span class="text-[13px] font-semibold text-theme-text-secondary">Albums look wrong?</span>
+              <span class="text-xs text-theme-accent-light hover:text-theme-accent hover:underline mt-1 font-medium">
+                {{ isRescanning ? 'Re-reading tags…' : 'Re-read tags from disk' }}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -219,14 +239,16 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, onMounted, watch } from 'vue';
+  import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
   import { useRoute, useRouter } from 'vue-router';
   import { invoke } from '@tauri-apps/api/core';
+  import { listen, type UnlistenFn } from '@tauri-apps/api/event';
   import SvgSprite from '@groovex/ui/svg-sprite/svg-sprite.vue';
   import { MusicCard } from '@groovex/ui/music-card';
   import MusicList from '@groovex/ui/music-list/music-list.vue';
+  import CustomBtn from '@groovex/ui/button/custom-btn.vue';
   import { useAudioPlayer } from '@groovex/store';
-  import type { Song } from '@groovex/types';
+  import type { LibrarySyncReport, Song } from '@groovex/types';
   import { useToast } from '@groovex/composables';
 
   interface MusicItemCard {
@@ -266,6 +288,7 @@
   });
 
   const isImporting = ref(false);
+  const isRescanning = ref(false);
   const musicItems = ref<MusicItemCard[]>([]);
   const playlists = ref<MusicItemCard[]>([]);
 
@@ -322,8 +345,27 @@
     }
   }
 
-  onMounted(() => {
+  let unlistenSync: UnlistenFn | null = null;
+
+  onMounted(async () => {
     loadCategories();
+
+    // The backend watches the imported folders and emits this after re-indexing
+    // whatever changed, so tracks dropped in while the app is open just appear.
+    unlistenSync = await listen<LibrarySyncReport>('library-synced', ({ payload }) => {
+      loadCategories();
+
+      const parts: string[] = [];
+      if (payload.added) parts.push(`${payload.added} bài mới`);
+      if (payload.removed) parts.push(`${payload.removed} bài đã xóa`);
+      if (payload.updated) parts.push(`${payload.updated} bài cập nhật metadata`);
+      if (parts.length) toast.show(`Đồng bộ thư mục: ${parts.join(', ')}.`);
+    });
+  });
+
+  onBeforeUnmount(() => {
+    unlistenSync?.();
+    unlistenSync = null;
   });
 
   // Watch for mode changes to refresh categories
@@ -384,6 +426,27 @@
       toast.show('Đã xảy ra lỗi khi quét thư mục.');
     } finally {
       isImporting.value = false;
+    }
+  }
+
+  // Re-reads every file's tags and rebuilds the album grouping from them, which is
+  // the repair path when files were retagged outside GrooveX.
+  async function handleRescanClick() {
+    if (isRescanning.value) return;
+    isRescanning.value = true;
+    try {
+      const res = await invoke<{ scanned: number; missing: number }>('rescan_songs', {});
+      await loadCategories();
+      if (res.missing > 0) {
+        toast.show(`Đã đọc lại ${res.scanned} bài, ${res.missing} file không còn trên ổ đĩa.`);
+      } else {
+        toast.show(`Đã đọc lại metadata của ${res.scanned} bài.`);
+      }
+    } catch (err) {
+      console.error('Error rescanning tags:', err);
+      toast.show('Đã xảy ra lỗi khi đọc lại metadata.');
+    } finally {
+      isRescanning.value = false;
     }
   }
 

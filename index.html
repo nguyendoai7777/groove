@@ -4,11 +4,262 @@
 		<meta charset="UTF-8" />
 		<link rel="icon" type="image/svg+xml" href="/vite.svg" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Tauri + Vue + Typescript App</title>
+		<title>Groove X</title>
+
+		<!--
+			Boot skeleton.
+
+			The window is transparent and undecorated, so between the OS showing it and
+			Vue mounting there is nothing to look at but the desktop — which reads as a
+			hang rather than a load. This markup is plain HTML and inline CSS with no
+			imports, so the WebView paints it on first parse, before the module graph is
+			even requested. Vue clears `#app` (`container.textContent = ""`) when it
+			mounts, so the skeleton removes itself with no code on our side.
+
+			It deliberately mirrors the real shell's geometry — sidebar width, 36px title
+			bar, 90px player — so the swap to the live UI does not shift anything.
+		-->
+		<style>
+			:root {
+				--boot-bg: #121212;
+				--boot-nav-bg: #18181b;
+				--boot-surface: #1c1c1f;
+				--boot-surface-soft: #202024;
+				--boot-head-h: 36px;
+				--boot-player-h: 90px;
+				--boot-nav-w: 230px;
+			}
+			html[theme='light'] {
+				--boot-bg: #f4f4f5;
+				--boot-nav-bg: #ececee;
+				--boot-surface: #e2e2e5;
+				--boot-surface-soft: #d8d8dc;
+			}
+			html,
+			body {
+				margin: 0;
+				padding: 0;
+				height: 100%;
+				background: transparent;
+				overflow: hidden;
+				font-family:
+					ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+			}
+			#app {
+				height: 100%;
+			}
+
+			.boot {
+				display: flex;
+				height: 100vh;
+				background: var(--boot-bg);
+				/* Fade in rather than flashing a grey box on an already-fast start. */
+				animation: boot-in 120ms ease-out both;
+			}
+			@keyframes boot-in {
+				from {
+					opacity: 0;
+				}
+				to {
+					opacity: 1;
+				}
+			}
+
+			.boot-nav {
+				width: var(--boot-nav-w);
+				flex: 0 0 var(--boot-nav-w);
+				background: var(--boot-nav-bg);
+				display: flex;
+				flex-direction: column;
+				padding-top: var(--boot-head-h);
+				box-sizing: border-box;
+			}
+			.boot--collapsed .boot-nav {
+				--boot-nav-w: 56px;
+			}
+			.boot-nav-item {
+				height: 42px;
+				margin: 4px 10px;
+				border-radius: 8px;
+				background: var(--boot-surface);
+			}
+
+			.boot-main {
+				flex: 1;
+				display: flex;
+				flex-direction: column;
+				min-width: 0;
+			}
+			.boot-bar {
+				height: var(--boot-head-h);
+				flex: 0 0 var(--boot-head-h);
+			}
+			.boot-body {
+				flex: 1;
+				padding: 24px;
+				min-height: 0;
+				overflow: hidden;
+			}
+
+			.boot-title {
+				width: 190px;
+				height: 34px;
+				border-radius: 8px;
+				background: var(--boot-surface);
+				margin-bottom: 26px;
+			}
+			.boot-banners {
+				display: flex;
+				gap: 12px;
+				margin-bottom: 30px;
+			}
+			.boot-banner {
+				width: 260px;
+				height: 66px;
+				border-radius: 8px;
+				background: var(--boot-surface);
+			}
+			.boot-tabs {
+				display: flex;
+				gap: 22px;
+				margin-bottom: 24px;
+			}
+			.boot-tab {
+				width: 62px;
+				height: 14px;
+				border-radius: 4px;
+				background: var(--boot-surface);
+			}
+			.boot-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+				gap: 24px;
+			}
+			.boot-card-art {
+				aspect-ratio: 1;
+				border-radius: 10px;
+				background: var(--boot-surface);
+			}
+			.boot-card-line {
+				height: 11px;
+				border-radius: 4px;
+				background: var(--boot-surface-soft);
+				margin-top: 12px;
+			}
+			.boot-card-line.is-short {
+				width: 55%;
+				margin-top: 8px;
+			}
+
+			.boot-player {
+				height: var(--boot-player-h);
+				flex: 0 0 var(--boot-player-h);
+				background: var(--boot-nav-bg);
+			}
+
+			/* One shared sweep so every placeholder pulses in step. */
+			.boot-nav-item,
+			.boot-title,
+			.boot-banner,
+			.boot-tab,
+			.boot-card-art,
+			.boot-card-line {
+				animation: boot-pulse 1.4s ease-in-out infinite;
+			}
+			@keyframes boot-pulse {
+				0%,
+				100% {
+					opacity: 1;
+				}
+				50% {
+					opacity: 0.55;
+				}
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.boot,
+				.boot-nav-item,
+				.boot-title,
+				.boot-banner,
+				.boot-tab,
+				.boot-card-art,
+				.boot-card-line {
+					animation: none;
+				}
+			}
+		</style>
 	</head>
 
 	<body>
-		<div id="app"></div>
+		<div id="app">
+			<div class="boot" id="boot">
+				<aside class="boot-nav">
+					<div class="boot-nav-item"></div>
+					<div class="boot-nav-item"></div>
+					<div class="boot-nav-item"></div>
+					<div class="boot-nav-item"></div>
+				</aside>
+				<div class="boot-main">
+					<!-- Same drag affordance as the real title bar, so the window can be
+					     moved as soon as Tauri's handler is live. -->
+					<div class="boot-bar" data-tauri-drag-region></div>
+					<div class="boot-body">
+						<div class="boot-title"></div>
+						<div class="boot-banners">
+							<div class="boot-banner"></div>
+							<div class="boot-banner"></div>
+						</div>
+						<div class="boot-tabs">
+							<div class="boot-tab"></div>
+							<div class="boot-tab"></div>
+						</div>
+						<div class="boot-grid">
+							<div>
+								<div class="boot-card-art"></div>
+								<div class="boot-card-line"></div>
+								<div class="boot-card-line is-short"></div>
+							</div>
+							<div>
+								<div class="boot-card-art"></div>
+								<div class="boot-card-line"></div>
+								<div class="boot-card-line is-short"></div>
+							</div>
+							<div>
+								<div class="boot-card-art"></div>
+								<div class="boot-card-line"></div>
+								<div class="boot-card-line is-short"></div>
+							</div>
+							<div>
+								<div class="boot-card-art"></div>
+								<div class="boot-card-line"></div>
+								<div class="boot-card-line is-short"></div>
+							</div>
+							<div>
+								<div class="boot-card-art"></div>
+								<div class="boot-card-line"></div>
+								<div class="boot-card-line is-short"></div>
+							</div>
+							<div>
+								<div class="boot-card-art"></div>
+								<div class="boot-card-line"></div>
+								<div class="boot-card-line is-short"></div>
+							</div>
+						</div>
+					</div>
+					<div class="boot-player"></div>
+				</div>
+			</div>
+		</div>
+		<script>
+			// The sidebar restores its collapsed state from this key, so match it here
+			// or the skeleton's sidebar visibly snaps to a different width on mount.
+			// Storage can throw in odd webview states, and a skeleton is never worth
+			// failing the boot over.
+			try {
+				if (localStorage.getItem('side-nav-collapsed') === 'true') {
+					document.getElementById('boot').classList.add('boot--collapsed');
+				}
+			} catch (e) {}
+		</script>
 		<script type="module" src="/src/main.ts"></script>
 	</body>
 </html>

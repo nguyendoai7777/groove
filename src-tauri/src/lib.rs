@@ -9,6 +9,9 @@ use tauri::{Manager, State, Emitter};
 use id3::TagLike;
 
 mod db;
+mod paths;
+mod tags;
+mod watcher;
 
 struct DbState {
     conn: Mutex<Connection>,
@@ -71,24 +74,126 @@ struct ImportResponse {
     removed_count: usize,
 }
 
-// Helper to check if a path is inside another path case-insensitively
-fn is_subpath(child: &Path, parent: &Path) -> bool {
-    let child_str = child.to_string_lossy().to_lowercase().replace("/", "\\");
-    let parent_str = parent.to_string_lossy().to_lowercase().replace("/", "\\");
-    if child_str.starts_with(&parent_str) {
-        if child_str.len() == parent_str.len() {
-            return true;
-        }
-        let rest = &child_str[parent_str.len()..];
-        if rest.starts_with("\\") || parent_str.ends_with("\\") {
-            return true;
+use paths::is_under_path as is_subpath;
+
+/// Reads one audio file's tags and writes the resulting row, folder and album.
+///
+/// Shared by the import scan and the folder watcher so a file picked up
+/// automatically is indexed exactly like one found by an explicit import.
+fn index_song_file(conn: &Connection, file: &Path) -> Result<(), String> {
+    let file_path_str = file.to_string_lossy().to_string();
+    let filename = file
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
+
+    let parent_path = file.parent().ok_or_else(|| "File has no parent".to_string())?;
+    let parent_name = parent_path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| "Unknown Folder".to_string());
+    let folder_id = db::get_or_create_folder(conn, &parent_name, &parent_path.to_string_lossy())
+        .map_err(|e| e.to_string())?;
+
+    // Read the tags through the same path the editor uses, so what the library
+    // groups by is exactly what the metadata dialog shows.
+    let meta = tags::read_metadata(file);
+    let duration = Probe::open(file)
+        .and_then(|p| p.read())
+        .map(|t| t.properties().duration().as_secs() as u32)
+        .unwrap_or(0);
+
+    // TIMELINE is a GrooveX-only frame, so it is still read directly.
+    let mut timeline = None;
+    if let Ok(tagged_file) = Probe::open(file).and_then(|p| p.read()) {
+        for tag in tagged_file.tags() {
+            if let Some(item) = tag.get(&lofty::tag::ItemKey::Unknown("TIMELINE".to_string())) {
+                timeline = Some(clean_multiline_metadata_string(item.value().text().unwrap_or("")));
+                break;
+            }
         }
     }
-    false
+    if timeline.is_none() {
+        if let Ok(tag) = id3::Tag::read_from_path(file) {
+            for txxx in tag.extended_texts() {
+                if txxx.description == "TIMELINE" {
+                    timeline = Some(clean_multiline_metadata_string(&txxx.value));
+                    break;
+                }
+            }
+        }
+    }
+
+    // Group by album artist when present: it is the key iTunes, Plex and the
+    // Windows shell use, and falling back to the per-track artist is what splits
+    // one album into one entry per featured artist.
+    let grouping_artist = meta
+        .album_artist
+        .as_deref()
+        .or(meta.artist.as_deref())
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+
+    let album_id = match meta
+        .album_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        Some(name) => {
+            Some(db::get_or_create_album(conn, name, grouping_artist).map_err(|e| e.to_string())?)
+        }
+        None => None,
+    };
+
+    db::insert_song(
+        conn,
+        meta.title.as_deref(),
+        meta.artist.as_deref(),
+        album_id,
+        folder_id,
+        &file_path_str,
+        &filename,
+        duration,
+        meta.lyrics.as_deref(),
+        timeline.as_deref(),
+    )
+    .map_err(|e| e.to_string())?;
+
+    // Seed the folder and album covers from the first track that has one.
+    if let Some(thumb) = meta.thumbnail.as_deref().filter(|t| !t.is_empty()) {
+        let folder_thumb: Option<String> = conn
+            .query_row(
+                "SELECT thumbnail FROM folders WHERE id = ?1",
+                [folder_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(None);
+        if folder_thumb.is_none() {
+            db::update_folder_thumbnail(conn, folder_id, thumb, "#06b6d4").ok();
+        }
+
+        if let Some(a_id) = album_id {
+            let album_thumb: Option<String> = conn
+                .query_row("SELECT thumbnail FROM albums WHERE id = ?1", [a_id], |row| {
+                    row.get(0)
+                })
+                .unwrap_or(None);
+            if album_thumb.is_none() {
+                db::update_album_thumbnail(conn, a_id, thumb, "#06b6d4").ok();
+            }
+        }
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
-fn import_music_folder(state: State<'_, DbState>) -> Result<ImportResponse, String> {
+fn import_music_folder(
+    app: tauri::AppHandle,
+    state: State<'_, DbState>,
+) -> Result<ImportResponse, String> {
     // Open native folder dialog
     let folder_path = rfd::FileDialog::new()
         .set_title("Select Music Folder")
@@ -124,6 +229,8 @@ fn import_music_folder(state: State<'_, DbState>) -> Result<ImportResponse, Stri
             existing_songs.push((id, file_path));
         }
     }
+    // Releases the borrow so the connection can be unlocked before the watcher runs.
+    drop(stmt);
 
     let existing_paths_set: std::collections::HashSet<String> = existing_songs
         .iter()
@@ -157,146 +264,15 @@ fn import_music_folder(state: State<'_, DbState>) -> Result<ImportResponse, Stri
     }
 
     // 4. Import / update scanned files
-    for file in files {
-        let file_path_str = file.to_string_lossy().to_string();
-        let filename = file.file_name().unwrap_or_default().to_string_lossy().to_string();
-        
-        // Parent folder info
-        let parent_path = file.parent().unwrap_or(&folder_path);
-        let parent_path_str = parent_path.to_string_lossy().to_string();
-        let parent_name = parent_path.file_name()
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_else(|| "Unknown Folder".to_string());
-
-        let folder_id = db::get_or_create_folder(&conn, &parent_name, &parent_path_str)
-            .map_err(|e| e.to_string())?;
-
-        let ext = file.extension().and_then(|e| e.to_str()).unwrap_or("");
-        let ext_lower = ext.to_lowercase();
-
-        let mut title = None;
-        let mut artist = None;
-        let mut album_name = None;
-        let mut duration = 0;
-        let mut thumbnail = None;
-        let mut lyrics = None;
-        let mut timeline = None;
-
-        // Try extracting metadata using lofty
-        if let Ok(tagged_file) = Probe::open(&file).and_then(|p| p.read()) {
-            duration = tagged_file.properties().duration().as_secs() as u32;
-            
-            for tag in tagged_file.tags() {
-                if title.is_none() {
-                    title = tag.title().map(|s| clean_metadata_string(&s));
-                }
-                if artist.is_none() {
-                    artist = tag.artist().map(|s| clean_metadata_string(&s));
-                }
-                if album_name.is_none() {
-                    album_name = tag.album().map(|s| clean_metadata_string(&s));
-                }
-                if thumbnail.is_none() {
-                    if let Some(pic) = tag.pictures().first() {
-                        let b64 = BASE64_STANDARD.encode(pic.data());
-                        let mime = pic.mime_type().map(|m| m.to_string()).unwrap_or_else(|| "image/png".to_string());
-                        thumbnail = Some(format!("data:{};base64,{}", mime, b64));
-                    }
-                }
-                if lyrics.is_none() {
-                    if let Some(item) = tag.get(&lofty::tag::ItemKey::Lyrics) {
-                        lyrics = Some(clean_multiline_metadata_string(item.value().text().unwrap_or("")));
-                    }
-                }
-                if timeline.is_none() {
-                    if let Some(item) = tag.get(&lofty::tag::ItemKey::Unknown("TIMELINE".to_string())) {
-                        timeline = Some(clean_multiline_metadata_string(item.value().text().unwrap_or("")));
-                    }
-                }
-            }
-        }
-
-        // Fallback to the mature `id3` crate if this is an MP3 and any metadata is missing
-        if ext_lower == "mp3" && (album_name.is_none() || title.is_none() || artist.is_none() || thumbnail.is_none() || lyrics.is_none() || timeline.is_none()) {
-            if let Ok(tag) = id3::Tag::read_from_path(&file) {
-                if title.is_none() {
-                    title = tag.title().map(|s| clean_metadata_string(&s));
-                }
-                if artist.is_none() {
-                    artist = tag.artist().map(|s| clean_metadata_string(&s));
-                }
-                if album_name.is_none() {
-                    album_name = tag.album().map(|s| clean_metadata_string(&s));
-                }
-                if thumbnail.is_none() {
-                    if let Some(pic) = tag.pictures().next() {
-                        let b64 = BASE64_STANDARD.encode(&pic.data);
-                        let mime = pic.mime_type.to_string();
-                        thumbnail = Some(format!("data:{};base64,{}", mime, b64));
-                    }
-                }
-                if lyrics.is_none() {
-                    if let Some(lyric_frame) = tag.lyrics().next() {
-                        lyrics = Some(clean_multiline_metadata_string(&lyric_frame.text));
-                    }
-                }
-                if timeline.is_none() {
-                    for txxx in tag.extended_texts() {
-                        if txxx.description == "TIMELINE" {
-                            timeline = Some(clean_multiline_metadata_string(&txxx.value));
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Handle Album creation
-        let album_id = if let Some(ref name) = album_name {
-            if !name.is_empty() {
-                let id = db::get_or_create_album(&conn, name, artist.as_deref())
-                    .map_err(|e| e.to_string())?;
-                Some(id)
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-
-        // Insert Song
-        db::insert_song(
-            &conn,
-            title.as_deref(),
-            artist.as_deref(),
-            album_id,
-            folder_id,
-            &file_path_str,
-            &filename,
-            duration,
-            lyrics.as_deref(),
-            timeline.as_deref(),
-        ).map_err(|e| e.to_string())?;
-
-        // If the file has a thumbnail, set it as category thumbnail if they don't have one
-        if let Some(ref thumb) = thumbnail {
-            // Check if folder needs thumbnail
-            let mut stmt = conn.prepare("SELECT thumbnail FROM folders WHERE id = ?1").unwrap();
-            let current_thumb: Option<String> = stmt.query_row([folder_id], |row| row.get(0)).unwrap_or(None);
-            if current_thumb.is_none() {
-                db::update_folder_thumbnail(&conn, folder_id, thumb, "#06b6d4").ok();
-            }
-
-            // Check if album needs thumbnail
-            if let Some(a_id) = album_id {
-                let mut stmt = conn.prepare("SELECT thumbnail FROM albums WHERE id = ?1").unwrap();
-                let current_thumb: Option<String> = stmt.query_row([a_id], |row| row.get(0)).unwrap_or(None);
-                if current_thumb.is_none() {
-                    db::update_album_thumbnail(&conn, a_id, thumb, "#06b6d4").ok();
-                }
-            }
-        }
+    for file in &files {
+        index_song_file(&conn, file).map_err(|e| e.to_string())?;
     }
+
+    // Remember the picked folder so the watcher keeps this tree in sync. Storing the
+    // root rather than each file's parent is what lets a brand new subdirectory be
+    // picked up without a re-import.
+    db::add_watched_root(&conn, &folder_path.to_string_lossy()).map_err(|e| e.to_string())?;
+
 
     // Clean up empty categories to avoid displaying ghost items in the UI
     conn.execute("DELETE FROM albums WHERE id NOT IN (SELECT DISTINCT album_id FROM songs WHERE album_id IS NOT NULL)", []).ok();
@@ -305,6 +281,13 @@ fn import_music_folder(state: State<'_, DbState>) -> Result<ImportResponse, Stri
     // Return fresh list of folders and albums
     let folders = db::fetch_folders(&conn).map_err(|e| e.to_string())?;
     let albums = db::fetch_albums(&conn).map_err(|e| e.to_string())?;
+
+    // The watcher takes the same database lock, so release it before re-arming.
+    drop(conn);
+    if let Err(e) = watcher::restart(&app) {
+        eprintln!("Failed to restart library watcher: {e}");
+    }
+
     Ok(ImportResponse { folders, albums, added_count, removed_count })
 }
 
@@ -516,152 +499,198 @@ fn update_song_timeline(
 
     Ok(())
 }
-
 #[derive(serde::Serialize)]
 struct FullMetadata {
     filename: String,
-    title: Option<String>,
-    artist: Option<String>,
-    album_name: Option<String>,
-    track_number: Option<String>,
-    thumbnail: Option<String>,
+    file_path: String,
+    #[serde(flatten)]
+    fields: tags::MetadataPayload,
+    /// App-only field, stored in the database rather than in the file.
     timeline: Option<String>,
+    /// Every frame actually present in the file, junk included.
+    raw_frames: Vec<tags::RawFrame>,
 }
 
 #[tauri::command]
 fn get_song_metadata(state: State<'_, DbState>, song_id: i64) -> Result<FullMetadata, String> {
     let conn = state.conn.lock().unwrap();
 
-    let mut stmt = conn.prepare("SELECT file_path, filename FROM songs WHERE id = ?1").map_err(|e| e.to_string())?;
-    let (file_path_str, filename) = stmt.query_row([song_id], |row| {
-        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-    }).map_err(|_| "Song not found in database".to_string())?;
-    
+    let mut stmt = conn
+        .prepare("SELECT file_path, filename, timeline FROM songs WHERE id = ?1")
+        .map_err(|e| e.to_string())?;
+    let (file_path_str, filename, timeline) = stmt
+        .query_row([song_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, Option<String>>(2)?,
+            ))
+        })
+        .map_err(|_| "Song not found in database".to_string())?;
+
     let path = Path::new(&file_path_str);
 
-    let mut title = None;
-    let mut artist = None;
-    let mut album_name = None;
-    let mut track_number = None;
-    let mut thumbnail = None;
-    let mut timeline = None;
-
-    if path.exists() {
-        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
-        if ext == "mp3" {
-            if let Ok(tag) = id3::Tag::read_from_path(path) {
-                title = tag.title().map(|s| clean_metadata_string(&s));
-                artist = tag.artist().map(|s| clean_metadata_string(&s));
-                album_name = tag.album().map(|s| clean_metadata_string(&s));
-                track_number = tag.track().map(|t| t.to_string());
-                if let Some(pic) = tag.pictures().next() {
-                    let b64 = BASE64_STANDARD.encode(&pic.data);
-                    let mime = pic.mime_type.to_string();
-                    thumbnail = Some(format!("data:{};base64,{}", mime, b64));
-                }
-                for txxx in tag.extended_texts() {
-                    if txxx.description == "TIMELINE" {
-                        timeline = Some(clean_multiline_metadata_string(&txxx.value));
-                        break;
-                    }
-                }
-            }
-        } else {
-            if let Ok(tagged_file) = Probe::open(path).and_then(|p| p.read()) {
-                for tag in tagged_file.tags() {
-                    if title.is_none() {
-                        title = tag.title().map(|s| clean_metadata_string(&s));
-                    }
-                    if artist.is_none() {
-                        artist = tag.artist().map(|s| clean_metadata_string(&s));
-                    }
-                    if album_name.is_none() {
-                        album_name = tag.album().map(|s| clean_metadata_string(&s));
-                    }
-                    if track_number.is_none() {
-                        if let Some(item) = tag.get(&lofty::tag::ItemKey::TrackNumber) {
-                            track_number = Some(clean_metadata_string(item.value().text().unwrap_or("")));
-                        }
-                    }
-                    if thumbnail.is_none() {
-                        if let Some(pic) = tag.pictures().first() {
-                            let b64 = BASE64_STANDARD.encode(pic.data());
-                            let mime = pic.mime_type().map(|m| m.to_string()).unwrap_or_else(|| "image/png".to_string());
-                            thumbnail = Some(format!("data:{};base64,{}", mime, b64));
-                        }
-                    }
-                    if timeline.is_none() {
-                        if let Some(item) = tag.get(&lofty::tag::ItemKey::Unknown("TIMELINE".to_string())) {
-                            timeline = Some(clean_multiline_metadata_string(item.value().text().unwrap_or("")));
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if title.is_none() || artist.is_none() || album_name.is_none() || timeline.is_none() {
-        let mut stmt = conn.prepare(
-            "SELECT s.title, s.artist, a.name, s.timeline 
-             FROM songs s 
-             LEFT JOIN albums a ON s.album_id = a.id 
-             WHERE s.id = ?1"
-        ).map_err(|e| e.to_string())?;
-        
-        let (db_title, db_artist, db_album, db_timeline): (Option<String>, Option<String>, Option<String>, Option<String>) = stmt.query_row([song_id], |row| {
-            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
-        }).unwrap_or((None, None, None, None));
-
-        if title.is_none() {
-            title = db_title;
-        }
-        if artist.is_none() {
-            artist = db_artist;
-        }
-        if album_name.is_none() {
-            album_name = db_album;
-        }
-        if timeline.is_none() {
-            timeline = db_timeline;
-        }
-    }
+    // The file on disk is the single source of truth. The database is only a cache
+    // of it, and reading the cache here is what made the dialog show a stale album
+    // after the tags had been edited in another program.
+    let fields = tags::read_metadata(path);
+    let raw_frames = tags::read_raw_frames(path);
 
     Ok(FullMetadata {
         filename,
-        title,
-        artist,
-        album_name,
-        track_number,
-        thumbnail,
+        file_path: file_path_str,
+        fields,
         timeline,
+        raw_frames,
     })
+}
+
+/// Re-reads one song's tags from disk and updates its database row, creating or
+/// reassigning its album as needed. Returns the resolved album id.
+fn sync_song_row(
+    conn: &Connection,
+    song_id: i64,
+    file_path: &str,
+    filename: &str,
+) -> Result<Option<i64>, String> {
+    let meta = tags::read_metadata(Path::new(file_path));
+
+    let album_name = meta
+        .album_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+
+    // Group by album artist when the file has one; it is the key every other
+    // player uses, so mirroring it keeps GrooveX's grouping consistent with them.
+    let grouping_artist = meta
+        .album_artist
+        .as_deref()
+        .or(meta.artist.as_deref())
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+
+    let album_id = match album_name {
+        Some(name) => Some(
+            db::get_or_create_album(conn, name, grouping_artist).map_err(|e| e.to_string())?,
+        ),
+        None => None,
+    };
+
+    conn.execute(
+        "UPDATE songs SET title = ?1, artist = ?2, album_id = ?3, filename = ?4, file_path = ?5 WHERE id = ?6",
+        rusqlite::params![
+            meta.title,
+            meta.artist,
+            album_id,
+            filename,
+            file_path,
+            song_id
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(album_id)
+}
+
+fn prune_empty_categories(conn: &Connection) {
+    conn.execute(
+        "DELETE FROM albums WHERE id NOT IN (SELECT DISTINCT album_id FROM songs WHERE album_id IS NOT NULL)",
+        [],
+    )
+    .ok();
+    conn.execute(
+        "DELETE FROM folders WHERE id NOT IN (SELECT DISTINCT folder_id FROM songs)",
+        [],
+    )
+    .ok();
+}
+
+#[derive(serde::Serialize)]
+struct RescanResult {
+    scanned: usize,
+    missing: usize,
+}
+
+/// Re-reads tags from disk for the given songs, or for the whole library when
+/// `song_ids` is omitted. This is the repair path for rows that went stale
+/// because the files were retagged outside the app.
+#[tauri::command]
+fn rescan_songs(
+    state: State<'_, DbState>,
+    song_ids: Option<Vec<i64>>,
+) -> Result<RescanResult, String> {
+    let conn = state.conn.lock().unwrap();
+
+    let rows: Vec<(i64, String, String)> = match &song_ids {
+        Some(ids) if !ids.is_empty() => {
+            let placeholders = vec!["?"; ids.len()].join(",");
+            let sql = format!(
+                "SELECT id, file_path, filename FROM songs WHERE id IN ({placeholders})"
+            );
+            let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+            let params = rusqlite::params_from_iter(ids.iter());
+            let iter = stmt
+                .query_map(params, |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+                .map_err(|e| e.to_string())?;
+            iter.collect::<Result<_, _>>().map_err(|e| e.to_string())?
+        }
+        _ => {
+            let mut stmt = conn
+                .prepare("SELECT id, file_path, filename FROM songs")
+                .map_err(|e| e.to_string())?;
+            let iter = stmt
+                .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+                .map_err(|e| e.to_string())?;
+            iter.collect::<Result<_, _>>().map_err(|e| e.to_string())?
+        }
+    };
+
+    let mut scanned = 0usize;
+    let mut missing = 0usize;
+    for (id, file_path, filename) in rows {
+        if !Path::new(&file_path).exists() {
+            missing += 1;
+            continue;
+        }
+        if sync_song_row(&conn, id, &file_path, &filename).is_ok() {
+            scanned += 1;
+        }
+    }
+
+    prune_empty_categories(&conn);
+    Ok(RescanResult { scanned, missing })
 }
 
 #[tauri::command]
 fn update_song_metadata(
+    app: tauri::AppHandle,
     state: State<'_, DbState>,
     song_id: i64,
     filename: Option<String>,
-    title: Option<String>,
-    artist: Option<String>,
-    album_name: Option<String>,
-    track_number: Option<String>,
-    new_thumbnail: Option<String>,
+    metadata: tags::MetadataPayload,
+    mode: Option<String>,
 ) -> Result<db::Song, String> {
     let conn = state.conn.lock().unwrap();
+    let write_mode = tags::WriteMode::from_str(mode.as_deref().unwrap_or("clean_keep"));
 
-    let mut stmt = conn.prepare("SELECT file_path, folder_id, filename, duration, lyrics, timeline FROM songs WHERE id = ?1").map_err(|e| e.to_string())?;
-    let (file_path_str, folder_id, original_filename, duration, lyrics, timeline) = stmt.query_row([song_id], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, i64>(1)?,
-            row.get::<_, String>(2)?,
-            row.get::<_, u32>(3)?,
-            row.get::<_, Option<String>>(4)?,
-            row.get::<_, Option<String>>(5)?,
-        ))
-    }).map_err(|_| "Song not found in database".to_string())?;
-    
+    let mut stmt = conn
+        .prepare("SELECT file_path, folder_id, filename, duration, lyrics, timeline FROM songs WHERE id = ?1")
+        .map_err(|e| e.to_string())?;
+    let (file_path_str, folder_id, original_filename, duration, db_lyrics, timeline) = stmt
+        .query_row([song_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, u32>(3)?,
+                row.get::<_, Option<String>>(4)?,
+                row.get::<_, Option<String>>(5)?,
+            ))
+        })
+        .map_err(|_| "Song not found in database".to_string())?;
+    drop(stmt);
+
     let path = Path::new(&file_path_str);
     let mut current_path = path.to_path_buf();
     let mut final_file_path_str = file_path_str.clone();
@@ -672,7 +701,8 @@ fn update_song_metadata(
         if !trimmed_name.is_empty() && trimmed_name != original_filename {
             if let Some(parent) = path.parent() {
                 let new_path = parent.join(trimmed_name);
-                std::fs::rename(path, &new_path).map_err(|e| format!("Failed to rename file: {}", e))?;
+                std::fs::rename(path, &new_path)
+                    .map_err(|e| format!("Failed to rename file: {e}"))?;
                 current_path = new_path;
                 final_file_path_str = current_path.to_string_lossy().to_string();
                 final_filename = trimmed_name.to_string();
@@ -680,189 +710,122 @@ fn update_song_metadata(
         }
     }
 
-    if current_path.exists() {
-        let ext = current_path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
-        if ext == "mp3" {
-            let mut tag = id3::Tag::read_from_path(&current_path).unwrap_or_else(|_| id3::Tag::new());
-            
-            if let Some(ref t) = title {
-                tag.set_title(t);
-            } else {
-                tag.remove_title();
-            }
+    // Claim both paths before writing so the watcher does not treat this edit
+    // (or the rename that preceded it) as an external change.
+    watcher::note_self_write(&app, path);
+    watcher::note_self_write(&app, &current_path);
+    tags::write_metadata(&current_path, &metadata, write_mode)?;
 
-            if let Some(ref a) = artist {
-                tag.set_artist(a);
-            } else {
-                tag.remove_artist();
-            }
+    // Read the file back rather than trusting the payload, so the database always
+    // reflects what a different player would see.
+    let album_id = sync_song_row(&conn, song_id, &final_file_path_str, &final_filename)?;
+    let written = tags::read_metadata(&current_path);
 
-            if let Some(ref al) = album_name {
-                tag.set_album(al);
-            } else {
-                tag.remove_album();
-            }
-
-            if let Some(ref tr) = track_number {
-                let trimmed = tr.trim();
-                if trimmed.is_empty() {
-                    tag.remove_track();
-                    tag.remove("TRCK");
-                    tag.remove("TRCP");
-                } else if let Ok(num) = trimmed.parse::<u32>() {
-                    tag.set_track(num);
-                } else {
-                    tag.remove_track();
-                }
-            } else {
-                tag.remove_track();
-            }
-
-            if let Some(ref thumb_b64) = new_thumbnail {
-                tag.remove_all_pictures();
-                if !thumb_b64.is_empty() {
-                    if let Some(comma_idx) = thumb_b64.find(',') {
-                        let b64_data = &thumb_b64[comma_idx + 1..];
-                        if let Ok(bytes) = BASE64_STANDARD.decode(b64_data) {
-                            let mime_type = if thumb_b64.contains("image/jpeg") || thumb_b64.contains("image/jpg") {
-                                "image/jpeg"
-                            } else if thumb_b64.contains("image/webp") {
-                                "image/webp"
-                            } else {
-                                "image/png"
-                            };
-                            tag.add_frame(id3::Frame::with_content("APIC", id3::Content::Picture(id3::frame::Picture {
-                                mime_type: mime_type.to_string(),
-                                picture_type: id3::frame::PictureType::CoverFront,
-                                description: "Cover".to_string(),
-                                data: bytes,
-                            })));
-                        }
-                    }
-                }
-            }
-
-            tag.write_to_path(&current_path, id3::Version::Id3v24).map_err(|e| e.to_string())?;
-        } else {
-            if let Ok(mut tagged_file) = Probe::open(&current_path).and_then(|p| p.read()) {
-                let tag = if let Some(t) = tagged_file.primary_tag_mut() {
-                    t
-                } else if let Some(t) = tagged_file.first_tag_mut() {
-                    t
-                } else {
-                    let tag_type = tagged_file.primary_tag_type();
-                    let new_tag = lofty::tag::Tag::new(tag_type);
-                    tagged_file.insert_tag(new_tag);
-                    tagged_file.primary_tag_mut().unwrap()
-                };
-
-                if let Some(ref t) = title {
-                    tag.set_title(t.clone());
-                } else {
-                    tag.remove_key(&lofty::tag::ItemKey::TrackTitle);
-                }
-
-                if let Some(ref a) = artist {
-                    tag.set_artist(a.clone());
-                } else {
-                    tag.remove_key(&lofty::tag::ItemKey::TrackArtist);
-                }
-
-                if let Some(ref al) = album_name {
-                    tag.set_album(al.clone());
-                } else {
-                    tag.remove_key(&lofty::tag::ItemKey::AlbumTitle);
-                }
-
-                if let Some(ref tr) = track_number {
-                    let trimmed = tr.trim();
-                    if trimmed.is_empty() {
-                        tag.remove_key(&lofty::tag::ItemKey::TrackNumber);
-                        tag.remove_key(&lofty::tag::ItemKey::TrackTotal);
-                    } else if let Ok(num) = trimmed.parse::<u32>() {
-                        tag.insert_text(lofty::tag::ItemKey::TrackNumber, num.to_string());
-                    } else {
-                        tag.remove_key(&lofty::tag::ItemKey::TrackNumber);
-                    }
-                } else {
-                    tag.remove_key(&lofty::tag::ItemKey::TrackNumber);
-                }
-
-                if let Some(ref thumb_b64) = new_thumbnail {
-                    while !tag.pictures().is_empty() {
-                        tag.remove_picture(0);
-                    }
-                    if !thumb_b64.is_empty() {
-                        if let Some(comma_idx) = thumb_b64.find(',') {
-                            let b64_data = &thumb_b64[comma_idx + 1..];
-                            if let Ok(bytes) = BASE64_STANDARD.decode(b64_data) {
-                                let mime_str = if thumb_b64.contains("image/jpeg") || thumb_b64.contains("image/jpg") {
-                                    "image/jpeg"
-                                } else if thumb_b64.contains("image/webp") {
-                                    "image/webp"
-                                } else {
-                                    "image/png"
-                                };
-                                let mime_type = lofty::picture::MimeType::from_str(mime_str);
-                                let pic = lofty::picture::Picture::new_unchecked(
-                                    lofty::picture::PictureType::CoverFront,
-                                    Some(mime_type),
-                                    None,
-                                    bytes,
-                                );
-                                tag.push_picture(pic);
-                            }
-                        }
-                    }
-                }
-
-                tagged_file.save_to_path(&current_path, lofty::config::WriteOptions::default()).map_err(|e| e.to_string())?;
-            }
+    if let Some(thumb) = written.thumbnail.as_deref().filter(|t| !t.is_empty()) {
+        db::update_folder_thumbnail(&conn, folder_id, thumb, "#06b6d4").ok();
+        if let Some(a_id) = album_id {
+            db::update_album_thumbnail(&conn, a_id, thumb, "#06b6d4").ok();
         }
     }
 
-    let album_id = if let Some(ref name) = album_name {
-        let trimmed_name = name.trim();
-        if !trimmed_name.is_empty() {
-            let id = db::get_or_create_album(&conn, trimmed_name, artist.as_deref())
-                .map_err(|e| e.to_string())?;
-            Some(id)
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-
-    conn.execute(
-        "UPDATE songs SET title = ?1, artist = ?2, album_id = ?3, file_path = ?4, filename = ?5 WHERE id = ?6",
-        rusqlite::params![title, artist, album_id, final_file_path_str, final_filename, song_id],
-    ).map_err(|e| e.to_string())?;
-
-    if let Some(ref thumb) = new_thumbnail {
-        if !thumb.is_empty() {
-            db::update_folder_thumbnail(&conn, folder_id, thumb, "#06b6d4").ok();
-            if let Some(a_id) = album_id {
-                db::update_album_thumbnail(&conn, a_id, thumb, "#06b6d4").ok();
-            }
-        }
-    }
-
-    conn.execute("DELETE FROM albums WHERE id NOT IN (SELECT DISTINCT album_id FROM songs WHERE album_id IS NOT NULL)", []).ok();
-    conn.execute("DELETE FROM folders WHERE id NOT IN (SELECT DISTINCT folder_id FROM songs)", []).ok();
+    prune_empty_categories(&conn);
 
     Ok(db::Song {
         id: song_id,
-        title,
-        artist,
+        title: written.title,
+        artist: written.artist,
         album_id,
         folder_id,
         file_path: final_file_path_str,
         filename: final_filename,
         duration,
-        lyrics,
+        lyrics: written.lyrics.or(db_lyrics),
         timeline,
     })
+}
+
+#[derive(serde::Serialize)]
+struct BulkResult {
+    updated: usize,
+    failed: Vec<String>,
+}
+
+/// Applies the same fields to many songs at once.
+///
+/// This is what fixes an album that other players split apart: set `album_name`
+/// and `album_artist` (and usually `compilation`) once, and every track ends up
+/// with the identical grouping key. In the default `clean_keep` mode each file's
+/// own title and track number survive while junk frames are dropped.
+#[tauri::command]
+fn apply_metadata_to_songs(
+    app: tauri::AppHandle,
+    state: State<'_, DbState>,
+    song_ids: Vec<i64>,
+    metadata: tags::MetadataPayload,
+    mode: Option<String>,
+) -> Result<BulkResult, String> {
+    let conn = state.conn.lock().unwrap();
+    let write_mode = tags::WriteMode::from_str(mode.as_deref().unwrap_or("clean_keep"));
+
+    let placeholders = vec!["?"; song_ids.len()].join(",");
+    if song_ids.is_empty() {
+        return Ok(BulkResult {
+            updated: 0,
+            failed: Vec::new(),
+        });
+    }
+
+    let sql = format!("SELECT id, file_path, filename FROM songs WHERE id IN ({placeholders})");
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let rows: Vec<(i64, String, String)> = stmt
+        .query_map(rusqlite::params_from_iter(song_ids.iter()), |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<_, _>>()
+        .map_err(|e| e.to_string())?;
+    drop(stmt);
+
+    let mut updated = 0usize;
+    let mut failed = Vec::new();
+
+    for (id, file_path, filename) in rows {
+        let path = Path::new(&file_path);
+        // A bulk pass rewrites every file in the album; without this the watcher
+        // would re-index all of them and refresh the UI once per track.
+        watcher::note_self_write(&app, path);
+        match tags::write_metadata(path, &metadata, write_mode) {
+            Ok(()) => {
+                sync_song_row(&conn, id, &file_path, &filename).ok();
+                updated += 1;
+            }
+            Err(e) => failed.push(format!("{filename}: {e}")),
+        }
+    }
+
+    prune_empty_categories(&conn);
+    Ok(BulkResult { updated, failed })
+}
+
+/// Song ids belonging to a folder or an album, so the UI can offer
+/// "apply to every track in this album" without shipping the whole list around.
+#[tauri::command]
+fn get_category_song_ids(
+    state: State<'_, DbState>,
+    category_type: String,
+    category_id: i64,
+) -> Result<Vec<i64>, String> {
+    let conn = state.conn.lock().unwrap();
+    let sql = if category_type == "folder" {
+        "SELECT id FROM songs WHERE folder_id = ?1 ORDER BY filename"
+    } else {
+        "SELECT id FROM songs WHERE album_id = ?1 ORDER BY filename"
+    };
+    let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
+    let iter = stmt
+        .query_map([category_id], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    iter.collect::<Result<_, _>>().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -1042,6 +1005,12 @@ fn get_song_by_path(state: State<'_, DbState>, file_path: String) -> Result<db::
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Native-side boot timing. The web layer's own numbers start when the document
+    // begins loading, so everything before that — process start, plugin init,
+    // database open, WebView creation, window compositing — is invisible to it.
+    // These marks cover that gap; run from a terminal to see them.
+    let boot = std::time::Instant::now();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
             if let Some(window) = app.get_webview_window("main") {
@@ -1052,7 +1021,9 @@ pub fn run() {
                 cwd: cwd.to_string(),
             });
         }))
-        .setup(|app| {
+        .setup(move |app| {
+            println!("[boot] setup entered {:?}", boot.elapsed());
+
             // Initialize database path in App Data directory
             let app_data_dir = app.path().app_data_dir().unwrap_or_else(|_| PathBuf::from("."));
             let db_path = app_data_dir.join("groovex.db");
@@ -1069,6 +1040,25 @@ pub fn run() {
                 
             app.manage(DbState {
                 conn: Mutex::new(conn),
+            });
+            app.manage(watcher::WatcherState::default());
+            println!("[boot] database ready {:?}", boot.elapsed());
+
+            // Start watching the imported folders so tracks added while the app is
+            // running show up without a manual re-import.
+            //
+            // Off the setup thread on purpose: arming a recursive watch walks the
+            // whole tree to build the file-id cache used for rename detection
+            // (~200ms for this library, and far worse on a cold network drive).
+            // Doing that here would hold up window creation for no benefit, since
+            // nothing can change on disk before the user sees anything.
+            let watcher_handle = app.handle().clone();
+            std::thread::spawn(move || match watcher::restart(&watcher_handle) {
+                Ok(roots) if !roots.is_empty() => {
+                    println!("Watching {} music folder(s) for changes", roots.len());
+                }
+                Ok(_) => {}
+                Err(e) => eprintln!("Failed to start library watcher: {e}"),
             });
 
             // Parse initial startup arguments (when launched via "Open with")
@@ -1093,7 +1083,10 @@ pub fn run() {
 
             // Apply window vibrancy and transparency (Aero Blur is smooth and lag-free on Windows 10/11 with transparent: true)
             let window = app.get_webview_window("main").unwrap();
-            
+            println!("[boot] window handle acquired {:?}", boot.elapsed());
+
+            let effect_start = std::time::Instant::now();
+
             #[cfg(target_os = "windows")]
             {
                 // Aero Blur provides high performance blur behind transparent windows
@@ -1109,7 +1102,13 @@ pub fn run() {
                     None,
                 ).ok();
             }
-            
+
+            println!(
+                "[boot] window effect {:?} · setup done {:?}",
+                effect_start.elapsed(),
+                boot.elapsed()
+            );
+
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
@@ -1127,6 +1126,9 @@ pub fn run() {
             update_song_timeline,
             get_song_metadata,
             update_song_metadata,
+            apply_metadata_to_songs,
+            get_category_song_ids,
+            rescan_songs,
             get_playlists,
             create_playlist,
             delete_playlist,
