@@ -12,6 +12,8 @@
 		"win": "tauri build --target x86_64-pc-windows-msvc",
 		"linux": "tauri build --target x86_64-unknown-linux-gnu",
 		"mac": "tauri build --target universal-apple-darwin",
+		"mac:intel": "tauri build --target x86_64-apple-darwin",
+		"mac:arm": "tauri build --target aarch64-apple-darwin",
 		"prepare": "husky",
 		"fmt": "oxfmt src/"
 	},

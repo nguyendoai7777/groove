@@ -1003,6 +1003,71 @@ fn get_song_by_path(state: State<'_, DbState>, file_path: String) -> Result<db::
     })
 }
 
+/// Tint painted behind the transparent window on Windows, as `(R, G, B, A)`.
+///
+/// The alpha is the only "how much of the desktop shows through" knob Aero Blur
+/// exposes: 0 is fully clear, 255 fully opaque. Roughly 13 steps per 5%.
+#[cfg(target_os = "windows")]
+const WINDOWS_BLUR_TINT: (u8, u8, u8, u8) = (18, 18, 18, 107);
+
+/// Material used for the macOS blur.
+///
+/// macOS has no alpha equivalent to [`WINDOWS_BLUR_TINT`] — the system owns the
+/// translucency and only lets us name a material, so this is the knob for how
+/// dark the window reads. `HudWindow` is the closest match to the dark, clearly
+/// see-through tint used on Windows; `UnderWindowBackground` is more frosted and
+/// `Sidebar` lighter still.
+#[cfg(target_os = "macos")]
+const MACOS_BLUR_MATERIAL: window_vibrancy::NSVisualEffectMaterial =
+    window_vibrancy::NSVisualEffectMaterial::HudWindow;
+
+/// Corner radius of the macOS blur view. The window is undecorated, so this view
+/// is what draws the window's shape — left square, the blur spills past the
+/// rounded corners macOS draws around it.
+#[cfg(target_os = "macos")]
+const MACOS_CORNER_RADIUS: f64 = 10.0;
+
+/// Puts the desktop blur behind the transparent window.
+///
+/// Call this from the setup thread: `apply_vibrancy` asserts it is on the main
+/// thread, and AppKit rejects the view anywhere else.
+///
+/// The macOS branch is architecture-independent — one source path covers Apple
+/// Silicon and Intel, and `universal-apple-darwin` bundles both. What does differ
+/// between them is the OS underneath: every arm64 Mac runs macOS 11 or newer,
+/// while an Intel Mac may still be on 10.13, where the 10.14-era materials do not
+/// exist. window-vibrancy handles that itself, substituting an older material
+/// rather than failing, so old Intel hardware still gets a blur instead of a flat
+/// window — which is why there is no version check here.
+#[cfg_attr(
+    not(any(target_os = "windows", target_os = "macos")),
+    allow(unused_variables)
+)]
+fn apply_window_effect(window: &tauri::WebviewWindow) {
+    #[cfg(target_os = "windows")]
+    {
+        // Aero Blur provides high performance blur behind transparent windows
+        if let Err(e) = window_vibrancy::apply_blur(window, Some(WINDOWS_BLUR_TINT)) {
+            eprintln!("Failed to apply window blur: {e}");
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        // `Active` rather than the default `FollowsWindowActiveState`: playback
+        // carries on in the background, and letting the blur drop to flat grey
+        // every time the window loses focus makes a playing app look dead.
+        if let Err(e) = window_vibrancy::apply_vibrancy(
+            window,
+            MACOS_BLUR_MATERIAL,
+            Some(window_vibrancy::NSVisualEffectState::Active),
+            Some(MACOS_CORNER_RADIUS),
+        ) {
+            eprintln!("Failed to apply window vibrancy: {e}");
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Native-side boot timing. The web layer's own numbers start when the document
@@ -1086,22 +1151,7 @@ pub fn run() {
             println!("[boot] window handle acquired {:?}", boot.elapsed());
 
             let effect_start = std::time::Instant::now();
-
-            #[cfg(target_os = "windows")]
-            {
-                // Aero Blur provides high performance blur behind transparent windows
-                window_vibrancy::apply_blur(&window, Some((18, 18, 18, 120))).ok();
-            }
-
-            #[cfg(target_os = "macos")]
-            {
-                window_vibrancy::apply_vibrancy(
-                    &window,
-                    window_vibrancy::NSVisualEffectMaterial::Sidebar,
-                    None,
-                    None,
-                ).ok();
-            }
+            apply_window_effect(&window);
 
             println!(
                 "[boot] window effect {:?} · setup done {:?}",
