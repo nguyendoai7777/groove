@@ -2,7 +2,7 @@
   <div
     class="grx-SideNav bg-(--nav-bg) flex flex-col transition-all duration-300 ease-in-out shrink-0"
     :class="isCollapsed ? 'w-14 min-w-14' : 'w-57.5 min-w-57.5'"
-    style="backdrop-filter: blur(23px); height: calc(100svh - var(--audio-controller-h))">
+    style="height: calc(100svh - var(--audio-controller-h))">
     <div
       class="h-(--nav-head-h) hover:bg-side-nav-header-hover flex items-center select-none font-light text-xs cursor-default shrink-0 transition-all duration-300"
       :class="isCollapsed ? 'justify-center px-0' : 'justify-between px-3'"

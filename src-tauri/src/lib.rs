@@ -1013,13 +1013,24 @@ const WINDOWS_BLUR_TINT: (u8, u8, u8, u8) = (18, 18, 18, 107);
 /// Material used for the macOS blur.
 ///
 /// macOS has no alpha equivalent to [`WINDOWS_BLUR_TINT`] — the system owns the
-/// translucency and only lets us name a material, so this is the knob for how
-/// dark the window reads. `HudWindow` is the closest match to the dark, clearly
-/// see-through tint used on Windows; `UnderWindowBackground` is more frosted and
-/// `Sidebar` lighter still.
+/// translucency and only lets us name a material, so the material is half the
+/// knob and the `--nav-bg` tint in `tailwind.css` is the other half.
+///
+/// `UnderWindowBackground` is the thinnest of them — it is the material AppKit
+/// uses for content shown *under* a window, so it tints the least and lets the
+/// most of whatever is behind come through. `Sidebar` and `HudWindow` were both
+/// tried here and are progressively heavier.
+///
+/// Every material still desaturates far more than Windows' Aero Blur does. That
+/// is Apple's design, not a setting, so a macOS build will always read softer
+/// than the same window on Windows no matter which name goes here.
+///
+/// The material carries no colour of its own; it follows the window's
+/// effectiveAppearance, so it renders dark under a dark system appearance and
+/// light under a light one.
 #[cfg(target_os = "macos")]
 const MACOS_BLUR_MATERIAL: window_vibrancy::NSVisualEffectMaterial =
-    window_vibrancy::NSVisualEffectMaterial::HudWindow;
+    window_vibrancy::NSVisualEffectMaterial::UnderWindowBackground;
 
 /// Corner radius of the macOS blur view. The window is undecorated, so this view
 /// is what draws the window's shape — left square, the blur spills past the
@@ -1054,18 +1065,71 @@ fn apply_window_effect(window: &tauri::WebviewWindow) {
 
     #[cfg(target_os = "macos")]
     {
+        // `GROOVEX_BLUR=off` attaches nothing, which is the one way to tell a
+        // window that is genuinely transparent apart from one that only looks
+        // flat because the material on it is heavily frosted. With no effect
+        // view in the way, a transparent window shows the desktop *sharp*; a
+        // window that stays grey was never transparent to begin with, and no
+        // choice of material was ever going to help.
+        let requested = std::env::var("GROOVEX_BLUR").unwrap_or_default();
+        if requested.eq_ignore_ascii_case("off") {
+            println!("[boot] GROOVEX_BLUR=off · no effect view attached");
+            return;
+        }
+
+        // Read at runtime rather than baked in as a const, so trying the other
+        // materials costs a restart instead of a Rust rebuild.
+        let material = if requested.is_empty() {
+            MACOS_BLUR_MATERIAL
+        } else {
+            macos_material_by_name(&requested).unwrap_or_else(|| {
+                eprintln!("[boot] unknown GROOVEX_BLUR value {requested:?}, using the default");
+                MACOS_BLUR_MATERIAL
+            })
+        };
+
         // `Active` rather than the default `FollowsWindowActiveState`: playback
         // carries on in the background, and letting the blur drop to flat grey
         // every time the window loses focus makes a playing app look dead.
-        if let Err(e) = window_vibrancy::apply_vibrancy(
+        // Logged on success too, not just on failure: a flat window looks the
+        // same whether the effect view was never attached or is simply buried
+        // under an opaque web layer, and only one of those is fixable in CSS.
+        match window_vibrancy::apply_vibrancy(
             window,
-            MACOS_BLUR_MATERIAL,
+            material,
             Some(window_vibrancy::NSVisualEffectState::Active),
             Some(MACOS_CORNER_RADIUS),
         ) {
-            eprintln!("Failed to apply window vibrancy: {e}");
+            Ok(()) => println!("[boot] vibrancy attached · material {material:?}"),
+            Err(e) => eprintln!("[boot] FAILED to apply window vibrancy: {e}"),
         }
     }
+}
+
+/// Looks up a material by name for `GROOVEX_BLUR`, ordered roughly from most
+/// see-through to most opaque. Returns `None` for anything unrecognised so the
+/// caller can fall back rather than boot without a blur.
+#[cfg(target_os = "macos")]
+fn macos_material_by_name(name: &str) -> Option<window_vibrancy::NSVisualEffectMaterial> {
+    use window_vibrancy::NSVisualEffectMaterial as M;
+
+    Some(match name.to_ascii_lowercase().as_str() {
+        "underwindowbackground" => M::UnderWindowBackground,
+        "underpagebackground" => M::UnderPageBackground,
+        "fullscreenui" => M::FullScreenUI,
+        "sidebar" => M::Sidebar,
+        "popover" => M::Popover,
+        "menu" => M::Menu,
+        "selection" => M::Selection,
+        "titlebar" => M::Titlebar,
+        "headerview" => M::HeaderView,
+        "contentbackground" => M::ContentBackground,
+        "tooltip" => M::Tooltip,
+        "sheet" => M::Sheet,
+        "windowbackground" => M::WindowBackground,
+        "hudwindow" => M::HudWindow,
+        _ => return None,
+    })
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
