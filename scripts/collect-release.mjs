@@ -12,7 +12,7 @@
 
 import { existsSync } from 'node:fs';
 import { copyFile, mkdir, readdir, rm, stat } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -39,7 +39,7 @@ async function findBundleDirs(dir, found = []) {
 
     if (entry.name === 'bundle') {
       // Only release bundles. A debug bundle is not something to hand out.
-      if (dir.endsWith(`${'/'}release`)) found.push(path);
+      if (basename(dir) === 'release') found.push(path);
       continue;
     }
     // Build intermediates are enormous and contain no bundles.
@@ -92,7 +92,7 @@ if (process.argv.includes('--clean') && existsSync(releaseDir)) {
 await mkdir(releaseDir, { recursive: true });
 
 for (const { path } of installers) {
-  const name = path.split('/').pop();
+  const name = basename(path);
   await copyFile(path, join(releaseDir, name));
   const { size } = await stat(path);
   console.log(`release/${name}  ${(size / 1024 / 1024).toFixed(1)} MB`);
