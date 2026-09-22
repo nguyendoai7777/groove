@@ -6,6 +6,7 @@
       <v-card-text class="px-2 py-4">
         <textarea
           v-model="lyricsDraft"
+          spellcheck="false"
           placeholder="Paste or write lyrics here..."
           rows="12"
           class="w-full bg-theme-bg-item/40 border border-theme-border focus:border-theme-accent/50 rounded-xl p-3 text-xs text-theme-text-secondary outline-hidden resize-none font-sans leading-relaxed transition-colors focus:ring-1 focus:ring-theme-accent/20"></textarea>

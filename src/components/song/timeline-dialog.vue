@@ -24,6 +24,7 @@
           <div
             ref="timelineEditorRef"
             contenteditable="true"
+            spellcheck="false"
             placeholder="e.g. 0:00 First Track"
             class="w-full min-h-full p-3 text-xs text-theme-text-secondary outline-hidden font-mono leading-relaxed whitespace-pre-wrap wrap-break-word empty:before:content-[attr(placeholder)] empty:before:text-theme-text-disabled/60 empty:before:pointer-events-none"
             @input="handleTimelineInput"></div>

@@ -11,6 +11,7 @@
       <textarea
         ref="textareaRef"
         v-model="shortcutsJsonDraft"
+        spellcheck="false"
         class="w-full h-[260px] p-3 text-xs font-mono bg-theme-bg-placeholder/20 border border-theme-border rounded-lg focus:border-theme-accent/50 outline-none resize-none transition-colors"
         placeholder='[\n  { "key": "ctrl+k", "command": "open_search" }\n]'
         @input="handleTextareaInput"

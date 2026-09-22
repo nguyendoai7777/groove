@@ -348,10 +348,10 @@
   let unlistenSync: UnlistenFn | null = null;
 
   onMounted(async () => {
-    loadCategories();
-
     // The backend watches the imported folders and emits this after re-indexing
     // whatever changed, so tracks dropped in while the app is open just appear.
+    // Subscribed before the first load: the startup catch-up scan can finish
+    // during mount, and an event fired before `listen` resolves would be lost.
     unlistenSync = await listen<LibrarySyncReport>('library-synced', ({ payload }) => {
       loadCategories();
 
@@ -361,6 +361,8 @@
       if (payload.updated) parts.push(`${payload.updated} bài cập nhật metadata`);
       if (parts.length) toast.show(`Đồng bộ thư mục: ${parts.join(', ')}.`);
     });
+
+    loadCategories();
   });
 
   onBeforeUnmount(() => {

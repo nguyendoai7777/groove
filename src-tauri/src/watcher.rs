@@ -132,6 +132,87 @@ pub fn restart(app: &AppHandle) -> Result<Vec<String>, String> {
     Ok(watched)
 }
 
+/// Catches up on changes made while GrooveX was closed.
+///
+/// The watcher only sees events while the app is running, so a track copied in
+/// (or deleted) with the app closed would otherwise stay missing (or linger) until
+/// a manual re-import. This diffs each watched root against the database and
+/// feeds the difference through the same path live events take.
+///
+/// A file counts as changed when it is new, gone, or its mtime differs from the
+/// one recorded when it was last indexed — the last catches tags edited by
+/// another program while GrooveX was closed.
+pub fn reconcile(app: &AppHandle, roots: &[String]) {
+    let mut on_disk = Vec::new();
+    for root in roots {
+        crate::scan_directory(Path::new(root), &mut on_disk);
+    }
+
+    let known = {
+        let db_state = app.state::<DbState>();
+        let conn = db_state.conn.lock().unwrap();
+        match db::fetch_song_mtimes(&conn) {
+            Ok(known) => known,
+            Err(e) => {
+                eprintln!("Library reconcile failed: {e}");
+                return;
+            }
+        }
+    };
+
+    let known_map: HashMap<String, Option<i64>> = known
+        .iter()
+        .map(|(p, mtime)| (normalize(Path::new(p)), *mtime))
+        .collect();
+    let disk_set: HashSet<String> = on_disk.iter().map(|p| normalize(p)).collect();
+
+    let mut changed: Vec<PathBuf> = Vec::new();
+    // Rows indexed before mtimes were recorded. Re-reading every one of them on the
+    // first launch after the upgrade would be slow and announce hundreds of bogus
+    // "updated" tracks, so their current mtime is taken as the baseline instead.
+    let mut baseline: Vec<String> = Vec::new();
+
+    for file in on_disk {
+        match known_map.get(&normalize(&file)) {
+            None => changed.push(file),
+            Some(None) => baseline.push(file.to_string_lossy().to_string()),
+            Some(Some(recorded)) => {
+                if db::file_mtime(&file) != Some(*recorded) {
+                    changed.push(file);
+                }
+            }
+        }
+    }
+
+    // Rows outside every watched root are left alone: their folder is not being
+    // tracked, so a missing file there says nothing about the library.
+    changed.extend(
+        known
+            .iter()
+            .map(|(p, _)| p)
+            .filter(|p| roots.iter().any(|root| crate::paths::is_under(p, root)))
+            .filter(|p| !disk_set.contains(&normalize(Path::new(p))))
+            .map(PathBuf::from),
+    );
+
+    if !baseline.is_empty() {
+        let db_state = app.state::<DbState>();
+        let mut conn = db_state.conn.lock().unwrap();
+        // One transaction: hundreds of autocommitted updates would each fsync.
+        match conn.transaction() {
+            Ok(tx) => {
+                for path in &baseline {
+                    db::record_file_mtime(&tx, path).ok();
+                }
+                tx.commit().ok();
+            }
+            Err(e) => eprintln!("Failed to record baseline mtimes: {e}"),
+        };
+    }
+
+    handle_changes(app, changed);
+}
+
 fn handle_changes(app: &AppHandle, paths: Vec<PathBuf>) {
     // A rename shows up as two paths and a burst of writes repeats the same one,
     // so collapse to a unique set before touching the database.

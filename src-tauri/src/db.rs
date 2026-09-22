@@ -183,6 +183,19 @@ pub fn init_db(db_path: &Path) -> Result<Connection> {
         conn.execute("ALTER TABLE songs ADD COLUMN timeline TEXT;", []).ok();
     }
 
+    // Migration: file modification time (ms since the epoch) as last indexed, so
+    // the startup reconcile can tell a file edited while the app was closed apart
+    // from one that is unchanged. NULL means "not recorded yet".
+    let has_mtime_col: bool = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('songs') WHERE name='file_mtime';",
+        [],
+        |row| row.get(0)
+    ).unwrap_or(0) > 0;
+
+    if !has_mtime_col {
+        conn.execute("ALTER TABLE songs ADD COLUMN file_mtime INTEGER;", []).ok();
+    }
+
     // The folders the user actually picked in the import dialog. `folders` only
     // records the parent directory of each file, which is not enough for the
     // watcher: a brand new subdirectory would have no row to watch.
@@ -612,6 +625,31 @@ pub fn delete_song_by_path(conn: &Connection, file_path: &str) -> Result<bool> {
     Ok(affected > 0)
 }
 
+/// A file's modification time in milliseconds since the epoch, or `None` when it
+/// cannot be read (missing file, or a filesystem that does not report one).
+pub fn file_mtime(path: &Path) -> Option<i64> {
+    let modified = std::fs::metadata(path).ok()?.modified().ok()?;
+    let since_epoch = modified.duration_since(std::time::UNIX_EPOCH).ok()?;
+    i64::try_from(since_epoch.as_millis()).ok()
+}
+
+/// Stores the file's current mtime on its row, marking the row as in step with
+/// the file. Call after every write GrooveX makes to a track's tags.
+pub fn record_file_mtime(conn: &Connection, file_path: &str) -> Result<()> {
+    conn.execute(
+        "UPDATE songs SET file_mtime = ?1 WHERE file_path = ?2",
+        params![file_mtime(Path::new(file_path)), file_path],
+    )?;
+    Ok(())
+}
+
+/// Every song's path with the mtime recorded when it was last indexed.
+pub fn fetch_song_mtimes(conn: &Connection) -> Result<Vec<(String, Option<i64>)>> {
+    let mut stmt = conn.prepare("SELECT file_path, file_mtime FROM songs")?;
+    let iter = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?;
+    iter.collect()
+}
+
 pub fn song_exists(conn: &Connection, file_path: &str) -> Result<bool> {
     let count: i64 = conn.query_row(
         "SELECT COUNT(*) FROM songs WHERE file_path = ?1",
@@ -638,6 +676,42 @@ mod tests {
         )
         .unwrap();
         conn
+    }
+
+    #[test]
+    fn recorded_mtime_tracks_the_file_on_disk() {
+        let dir = std::env::temp_dir().join("groovex_mtime_test");
+        std::fs::remove_dir_all(&dir).ok();
+        std::fs::create_dir_all(&dir).unwrap();
+        let conn = init_db(&dir.join("test.db")).unwrap();
+
+        let track = dir.join("track.mp3");
+        std::fs::write(&track, b"ID3").unwrap();
+        let track_str = track.to_string_lossy().to_string();
+        let folder_id = get_or_create_folder(&conn, "dir", &dir.to_string_lossy()).unwrap();
+        insert_song(&conn, None, None, None, folder_id, &track_str, "track.mp3", 0, None, None)
+            .unwrap();
+
+        // A freshly inserted row has no mtime until one is recorded.
+        assert_eq!(fetch_song_mtimes(&conn).unwrap(), vec![(track_str.clone(), None)]);
+
+        record_file_mtime(&conn, &track_str).unwrap();
+        let recorded = fetch_song_mtimes(&conn).unwrap()[0].1;
+        assert!(recorded.is_some());
+        assert_eq!(recorded, file_mtime(&track));
+
+        // An external edit moves the mtime away from what was recorded.
+        let later = std::time::SystemTime::now() + std::time::Duration::from_secs(60);
+        std::fs::File::options()
+            .write(true)
+            .open(&track)
+            .unwrap()
+            .set_modified(later)
+            .unwrap();
+        assert_ne!(file_mtime(&track), recorded);
+
+        drop(conn);
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]

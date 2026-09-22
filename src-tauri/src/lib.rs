@@ -160,6 +160,7 @@ fn index_song_file(conn: &Connection, file: &Path) -> Result<(), String> {
         timeline.as_deref(),
     )
     .map_err(|e| e.to_string())?;
+    db::record_file_mtime(conn, &file_path_str).map_err(|e| e.to_string())?;
 
     // Seed the folder and album covers from the first track that has one.
     if let Some(thumb) = meta.thumbnail.as_deref().filter(|t| !t.is_empty()) {
@@ -438,6 +439,7 @@ fn update_song_lyrics(
         "UPDATE songs SET lyrics = ?1 WHERE id = ?2",
         rusqlite::params![lyrics, song_id],
     ).map_err(|e| e.to_string())?;
+    db::record_file_mtime(&conn, &file_path_str).ok();
 
     Ok(())
 }
@@ -496,6 +498,7 @@ fn update_song_timeline(
         "UPDATE songs SET timeline = ?1 WHERE id = ?2",
         rusqlite::params![timeline, song_id],
     ).map_err(|e| e.to_string())?;
+    db::record_file_mtime(&conn, &file_path_str).ok();
 
     Ok(())
 }
@@ -589,6 +592,9 @@ fn sync_song_row(
         ],
     )
     .map_err(|e| e.to_string())?;
+    // The row now mirrors the file just written; without this the next startup
+    // would take GrooveX's own edit for an external one and re-index it.
+    db::record_file_mtime(conn, file_path).ok();
 
     Ok(album_id)
 }
@@ -1185,6 +1191,10 @@ pub fn run() {
             std::thread::spawn(move || match watcher::restart(&watcher_handle) {
                 Ok(roots) if !roots.is_empty() => {
                     println!("Watching {} music folder(s) for changes", roots.len());
+                    // Armed first, so a file landing mid-scan is still caught live.
+                    let reconcile_start = std::time::Instant::now();
+                    watcher::reconcile(&watcher_handle, &roots);
+                    println!("[boot] library reconciled in {:?}", reconcile_start.elapsed());
                 }
                 Ok(_) => {}
                 Err(e) => eprintln!("Failed to start library watcher: {e}"),

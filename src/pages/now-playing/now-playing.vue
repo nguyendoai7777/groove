@@ -169,6 +169,7 @@
             <div
               ref="lyricsEditorRef"
               contenteditable="true"
+              spellcheck="false"
               placeholder="Paste or write lyrics here..."
               class="w-full min-h-full p-3 text-xs text-theme-text-secondary outline-hidden font-sans leading-relaxed whitespace-pre-wrap wrap-break-word empty:before:content-[attr(placeholder)] empty:before:text-theme-text-disabled/60 empty:before:pointer-events-none"
               @input="handleLyricsInput"></div>
