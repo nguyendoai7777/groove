@@ -10,8 +10,9 @@
 //   node scripts/collect-release.mjs            # copy, keep what is there
 //   node scripts/collect-release.mjs --clean    # empty ./release first
 
+import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { copyFile, mkdir, readdir, rm, stat } from 'node:fs/promises';
+import { copyFile, cp, mkdir, readdir, readFile, rm, stat } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -100,6 +101,51 @@ for (const { path } of installers) {
 
 if (installers.length === 0) {
   console.warn('\nNo installers found, only build output.');
+}
+
+// Portable Windows build: the bare exe that Cargo leaves in <triple>/release/,
+// plus the bundle resources Tauri copies beside it. Tauri resolves resources
+// relative to the exe when it is not installed, so this folder runs as-is.
+const tauriConf = JSON.parse(await readFile(join(root, 'src-tauri', 'tauri.conf.json'), 'utf8'));
+const { productName, version } = tauriConf;
+const ARCH_NAMES = { x86_64: 'x64', aarch64: 'arm64', i686: 'x86' };
+
+for (const bundleDir of bundleDirs) {
+  const buildDir = dirname(bundleDir);
+  const exe = join(buildDir, `${productName}.exe`);
+  if (!existsSync(exe)) continue;
+
+  const triple = basename(dirname(buildDir));
+  const arch = ARCH_NAMES[triple.split('-')[0]] ?? 'x64';
+  const name = `${productName}_${version}_${arch}-portable`;
+  const outDir = join(releaseDir, name);
+
+  await rm(outDir, { recursive: true, force: true });
+  await mkdir(outDir, { recursive: true });
+  await copyFile(exe, join(outDir, `${productName}.exe`));
+
+  // `icons/taskbar/*` → copy `icons/taskbar`, the part before the first glob.
+  for (const pattern of tauriConf.bundle?.resources ?? []) {
+    const literal = pattern.split('/').filter((part) => !/[*?[{]/.test(part)).join('/');
+    const src = join(buildDir, literal);
+    if (literal && existsSync(src)) await cp(src, join(outDir, literal), { recursive: true });
+  }
+
+  // Windows 10+ ships bsdtar, which writes zip archives. Git Bash's GNU tar
+  // shadows it on PATH and cannot, so call it by full path.
+  const zip = join(releaseDir, `${name}.zip`);
+  await rm(zip, { force: true });
+  try {
+    if (process.platform === 'win32') {
+      const tar = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe');
+      execFileSync(tar, ['-a', '-c', '-f', zip, '-C', releaseDir, name]);
+    }
+    else execFileSync('zip', ['-r', '-q', zip, name], { cwd: releaseDir });
+    const { size } = await stat(zip);
+    console.log(`release/${name}.zip  ${(size / 1024 / 1024).toFixed(1)} MB`);
+  } catch (err) {
+    console.warn(`Could not zip the portable build (${err.message}); folder is at release/${name}/`);
+  }
 }
 
 if (scratch.length > 0) {
