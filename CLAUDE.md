@@ -1,12 +1,18 @@
 # groove — trình phát nhạc Groove X
 
 Repo git riêng trong workspace `xdesktop` (luật chung, quyết định D-* / G-*: `../CLAUDE.md`, `../docs/decisions.md`).
-Đang viết lại từ Tauri + Vue sang Rust + GPUI + materiant (G-1). Đặc tả, lỗi cần sửa, bảng task và làn song song:
-`docs/rewrite-spec.md`. Task: `plan/groove-gd1_*.md` (làm bằng skill `run-task`), việc treo `plan/_backlog.md`, việc đã tự
-chọn `plan/confirm.md`.
+Đã viết lại từ Tauri + Vue sang Rust + GPUI + materiant (G-1): mọi task GĐ1 đã gộp, trừ task 28 (đọc localStorage cũ, tuỳ
+chọn, chưa làm). Đặc tả, lỗi đã sửa: `docs/rewrite-spec.md`; bảng so bản cũ, số đo RAM: `docs/parity.md`; lộ trình:
+`ROADMAP.md`. Task: `plan/groove-gd1_*.md` (skill `run-task`), việc treo `plan/_backlog.md`, việc đã tự chọn `plan/confirm.md`.
 
-**Bản Tauri (`src/`, `src-tauri/`, Node) vẫn còn đến task 29**: chỉ để đọc đối chiếu, không sửa, không debug (G-1). `src-tauri`
-nằm ngoài cargo workspace (`exclude`), vẫn build riêng được.
+**Bản Rust chưa được chủ dự án nhìn trên màn thật.** Cửa sổ thật mới chạy trong desktop ẩn (`tools/measure-hidden.ps1`), nên
+bản Tauri vẫn là bản chạy được duy nhất đã kiểm:
+
+- Tag `tauri-final` là commit cuối còn bản Tauri. Đặc tả trỏ `src/…`, `src-tauri/…`: đọc bằng
+  `git -C groove show tauri-final:<đường dẫn>` (hoặc thẳng thư mục khi nó còn).
+- Nhánh `claude/remove-tauri` gỡ `src/`, `src-tauri/`, Node, `public/`, `scripts/`, chưa gộp. Chủ dự án gộp sau khi đã xem app
+  thật (`plan/_backlog.md`, dòng `[owner-qa]` đầu tiên). Trước lúc đó `master` vẫn còn các thư mục này: chỉ đọc đối chiếu,
+  không sửa, không debug (G-1); `src-tauri` nằm ngoài cargo workspace (`exclude`).
 
 ## Bố cục (cargo workspace)
 
@@ -20,18 +26,13 @@ nằm ngoài cargo workspace (`exclude`), vẫn build riêng được.
 Viết tắt trong task: `core`, `library`, `audio`, `app`, `views` = `crates/groove-core/src`, `crates/groove-library/src`,
 `crates/groove-audio/src`, `crates/groove-app/src`, `crates/groove-app/src/views`.
 
-## Luật song song (đặc tả mục 6)
+## Nối dây
 
-- Mọi crate, `mod`, phụ thuộc đã khai sẵn. Task sau **không sửa** `Cargo.toml`, `Cargo.lock`, `deny.toml`, `lib.rs`,
-  `main.rs`, `mod.rs`. Mỗi tệp `.rs` mở đầu bằng dòng ghi task sở hữu; chỉ sửa tệp của mình, thiếu API từ làn khác thì ghi
-  mục 8 của task.
-- Thật sự thiếu phụ thuộc ⇒ soát giấy phép, thêm đúng một dòng, ghi mục 9 và `plan/confirm.md`; khả năng xung đột `Cargo.lock`
-  thì lúc gộp `cargo build` sinh lại.
-- **Ngoại lệ có chủ ý: `app/app.rs`.** Task 03 sở hữu; task sau cần khởi tạo lúc mở app (13, 17, 22, 25, 26, 27) được thêm
-  đúng một lời gọi vào `run`, mọi thứ khác nằm ở tệp của mình. Task 25 viết thân `instance::forward_to_primary` (chữ ký có
-  sẵn, `main` đã gọi).
-- `views/mod.rs` khai sẵn; task 03 dựng slot trống cho từng view.
-- `#![allow(dead_code)]` ở `main.rs` để view có trước khi nối được; gỡ ở task 29. Crate lib dùng `pub`, không cần.
+- Khởi tạo app: chuỗi lời gọi `install` trong `app::run` (thứ tự có nghĩa: thư viện → player → phím → view). View thêm vào
+  `Shell` qua `Slot`; hộp thoại tự vẽ lớp phủ (`Dialog`) nằm trong cây của view chủ.
+- `groove-app` không còn `#![allow(dead_code)]` (gỡ ở task 29). Hàm chỉ test dùng thì `#[cfg(test)]`; mã chết nghĩa là
+  tính năng chưa nối, nối chứ đừng xoá cho qua. Crate lib dùng `pub` nên lint không bắt: soát bằng tay khi thêm API.
+- Mỗi tệp `.rs` mở đầu bằng dòng ghi task tạo ra nó, để tra mục 9 của task đó.
 
 ## Luật riêng repo này
 
@@ -53,6 +54,7 @@ Viết tắt trong task: `core`, `library`, `audio`, `app`, `views` = `crates/gr
 - **`libasound` (LGPL) đã chấp nhận, chỉ link động** (G-2): ở Linux `cpal` sau feature `groove-audio/linux-alsa`, bật mặc
   định; không link tĩnh, không kèm vào bản cài, gói `.deb` khai là phụ thuộc. Build Linux cần `libasound2-dev`.
 - Mã chỉ một OS ⇒ `#[cfg(target_os = …)]` trong `app/platform`, không rải khắp nơi.
+- **Màu nhấn**: cyan `#06b6d4` của bản cũ, đặt ở `app::apply_theme` (`ACCENT`), không dùng màu mặc định của materiant.
 
 ## Lệnh
 
@@ -70,6 +72,11 @@ bash packaging/macos/build-macos.sh                           # .app, .dmg, ký 
 bash packaging/linux/build-deb.sh                             # .deb, libasound là phụ thuộc (G-2); chạy trên Ubuntu
 ```
 
+`pwsh tools/measure-hidden.ps1 -Exe <groove.exe> [-Keys …] [-Shot ảnh.png]`: chạy app thật trong desktop Win32 ẩn, không hiện ở
+màn nào, không giành focus, dữ liệu tạm; in RAM, số cửa sổ, tiêu đề, dòng WARN / ERROR. Từ chối exe không đọc
+`GROOVE_DATA_DIR` (bản phát hành thật sẽ mở thư viện thật); đo gần bản phát hành thì build release với
+`CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=true`. Không có nền mờ, con trỏ, taskbar thật; xem ảnh xong xoá.
+
 `tools/run.ps1`: màn phụ, không focus, phím đưa thẳng vào GPUI, chụp đúng cửa sổ, in RAM, `foreground_unchanged`; dữ liệu ở
 thư mục tạm; máy chỉ một màn thì từ chối (không đè màn đang dùng), muốn thử thật truyền `-Display primary`. `--display` chọn
 màn không có thì thoát, không rơi về màn mặc định. Xem ảnh xong xoá thư mục `-Out`.
@@ -82,3 +89,5 @@ màn không có thì thoát, không rơi về màn mặc định. Xem ảnh xong
   nghĩa là máy không có DB (đặc tả 2.3).
 - `notify` dùng bản 8 + `notify-debouncer-full` 0.5, không phải bản `-rc` mà `cargo info` đưa ra.
 - Dòng ERROR `directx_devices.rs:82 ... 0x887A002D` lúc chạy debug chỉ là thiếu lớp debug DXGI, không phải lỗi.
+- Trên desktop ẩn còn `unable to get cursor position: Access is denied` và `taskbar list init: 0x80004001`: do desktop ẩn.
+- `GROOVE_DATA_DIR` kéo theo cả chỗ tìm DB Tauri cũ (`paths::legacy_db`): chạy thử không bao giờ đọc DB thật.

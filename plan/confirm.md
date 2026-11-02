@@ -193,3 +193,14 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_27] macOS khai `CFBundleTypeExtensions`, không khai UTI — `LSItemContentTypes` — bản Tauri cũng khai theo đuôi, M4R chưa rõ UTI công khai. Finder có nhận hay không phải kiểm trên Mac.
 - [groove-gd1_27] Không soát chuỗi `GROOVE_DATA_DIR` trong exe release — soát như `fastcast` — `instance.rs:112` đọc tên biến ở mọi bản, `dev_tag` bỏ qua ở release, nên chuỗi còn trong exe mà hành vi vẫn đúng.
 - [groove-gd1_27] Repo gốc: `build.* --project groove` chỉ uỷ quyền cho `packaging/*`, build cho máy đang chạy, không chọn chip; `start.* groove` mở app với dữ liệu thật, không ép `--display` vì lệnh này cho chủ dự án xem tay.
+
+## groove-gd1_29
+
+- [groove-gd1_29] Màu nhấn cyan (`#06b6d4` nền tối, `#0e7490` nền sáng) — giữ hồng mặc định của materiant — đặc tả 1.1 ghi cyan là màu của app; nền sáng đậm hơn để chữ trên trắng đủ tương phản.
+- [groove-gd1_29] Now Playing: cột trái tối thiểu 150 px, cột phải 190 px — 180 / 240 px như đặc tả 1.5 — ở cửa sổ 800 px mặc định cột lời chỉ còn ~86 px, ba nút bị cắt.
+- [groove-gd1_29] Toast khi đĩa đổi ngoài app là Info, qua sự kiện mới `LibraryEvent::ExternalChange` — toast mọi `Synced` — import, quét lại, xoá đã có toast riêng; phân biệt bằng thời điểm thì chạy đua.
+- [groove-gd1_29] Không làm UI xoá bài mất trước hạn 30 ngày (`reconcile::forget_missing` có test, không có nút) — thêm danh sách bài mất ở Settings — N1 ghi "sau 30 ngày hoặc khi người dùng xác nhận", 30 ngày đã có; giao diện là thiết kế mới.
+- [groove-gd1_29] Toast giữ 5 s của materiant — 4 s như bản cũ — một hằng chung của bộ component, khác biệt nhỏ.
+- [groove-gd1_29] Đo RAM bằng desktop Win32 ẩn và exe release có debug assertions — ghi chưa đo — không hiện cửa sổ ở màn nào, không chạm dữ liệu thật; bản phát hành thật bỏ qua `GROOVE_DATA_DIR` nên không đo.
+- [groove-gd1_29] Gỡ thêm `public/`, `scripts/`, `.husky/`, `.vscode/extensions.json`, `.oxfmtrc.json`, `app.json`, `index.html`, `tsconfig*` cùng nhánh gỡ Tauri — chỉ gỡ `src/`, `src-tauri/`, `package.json` — đều chỉ phục vụ bản Vue / Tauri, không gì trong `crates/`, `packaging/`, `tools/`, script gốc tham chiếu tới.
+

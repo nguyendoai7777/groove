@@ -2,6 +2,8 @@
 
 Soát từ mã ngày 02/11/2026, nhánh `master` commit `ed2fe82`. Đường dẫn dẫn chứng tính từ `groove/`; `lib.rs`, `db.rs`, `tags.rs`, `watcher.rs`, `paths.rs` nằm ở `src-tauri/src/`, `tauri.conf.json` ở `src-tauri/`. Đây là đọc mã, chưa chạy thử bản cũ. Số liệu thật lấy từ bản chép của `%APPDATA%\com.mrdxd.groovex\groovex.db` trên máy Windows: 1 002 bài, 8 album, 8 thư mục, 8 gốc theo dõi, 1 playlist rỗng, 5 bài có timeline, lyrics tổng 526 KB, bìa base64 tổng 1,13 MB (lớn nhất 171 KB), `user_version = 0`, `journal_mode = delete`.
 
+**Từ groove-gd1_29**: bản Tauri bị gỡ ở nhánh `claude/remove-tauri` (chờ chủ dự án gộp). Đường dẫn `src/…`, `src-tauri/…` dưới đây đọc qua tag `tauri-final`: `git -C groove show tauri-final:src-tauri/src/lib.rs`. Bảng so bản cũ: `docs/parity.md`.
+
 Mã lỗi `N`, `S`, `M` ở mục 3. Mục 1 ghi hành vi bản cũ; chỗ bản mới phải khác thì trỏ tới mã lỗi.
 
 ## 1. Đặc tả hành vi cần giữ
