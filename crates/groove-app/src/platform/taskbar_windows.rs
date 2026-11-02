@@ -556,7 +556,8 @@ mod tests {
 
     #[test]
     fn buttons_follow_track_and_playback() {
-        groove_core::i18n::set_language(groove_core::i18n::Language::En);
+        // Ngôn ngữ là global của tiến trình: test của crate này đều dùng `Vi`, đặt `En` làm đỏ test song song.
+        groove_core::i18n::set_language(groove_core::i18n::Language::Vi);
         let icons = Icons::load(96);
         let tip = |button: &THUMBBUTTON| {
             let end = button.szTip.iter().position(|&unit| unit == 0).unwrap();
@@ -570,13 +571,13 @@ mod tests {
         let paused = buttons(ButtonState { has_track: true, playing: false }, &icons);
         assert_eq!(paused.map(|b| b.dwFlags), [THBF_ENABLED; 3]);
         assert_eq!(paused[1].hIcon, icons.play);
-        assert_eq!(tip(&paused[0]), "Previous");
-        assert_eq!(tip(&paused[1]), "Play");
-        assert_eq!(tip(&paused[2]), "Next");
+        assert_eq!(tip(&paused[0]), "Bài trước");
+        assert_eq!(tip(&paused[1]), "Phát");
+        assert_eq!(tip(&paused[2]), "Bài sau");
 
         let playing = buttons(ButtonState { has_track: true, playing: true }, &icons);
         assert_eq!(playing[1].hIcon, icons.pause);
-        assert_eq!(tip(&playing[1]), "Pause");
+        assert_eq!(tip(&playing[1]), "Tạm dừng");
     }
 
     #[test]
