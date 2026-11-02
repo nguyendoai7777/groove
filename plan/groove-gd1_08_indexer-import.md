@@ -11,6 +11,17 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `library/{scanner,indexer}.rs` |
 
+## 0. Bàn giao từ groove-gd1_05 (02/11/2026)
+
+<!-- handoff: groove-gd1_05 -->
+
+- **Đã có sẵn để dùng**: `store::Library` (sao chép rẻ, gửi được giữa luồng); mọi hàm trả về ngay `actor::Reply<T>`, là `Future`, UI `await`. `Reply::wait` chặn, chỉ dùng ở luồng worker. Chi tiết API: `plan/groove-gd1_05_library-store.md` mục 9.
+- **Ghi**: `library.writer().transaction(|conn| ...)`, bên trong gọi `db::queries`. Đọc thẻ, giải ảnh làm ở worker, xong mới gửi vào; mỗi transaction tối đa `actor::BATCH_ROWS` (100) dòng. `.wait()` từng lô để có backpressure, channel ghi không giới hạn.
+- **Hàm cho task này**: `queries::{upsert_song, SongUpsert, get_or_create_folder, get_or_create_album, delete_empty_albums, upsert_cover, set_album_cover, set_folder_cover, add_watched_root}`; `Library::pending_tag_reads(limit)` cho tác vụ `tags_read_at IS NULL`.
+- **`upsert_song`** tra theo `path_key`, tự tính `filename`, `search_key`, tự lấy tên album từ `album_id`. Lyrics, timeline rỗng từ tệp giữ bản DB (N2). Các trường còn lại ghi đè: truyền đủ, nhớ `tags_read_at = queries::now_ms()`.
+- **Sự kiện**: sau khi lô commit gọi `writer().emit(LibraryEvent::Progress(..))`, xong hẳn `Synced(SyncReport { added, updated, removed })`, `removed` là `id`.
+- **`set_album_cover(.., custom = false)`** không đè bìa người dùng chọn (S8).
+
 ## 0. Bàn giao từ groove-gd1_07 (02/11/2026)
 
 <!-- handoff: groove-gd1_07 -->

@@ -9,6 +9,7 @@ use futures::StreamExt;
 use futures::executor::block_on;
 use groove_core::model::{CategoryRef, TrackRef};
 use groove_library::actor::{LibraryError, LibraryEvent, OpenFailure, OpenStatus};
+use groove_library::covers::CoverStore;
 use groove_library::db::migrate::{CoverRecord, CoverSink, OpenOutcome};
 use groove_library::db::queries::{self, QueryError, SongUpsert};
 use groove_library::store::{Library, LibraryConfig};
@@ -182,6 +183,18 @@ fn open_returns_at_once_and_queued_reads_wait_for_the_migration() {
 }
 
 #[test]
+fn real_cover_store_works_as_the_sink() {
+    // Ảnh giả trong fixture không giải được: chỉ mất bìa đó, chuyển đổi vẫn xong.
+    let paths = paths();
+    write_legacy(&paths.legacy);
+    let covers = CoverStore::new(paths.target.parent().unwrap().join("covers"));
+    let config = LibraryConfig { target: paths.target.clone(), legacy: Some(paths.legacy.clone()) };
+    let library = Library::open(config, Box::new(covers)).unwrap();
+    assert_eq!(library.song_ids(CategoryRef::Folder(3)).wait().unwrap(), [10]);
+    assert!(matches!(library.status(), OpenStatus::Ready(OpenOutcome::Migrated(_))));
+}
+
+#[test]
 fn too_new_database_is_refused_and_left_untouched() {
     let paths = paths();
     fs::create_dir_all(paths.target.parent().unwrap()).unwrap();
@@ -305,12 +318,12 @@ fn playlist_writes_notify_only_after_commit() {
 
     let list = library.create_playlist("L", "#06b6d4").wait().unwrap();
     assert!(library.add_song_to_playlist(list, song).wait().unwrap());
-    assert_eq!(events.try_next().unwrap(), Some(LibraryEvent::PlaylistsChanged));
-    assert_eq!(events.try_next().unwrap(), Some(LibraryEvent::PlaylistsChanged));
+    assert_eq!(events.try_recv().unwrap(), LibraryEvent::PlaylistsChanged);
+    assert_eq!(events.try_recv().unwrap(), LibraryEvent::PlaylistsChanged);
 
     // Lỗi: không có gì đổi, không báo.
     assert!(library.create_playlist("L", "#000").wait().is_err());
-    assert!(events.try_next().is_err());
+    assert!(events.try_recv().is_err());
 
     assert_eq!(library.songs(CategoryRef::Playlist(list)).wait().unwrap().len(), 1);
     assert!(library.remove_song_from_playlist(list, song).wait().unwrap());

@@ -11,6 +11,15 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `views/{library_page,category_card,cover_image}.rs`, `i18n/*/library.toml` |
 
+## 0. Bàn giao từ groove-gd1_05 (02/11/2026)
+
+<!-- handoff: groove-gd1_05 -->
+
+- **Đã có sẵn để dùng**: `store::Library` (sao chép rẻ, gửi được giữa luồng); mọi hàm trả về ngay `actor::Reply<T>`, là `Future`, UI `await`. `Reply::wait` chặn, chỉ dùng ở luồng worker. Chi tiết API: `plan/groove-gd1_05_library-store.md` mục 9.
+- **Lưới**: `Library::categories()` trả `Categories { albums, folders }`, `playlists()` trả `Vec<CategorySummary>`, đã sắp theo tên không dấu. `CategorySummary`: `reference, name, artist, path, color, song_count, cover_hash, accent_color`; trường không áp cho loại đó là `None`. Bìa: `CoverStore::path(hash, size)`.
+- **Trạng thái mở**: `Library::status()`, `OpenStatus::Failed(OpenFailure)` phải báo cho người dùng. `TooNew`: chỉ báo cần cập nhật app. `LegacyFailed`: hai nút `retry_open()` và `start_fresh()`. Lúc `Opening` việc đọc tự chờ, không lỗi.
+- **Nạp lại**: nghe `LibraryEvent::{Opened, Synced, PlaylistsChanged}` qua `subscribe()`.
+
 ## 0. Bàn giao từ groove-gd1_03 (02/11/2026)
 
 <!-- handoff: groove-gd1_03 -->

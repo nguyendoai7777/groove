@@ -17,6 +17,7 @@ use rusqlite::{Connection, OpenFlags};
 use crate::actor::{
     EventBus, Gate, LibraryActor, LibraryError, LibraryEvent, LibraryResult, OpenStatus, Reply, Worker,
 };
+use crate::covers::CoverStore;
 use crate::db::migrate::{CoverSink, OpenOutcome};
 use crate::db::queries::{self, Categories, CategorySummary, PendingTagRead, SongFileState, SongText};
 use crate::db::schema;
@@ -82,7 +83,7 @@ pub struct Library {
 
 impl Library {
     /// Trả về ngay, mở và chuyển DB chạy nền. Theo dõi kết quả qua `status`, `subscribe`; việc gửi trong lúc đó tự xếp hàng.
-    /// Không có `CoverSink` thật thì đừng gọi trên đường chạy thật: bìa của DB cũ sẽ mất.
+    /// Đường chạy thật dùng `open_standard`; hàm này cho test và nơi cần chỗ khác.
     pub fn open(config: LibraryConfig, sink: Box<dyn CoverSink + Send>) -> io::Result<Library> {
         let gate = Arc::new(Gate::new());
         let bus = Arc::new(EventBus::default());
@@ -93,6 +94,11 @@ impl Library {
         let writer =
             LibraryActor::spawn(&config.target, config.legacy.as_deref(), sink, Arc::clone(&gate), Arc::clone(&bus))?;
         Ok(Library { writer, reader, gate, bus, latest_search: Arc::new(AtomicU64::new(0)) })
+    }
+
+    /// Đường chạy thật: DB ở đường dẫn chuẩn, bìa của DB cũ tách ra `<cache>/covers`.
+    pub fn open_standard() -> io::Result<Library> {
+        Library::open(LibraryConfig::standard()?, Box::new(CoverStore::default_location()?))
     }
 
     /// Không chờ. Người nghe đăng ký muộn đọc ở đây thay vì sự kiện `Opened`.

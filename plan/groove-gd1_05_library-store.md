@@ -2,7 +2,7 @@
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Trạng thái | ☐ |
+| Trạng thái | ✅ (02/11/2026) |
 | Repo | groove |
 | Model | opus |
 | Cỡ | ~750 dòng |
@@ -32,3 +32,42 @@
 
 ## 2. Không làm trong task này
 - Không thêm tính năng ngoài đặc tả; không sửa bản Tauri + Vue (G-1).
+
+## 2b. Phân vai
+Toàn bộ `[opus]`, không giao subagent.
+
+## 6. Nghiệm thu
+- C1 `[opus-unit]` upsert, tra đường dẫn qua `path_key`, giữ `id`, giữ lyrics, timeline DB (M2, N2).
+- C2 `[opus-unit]` tìm không dấu, `-` không khớp tất cả, truy vấn rỗng trả rỗng, tiêu đề xếp trước (S18).
+- C3 `[opus-unit]` thứ tự album, thư mục, playlist, lưới (S19); album trùng tên tách theo `group_key` (S1).
+- C4 `[opus-unit]` đọc không chờ transaction ghi đang mở, thấy bản đã commit (N7).
+- C5 `[opus-unit]` `Library::open` trả về ngay khi chuyển đổi đang kẹt; việc đọc đến sớm chờ, không lỗi giả (N7).
+- C6 `[opus-unit]` `TooNew`: từ chối, tệp không đổi một byte, cả hai lối ra đều không ghi đè.
+- C7 `[opus-unit]` `LegacyFailed`: không tạo `library.db`, tệp cũ nguyên; thử lại được, bỏ qua được.
+- C8 `[opus-unit]` transaction lỗi hoặc panic thì rollback, luồng ghi sống tiếp (S9, S25).
+
+## 8. Nợ chuyển task khác
+- 09, 17: schema chưa có `missing_since` (N1), `excluded_paths` (N9). Đặc tả mục 3 có, đặc tả 2.2 và `schema.rs` không. Đã ghi vào khối bàn giao hai task đó.
+- 13, 15 hoặc 17: gọi `Library::open_standard()` trong `app.rs` và hiển thị `OpenFailure`; task này không có UI.
+
+## 9. Bàn giao thực tế
+- Soát 02/11/2026 trên nhánh sau khi gộp `master`, `-p groove-library`: build, clippy `-D warnings`, test, `cargo fmt --all --check`, `cargo deny check licenses` xanh. Không mở DB thật, chưa đo với DB thật.
+- Cỡ: mã `actor.rs` ~460, `store.rs` ~235, `queries.rs` ~590 dòng, vượt ước lượng ~750. Không tách vì ba tệp dùng chung kiểu và đều do task này sở hữu; thêm `tests/library_store.rs`.
+- API đã khoá, `groove_library`:
+  - `store::Library`: `open_standard`, `open(LibraryConfig, Box<dyn CoverSink + Send>)`, `status`, `retry_open`, `start_fresh`, `subscribe`, `writer`, `read`, `categories`, `playlists`, `category`, `songs`, `song_ids`, `search`, `song`, `songs_for_tracks`, `track_for_path`, `song_text`, `watched_roots`, `song_file_states`, `pending_tag_reads`, `create_playlist`, `delete_playlist`, `add_song_to_playlist`, `remove_song_from_playlist`, `shutdown`. `LibraryConfig`, `SearchResults`.
+  - `actor`: `LibraryActor::{transaction, transaction_then_emit, emit}`, `Reply<T>` (`Future`, `wait`), `BATCH_ROWS`, `LibraryError`, `LibraryResult`, `OpenFailure`, `OpenStatus`, `LibraryEvent`, `SyncReport`, `MovedSong`, `Progress`, `ProgressKind`.
+  - `db::queries`: hàm thuần trên `&Connection`, `QueryError`, `CategorySummary`, `Categories`, `SongText`, `SongFileState`, `PendingTagRead`, `SongUpsert`, `UpsertOutcome`, `now_ms`.
+- Opus chọn 02/11/2026:
+  - Luồng đọc riêng cũng là một actor, kết nối `READ_ONLY`: UI thread không chạm đĩa cả khi đọc. Đặc tả chỉ ghi "một kết nối đọc riêng".
+  - `LegacyFailed` không tự `open_fresh`: tạo rồi thì không bao giờ chuyển lại. Thư viện ở trạng thái `Failed`, UI cho chọn `retry_open` hoặc `start_fresh`.
+  - Ghi nhận closure (`transaction`) thay vì enum lệnh: task 08, 09, 18 không phải sửa `actor.rs`, đúng luật song song.
+  - `futures` `oneshot`, `mpsc` cho kết quả và sự kiện, để UI `await` được mà không chặn luồng.
+  - `Library::open_standard` dùng `LibraryConfig::standard` và `CoverStore::default_location` thay cho `migrate::open_default`, vì luồng đọc cũng cần đường dẫn; hai đường dẫn giống hệt.
+  - Hạt giống `watched_roots` từ `folders` chỉ chạy một lần sau chuyển đổi, không ở lần đọc như bản cũ: chạy ở lần đọc thì người dùng bỏ hết gốc sẽ thấy gốc quay lại (N9).
+  - Đặt bìa tự động không đè bìa tự chọn; `position` có lỗ sau khi xoá, chỉ dùng để xếp. Chưa có lệnh sắp lại playlist, đặc tả 2.4 không ghi.
+
+## 10. Đề xuất cải tiến
+- Bảo mật: không ghi nội dung lyrics, truy vấn vào log; kết nối đọc không ghi được (có test). Đường dẫn DB có trong log lỗi mở.
+- UI/UX: không áp ở tầng này; yêu cầu hiển thị `OpenFailure` đã ghi cho task 15.
+- RAM: thêm hai luồng và một kết nối đọc; `sink` thả ngay sau khi mở; chưa đo RAM, đo ở task 29. Channel không giới hạn: worker phải `wait` từng lô, đã ghi cho 08.
+- Pro: không áp.

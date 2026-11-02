@@ -329,7 +329,7 @@ impl WriterState {
         };
         let (conn, outcome) = opened.map_err(OpenFailure::from)?;
         if let OpenOutcome::Migrated(_) = outcome
-            && let Err(err) = queries::seed_watched_roots_from_folders(&conn)
+            && let Err(err) = seed_roots(&conn)
         {
             log::warn!("could not seed watched roots: {err}");
         }
@@ -345,6 +345,13 @@ impl WriterState {
             },
         }
     }
+}
+
+fn seed_roots(conn: &Connection) -> LibraryResult<()> {
+    let tx = conn.unchecked_transaction()?;
+    queries::seed_watched_roots_from_folders(&tx)?;
+    tx.commit()?;
+    Ok(())
 }
 
 impl Drop for WriterState {
@@ -484,7 +491,7 @@ mod tests {
         drop(bus.subscribe());
         bus.emit(LibraryEvent::PlaylistsChanged);
         assert_eq!(lock(&bus.subscribers).len(), 1);
-        assert_eq!(alive.try_next().unwrap(), Some(LibraryEvent::PlaylistsChanged));
+        assert_eq!(alive.try_recv().unwrap(), LibraryEvent::PlaylistsChanged);
     }
 
     #[test]

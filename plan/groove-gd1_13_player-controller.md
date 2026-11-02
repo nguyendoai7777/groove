@@ -11,6 +11,15 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `app/player.rs`, `app/session_sync.rs` (N5, N6, N8) |
 
+## 0. Bàn giao từ groove-gd1_05 (02/11/2026)
+
+<!-- handoff: groove-gd1_05 -->
+
+- **Đã có sẵn để dùng**: `store::Library` (sao chép rẻ, gửi được giữa luồng); mọi hàm trả về ngay `actor::Reply<T>`, là `Future`, UI `await`. `Reply::wait` chặn, chỉ dùng ở luồng worker. Chi tiết API: `plan/groove-gd1_05_library-store.md` mục 9.
+- **Tra bài**: `Library::song(TrackRef)`, `songs_for_tracks(Vec<TrackRef>)` giữ thứ tự, bỏ bài không còn (N5). `None` với `External` nghĩa là tệp ngoài thật, dùng `Song::external`. `track_for_path(path)` cho N6, `song_text(id)` cho lyrics, timeline bài đang phát (S16).
+- **Nghe**: `Library::subscribe()` trả `Stream<LibraryEvent>`; `Synced(report).removed` là `id` cần bỏ khỏi hàng đợi.
+- **Mở thư viện chưa có chủ**: đường chạy thật gọi `Library::open_standard()` một lần (không chặn), giữ một bản; khi thoát `block_on(library.shutdown())`. Ai làm trước trong 13, 15, 17 thì gọi trong `app.rs`.
+
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 13. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 0. Bàn giao từ groove-gd1_12 (02/11/2026)
