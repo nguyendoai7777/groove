@@ -1,1 +1,50 @@
 # Vùng palette: khoá viết không tiền tố, tra bằng t!("palette.<khoá>").
+
+title = "Bảng lệnh"
+placeholder = "Gõ / để dùng lệnh phát nhạc, hoặc tìm bài hát, ca sĩ..."
+mode_search = "Tìm kiếm"
+mode_cli = "Chế độ lệnh"
+searching = "Đang tìm..."
+no_results = "Không tìm thấy kết quả cho \"{query}\""
+search_failed = "Không tìm được lúc này. Thư viện đang bận, thử lại sau giây lát."
+song_kind = "Bài hát"
+not_found = "Không có bài nào khớp. Thử từ khoá khác."
+playall_empty = "Danh sách đang trống, chưa có bài để phát."
+
+[group]
+quick = "Thao tác nhanh"
+songs = "Bài hát"
+commands = "Lệnh"
+
+[quick]
+play_random = "Phát ngẫu nhiên thư viện"
+play_random_desc = "Chức năng • Trộn bài hát ngẫu nhiên"
+go_to_library = "Đi tới Thư viện nhạc"
+go_to_library_desc = "Điều hướng • Mở trang My Music"
+go_to_now_playing = "Đi tới Đang phát"
+go_to_now_playing_desc = "Điều hướng • Mở trang Now Playing"
+
+[cli]
+play = "Phát nhạc, hoặc phát bài có tên khớp"
+playall = "Phát toàn bộ danh sách hiện tại"
+queue = "Thêm bài khớp tên vào cuối hàng đợi"
+pause = "Tạm dừng"
+next = "Bài kế tiếp"
+prev = "Bài trước"
+volume = "Đặt âm lượng từ 0 đến 100"
+theme = "Đổi giao diện sáng, tối (dark, light, system)"
+help = "Hiện danh sách lệnh"
+tab = "chọn"
+
+[error]
+unknown = "Không có lệnh {name}. Gõ /help để xem danh sách lệnh."
+missing_arg = "Lệnh {name} cần thêm đối số. Ví dụ: {name} <giá trị>"
+invalid_volume = "Âm lượng \"{value}\" không hợp lệ. Nhập một số từ 0 đến 100."
+invalid_theme = "Giao diện \"{value}\" không hợp lệ. Chọn dark, light hoặc system."
+
+[footer]
+move = "Di chuyển"
+choose = "Chọn"
+choose_command = "Chọn lệnh"
+run = "Chạy lệnh"
+close = "Đóng"

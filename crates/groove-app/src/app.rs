@@ -86,6 +86,8 @@ pub fn run(dev: DevArgs) {
         crate::commands::install(cx);
         // Task 14: thanh phát vào `Slot::PlayerBar`, cần player ở trên.
         crate::views::player_bar::install(handle, cx);
+        // Task 23: bảng lệnh vào `Slot::CommandPalette`, nghe `ShellEvent::OpenSearch`.
+        crate::views::command_palette::install(handle, cx);
         dev::replay(handle, dev.keys, cx);
     });
 }
@@ -191,6 +193,8 @@ pub enum Slot {
     Library,
     /// Now Playing (task 21).
     NowPlaying,
+    /// Bảng lệnh (task 23): dialog tự vẽ lớp phủ, nên chỉ cần nằm trong cây của khung.
+    CommandPalette,
 }
 
 /// Sự kiện của khung cho view khác nghe.
@@ -208,6 +212,7 @@ struct Slots {
     player_bar: Option<AnyView>,
     library: Option<AnyView>,
     now_playing: Option<AnyView>,
+    command_palette: Option<AnyView>,
 }
 
 impl Slots {
@@ -216,6 +221,7 @@ impl Slots {
             Slot::PlayerBar => self.player_bar.as_ref(),
             Slot::Library => self.library.as_ref(),
             Slot::NowPlaying => self.now_playing.as_ref(),
+            Slot::CommandPalette => self.command_palette.as_ref(),
         }
     }
 
@@ -224,6 +230,7 @@ impl Slots {
             Slot::PlayerBar => self.player_bar = Some(view),
             Slot::Library => self.library = Some(view),
             Slot::NowPlaying => self.now_playing = Some(view),
+            Slot::CommandPalette => self.command_palette = Some(view),
         }
     }
 }
@@ -407,6 +414,7 @@ impl Render for Shell {
                     .border_color(c.border)
                     .children(player),
             )
+            .children(self.slots.get(Slot::CommandPalette).map(|view| view.clone().into_any_element()))
             .child(ToastViewport::new().inset_top(px(app_bar::HEIGHT)))
     }
 }

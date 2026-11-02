@@ -146,3 +146,5 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_19] Ctrl+V chỉ dán ảnh khi chuột đang trên ô bìa và clipboard có ảnh / tệp ảnh — luôn chặn Ctrl+V trong dialog — để ô nhập vẫn dán chữ được.
 - [groove-gd1_19] Bài `not_started` của báo cáo lô chỉ hiện số lượng — kèm tên — `BulkReport.not_started` chỉ có id, tra tên cần DB đang đóng.
 - [groove-gd1_19] Nền dialog bấm không đóng, Esc bị chặn khi đang lưu — theo mặc định của materiant — tránh mất bản sửa dài.
+- [groove-gd1_23] Thêm `Slot::CommandPalette` và một dòng vẽ trong `Shell::render` của `app.rs` (tệp của task 03) — treo `Dialog` ở slot sẵn có hay dựng cửa sổ phụ — `Dialog` của materiant chỉ vẽ được khi nằm trong cây view, chưa có chỗ chung cho dialog.
+- [groove-gd1_23] Nhấp một dòng của bảng lệnh chạy ngay khi dòng đó đang chọn (rê chuột đã chọn nó), nhấp đúp không chạy lần hai — chạy ngay mọi lần nhấp — tránh chạy hai lần khi nhấp đúp; đặc tả chỉ ghi "rê chuột dời con trỏ".
