@@ -1,0 +1,23 @@
+[package]
+name = "groove-core"
+description = "Kiểu dữ liệu, cài đặt, phiên, hàng đợi, timeline, phím tắt, i18n, đường dẫn; không UI"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+dirs = "6"
+log.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sys-locale = "0.3"
+thiserror.workspace = true
+toml = { version = "1", default-features = false, features = ["parse", "serde"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

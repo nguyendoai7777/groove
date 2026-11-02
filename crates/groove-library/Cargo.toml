@@ -1,0 +1,40 @@
+[package]
+name = "groove-library"
+description = "Thư viện nhạc: SQLite, thẻ tệp, bìa, quét, watcher; chạy ở luồng nền, không UI"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+groove-core.workspace = true
+anyhow.workspace = true
+# data: URI bìa trong DB cũ (đặc tả 2.3).
+base64 = "0.22"
+crossbeam-channel.workspace = true
+futures.workspace = true
+id3 = "1"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "gif", "bmp"] }
+log.workspace = true
+lofty = "0.25"
+# Bản stable: notify 8 đi với debouncer-full 0.5. Không dùng bản `-rc` (đặc tả mục 5).
+notify = "8"
+notify-debouncer-full = "0.5"
+rusqlite = { version = "0.41", features = ["bundled", "functions"] }
+# Đọc bản chép localStorage của WebView2 (task 28, tuỳ chọn, chỉ Windows dùng).
+rusty-leveldb = "4"
+serde.workspace = true
+serde_json.workspace = true
+# `covers.hash` (đặc tả 2.2).
+sha2 = "0.10"
+thiserror.workspace = true
+# `search_key` không dấu (đặc tả S18).
+unicode-normalization.workspace = true
+walkdir = "2"
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

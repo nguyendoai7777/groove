@@ -1,0 +1,7 @@
+# Vùng common: khoá viết không tiền tố, tra bằng t!("common.<khoá>").
+app_name = "Groove X"
+ok = "OK"
+cancel = "Huỷ"
+save = "Lưu"
+delete = "Xoá"
+close = "Đóng"

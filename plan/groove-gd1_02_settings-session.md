@@ -11,6 +11,15 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `core/{settings,session,model}.rs` |
 
+## 0. Bàn giao từ groove-gd1_01 (02/11/2026)
+
+<!-- handoff: groove-gd1_01 -->
+
+- **Đã có sẵn để dùng**: bố cục, lệnh, luật ở `CLAUDE.md`; `groove_core::{paths, i18n, t!, logging}`.
+- **Không sửa**: `Cargo.*`, `lib.rs`, `main.rs`, `mod.rs` (mọi `mod` và phụ thuộc đã khai sẵn).
+- **Bẫy đã gặp**: `CARGO_TARGET_DIR` riêng từng worktree, build nguội khoảng 3 phút; `tools/run.ps1` từ chối khi máy chỉ một màn.
+- **Nợ chuyển sang đây**: gọi `i18n::set_language` theo cài đặt (`i18n::Language` serde `vi`, `en`, `Language::detect` theo OS); giữ hằng đuôi tệp nhạc một chỗ ở `core/model.rs` (S22); đường dẫn tệp: `paths::settings_file`, `paths::session_file`.
+
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 02. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 1. Làm gì
