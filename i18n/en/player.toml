@@ -13,7 +13,6 @@ repeat_one = "Repeat one"
 mute = "Mute"
 unmute = "Unmute"
 volume = "Volume"
-settings = "Settings"
 
 [toast]
 unknown_track = "this song"

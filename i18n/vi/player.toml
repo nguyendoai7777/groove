@@ -13,7 +13,6 @@ repeat_one = "Lặp lại một bài"
 mute = "Tắt tiếng"
 unmute = "Bật tiếng"
 volume = "Âm lượng"
-settings = "Cài đặt"
 
 [toast]
 unknown_track = "bài hát này"
