@@ -74,13 +74,24 @@ Danh sách chung: `materiant/CLAUDE.md` mục "Soát trước khi xong một com
   độ đậm khác `NORMAL` (test `tests/font_weight.rs` quét `src/**`), phân cấp bằng cỡ chữ và màu.
 - **Màu nhấn** từ theme (G-4, mục trên); không thêm mã màu nhấn trong view.
 - **Space là phím toàn cục** (phát / dừng): vòng focus đi qua `materiant::style::focus_visible`, kể cả nút / hàng tự dựng.
-- **Hoạt ảnh lặp** (chữ chạy `Marquee`, thanh nhảy `PlayingBars`) vẽ lại cả cửa sổ mỗi khung: chỉ chạy khi cửa sổ active, dừng
-  tại chỗ khi cửa sổ nền / thu nhỏ (số đo: `plan/confirm.md` mục `ui-audit`).
+- **Hoạt ảnh lặp** (chữ chạy `Marquee`, thanh nhảy `PlayingBars`): chỉ chạy khi cửa sổ active, dừng tại chỗ khi cửa sổ nền / thu
+  nhỏ. Mỗi khung GPUI dựng lại view đang chạy hoạt ảnh và **mọi view tổ tiên**; view nhúng `cached` không bẩn thì dùng lại cả
+  cây (số đo: `plan/confirm.md` mục `cpu`). Giữ đúng bố cục `views::island`:
+  - hoạt ảnh lặp là entity riêng (`MarqueeView`, `BarsView`), khung của nó chỉ `notify` chính nó — không `use_keyed_state` làm
+    trạng thái trực tiếp (GPUI `notify` luôn view chủ), không `request_animation_frame` trong `render` của view chủ;
+  - đường từ gốc tới hoạt ảnh (Shell → thanh phát / Now Playing) nhúng thường; nhánh nặng bên cạnh nhúng `cached`: cột trái, thanh
+    trên (`Island<Shell>`), trang thư viện, bìa / cụm điều khiển / âm lượng của thanh phát (`Island<PlayerBar>`), ba khung
+    của Now Playing. View `cached` mà bẩn thì GPUI dựng lại CẢ cây con (kể cả `cached` bên trong);
+  - view `cached` chỉ dựng lại khi chính nó (hay view con) `notify`: thứ nó đọc trong `render` phải có `observe` → `notify`
+    (`Island` nghe chủ, chủ nghe `Player`…). Theme, ngôn ngữ, đổi cỡ, rê chuột, focus thì GPUI tự làm mới cả cửa sổ;
+  - cần cỡ xác định: `.cached(style)` bố cục theo `style`, không đo nội dung — gốc của view con lấp đúng khung (`size_full`).
+  Test mẫu: `app::tests::animation_frames_reuse_the_cached_page_but_data_changes_still_show`, `views::island::tests`.
 - **Ảnh bìa**: `views::cover_image::CoverImage` cho cả bìa thư viện lẫn bìa nhúng (`.embedded`), `.radius(…)` bằng bo góc của khung
   chứa, phóng bằng `.zoom(…)`; lớp phủ trên bìa tự bo cùng bán kính.
 - **Xem bằng mắt ở desktop ẩn**: `tools/measure-hidden.ps1 -Seed <seed_data.exe>` có sẵn một bài tên dài đang mở (không phát) để
-  thanh phát không khoá và tên chạy; `-Active` mở cửa sổ ở trạng thái active; dòng mốc in cả `cpu=` (% một nhân). Không gõ
-  `space` trong `-Keys` (phát ra loa).
+  thanh phát không khoá và tên chạy; `-Songs <n>` thêm n bài vào thư viện tạm (đo với thư viện có bài); `-Active` mở cửa sổ ở
+  trạng thái active; dòng mốc in cả `cpu=` (% một nhân). Không gõ `space` trong `-Keys` (phát ra loa). CPU so trước / sau thì
+  đo hai bản trong cùng một lượt: cùng exe mà khác lượt lệch tới 2–3 lần (xung nhịp máy).
 
 ## Lệnh
 
