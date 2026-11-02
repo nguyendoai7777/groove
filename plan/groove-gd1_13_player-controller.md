@@ -13,6 +13,14 @@
 
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 13. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
+## 0. Bàn giao từ groove-gd1_11 (02/11/2026)
+
+<!-- handoff: groove-gd1_11 -->
+
+- **Đã có sẵn để dùng**: `groove_audio::dsp::EqParams`; `EqParams::from(&settings.eq)` lấy `effective_gains()`, đã có bass boost, đừng cộng lần nữa.
+- **Việc của task này**: gửi `SetEq` lúc mở app (cả khi phẳng) và mỗi khi EQ đổi. Đổi gain tự trượt 10 ms trong DSP, gửi liên tục khi kéo thanh trượt được.
+- **Cần biết**: preamp tự động làm cả bài nhỏ đi khi tăng dải, đúng S23; chi tiết ở `plan/groove-gd1_11_audio-dsp.md` mục 9.
+
 ## 0. Bàn giao từ groove-gd1_02 (02/11/2026)
 
 <!-- handoff: groove-gd1_02 -->
