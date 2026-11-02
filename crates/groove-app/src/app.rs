@@ -497,6 +497,12 @@ pub fn try_library(cx: &App) -> Option<&Library> {
     cx.try_global::<LibraryHandle>().map(|handle| &handle.0)
 }
 
+/// Đặt sẵn `MetadataOps` trỏ thư mục tạm. Gọi sau `set_library`.
+#[cfg(test)]
+pub fn set_metadata_ops(ops: MetadataOps, cx: &mut App) {
+    assert!(cx.global::<MetadataOpsHandle>().0.set(ops).is_ok(), "metadata ops already built");
+}
+
 pub fn install_slot(slot: Slot, view: impl Into<AnyView>, cx: &mut App) {
     shell(cx).update(cx, |this, cx| this.set_slot(slot, view, cx));
 }

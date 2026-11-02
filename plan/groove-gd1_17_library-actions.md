@@ -2,7 +2,7 @@
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Trạng thái | ☐ |
+| Trạng thái | ✅ (02/11/2026) |
 | Repo | groove |
 | Model | opus |
 | Cỡ | ~750 dòng |
@@ -84,3 +84,39 @@
 
 ## 2. Không làm trong task này
 - Không thêm tính năng ngoài đặc tả; không sửa bản Tauri + Vue (G-1).
+
+## 8. Nợ / việc cho task khác
+
+- Thanh phát (task 21 hoặc sau) chưa có mục "Sửa thông tin": gọi `library_ctl::ctl(cx)` rồi `open_metadata`.
+- Phím Menu của bàn phím chưa gán: materiant chỉ gán Shift+F10 cho `OpenContextMenu`.
+- `MenuItem` của materiant không có icon màu tuỳ ý: menu con playlist chưa có chấm màu của đặc tả 1.2; cần thêm ở materiant.
+
+## 9. Bàn giao thực tế (02/11/2026)
+
+**API đã khoá** (`app/library_ctl.rs`):
+
+- `library_ctl::ctl(cx) -> Option<Entity<LibraryCtl>>`; `install(library, covers, &page, cx)` do `library_page::install_with` gọi, `app::run` không thêm dòng nào.
+- `LibraryCtl`: `pick_and_import`, `import_path(path)`, `rescan`, `forget_root(path)`, `play_category(reference)`, `request_delete(reference)` (qua hộp xác nhận), `remove_category(reference)`, `open_create_playlist(Option<song_id>)`, `add_to_playlist(playlist, song)`, `remove_from_playlist(playlist, song)`, `pick_category_cover(reference)`, `set_category_cover(reference, path)`, `open_metadata(track, from)`, `open_category_metadata(reference)`, `open_text_dialog(SongEditKind, track)`, `playlists()`, `is_importing()`, `is_rescanning()`.
+- `LibraryCtlEvent::Notice { kind, message }`, `connect` đổi thành toast.
+- Hàm thuần: `remove_category_from(&library, reference) -> Removed { songs, root_removed }`, `forget_root_in`, `store_category_cover`, `import_notice`, `rescan_notice`.
+- `with_window(cx, f)` luôn hoãn bằng `cx.defer`: `on_select` của menu chạy lúc cửa sổ đang bị mượn, `window.update` trực tiếp sẽ lỗi.
+- `app::metadata_ops(cx)`: dùng bản đã có trên `master`; ở đây chỉ thêm `app::set_metadata_ops` cho test.
+- `views::card_menu::{build, ConfirmDelete, delete_label}`, `views::song_menu::build`, `views::playlist_dialog::PlaylistDialog`.
+- `LibraryPageEvent::CategoryGone(reference)`, `LibraryPage::{set_overlays, add_overlay, set_metadata_dialog, refresh_lists}`, `SongList::refresh`.
+
+**Hành vi**
+
+- N9: bỏ thư mục dưới gốc ghi `excluded_paths`, thư mục đúng là gốc thì bỏ gốc; bỏ album ghi từng tệp, kể cả bài đang mất. Không đụng tệp. Nhãn nút là "Bỏ khỏi thư viện", hộp xác nhận nói rõ tệp còn nguyên. Sau đó phát `Synced { removed }` để hàng đợi bỏ bài.
+- S2: `play_category` luôn thay hàng đợi, trùng bài thì giữ tiếng. S3: đi theo `CategoryRef`.
+- S13: menu thẻ có "Đổi ảnh bìa" (không có ở playlist) và "Sửa thông tin".
+- Mở app: `backfill_tags`, `LibraryWatcher::start`. **Không gọi `reconcile` riêng**: lời giao có nêu reconcile, nhưng bàn giao của 09 ghi `start` đã tự so đĩa với DB; gọi thêm là quét hai lần.
+- Thoát: luồng riêng dừng watcher rồi mới `Library::shutdown`; dòng `on_app_quit` cũ ở `library_page` đã chuyển sang đây.
+- `importing`, `rescanning` = còn việc của ctl chưa xong, hoặc `Progress` chưa tới đích; `Synced` tắt phần `Progress`. Vì import không đổi gì không có `Progress`, chỉ nghe `Progress` thì ô chờ không hiện.
+- Nạp lại: lưới và danh sách nghe `Moved`, `Progress { MetadataBulk, done == total }`; hộp metadata `Saved` gọi `refresh_lists`.
+- Menu bài dựng trong `SongList` bằng `context_menu` của materiant, nên Shift+F10 có sẵn. `SongListEvent::ContextMenu` vẫn phát nhưng không còn ai cần để vẽ.
+
+**Tệp ngoài dòng "File đụng tới"**: `views/library_page.rs`, `views/song_list.rs`, `views/category_card.rs`, `app.rs` (`set_metadata_ops` cho test), `groove-app/Cargo.toml` (`rfd`, `rusqlite`), `i18n/*/library.toml` (bỏ `category_pending`).
+
+**Soát**: `cargo build`, `cargo clippy --all-targets -- -D warnings`, `cargo deny check licenses`, `cargo test`, cwd = worktree; kết quả cuối ở báo cáo gộp. Test: thư viện thư mục tạm, `FakeOutput`, `Picker` giả. Chưa mở cửa sổ thật: `[owner-qa]` ở `plan/_backlog.md`. **Hộp chọn `rfd` thật chưa chạy lần nào** vì test dùng `Picker` giả.
+
+**Bẫy**: gọi `window.update` từ `on_select` lỗi im lặng; `entity.update` chính mình trong closure gây panic lease (đã gặp ở `show_metadata`). Test chờ theo DB rồi bấm menu ngay thì menu còn dựng từ danh sách cũ: chờ dòng trên UI đổi đã.

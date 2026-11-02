@@ -22,6 +22,7 @@ use materiant::gpui_kit::{
     App, ClickEvent, Entity, FontWeight, Hsla, IntoElement, ParentElement, RenderOnce, SharedString, Styled, Window,
     div, px, transparent_black,
 };
+use materiant::menu::ContextMenuExt;
 use materiant::overlay::tooltip::TooltipExt;
 use materiant::theme::ActiveTheme;
 use materiant::virtual_grid::LruImageCache;
@@ -166,6 +167,8 @@ impl RenderOnce for CategoryCard {
 
         div()
             .id((tag, id as usize))
+            .relative()
+            .context_menu(move |menu, _, cx| crate::views::card_menu::build(menu, reference, cx))
             .group(group.clone())
             .size_full()
             .flex()

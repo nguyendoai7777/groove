@@ -21,7 +21,7 @@ use std::sync::Arc;
 use futures::StreamExt;
 use groove_core::model::{CategoryRef, Song, TrackRef};
 use groove_core::t;
-use groove_library::actor::{LibraryError, LibraryEvent};
+use groove_library::actor::{LibraryError, LibraryEvent, ProgressKind};
 use groove_library::covers::CoverStore;
 use groove_library::db::queries::CategorySummary;
 use groove_library::store::Library;
@@ -34,6 +34,7 @@ use materiant::gpui_kit::{
 };
 use materiant::icon::Icon;
 use materiant::list::{VirtualList, VirtualListHandle};
+use materiant::menu::ContextMenuExt;
 use materiant::progress::ProgressCircular;
 use materiant::theme::{ActiveTheme, ThemeColors};
 use materiant::toast::{Toast, ToastKind, ToastSpec};
@@ -177,6 +178,16 @@ impl SongList {
         self.reference
     }
 
+    /// Bài menu đang nhắm: dòng đang chọn (chuột phải đã chọn sẵn), chưa chọn thì dòng đầu (Shift+F10).
+    fn menu_song(&self) -> Option<&Song> {
+        self.selected.and_then(|ix| self.songs.get(ix)).or_else(|| self.songs.first())
+    }
+
+    #[cfg(test)]
+    pub fn menu_opens_on_first_song(&self) -> bool {
+        self.selected.is_none() && self.menu_song() == self.songs.first()
+    }
+
     /// Giữ focus cho danh sách (phím ↑ ↓ Enter).
     pub fn focus(&self, window: &mut Window, cx: &mut App) {
         window.focus(&self.focus, cx);
@@ -218,12 +229,21 @@ impl SongList {
                         | LibraryEvent::Synced(_)
                         | LibraryEvent::PlaylistsChanged
                         | LibraryEvent::Moved(_)
+                ) || matches!(
+                    event,
+                    LibraryEvent::Progress(progress)
+                        if progress.kind == ProgressKind::MetadataBulk && progress.done == progress.total
                 );
                 if reload && this.update(cx, |this, cx| this.reload(cx)).is_err() {
                     break;
                 }
             }
         }));
+    }
+
+    /// Nạp lại từ thư viện (hộp metadata vừa lưu).
+    pub fn refresh(&mut self, cx: &mut Context<Self>) {
+        self.reload(cx);
     }
 
     /// Đọc lại ở nền. Lần đọc mới thay lần đang chạy.
@@ -485,6 +505,19 @@ impl SongList {
         }))
         .flex_1()
         .min_h_0();
+        // Menu bài: chuột phải (dòng đã chọn sẵn ở `on_context`, con chạy trước) hoặc Shift+F10 khi focus ở danh sách.
+        let menu_list = cx.entity().downgrade();
+        let rows =
+            div().id("song-list-rows-host").relative().flex_1().min_h_0().flex().flex_col().child(rows).context_menu(
+                move |menu, _, cx| {
+                    let Some(list) = menu_list.upgrade() else { return menu };
+                    let list = list.read(cx);
+                    match list.menu_song() {
+                        Some(song) => crate::views::song_menu::build(menu, list.reference, song, cx),
+                        None => menu,
+                    }
+                },
+            );
         div()
             .flex_1()
             .min_h_0()

@@ -62,5 +62,3 @@ hint = "The library file could not be read. Details are in the log file."
 title = "The library is not ready"
 hint = "Groove X could not start the library reader. Please reopen the app."
 
-[category_pending]
-title = "The song list is not built yet"

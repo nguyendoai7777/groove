@@ -1,1 +1,64 @@
 # Vùng actions: khoá viết không tiền tố, tra bằng t!("actions.<khoá>").
+
+unavailable = "Thư viện chưa sẵn sàng."
+
+[import]
+done = "Đã thêm {added} bài, {missing} bài không còn thấy tệp."
+partial = "Đã thêm {added} bài, {failed} mục không đọc được."
+offline = "Thư mục này đang trống hoặc chưa kết nối, thư viện giữ nguyên."
+unreadable = "Không đọc được thư mục đã chọn."
+failed = "Không nhập được thư mục."
+
+[rescan]
+done = "Đã đọc lại {read} bài, thiếu {missing} tệp, lỗi {failed} tệp."
+failed = "Không đọc lại được thẻ."
+
+[play]
+empty = "Danh sách này chưa có bài nào."
+failed = "Không đọc được danh sách bài."
+
+[remove]
+failed = "Không bỏ được mục này khỏi thư viện."
+
+[cover]
+filter = "Ảnh"
+failed = "Không dùng được ảnh này làm bìa."
+
+[card]
+play_all = "Phát tất cả"
+set_cover = "Đổi ảnh bìa"
+edit_metadata = "Sửa thông tin"
+delete_playlist = "Xoá danh sách phát"
+remove_from_library = "Bỏ khỏi thư viện"
+
+[confirm]
+title = "Bạn chắc chứ?"
+cancel = "Huỷ"
+album = "Bỏ album \"{name}\" khỏi thư viện. Tệp trên đĩa còn nguyên, lần quét sau các bài này không quay lại. Bài cũng bị bỏ khỏi mọi danh sách phát."
+folder = "Bỏ thư mục \"{name}\" và các thư mục con khỏi thư viện. Tệp trên đĩa còn nguyên, lần quét sau không quay lại. Bài cũng bị bỏ khỏi mọi danh sách phát."
+playlist = "Xoá danh sách phát \"{name}\". Các bài vẫn còn trong thư viện."
+
+[playlist]
+title = "Tạo danh sách phát mới"
+name_label = "Tên"
+name_placeholder = "Danh sách của tôi"
+color_area = "Độ bão hoà và độ sáng"
+color_hue = "Sắc độ"
+color_hex = "Mã màu"
+cancel = "Huỷ"
+create = "Tạo"
+empty_name = "Hãy đặt tên cho danh sách phát."
+duplicate = "Đã có danh sách phát trùng tên."
+create_failed = "Không tạo được danh sách phát."
+added = "Đã thêm vào danh sách phát."
+already_in = "Bài này đã có trong danh sách phát."
+add_failed = "Không thêm được vào danh sách phát."
+remove_failed = "Không xoá được khỏi danh sách phát."
+
+[song]
+add_to_playlist = "Thêm vào danh sách phát"
+new_playlist = "Tạo danh sách mới"
+edit_timeline = "Sửa timeline"
+edit_lyrics = "Sửa lời bài hát"
+edit_metadata = "Sửa thông tin bài hát"
+remove_from_playlist = "Xoá khỏi danh sách phát"
