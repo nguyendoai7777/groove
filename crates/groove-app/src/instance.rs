@@ -1,7 +1,8 @@
 //! groove-gd1_25: một phiên (đặc tả 5.5). `main` gọi [`forward_to_primary`] trước khi dựng GPUI.
 //!
-//! Phiên sau gửi một dòng JSON `{"paths": [...], "cwd": "..."}` qua local socket rồi thoát, không chờ trả lời. Phiên chính
-//! giữ socket từ trước khi có cửa sổ; thông điệp xếp hàng trong kênh, `open_paths` nhận khi player đã sẵn sàng.
+//! Phiên sau gửi một dòng JSON `{"paths": [...], "cwd": "..."}` qua local socket, chờ phiên chính báo đã nhận rồi thoát. Không
+//! chờ thì thông điệp có thể mất: client đóng pipe trước khi server gọi `ConnectNamedPipe` là dữ liệu bị bỏ (tái hiện khi máy
+//! bận). Phiên chính giữ socket từ trước khi có cửa sổ; thông điệp xếp hàng trong kênh, `open_paths` nhận khi player đã sẵn sàng.
 //!
 //! Chỉ người dùng hiện tại mở được: Windows là pipe instance đầu + DACL một SID, phiên sau còn kiểm exe của server cùng
 //! thư mục; Unix là socket 0600 trong thư mục 0700. Dữ liệu nhận vẫn không được tin: có trần cỡ dòng, chỉ tệp qua
@@ -25,10 +26,13 @@ use crate::open_paths::{self, OpenRequest};
 /// Trần một dòng. Đủ cho vài chục nghìn đường dẫn; dòng dài hơn là client hỏng hoặc độc, không được làm phình RAM.
 const MAX_LINE: u64 = 1 << 20;
 /// Không gửi được cũng không giành được endpoint (phiên chính đang dựng, pipe đang chuyển instance) thì thử lại trong khoảng này.
-const CLAIM_PATIENCE: Duration = Duration::from_secs(2);
+const CLAIM_PATIENCE: Duration = Duration::from_secs(5);
 const CLAIM_RETRY: Duration = Duration::from_millis(50);
-/// Phiên chính treo thì flush của pipe chờ mãi; phiên sau vẫn phải thoát.
-const SEND_TIMEOUT: Duration = Duration::from_secs(3);
+/// Phiên chính treo thì không có báo nhận; phiên sau vẫn phải thoát. Dài vì máy bận cũng không được làm mất tệp.
+const SEND_TIMEOUT: Duration = Duration::from_secs(10);
+/// Phiên chính báo đã nhận xong một dòng hợp lệ.
+const ACK: &[u8; 3] = b"ok
+";
 
 /// Một dòng trên socket. Khoá camelCase theo luật JSON; thiếu trường thì coi như rỗng.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -185,7 +189,10 @@ impl Endpoint {
         #[cfg(windows)]
         sys::prepare_server(&stream, self.check_server)?;
         stream.write_all(line)?;
-        stream.flush()
+        stream.flush()?;
+        let mut ack = [0; ACK.len()];
+        stream.read_exact(&mut ack)?;
+        if ack == *ACK { Ok(()) } else { Err(io::ErrorKind::InvalidData.into()) }
     }
 }
 
@@ -258,11 +265,14 @@ fn serve(claimed: Claimed, sink: UnboundedSender<OpenRequest>) -> io::Result<()>
     Ok(())
 }
 
-fn receive(stream: impl Read, sink: &UnboundedSender<OpenRequest>) {
-    match read_message(stream) {
+fn receive(stream: Stream, sink: &UnboundedSender<OpenRequest>) {
+    match read_message(&stream) {
         Ok(message) => {
             let paths = open_paths::resolve(message.paths, &message.cwd);
             let _ = sink.unbounded_send(OpenRequest { paths, activate: true });
+            // Phiên sau đã thoát vì hết hạn thì ghi lỗi, không sao: yêu cầu đã vào kênh.
+            let mut writer = &stream;
+            let _ = writer.write_all(ACK).and_then(|()| writer.flush());
         }
         Err(err) => log::warn!("instance: bad message ignored: {err}"),
     }
