@@ -1,7 +1,6 @@
 # Vùng palette: khoá viết không tiền tố, tra bằng t!("palette.<khoá>").
 
 placeholder = "Gõ / để dùng lệnh phát nhạc, hoặc tìm bài hát, ca sĩ..."
-mode_search = "Tìm kiếm"
 mode_cli = "Chế độ lệnh"
 searching = "Đang tìm..."
 no_results = "Không tìm thấy kết quả cho \"{query}\""

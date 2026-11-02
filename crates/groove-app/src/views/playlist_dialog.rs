@@ -54,6 +54,7 @@ impl PlaylistDialog {
         let name = cx.new(|cx| {
             TextField::new("playlist-name", window, cx)
                 .label(t!("actions.playlist.name_label"))
+                .label_weight(materiant::gpui_kit::FontWeight::NORMAL)
                 .placeholder(t!("actions.playlist.name_placeholder"))
                 .on_submit(move |_, window, cx| {
                     this.update(cx, |this, cx| this.submit(window, cx)).ok();
@@ -152,6 +153,7 @@ impl Render for PlaylistDialog {
         div().child(
             Dialog::new("playlist-dialog", &self.handle)
                 .title(t!("actions.playlist.title"))
+                .title_weight(materiant::gpui_kit::FontWeight::NORMAL)
                 .divided(true)
                 .actions([
                     Button::new("playlist-cancel", t!("actions.playlist.cancel"))

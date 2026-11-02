@@ -1,7 +1,6 @@
 # Vùng palette: khoá viết không tiền tố, tra bằng t!("palette.<khoá>").
 
 placeholder = "Type / for playback commands, or search songs and artists..."
-mode_search = "Search"
 mode_cli = "Command mode"
 searching = "Searching..."
 no_results = "No results for \"{query}\""

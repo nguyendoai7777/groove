@@ -31,6 +31,7 @@ impl GeneralPanel {
         let seek_step = cx.new(|cx| {
             NumberField::new("settings-seek-step", window, cx)
                 .label(t!("settings.general.seek_step"))
+                .label_weight(materiant::gpui_kit::FontWeight::NORMAL)
                 .hint(t!("settings.general.seek_step_hint"))
                 .range(*SEEK_STEP_RANGE.start()..=*SEEK_STEP_RANGE.end())
                 .step(1)
@@ -44,6 +45,7 @@ impl GeneralPanel {
         let volume_step = cx.new(|cx| {
             NumberField::new("settings-volume-step", window, cx)
                 .label(t!("settings.general.volume_step"))
+                .label_weight(materiant::gpui_kit::FontWeight::NORMAL)
                 .hint(t!("settings.general.volume_step_hint"))
                 .range(*VOLUME_STEP_RANGE.start()..=*VOLUME_STEP_RANGE.end())
                 .step(1)

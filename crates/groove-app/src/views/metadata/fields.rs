@@ -219,7 +219,9 @@ impl Form {
     pub fn new(view: &MetadataView, window: &mut Window, cx: &mut App) -> Form {
         let (stem, extension) = split_file_name(&view.filename);
         let filename = cx.new(|cx| {
-            let mut field = TextField::new("metadata-filename", window, cx).label(t!("metadata.field.filename"));
+            let mut field = TextField::new("metadata-filename", window, cx)
+                .label(t!("metadata.field.filename"))
+                .label_weight(materiant::gpui_kit::FontWeight::NORMAL);
             field.set_value(stem, window, cx);
             field
         });
@@ -229,7 +231,9 @@ impl Form {
                 let value = text_of(&view.fields, field);
                 let id = SharedString::from(format!("metadata-{}", field.key()));
                 let entity = cx.new(|cx| {
-                    let mut entity = TextField::new(id, window, cx).label(field.label());
+                    let mut entity = TextField::new(id, window, cx)
+                        .label(field.label())
+                        .label_weight(materiant::gpui_kit::FontWeight::NORMAL);
                     entity.set_value(value, window, cx);
                     entity
                 });
@@ -238,7 +242,10 @@ impl Form {
             .collect();
         let comment_text = view.fields.comment.clone().unwrap_or_default();
         let comment = cx.new(|cx| {
-            let mut area = TextArea::new("metadata-comment", window, cx).label(t!("metadata.field.comment")).rows(3);
+            let mut area = TextArea::new("metadata-comment", window, cx)
+                .label(t!("metadata.field.comment"))
+                .label_weight(materiant::gpui_kit::FontWeight::NORMAL)
+                .rows(3);
             area.set_value(comment_text, window, cx);
             area
         });
