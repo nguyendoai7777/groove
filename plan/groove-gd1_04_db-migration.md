@@ -11,6 +11,15 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `library/db/{schema,migrate}.rs`, test fixture DB cũ |
 
+## 0. Bàn giao từ groove-gd1_01 (02/11/2026)
+
+<!-- handoff: groove-gd1_01 -->
+
+- **Đã có sẵn để dùng**: bố cục, lệnh, luật ở `CLAUDE.md`; `groove_core::{paths, i18n, t!, logging}`.
+- **Không sửa**: `Cargo.*`, `lib.rs`, `main.rs`, `mod.rs` (mọi `mod` và phụ thuộc đã khai sẵn).
+- **Bẫy đã gặp**: `CARGO_TARGET_DIR` riêng từng worktree, build nguội khoảng 3 phút; `tools/run.ps1` từ chối khi máy chỉ một màn.
+- **Đã có**: `paths::library_db`, `paths::legacy_db`, `paths::normalize` (cột `path_key`, M2). `base64` đã khai cho bìa cũ. Thử bằng `GROOVE_DATA_DIR`, không đụng DB thật.
+
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 04. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 1. Làm gì

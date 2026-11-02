@@ -25,3 +25,7 @@ dist-ssr
 
 # Tauri installers collected by scripts/collect-release.mjs
 release
+
+# Rust (workspace mới, crates/*)
+/target/
+**/*.rs.bk

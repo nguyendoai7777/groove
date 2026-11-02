@@ -1,0 +1,33 @@
+[package]
+name = "groove-audio"
+description = "Phát nhạc: symphonia + cpal, DSP; luồng decoder + callback thực thời, không UI"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+groove-core.workspace = true
+crossbeam-channel.workspace = true
+futures.workspace = true
+log.workspace = true
+ringbuf = "0.6"
+rubato = "5"
+symphonia = { version = "0.6", default-features = false, features = ["mp3", "aac", "alac", "isomp4", "flac", "wav", "pcm", "ogg", "vorbis"] }
+thiserror.workspace = true
+
+# Xuất âm. Linux: cpal đi qua ALSA nên link động `libasound.so` (LGPL-2.1), đang CHỜ chủ dự án quyết (đặc tả 5.1, D-2).
+# Vì vậy ở Linux cpal là tuỳ chọn, tắt mặc định, chỉ bật khi thử: `--features groove-audio/linux-alsa`.
+# Windows, macOS luôn có cpal và không link gì LGPL. Chủ dự án chấp nhận thì đổi về một dòng, ghi vào `docs/decisions.md`.
+[target.'cfg(not(target_os = "linux"))'.dependencies]
+cpal = "0.18"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+cpal = { version = "0.18", optional = true }
+
+[features]
+linux-alsa = ["dep:cpal"]
+
+[lints]
+workspace = true

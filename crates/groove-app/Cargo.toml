@@ -1,0 +1,53 @@
+[package]
+name = "groove-app"
+description = "App Groove X: GPUI + materiant"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "groove"
+path = "src/main.rs"
+
+[dependencies]
+groove-core.workspace = true
+groove-library.workspace = true
+groove-audio.workspace = true
+# GPUI đi qua materiant (`materiant::gpui_kit`), không ghim gpui-kit lần hai (D-6).
+materiant.workspace = true
+anyhow.workspace = true
+crossbeam-channel.workspace = true
+futures.workspace = true
+# Một phiên (đặc tả 5.5).
+interprocess = "2.4"
+log.workspace = true
+# HWND, NSView cho media session, taskbar.
+raw-window-handle = "0.6"
+serde.workspace = true
+serde_json.workspace = true
+# Media session. Linux đi `zbus` thuần Rust, không `libdbus` (đặc tả 5.4).
+souvlaki = { version = "0.9", default-features = false, features = ["use_zbus"] }
+unicode-normalization.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+# Taskbar, DACL của pipe, focus phiên chính (đặc tả 5.3, 5.5).
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Security", "Win32_Security_Authorization", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_System_LibraryLoader", "Win32_System_Threading", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = "0.3"
+objc2-foundation = "0.3"
+
+[build-dependencies]
+# Task 27 thêm `build.rs` nhúng icon exe.
+embed-resource = "3"
+
+[dev-dependencies]
+tempfile.workspace = true
+# Test view trong App ảo: `test-support` bật thẳng trên gpui-pre, cùng crate với GPUI của materiant.
+gpui = { package = "gpui-pre", version = "=0.3.10", features = ["test-support"] }
+
+[lints]
+workspace = true
