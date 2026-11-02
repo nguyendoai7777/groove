@@ -1,19 +1,21 @@
 //! groove-gd1_24: đường cong EQ (đặc tả 1.10, bảng "Dựng trong app").
 //!
-//! Vẽ đè lên hàng thanh trượt: spline nối tâm thanh của mười dải, theo `eq.gains` (không tính bass boost, không tính preamp,
-//! như bản cũ). Phần hình học là hàm thuần để test; chỗ vẽ là một `canvas` không nhận chuột nên không chặn thanh trượt.
+//! Vẽ sau các núm (`eq_bands` gọi `paint_curve` trước khi vẽ cột): spline nối tâm thanh của mười dải, theo `eq.gains` (không tính bass boost, không tính preamp,
+//! như bản cũ). Phần hình học là hàm thuần để test; chỗ vẽ là `paint_curve`, không nhận chuột.
 
 use groove_core::settings::{EQ_BAND_COUNT, EQ_GAIN_LIMIT_DB};
-use materiant::gpui_kit::{Bounds, Hsla, IntoElement, PathBuilder, Pixels, Styled, canvas, point, px};
-use materiant::slider::SLIDER_THUMB_SIZE;
+use materiant::gpui_kit::{Bounds, Hsla, PathBuilder, Pixels, Window, point, px};
 
-/// Bề dày nét.
-const STROKE: f32 = 2.5;
+/// Đường kính núm của thanh dải (web: `thumb-size 12`; ảnh mẫu to hơn chút).
+pub const THUMB_SIZE: f32 = 14.;
+/// Bề dày nét chính và nét quầng sáng dưới nó (web: 1.2 và 3 px).
+const STROKE: f32 = 1.5;
+const GLOW_STROKE: f32 = 4.;
 /// Số điểm lấy mẫu giữa hai dải kề nhau.
 const STEPS: usize = 10;
 
 /// Nửa núm thanh trượt: núm không bao giờ ra khỏi cột, nên đường cong cũng chừa chừng đó ở đỉnh và đáy.
-pub const INSET: f32 = SLIDER_THUMB_SIZE / 2.;
+pub const INSET: f32 = THUMB_SIZE / 2.;
 
 /// Điểm nối của từng dải trong ô `width × height`: dải `i` ở tâm cột `i`, mức `+10` dB ở đỉnh (trừ `INSET`).
 pub fn band_points(gains: &[f32; EQ_BAND_COUNT], width: f32, height: f32) -> Vec<(f32, f32)> {
@@ -53,25 +55,18 @@ pub fn spline(points: &[(f32, f32)], height: f32) -> Vec<(f32, f32)> {
     out
 }
 
-/// Phần tử vẽ: đặt `absolute` đè lên hàng thanh trượt.
-pub fn eq_curve(gains: [f32; EQ_BAND_COUNT], color: Hsla) -> impl IntoElement {
-    canvas(
-        |_, _, _| (),
-        move |bounds: Bounds<Pixels>, _, window, _| {
-            let (width, height) = (f32::from(bounds.size.width), f32::from(bounds.size.height));
-            let line = spline(&band_points(&gains, width, height), height);
-            let points: Vec<_> = line.into_iter().map(|(x, y)| bounds.origin + point(px(x), px(y))).collect();
-            let mut builder = PathBuilder::stroke(px(STROKE));
-            builder.add_polygon(&points, false);
-            if let Ok(path) = builder.build() {
-                window.paint_path(path, color);
-            }
-        },
-    )
-    .absolute()
-    .top_0()
-    .left_0()
-    .size_full()
+/// Vẽ đường cong trong `bounds`: quầng sáng mờ rồi nét chính (như hai `path` của bản web).
+pub fn paint_curve(window: &mut Window, bounds: Bounds<Pixels>, gains: &[f32; EQ_BAND_COUNT], color: Hsla) {
+    let (width, height) = (f32::from(bounds.size.width), f32::from(bounds.size.height));
+    let line = spline(&band_points(gains, width, height), height);
+    let points: Vec<_> = line.into_iter().map(|(x, y)| bounds.origin + point(px(x), px(y))).collect();
+    for (stroke, color) in [(GLOW_STROKE, color.opacity(0.25)), (STROKE, color)] {
+        let mut builder = PathBuilder::stroke(px(stroke));
+        builder.add_polygon(&points, false);
+        if let Ok(path) = builder.build() {
+            window.paint_path(path, color);
+        }
+    }
 }
 
 #[cfg(test)]
