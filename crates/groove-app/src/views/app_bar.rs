@@ -1,7 +1,12 @@
 //! groove-gd1_03: thanh trên cao 36 px (đặc tả 1.1).
 //!
 //! Nút lùi theo lịch sử (mờ khi không lùi được); ô tìm giữa rộng 40 % bấm để mở bảng lệnh, kèm chip `Ctrl` `K`; thu nhỏ,
-//! phóng to / khôi phục, đóng (hover đỏ). Vùng trống kéo được cửa sổ; phần tử bấm được `occlude` để không kéo theo.
+//! phóng to / khôi phục, đóng kiểu nút tiêu đề Windows ([`caption`]: rê xám nhạt, Đóng rê đỏ `#c42b1c` icon trắng). Vùng
+//! trống kéo được cửa sổ, nhấp đúp phóng to / khôi phục (OS lo qua `HTCAPTION`); phần tử bấm được `occlude` để không kéo
+//! theo.
+//!
+//! chrome-nav (02/11/2026): thu nhỏ / phóng to từng không chạy vì gọi `minimize_window` / `zoom_window` từ `on_click` của
+//! GPUI; `zoom_window` của gpui-pre-windows chỉ `SW_MAXIMIZE`, không bao giờ khôi phục. Nay nút là vùng điều khiển của OS.
 
 use std::rc::Rc;
 
@@ -10,10 +15,14 @@ use materiant::button::IconButton;
 // `#[derive(IntoElement)]` trỏ crate `gpui`; bản không test chỉ có `materiant::gpui_kit`.
 use materiant::gpui_kit as gpui;
 use materiant::gpui_kit::prelude::*;
-use materiant::gpui_kit::{App, ClickEvent, IntoElement, ParentElement, RenderOnce, Styled, Window, div, px, relative};
+use materiant::gpui_kit::{
+    App, ClickEvent, Hsla, IntoElement, ParentElement, RenderOnce, Styled, Window, WindowControlArea, div, px,
+    relative, svg, white,
+};
 use materiant::icon::Icon;
 use materiant::kbd::Kbd;
 use materiant::overlay::tooltip::TooltipExt;
+use materiant::theme::color::hex;
 use materiant::theme::{ActiveTheme, Neutral};
 use materiant::window::DragRegionExt;
 
@@ -23,6 +32,8 @@ pub const HEIGHT: f32 = 36.;
 /// Ô tìm rộng 40 % thanh, canh giữa.
 const SEARCH_WIDTH: f32 = 0.4;
 const CONTROL_WIDTH: f32 = 46.;
+/// Icon nút cửa sổ: 10 px nét 1 px như Segoe Fluent Icons.
+const CAPTION_ICON: f32 = 10.;
 
 type Handler = Rc<dyn Fn(&mut Window, &mut App)>;
 
@@ -45,19 +56,90 @@ impl AppBar {
     }
 }
 
-/// Nút điều khiển cửa sổ: rộng 46 px, không bo, cao bằng thanh.
-fn control(
-    id: &'static str,
-    icon: GrooveIcon,
-    label: &'static str,
-    on_click: impl Fn(&mut Window, &mut App) + 'static,
-) -> impl IntoElement {
-    IconButton::new(id, icon)
-        .accessibility_label(label)
-        .on_click(move |_: &ClickEvent, window, cx| on_click(window, cx))
+/// Ba nút cửa sổ ở góc phải.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Caption {
+    Minimize,
+    Maximize,
+    Close,
+}
+
+impl Caption {
+    /// Vùng điều khiển cửa sổ báo cho OS qua hit-test (Windows: `HTMINBUTTON`, `HTMAXBUTTON`, `HTCLOSE`).
+    fn area(self) -> WindowControlArea {
+        match self {
+            Caption::Minimize => WindowControlArea::Min,
+            Caption::Maximize => WindowControlArea::Max,
+            Caption::Close => WindowControlArea::Close,
+        }
+    }
+}
+
+/// Đỏ của nút Đóng khi rê chuột (Windows 11 `#c42b1c`), chữ trắng.
+pub const CLOSE_HOVER: u32 = 0xc42b1c;
+
+/// Màu một nút cửa sổ như Windows: thu nhỏ / phóng to rê là lớp xám mờ theo màu chữ, nhấn nhạt hơn; Đóng rê nền đỏ, icon
+/// trắng, nhấn đỏ hơi trong.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CaptionPaint {
+    pub icon: Hsla,
+    pub hover_bg: Hsla,
+    pub hover_icon: Hsla,
+    pub active_bg: Hsla,
+}
+
+impl CaptionPaint {
+    pub fn resolve(caption: Caption, text: Hsla) -> CaptionPaint {
+        match caption {
+            Caption::Close => {
+                let red: Hsla = hex(CLOSE_HOVER).into();
+                CaptionPaint { icon: text, hover_bg: red, hover_icon: white(), active_bg: red.opacity(0.9) }
+            }
+            _ => CaptionPaint {
+                icon: text,
+                hover_bg: text.opacity(0.09),
+                hover_icon: text,
+                active_bg: text.opacity(0.06),
+            },
+        }
+    }
+}
+
+/// Nút cửa sổ rộng 46 px, cao bằng thanh, icon nét mảnh 10 px.
+///
+/// Windows: nút là vùng `WindowControlArea` — OS nhận nhấp như nút tiêu đề thật (`HTMINBUTTON`…): thu nhỏ, phóng to / khôi
+/// phục (`SW_NORMAL` khi đang phóng to), đóng, Snap Layouts của Windows 11 khi rê nút phóng to. Không gắn `on_click`: GPUI
+/// nhận nhấp trước, phần tử nào dừng sự kiện là OS bỏ qua. Nền khác: `on_click` gọi thẳng API cửa sổ của GPUI.
+fn caption(id: &'static str, caption: Caption, icon: GrooveIcon, label: &'static str, cx: &App) -> impl IntoElement {
+    let paint = CaptionPaint::resolve(caption, cx.theme().colors().text);
+    div()
+        .id(id)
+        .group(id)
+        .occlude()
+        .flex_none()
         .w(px(CONTROL_WIDTH))
         .h(px(HEIGHT))
-        .rounded_none()
+        .flex()
+        .items_center()
+        .justify_center()
+        .window_control_area(caption.area())
+        .hover(move |s| s.bg(paint.hover_bg))
+        .active(move |s| s.bg(paint.active_bg))
+        .when(!cfg!(target_os = "windows"), |d| {
+            d.on_click(move |_, window, _| match caption {
+                Caption::Minimize => window.minimize_window(),
+                Caption::Maximize => window.zoom_window(),
+                Caption::Close => window.remove_window(),
+            })
+        })
+        .child(
+            svg()
+                .path(icon.path())
+                .size(px(CAPTION_ICON))
+                .flex_none()
+                .text_color(paint.icon)
+                .group_hover(id, move |s| s.text_color(paint.hover_icon)),
+        )
         .with_tooltip((id, 0usize), label)
 }
 
@@ -116,22 +198,10 @@ impl RenderOnce for AppBar {
                 .child(Kbd::new("Ctrl+K").mac_symbols(mac))
         };
 
-        // Nền đỏ nằm ở lớp bọc: nút bên trong giữ màu trung tính, chỉ phủ thêm tầng hover của nó.
-        let close = div()
-            .occlude()
-            .hover({
-                let danger = c.danger;
-                move |s| s.bg(danger)
-            })
-            .child(control("app-bar-close", GrooveIcon::Close, t!("shell.app_bar.close"), |window, _| {
-                window.remove_window()
-            }));
-
-        let maximized = self.maximized;
-        let (toggle_icon, toggle_label) = if maximized {
-            (GrooveIcon::ArrowsCompress, t!("shell.app_bar.restore"))
+        let (toggle_icon, toggle_label) = if self.maximized {
+            (GrooveIcon::WindowRestore, t!("shell.app_bar.restore"))
         } else {
-            (GrooveIcon::ArrowsExpand, t!("shell.app_bar.maximize"))
+            (GrooveIcon::WindowMaximize, t!("shell.app_bar.maximize"))
         };
 
         div()
@@ -152,11 +222,45 @@ impl RenderOnce for AppBar {
                     .items_center()
                     .h_full()
                     .occlude()
-                    .child(control("app-bar-minimize", GrooveIcon::Minus, t!("shell.app_bar.minimize"), |window, _| {
-                        window.minimize_window()
-                    }))
-                    .child(control("app-bar-maximize", toggle_icon, toggle_label, |window, _| window.zoom_window()))
-                    .child(close),
+                    .child(caption(
+                        "app-bar-minimize",
+                        Caption::Minimize,
+                        GrooveIcon::WindowMinimize,
+                        t!("shell.app_bar.minimize"),
+                        cx,
+                    ))
+                    .child(caption("app-bar-maximize", Caption::Maximize, toggle_icon, toggle_label, cx))
+                    .child(caption(
+                        "app-bar-close",
+                        Caption::Close,
+                        GrooveIcon::WindowClose,
+                        t!("shell.app_bar.close"),
+                        cx,
+                    )),
             )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Như nút tiêu đề Windows: Đóng rê đỏ `#c42b1c` icon trắng; thu nhỏ / phóng to rê xám nhạt, giữ màu icon, nhấn nhạt hơn rê.
+    #[test]
+    fn caption_paint_matches_windows() {
+        let text: Hsla = hex(0xf5f5f5).into();
+        let close = CaptionPaint::resolve(Caption::Close, text);
+        assert_eq!(close.hover_bg, Hsla::from(hex(CLOSE_HOVER)));
+        assert_eq!(close.hover_icon, white());
+        assert_eq!(close.icon, text);
+        for caption in [Caption::Minimize, Caption::Maximize] {
+            let p = CaptionPaint::resolve(caption, text);
+            assert_eq!(p.hover_icon, text);
+            assert!(p.hover_bg.a > 0. && p.hover_bg.a < 0.15, "xám nhạt: {:?}", p.hover_bg);
+            assert!(p.active_bg.a < p.hover_bg.a);
+        }
+        assert_eq!(Caption::Minimize.area(), WindowControlArea::Min);
+        assert_eq!(Caption::Maximize.area(), WindowControlArea::Max);
+        assert_eq!(Caption::Close.area(), WindowControlArea::Close);
     }
 }
