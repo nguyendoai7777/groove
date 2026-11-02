@@ -10,7 +10,8 @@
 //! cách gỡ.
 //!
 //! Nút Play / Pause (giữa thanh và phủ trên bìa) chép `toggle-play.vue` của bản web: không nền, icon màu chữ biến hình giữa
-//! tam giác và hai vạch trong 250 ms ([`play_morph`]). Các nút icon khác tròn (`rounded_full`) như `rounded-full` của web.
+//! tam giác và hai vạch trong 250 ms ([`play_morph`]). Các nút icon khác chép `icon-btn.vue`: tròn, hộp 36 px icon 28 px
+//! (Settings 24 / 20), icon màu chữ phụ rê thành màu chữ; Shuffle / Repeat bật thì xanh lá `green-500` như web.
 //! Số giờ không nhấp nháy mỗi giây: tốn khung hình liên tục (đặc tả mục 4).
 //!
 //! ```ignore
@@ -38,6 +39,7 @@ use materiant::overlay::tooltip::TooltipExt;
 use materiant::slider::Slider;
 use materiant::style::{ActiveTokens, ring_overlay};
 use materiant::theme::ActiveTheme;
+use materiant::theme::color::hex;
 use materiant::toast::{Toast, ToastKind, ToastSpec};
 use materiant::virtual_grid::LruImageCache;
 
@@ -55,9 +57,16 @@ const COVER_SIZE: f32 = 90.;
 /// Số bìa giữ giải mã sẵn: chỉ bìa của bài đang phát.
 const COVER_CACHE: usize = 4;
 const VOLUME_WIDTH: f32 = 110.;
-/// Nút Play giữa thanh: icon 36 px (`--size: 36px` của web), vùng bấm tròn 48 px (web 60 px, thanh Rust thấp hơn).
+/// Nút Play: icon 36 px (`--size: 36px` của web) trong vùng bấm tròn 60 px (`width: 60px` của `.MainController`).
 const PLAY_ICON: f32 = 36.;
-const PLAY_BOX: f32 = 48.;
+const PLAY_BOX: f32 = 60.;
+/// `icon-btn.vue` cỡ `md`: hộp `w-9` 36 px, icon `w-7` 28 px; cỡ `sm` (Settings): 24 / 20.
+const ICON_BOX: f32 = 36.;
+const ICON_GLYPH: f32 = 28.;
+const SMALL_ICON_BOX: f32 = 24.;
+const SMALL_ICON_GLYPH: f32 = 20.;
+/// `text-green-500` của Shuffle / Repeat đang bật.
+const TOGGLE_ON: u32 = 0x22c55e;
 /// Nút Play phủ trên bìa: icon 32 px (cỡ mặc định của `toggle-play.vue`).
 const COVER_PLAY_ICON: f32 = 32.;
 /// Toast lỗi thiết bị ở lại lâu hơn mặc định: người dùng cần thời gian đọc cách gỡ.
@@ -71,6 +80,19 @@ pub fn volume_icon(volume: u8, muted: bool) -> GrooveIcon {
         1..=35 => GrooveIcon::VolumeMin,
         36..=65 => GrooveIcon::VolumeMedium,
         _ => GrooveIcon::VolumeMax,
+    }
+}
+
+/// Nút icon như `icon-btn.vue` trên thanh phát: tròn, hộp `edge`, icon `glyph`. Tắt: màu chữ phụ, rê thành màu chữ
+/// (`text-theme-text-muted hover:text-theme-text`); bật: xanh lá `green-500` cả lúc rê. Nền rê là màu chữ (bật: xanh) 9 %.
+fn web_icon_button(id: &'static str, icon: GrooveIcon, edge: f32, glyph: f32, on: bool, cx: &App) -> IconButton {
+    let c = cx.theme().colors();
+    let button = IconButton::new(id, icon).w(px(edge)).h(px(edge)).icon_size(px(glyph)).rounded_full();
+    if on {
+        let green = materiant::gpui_kit::Hsla::from(hex(TOGGLE_ON));
+        button.color(green).ink(green)
+    } else {
+        button.color(c.text).ink(c.muted).hover_ink(c.text)
     }
 }
 
@@ -202,7 +224,7 @@ impl PlayerBar {
     fn play_button(
         &self,
         id: &'static str,
-        icon: f32,
+        (icon, edge): (f32, f32),
         enabled: bool,
         focus: &FocusHandle,
         window: &Window,
@@ -212,7 +234,7 @@ impl PlayerBar {
         let player = self.player.clone();
         let ink = cx.theme().colors().text;
         let ring = (focus.is_focused(window) && window.last_input_was_keyboard())
-            .then(|| ring_overlay(cx.focus_ring_color(), px(PLAY_BOX / 2.)));
+            .then(|| ring_overlay(cx.focus_ring_color(), px(edge / 2.)));
         div()
             .occlude()
             .debug_selector(move || id.to_owned())
@@ -222,7 +244,7 @@ impl PlayerBar {
                     .disabled(!enabled)
                     .accessibility_label(label)
                     .relative()
-                    .size(px(PLAY_BOX))
+                    .size(px(edge))
                     .rounded_full()
                     .when(enabled, |b| b.cursor_pointer())
                     .on_click(move |_: &ClickEvent, _, cx| player.update(cx, |p, cx| p.toggle_play(cx)))
@@ -234,7 +256,6 @@ impl PlayerBar {
     }
 
     fn controls(&self, enabled: bool, window: &Window, cx: &App) -> impl IntoElement {
-        let c = cx.theme().colors().clone();
         let (shuffle, repeat) = {
             let player = self.player.read(cx);
             (player.queue().shuffle(), player.queue().repeat())
@@ -244,12 +265,10 @@ impl PlayerBar {
             let player = player.clone();
             move |id: &'static str, icon: GrooveIcon, label: &'static str, on: bool, action: PlayerAction| {
                 let player = player.clone();
-                let button = IconButton::new(id, icon)
-                    .rounded_full()
+                let button = web_icon_button(id, icon, ICON_BOX, ICON_GLYPH, on, cx)
                     .accessibility_label(label)
                     .disabled(!enabled)
                     .on_click(move |_: &ClickEvent, _, cx| player.update(cx, action));
-                let button = if on { button.color(c.primary) } else { button };
                 div().occlude().debug_selector(move || id.to_owned()).child(button.with_tooltip((id, 0usize), label))
             }
         };
@@ -263,7 +282,7 @@ impl PlayerBar {
             .flex()
             .items_center()
             .justify_center()
-            .gap_2()
+            .gap_4()
             .child(button(
                 "player-shuffle",
                 GrooveIcon::Shuffle,
@@ -272,7 +291,7 @@ impl PlayerBar {
                 Player::toggle_shuffle,
             ))
             .child(button("player-prev", GrooveIcon::Prev, t!("player.bar.prev"), false, Player::prev))
-            .child(self.play_button("player-play", PLAY_ICON, enabled, &self.play_focus, window, cx))
+            .child(self.play_button("player-play", (PLAY_ICON, PLAY_BOX), enabled, &self.play_focus, window, cx))
             .child(button("player-next", GrooveIcon::Next, t!("player.bar.next"), false, Player::next))
             .child(button("player-repeat", repeat_icon, repeat_label, repeat == RepeatMode::One, Player::toggle_repeat))
     }
@@ -318,7 +337,7 @@ impl Render for PlayerBar {
                     .group_hover("player-cover", |style| style.visible())
                     .child(self.play_button(
                         "player-cover-play",
-                        COVER_PLAY_ICON,
+                        (COVER_PLAY_ICON, PLAY_BOX),
                         true,
                         &self.cover_play_focus,
                         window,
@@ -348,7 +367,7 @@ impl Render for PlayerBar {
             .flex()
             .flex_col()
             .justify_center()
-            .child(self.controls(enabled, window, cx))
+            .child(div().mb_1().child(self.controls(enabled, window, cx)))
             .child(self.seek.clone());
 
         let volume_icon = volume_icon(volume, muted);
@@ -359,12 +378,11 @@ impl Render for PlayerBar {
             .flex()
             .items_center()
             .justify_end()
-            .gap_1()
+            .gap_3()
             .pr_3()
             .child(div().occlude().child({
                 let player = player.clone();
-                IconButton::new("player-mute", volume_icon)
-                    .rounded_full()
+                web_icon_button("player-mute", volume_icon, ICON_BOX, ICON_GLYPH, false, cx)
                     .accessibility_label(mute_label)
                     .disabled(!enabled)
                     .on_click(move |_: &ClickEvent, _, cx| player.update(cx, |p, cx| p.toggle_mute(cx)))
@@ -405,13 +423,19 @@ impl Render for PlayerBar {
                     ),
             )
             .child(
-                div().occlude().child(
-                    IconButton::new("player-settings", GrooveIcon::Settings)
-                        .rounded_full()
-                        .accessibility_label(t!("player.bar.settings"))
-                        .disabled(!enabled)
-                        .on_click(|_: &ClickEvent, _, cx| app::open_settings(cx))
-                        .with_tooltip(("player-settings", 0usize), t!("player.bar.settings")),
+                div().occlude().ml_1().child(
+                    web_icon_button(
+                        "player-settings",
+                        GrooveIcon::Settings,
+                        SMALL_ICON_BOX,
+                        SMALL_ICON_GLYPH,
+                        false,
+                        cx,
+                    )
+                    .accessibility_label(t!("player.bar.settings"))
+                    .disabled(!enabled)
+                    .on_click(|_: &ClickEvent, _, cx| app::open_settings(cx))
+                    .with_tooltip(("player-settings", 0usize), t!("player.bar.settings")),
                 ),
             );
 
