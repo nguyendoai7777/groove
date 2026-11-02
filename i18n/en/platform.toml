@@ -1,1 +1,7 @@
 # Vùng platform: khoá viết không tiền tố, tra bằng t!("platform.<khoá>").
+
+# Taskbar Windows (đặc tả 1.12).
+previous = "Previous"
+play = "Play"
+pause = "Pause"
+next = "Next"
