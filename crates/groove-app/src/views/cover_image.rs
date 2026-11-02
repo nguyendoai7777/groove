@@ -20,9 +20,6 @@ use materiant::virtual_grid::LruImageCache;
 
 use crate::icons::GrooveIcon;
 
-/// Màu playlist khi DB không ghi (bản cũ cũng mặc định màu này).
-pub const DEFAULT_PLAYLIST_COLOR: &str = "#06b6d4";
-
 /// Loại thẻ, quyết định placeholder.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CoverKind {
@@ -87,7 +84,8 @@ fn placeholder(kind: CoverKind, accent: Option<Hsla>, c: &materiant::theme::Them
             )
         }
         CoverKind::Playlist => {
-            let base = accent.unwrap_or_else(|| parse_color(DEFAULT_PLAYLIST_COLOR).unwrap_or(c.primary));
+            // Playlist chưa ghi màu theo màu nhấn của theme (G-4).
+            let base = accent.unwrap_or(c.primary);
             (div().bg(base), materiant::theme::color::on_color(base.into()).into())
         }
     };
@@ -136,7 +134,6 @@ mod tests {
         assert!(parse_color("#12").is_none());
         assert!(parse_color("").is_none());
         assert!(parse_color("#éééééé").is_none(), "không hoảng với unicode");
-        assert!(parse_color(DEFAULT_PLAYLIST_COLOR).is_some());
     }
 
     #[test]

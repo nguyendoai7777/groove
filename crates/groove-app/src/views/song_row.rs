@@ -12,8 +12,8 @@ use groove_core::t;
 use materiant::gpui_kit as gpui;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    AnyElement, App, FontWeight, IntoElement, MouseButton, MouseDownEvent, ParentElement, Pixels, Point, RenderOnce,
-    SharedString, Styled, Window, div, px,
+    AnyElement, App, IntoElement, MouseButton, MouseDownEvent, ParentElement, Pixels, Point, RenderOnce, SharedString,
+    Styled, Window, div, px,
 };
 use materiant::icon::Icon;
 use materiant::theme::{ActiveTheme, ThemeColors};
@@ -120,9 +120,7 @@ fn cell() -> gpui::Div {
 
 /// Dòng tiêu đề cột (`#`, tiêu đề, thời lượng, nghệ sĩ) cùng bố cục với [`SongRow`].
 pub fn header_row(show_artist: bool, c: &ThemeColors) -> AnyElement {
-    let label = |text: &'static str| {
-        cell().text_size(px(12.)).font_weight(FontWeight::SEMIBOLD).text_color(c.muted.opacity(0.8)).child(text)
-    };
+    let label = |text: &'static str| cell().text_size(px(12.)).text_color(c.muted.opacity(0.8)).child(text);
     div()
         .flex_none()
         .w_full()
@@ -203,7 +201,7 @@ impl RenderOnce for SongRow {
                 })
             })
             .child(index)
-            .child(cell().flex_1().font_weight(FontWeight::MEDIUM).text_color(title_color).child(self.title))
+            .child(cell().flex_1().text_color(title_color).child(self.title))
             .child(cell().w(px(DURATION_WIDTH)).flex_none().text_color(c.muted).child(self.duration))
             .when(self.show_artist, |row| row.child(cell().flex_1().text_color(c.muted).child(self.artist)))
     }

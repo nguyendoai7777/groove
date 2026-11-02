@@ -12,10 +12,11 @@ use groove_core::t;
 use groove_core::timeline::{self, Segment};
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    AnyElement, App, Context, Entity, FontWeight, IntoElement, ParentElement, Render, SharedString, Styled,
-    Subscription, Window, div, px,
+    AnyElement, App, Context, Entity, IntoElement, ParentElement, Render, SharedString, Styled, Subscription, Window,
+    div, px,
 };
 use materiant::list::{Align, VirtualList, VirtualListHandle};
+use materiant::scroll::TRACK_THICKNESS;
 use materiant::theme::{ActiveTheme, Neutral};
 
 use crate::player::{self, Player};
@@ -24,6 +25,8 @@ use crate::views::playing_bars::PlayingBars;
 /// Cao một dòng đoạn (bản cũ `py-1.5` + chữ `text-sm`).
 pub const ROW_HEIGHT: f32 = 34.;
 const HEADER_HEIGHT: f32 = 36.;
+/// Đệm trái của nội dung dòng; cộng `TRACK_THICKNESS` (9) của danh sách = 12, thẳng hàng với tiêu đề (`px_3`).
+const ROW_INSET: f32 = 3.;
 
 /// `<hiện tại> / <tổng>` theo `m:ss` hoặc `h:mm:ss`.
 pub fn progress_label(position_sec: f64, duration_sec: f64) -> String {
@@ -127,12 +130,11 @@ impl Render for TimelineBox {
                 let current = active == Some(ix);
                 div()
                     .w_full()
-                    .px_2()
+                    .px(px(ROW_INSET))
                     .flex()
                     .items_center()
                     .gap_2()
                     .text_sm()
-                    .when(current, |row| row.font_weight(FontWeight::SEMIBOLD))
                     .child(
                         div()
                             .flex_none()
@@ -181,9 +183,11 @@ impl Render for TimelineBox {
                     .on_select(jump.clone())
                     .on_activate(jump)
                     .track(&self.list)
+                    // D-16: khung cuộn chạm hai mép khung, đệm ngang nằm trong để thumb sát mép phải.
+                    .padding_x(TRACK_THICKNESS)
                     .flex_1()
                     .min_h_0()
-                    .p_1(),
+                    .py_1(),
             )
             .into_any_element()
     }

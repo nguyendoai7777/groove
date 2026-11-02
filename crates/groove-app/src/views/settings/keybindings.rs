@@ -15,8 +15,7 @@ use materiant::button::Button;
 use materiant::field::textarea::TextArea;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    App, ClickEvent, Context, Entity, FontWeight, IntoElement, ParentElement, Render, SharedString, Styled, Window,
-    div, px,
+    App, ClickEvent, Context, Entity, IntoElement, ParentElement, Render, SharedString, Styled, Window, div, px,
 };
 use materiant::theme::ActiveTheme;
 
@@ -184,7 +183,7 @@ impl Render for KeybindingsPanel {
                     .flex()
                     .flex_col()
                     .gap_2()
-                    .child(div().font_weight(FontWeight::SEMIBOLD).child(t!("settings.keys.commands")))
+                    .child(div().child(t!("settings.keys.commands")))
                     .child(div().flex().flex_wrap().gap_2().text_size(px(12.)).text_color(muted).children(commands)),
             )
     }

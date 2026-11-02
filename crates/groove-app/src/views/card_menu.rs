@@ -102,6 +102,7 @@ impl Render for ConfirmDelete {
         div().child(
             Dialog::new("confirm-delete", &self.handle)
                 .title(t!("actions.confirm.title"))
+                .divided(true)
                 .actions([
                     Button::new("confirm-delete-cancel", t!("actions.confirm.cancel"))
                         .text()

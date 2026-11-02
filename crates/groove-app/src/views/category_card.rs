@@ -4,9 +4,14 @@
 //! "chưa rõ nghệ sĩ", thư mục là đường dẫn, playlist là số bài. Thẻ chỉ báo lên: mở danh sách, Play all, Delete — nghiệp
 //! vụ (phát, hộp xác nhận, xoá) là của task 17.
 //!
-//! Hover như `music-card.vue`: viền accent 2 px, nền thẻ 40% lên 60%, quầng bóng accent, lớp phủ hiện dần 300 ms, bìa phóng
-//! 1,05 trong 500 ms (`with_animation`, chỉ chạy lúc đổi trạng thái). Số đo: `p-3 rounded-xl border-2`, bìa `rounded-lg`, chữ
-//! `mt-3`, dòng phụ `mt-1`. Không làm được: `backdrop-blur` của lớp phủ.
+//! Hover như `music-card.vue`: viền accent 2 px, nền thẻ 40% lên 60%, quầng bóng accent `0 0 20px <accent>40` tỏa ra ngoài
+//! viền, lớp phủ hiện dần 300 ms, bìa phóng 1,05 trong 500 ms
+//! (`with_animation`, chỉ chạy lúc đổi trạng thái). Số đo: `p-3 rounded-xl border-2`, bìa `rounded-lg`, chữ `mt-3`, dòng phụ
+//! `mt-1`. Không làm được: `backdrop-blur` của lớp phủ.
+//!
+//! Thẻ lấp kín ô của lưới (`cell_padding(0)`, `cell_radius(CARD_RADIUS)`): nền rê / chọn và ripple của ô trùng khít mép ngoài
+//! viền thẻ, cùng bán kính (chủ dự án 02/11/2026: nền rê lệch viền). Ô không cắt phần vẽ tràn (`clip_cells(false)`) để quầng
+//! bóng tỏa vào khe 24 px giữa các thẻ; mép khung cuộn vẫn cắt.
 
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -21,8 +26,8 @@ use materiant::button::IconButton;
 use materiant::gpui_kit as gpui;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    Animation, AnimationExt, AnyElement, App, BoxShadow, ClickEvent, Entity, FontWeight, Hsla, IntoElement,
-    ParentElement, RenderOnce, SharedString, Styled, Window, div, point, px, relative,
+    Animation, AnimationExt, AnyElement, App, BoxShadow, ClickEvent, Entity, Hsla, IntoElement, ParentElement,
+    RenderOnce, SharedString, Styled, Window, div, point, px, relative,
 };
 use materiant::menu::ContextMenuExt;
 use materiant::overlay::tooltip::TooltipExt;
@@ -30,7 +35,7 @@ use materiant::theme::{ActiveTheme, Neutral};
 use materiant::virtual_grid::LruImageCache;
 
 use crate::icons::GrooveIcon;
-use crate::views::cover_image::{CoverImage, CoverKind, DEFAULT_PLAYLIST_COLOR, parse_color};
+use crate::views::cover_image::{CoverImage, CoverKind, parse_color};
 
 /// Chiều cao cố định của dòng tên và dòng phụ: thẻ cao đúng `COVER + TEXT_BLOCK`, lưới tính được cao ô.
 const TITLE_HEIGHT: f32 = 20.;
@@ -40,10 +45,15 @@ const TEXT_GAP: f32 = 12.;
 const SUBTITLE_GAP: f32 = 4.;
 /// `border-2` và `p-3` của bản cũ.
 const BORDER: f32 = 2.;
+/// `hover:shadow-[0_0_20px_<accent>40]` của bản web: blur 20 px, alpha 0x40 = 25 %.
+const GLOW_BLUR: f32 = 20.;
+const GLOW_ALPHA: f32 = 0.25;
+/// `rounded-xl` của thẻ, tính tới mép ngoài viền; lưới bo ô đúng bằng số này.
+pub const CARD_RADIUS: f32 = 12.;
 const PADDING: f32 = 12.;
 /// Phần cao của ô ngoài bìa vuông: hai viền + khoảng cách + hai dòng chữ + dư 2 px cho sai số làm tròn pixel.
-/// `VirtualGrid::new(.., cell_height = CARD_EXTRA_HEIGHT)` + `.height_per_width(1.)`; lưới chừa thêm 12 px quanh ô
-/// (padding của ô) và bìa hẹp hơn ô 12 + 2 × `BORDER` px, hai phần này triệt tiêu nhau ở bề ngang.
+/// `VirtualGrid::new(.., cell_height = CARD_EXTRA_HEIGHT)` + `.height_per_width(1.)`. Thẻ lấp kín ô, bìa hẹp
+/// hơn ô 2 × (`BORDER` + `PADDING`) = 28 px; cao ô vì thế dư vài px so với viền + đệm + bìa + chữ, phần dư nằm cuối thẻ.
 pub const CARD_EXTRA_HEIGHT: f32 = 2. * BORDER + TEXT_GAP + SUBTITLE_GAP + TITLE_HEIGHT + SUBTITLE_HEIGHT + 2. + 4.;
 
 /// Chuyển của `transition-all duration-300` (thẻ, lớp phủ) và `duration-500` (phóng bìa) bản cũ.
@@ -51,11 +61,6 @@ const FADE: Duration = Duration::from_millis(300);
 const ZOOM: Duration = Duration::from_millis(500);
 /// `group-hover:scale-105`.
 const ZOOM_SCALE: f32 = 1.05;
-/// `hover:border-color` + `box-shadow: 0 0 20px <accent>40` (0x40 = 25%).
-/// Web dùng blur 20 px; ô của `VirtualGrid` cắt (`overflow_hidden`, đệm 6 px) mọi thứ vẽ ngoài ô, blur 20 hiện thành khung chữ nhật
-/// bị cắt cứng quanh thẻ, nên hạ còn 12 px.
-const GLOW_BLUR: f32 = 12.;
-const GLOW_ALPHA: f32 = 0.25;
 
 type Handler = Rc<dyn Fn(CategoryRef, &mut Window, &mut App)>;
 
@@ -71,10 +76,10 @@ pub fn subtitle(summary: &CategorySummary) -> SharedString {
     }
 }
 
-/// Màu accent của thẻ: playlist theo màu của nó (mặc định cyan), album và thư mục theo bìa, chưa có thì `None`.
+/// Màu accent của thẻ: playlist theo màu của nó, album và thư mục theo bìa; chưa có thì `None` (nơi vẽ dùng màu nhấn của theme).
 pub fn accent_of(summary: &CategorySummary) -> Option<Hsla> {
     let text = match summary.reference {
-        CategoryRef::Playlist(_) => Some(summary.color.as_deref().unwrap_or(DEFAULT_PLAYLIST_COLOR)),
+        CategoryRef::Playlist(_) => summary.color.as_deref(),
         _ => summary.accent_color.as_deref(),
     };
     text.and_then(parse_color)
@@ -179,8 +184,8 @@ impl RenderOnce for CategoryCard {
         let (tag, id) = kind_tag(reference);
         let group: SharedString = format!("card-{tag}-{id}").into();
         let accent = accent_of(&self.summary);
-        // Bản cũ: `accentColor || '#06b6d4'`, không có màu thì viền cyan.
-        let border_hover = accent.or_else(|| parse_color(DEFAULT_PLAYLIST_COLOR)).unwrap_or(c.primary_ink);
+        // Bản cũ: `accentColor || '#06b6d4'`; không có màu thì viền theo màu nhấn của theme (G-4).
+        let border_hover = accent.unwrap_or(c.primary);
 
         let cover = CoverImage::new(
             cover_path(&self.summary, self.covers.as_ref()),
@@ -266,7 +271,7 @@ impl RenderOnce for CategoryCard {
             .flex_col()
             .p(px(PADDING))
             .border(px(BORDER))
-            .rounded_xl()
+            .rounded(px(CARD_RADIUS))
             .cursor_pointer()
             .debug_selector(move || format!("card-{tag}-{id}"))
             .on_click(move |_: &ClickEvent, window, cx| on_open(reference, window, cx))
@@ -280,7 +285,6 @@ impl RenderOnce for CategoryCard {
                         div()
                             .h(px(TITLE_HEIGHT))
                             .truncate()
-                            .font_weight(FontWeight::SEMIBOLD)
                             .text_color(c.text)
                             .child(SharedString::from(self.summary.name.clone())),
                     )
@@ -349,7 +353,7 @@ mod tests {
     #[test]
     fn accent_follows_kind() {
         let mut playlist = summary(CategoryRef::Playlist(1));
-        assert_eq!(accent_of(&playlist), parse_color(DEFAULT_PLAYLIST_COLOR), "playlist không màu: cyan");
+        assert_eq!(accent_of(&playlist), None, "playlist không màu: nơi vẽ dùng màu nhấn của theme");
         playlist.color = Some("#ff0000".into());
         assert_eq!(accent_of(&playlist), parse_color("#ff0000"));
         playlist.color = Some("garbage".into());
