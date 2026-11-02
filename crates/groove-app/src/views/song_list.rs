@@ -241,6 +241,11 @@ impl SongList {
         }));
     }
 
+    /// Nạp lại từ thư viện (hộp metadata vừa lưu).
+    pub fn refresh(&mut self, cx: &mut Context<Self>) {
+        self.reload(cx);
+    }
+
     /// Đọc lại ở nền. Lần đọc mới thay lần đang chạy.
     fn reload(&mut self, cx: &mut Context<Self>) {
         let Some(library) = self.library.clone() else {

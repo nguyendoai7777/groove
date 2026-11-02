@@ -22,10 +22,15 @@ pub fn build(menu: Menu, reference: CategoryRef, cx: &App) -> Menu {
     let menu = if matches!(reference, CategoryRef::Playlist(_)) {
         menu
     } else {
-        let cover = ctl.clone();
+        let (cover, metadata) = (ctl.clone(), ctl.clone());
         menu.item(MenuItem::new("card-menu-cover", t!("actions.card.set_cover")).on_select(move |_, cx| {
             cover.update(cx, |ctl, cx| ctl.pick_category_cover(reference, cx));
         }))
+        .item(MenuItem::new("card-menu-metadata", t!("actions.card.edit_metadata")).on_select(
+            move |_, cx| {
+                metadata.update(cx, |ctl, cx| ctl.open_category_metadata(reference, cx));
+            },
+        ))
     };
     menu.separator().item(MenuItem::new("card-menu-delete", delete_label(reference)).danger(true).on_select(
         move |_, cx| {

@@ -27,6 +27,7 @@ failed = "This image cannot be used as a cover."
 [card]
 play_all = "Play all"
 set_cover = "Change cover"
+edit_metadata = "Edit metadata"
 delete_playlist = "Delete playlist"
 remove_from_library = "Remove from library"
 

@@ -39,12 +39,18 @@ pub fn build(menu: Menu, reference: CategoryRef, song: &Song, cx: &App) -> Menu 
             ctl.update(cx, |ctl, cx| ctl.request_edit(kind, song.clone(), cx));
         })
     };
+    let metadata = {
+        let (ctl, track) = (ctl.clone(), song.track.clone());
+        MenuItem::new("song-menu-metadata", t!("actions.song.edit_metadata")).on_select(move |_, cx| {
+            ctl.update(cx, |ctl, cx| ctl.open_metadata(track.clone(), reference, cx));
+        })
+    };
     let menu = menu
         .submenu(MenuItem::new("song-menu-add", t!("actions.song.add_to_playlist")), add)
         .separator()
         .item(edit("song-menu-timeline", t!("actions.song.edit_timeline"), SongEditKind::Timeline))
         .item(edit("song-menu-lyrics", t!("actions.song.edit_lyrics"), SongEditKind::Lyrics))
-        .item(edit("song-menu-metadata", t!("actions.song.edit_metadata"), SongEditKind::Metadata));
+        .item(metadata);
 
     if let CategoryRef::Playlist(playlist_id) = reference {
         let ctl = ctl.clone();

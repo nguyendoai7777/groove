@@ -7,7 +7,8 @@
 //!
 //! - [`ctl`] lấy entity; `import_path`, `rescan`, `remove_category`, `play_category`, `set_category_cover`,
 //!   `add_to_playlist`, `remove_from_playlist`, `forget_root`.
-//! - Mở hộp sửa bài: nghe [`LibraryCtlEvent::Edit`] (task 19, 20) và bỏ nhánh toast tạm trong [`install`].
+//! - Hộp metadata (task 19): `open_metadata`, `open_category_metadata`; `LibraryCtl` giữ entity, `LibraryPage` vẽ.
+//! - Hộp timeline, lyrics (task 20): nghe [`LibraryCtlEvent::Edit`] và bỏ nhánh toast tạm trong [`connect`].
 //! - Settings (task 24): danh sách gốc lấy từ `Library::watched_roots`, bỏ gốc bằng `forget_root`.
 
 use std::path::{Path, PathBuf};
@@ -25,9 +26,12 @@ use groove_library::covers::CoverStore;
 use groove_library::db::migrate::CoverRecord;
 use groove_library::db::queries::{self, CategorySummary};
 use groove_library::indexer::{ImportReport, IndexError, IndexTally, Indexer};
+use groove_library::metadata_ops::MetadataOps;
 use groove_library::store::Library;
 use groove_library::watcher::LibraryWatcher;
-use materiant::gpui_kit::{App, AppContext, Context, Entity, EventEmitter, Global, Task, WeakEntity, Window};
+use materiant::gpui_kit::{
+    App, AppContext, Context, Entity, EventEmitter, Global, Subscription, Task, WeakEntity, Window,
+};
 use materiant::toast::{Toast, ToastKind, ToastSpec};
 
 use crate::app;
@@ -35,6 +39,7 @@ use crate::player;
 use crate::route::Route;
 use crate::views::card_menu::ConfirmDelete;
 use crate::views::library_page::{LibraryPage, LibraryPageEvent};
+use crate::views::metadata::dialog::{GroupScope, MetadataDialog, MetadataDialogEvent};
 use crate::views::playlist_dialog::PlaylistDialog;
 
 /// Đuôi ảnh chọn làm bìa.
@@ -71,14 +76,13 @@ pub fn native_picker() -> Picker {
 pub enum SongEditKind {
     Timeline,
     Lyrics,
-    Metadata,
 }
 
 #[derive(Clone, Debug)]
 pub enum LibraryCtlEvent {
     /// Báo cho người dùng; `install` đổi thành toast.
     Notice { kind: ToastKind, message: String },
-    /// Mục sửa bài trong menu (task 19, 20 mở hộp).
+    /// Mục sửa timeline, lyrics trong menu (task 20 mở hộp).
     Edit { kind: SongEditKind, song: Box<Song> },
 }
 
@@ -258,6 +262,10 @@ pub struct LibraryCtl {
     started: bool,
     playlist_dialog: Option<Entity<PlaylistDialog>>,
     confirm_delete: Option<Entity<ConfirmDelete>>,
+    metadata_ops: Option<MetadataOps>,
+    /// Hộp metadata đang mở; `Closed` thì bỏ.
+    metadata_dialog: Option<Entity<MetadataDialog>>,
+    _metadata_events: Option<Subscription>,
     _events: Option<Task<()>>,
 }
 
@@ -272,6 +280,9 @@ impl LibraryCtl {
         cx: &mut Context<Self>,
     ) -> LibraryCtl {
         let indexer = library.clone().zip(covers.clone()).map(|(library, covers)| Indexer::new(library, covers));
+        let metadata_ops = library.clone().zip(covers.clone()).and_then(|(library, covers)| {
+            MetadataOps::new(library, covers).map_err(|err| log::warn!("library ctl: metadata worker: {err}")).ok()
+        });
         let mut ctl = LibraryCtl {
             library,
             indexer,
@@ -286,6 +297,9 @@ impl LibraryCtl {
             started: false,
             playlist_dialog: None,
             confirm_delete: None,
+            metadata_ops,
+            metadata_dialog: None,
+            _metadata_events: None,
             _events: None,
         };
         ctl.listen(cx);
@@ -584,7 +598,7 @@ impl LibraryCtl {
             let name = library.category(reference).await.ok().flatten().map(|summary| summary.name);
             let Some(name) = name else { return };
             cx.update(|cx| {
-                with_window(cx, |window, cx| dialog.update(cx, |d, cx| d.open(reference, name, window, cx)));
+                with_window(cx, move |window, cx| dialog.update(cx, |d, cx| d.open(reference, name, window, cx)));
             });
         })
         .detach();
@@ -616,7 +630,7 @@ impl LibraryCtl {
     /// Hộp tạo playlist; `add_song` là bài thêm luôn sau khi tạo (đặc tả 1.2, tạo từ menu bài).
     pub fn open_create_playlist(&mut self, add_song: Option<i64>, cx: &mut Context<Self>) {
         let Some(dialog) = self.playlist_dialog.clone() else { return };
-        with_window(cx, |window, cx| dialog.update(cx, |d, cx| d.open(add_song, window, cx)));
+        with_window(cx, move |window, cx| dialog.update(cx, |d, cx| d.open(add_song, window, cx)));
     }
 
     pub fn add_to_playlist(&mut self, playlist: i64, song: i64, cx: &mut Context<Self>) {
@@ -652,6 +666,83 @@ impl LibraryCtl {
         cx.emit(LibraryCtlEvent::Edit { kind, song: Box::new(song) });
     }
 
+    // ---- Metadata (task 19) ----
+
+    /// Mở từ dòng bài. Album, thư mục thì có ô áp cho cả nhóm; playlist không phải nhóm thẻ nên `None`.
+    pub fn open_metadata(&mut self, track: TrackRef, from: CategoryRef, cx: &mut Context<Self>) {
+        let Some(library) = self.library.clone() else { return };
+        cx.spawn(async move |this, cx| {
+            let scope = match from {
+                CategoryRef::Playlist(_) => None,
+                _ => library
+                    .category(from)
+                    .await
+                    .ok()
+                    .flatten()
+                    .map(|summary| GroupScope { category: from, songs: summary.song_count as usize }),
+            };
+            this.update(cx, |this, cx| this.show_metadata(track, scope, cx)).ok();
+        })
+        .detach();
+    }
+
+    /// Mở từ thẻ: sửa từ bài đầu, áp được cho cả nhóm. Danh sách rỗng thì toast.
+    pub fn open_category_metadata(&mut self, reference: CategoryRef, cx: &mut Context<Self>) {
+        let Some(library) = self.library.clone() else { return };
+        cx.spawn(async move |this, cx| {
+            let songs = library.songs(reference).await.unwrap_or_default();
+            this.update(cx, |this, cx| {
+                let Some(first) = songs.first() else {
+                    this.notice(ToastKind::Info, t!("actions.play.empty"), cx);
+                    return;
+                };
+                let scope = GroupScope { category: reference, songs: songs.len() };
+                this.show_metadata(first.track.clone(), Some(scope), cx);
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    fn show_metadata(&mut self, track: TrackRef, scope: Option<GroupScope>, cx: &mut Context<Self>) {
+        let Some(ops) = self.metadata_ops.clone() else {
+            self.notice(ToastKind::Danger, t!("actions.unavailable"), cx);
+            return;
+        };
+        if self.metadata_dialog.is_some() {
+            return;
+        }
+        let this = cx.entity();
+        with_window(cx, move |window, cx| {
+            let dialog = MetadataDialog::open(ops, track, scope, window, cx);
+            this.update(cx, |this, cx| this.adopt_metadata(dialog, cx));
+        });
+    }
+
+    fn adopt_metadata(&mut self, dialog: Entity<MetadataDialog>, cx: &mut Context<Self>) {
+        self._metadata_events = Some(cx.subscribe(&dialog, |this, _, event: &MetadataDialogEvent, cx| match event {
+            MetadataDialogEvent::Saved(_) => {
+                if let Some(page) = this.page.as_ref().and_then(WeakEntity::upgrade) {
+                    page.update(cx, |page, cx| page.refresh_lists(cx));
+                }
+            }
+            MetadataDialogEvent::Closed => {
+                this.metadata_dialog = None;
+                this._metadata_events = None;
+                this.push_metadata(cx);
+            }
+        }));
+        self.metadata_dialog = Some(dialog);
+        self.push_metadata(cx);
+    }
+
+    fn push_metadata(&self, cx: &mut Context<Self>) {
+        let dialog = self.metadata_dialog.clone();
+        if let Some(page) = self.page.as_ref().and_then(WeakEntity::upgrade) {
+            page.update(cx, |page, cx| page.set_metadata_dialog(dialog, cx));
+        }
+    }
+
     // ---- Bìa ----
 
     pub fn pick_category_cover(&mut self, reference: CategoryRef, cx: &mut Context<Self>) {
@@ -682,13 +773,16 @@ impl LibraryCtl {
     }
 }
 
-/// Chạy với cửa sổ chính (app chỉ có một cửa sổ).
-pub fn with_window(cx: &mut App, f: impl FnOnce(&mut Window, &mut App)) {
-    if let Some(window) = cx.windows().first().copied()
-        && let Err(err) = window.update(cx, |_, window, cx| f(window, cx))
-    {
-        log::warn!("library ctl: no window: {err}");
-    }
+/// Chạy với cửa sổ chính (app chỉ có một cửa sổ). Luôn hoãn: nơi gọi có thể đang trong `on_select` của menu (cửa sổ đang bị
+/// mượn, `update` sẽ lỗi) hoặc trong `update` của chính `LibraryCtl`.
+pub fn with_window(cx: &mut App, f: impl FnOnce(&mut Window, &mut App) + 'static) {
+    cx.defer(move |cx| {
+        if let Some(window) = cx.windows().first().copied()
+            && let Err(err) = window.update(cx, |_, window, cx| f(window, cx))
+        {
+            log::warn!("library ctl: no window: {err}");
+        }
+    });
 }
 
 struct CtlHandle(Entity<LibraryCtl>);
@@ -742,10 +836,10 @@ pub fn connect(ctl: &Entity<LibraryCtl>, page: &Entity<LibraryPage>, cx: &mut Ap
     cx.subscribe(ctl, |_, event: &LibraryCtlEvent, cx| {
         let spec = match event {
             LibraryCtlEvent::Notice { kind, message } => ToastSpec::new(*kind, message.clone()),
-            // Tạm tới khi task 19, 20 nối hộp sửa: mục menu vẫn phải trả lời người dùng.
+            // Tạm tới khi task 20 nối hộp sửa: mục menu vẫn phải trả lời người dùng.
             LibraryCtlEvent::Edit { .. } => ToastSpec::new(ToastKind::Info, t!("actions.song.edit_unavailable")),
         };
-        with_window(cx, |window, cx| {
+        with_window(cx, move |window, cx| {
             Toast::push(window, cx, spec);
         });
     })
@@ -753,7 +847,7 @@ pub fn connect(ctl: &Entity<LibraryCtl>, page: &Entity<LibraryPage>, cx: &mut Ap
 
     let weak_ctl = ctl.downgrade();
     let (owner, weak_page) = (ctl.clone(), page.downgrade());
-    with_window(cx, |window, cx| {
+    with_window(cx, move |window, cx| {
         let library = owner.read(cx).library().cloned();
         let playlist_dialog = cx.new(|cx| PlaylistDialog::new(library, weak_ctl.clone(), window, cx));
         let confirm_delete = cx.new(|cx| ConfirmDelete::new(weak_ctl, cx));
@@ -1288,6 +1382,54 @@ mod tests {
         let _ = dialog;
     }
 
+    /// C16 — menu mở hộp metadata: chủ giữ entity, trang vẽ làm con; `Closed` bỏ entity; đang mở thì không mở chồng.
+    #[gpui::test]
+    fn metadata_dialog_is_owned_and_released(cx: &mut TestAppContext) {
+        use crate::views::library_page::LibraryPage;
+
+        let env = env();
+        env.import_tree();
+        let _player = install_player(cx, &env);
+        let (ctl, _) = ctl_with(cx, &env, fake_picker(None, Rc::default()));
+        let (library, covers) = (env.library.clone(), env.covers.clone());
+        let window = cx.add_window(|window, cx| {
+            let page = cx.new(|cx| LibraryPage::new(Some(library), Some(covers), Route::MyMusic, cx));
+            Root::new(page, window, cx)
+        });
+        let page = window.update(cx, |root, _, _| root.view().clone().downcast::<LibraryPage>().unwrap()).unwrap();
+        ctl.update(cx, |ctl, _| ctl.page = Some(page.downgrade()));
+        let folder = env.folder("A");
+        let cx = VisualTestContext::from_window(window.into(), cx).into_mut();
+
+        ctl.update(cx, |ctl, cx| ctl.open_category_metadata(folder, cx));
+        for _ in 0..500 {
+            cx.run_until_parked();
+            if ctl.read_with(cx, |c, _| c.metadata_dialog.is_some()) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let dialog = ctl.read_with(cx, |c, _| c.metadata_dialog.clone()).expect("đã mở");
+        assert!(page.read_with(cx, |p, _| p.has_metadata_dialog()), "trang vẽ hộp");
+        cx.update(|window, cx| {
+            window.refresh();
+            window.draw(cx).clear(cx);
+        });
+        assert!(dialog.read_with(cx, |d, _| d.is_open()));
+
+        let track = env.library.songs(folder).wait().unwrap()[0].track.clone();
+        ctl.update(cx, |ctl, cx| ctl.open_metadata(track, folder, cx));
+        std::thread::sleep(Duration::from_millis(300));
+        cx.run_until_parked();
+        let same = ctl.read_with(cx, |c, _| c.metadata_dialog.clone()).unwrap();
+        assert_eq!(same.entity_id(), dialog.entity_id());
+
+        dialog.update(cx, |_, cx| cx.emit(MetadataDialogEvent::Closed));
+        cx.run_until_parked();
+        assert!(ctl.read_with(cx, |c, _| c.metadata_dialog.is_none()));
+        assert!(!page.read_with(cx, |p, _| p.has_metadata_dialog()));
+    }
+
     /// C15 — danh sách trong playlist: chuột phải và Shift+F10 đều mở menu của dòng; mục cuối xoá đúng bài khỏi playlist.
     #[gpui::test]
     fn song_menu_opens_by_mouse_and_keyboard(cx: &mut TestAppContext) {
@@ -1362,6 +1504,25 @@ mod tests {
         draw(cx);
         cx.simulate_keystrokes("end enter");
         wait(cx, "phím sau menu chuột", &|_| in_list(&env).is_empty());
+
+        let TrackRef::Library(again) = before[0].track else { unreachable!() };
+        env.library.add_song_to_playlist(playlist, again).wait().unwrap();
+        wait(cx, "có lại dòng", &|cx| cx.debug_bounds("song-row-1").is_some());
+        // "Tạo danh sách mới" từ menu con: chạy trong `on_select`, lúc cửa sổ đang bị mượn, hộp vẫn phải mở.
+        let weak_ctl = ctl.downgrade();
+        let create = cx.update(|window, cx| {
+            let library = env.library.clone();
+            cx.new(|cx| PlaylistDialog::new(Some(library), weak_ctl, window, cx))
+        });
+        ctl.update(cx, |ctl, _| ctl.playlist_dialog = Some(create.clone()));
+        cx.simulate_keystrokes("shift-f10");
+        draw(cx);
+        draw(cx);
+        cx.simulate_keystrokes("enter");
+        draw(cx);
+        draw(cx);
+        cx.simulate_keystrokes("end enter");
+        wait(cx, "hộp tạo danh sách", &|cx| create.read_with(cx, |d, _| d.is_open()));
     }
 
     #[test]
@@ -1383,6 +1544,7 @@ mod tests {
             "actions.cover.failed",
             "actions.card.play_all",
             "actions.card.set_cover",
+            "actions.card.edit_metadata",
             "actions.card.delete_playlist",
             "actions.card.remove_from_library",
             "actions.confirm.title",

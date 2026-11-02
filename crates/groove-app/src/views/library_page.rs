@@ -46,6 +46,7 @@ use crate::icons::GrooveIcon;
 use crate::library_ctl;
 use crate::route::Route;
 use crate::views::category_card::{CARD_EXTRA_HEIGHT, CategoryCard};
+use crate::views::metadata::dialog::MetadataDialog;
 use crate::views::song_list::{SongList, SongListEvent};
 
 /// Lề hai bên của cả màn (đặc tả: `p-6`); lưới dùng cùng số này làm `padding_x` nên thanh cuộn nổi trên dải bên phải.
@@ -120,6 +121,8 @@ pub struct LibraryPage {
     focus_list: bool,
     /// Hộp thoại của `library_ctl`, vẽ ở mọi route của slot này.
     overlays: Vec<AnyView>,
+    /// Hộp metadata đang mở; `LibraryCtl` giữ vòng đời.
+    metadata_dialog: Option<Entity<MetadataDialog>>,
     load_task: Option<Task<()>>,
     _events: Option<Task<()>>,
     _song_list_events: Option<Subscription>,
@@ -168,6 +171,7 @@ impl LibraryPage {
             song_list: None,
             focus_list: matches!(route, Route::Category(_)),
             overlays: Vec::new(),
+            metadata_dialog: None,
             load_task: None,
             _events: None,
             _song_list_events: None,
@@ -305,6 +309,24 @@ impl LibraryPage {
     pub fn set_overlays(&mut self, overlays: Vec<AnyView>, cx: &mut Context<Self>) {
         self.overlays = overlays;
         cx.notify();
+    }
+
+    pub fn set_metadata_dialog(&mut self, dialog: Option<Entity<MetadataDialog>>, cx: &mut Context<Self>) {
+        self.metadata_dialog = dialog;
+        cx.notify();
+    }
+
+    #[cfg(test)]
+    pub fn has_metadata_dialog(&self) -> bool {
+        self.metadata_dialog.is_some()
+    }
+
+    /// Thẻ của bài vừa sửa: nạp lại lưới và danh sách đang mở.
+    pub fn refresh_lists(&mut self, cx: &mut Context<Self>) {
+        self.reload(cx);
+        if let Some(list) = &self.song_list {
+            list.update(cx, |list, cx| list.refresh(cx));
+        }
     }
 
     /// `SongList` của `reference`: dùng lại view đã có, chỉ đổi mục.
@@ -686,7 +708,8 @@ impl Render for LibraryPage {
             .flex_col()
             .overflow_hidden()
             .text_color(c.text)
-            .children(self.overlays.iter().map(|view| view.clone().into_any_element()));
+            .children(self.overlays.iter().map(|view| view.clone().into_any_element()))
+            .children(self.metadata_dialog.clone());
 
         if let Route::Category(reference) = self.route {
             let list = self.song_list(reference, cx);
