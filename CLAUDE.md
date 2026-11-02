@@ -66,6 +66,22 @@ Viết tắt trong task: `core`, `library`, `audio`, `app`, `views` = `crates/gr
 - **Màu nhấn** theo theme materiant (deeppink, như fastcast — G-4): `app::apply_theme` không đặt `primary`; view lấy
   `cx.theme().colors().primary` (chữ trên nền nhạt: `primary_ink`), không mã màu nhấn cứng. Playlist chưa có màu dùng màu nhấn.
 
+## Soát UI riêng của groove
+
+Danh sách chung: `materiant/CLAUDE.md` mục "Soát trước khi xong một component / màn". Thêm cho groove:
+
+- **Một độ đậm** (G-6): `app::groove_theme` đặt `label_weight` / `title_weight` của theme materiant về normal; view không gọi
+  độ đậm khác `NORMAL` (test `tests/font_weight.rs` quét `src/**`), phân cấp bằng cỡ chữ và màu.
+- **Màu nhấn** từ theme (G-4, mục trên); không thêm mã màu nhấn trong view.
+- **Space là phím toàn cục** (phát / dừng): vòng focus đi qua `materiant::style::focus_visible`, kể cả nút / hàng tự dựng.
+- **Hoạt ảnh lặp** (chữ chạy `Marquee`, thanh nhảy `PlayingBars`) vẽ lại cả cửa sổ mỗi khung: chỉ chạy khi cửa sổ active, dừng
+  tại chỗ khi cửa sổ nền / thu nhỏ (số đo: `plan/confirm.md` mục `ui-audit`).
+- **Ảnh bìa**: `views::cover_image::CoverImage` cho cả bìa thư viện lẫn bìa nhúng (`.embedded`), `.radius(…)` bằng bo góc của khung
+  chứa, phóng bằng `.zoom(…)`; lớp phủ trên bìa tự bo cùng bán kính.
+- **Xem bằng mắt ở desktop ẩn**: `tools/measure-hidden.ps1 -Seed <seed_data.exe>` có sẵn một bài tên dài đang mở (không phát) để
+  thanh phát không khoá và tên chạy; `-Active` mở cửa sổ ở trạng thái active; dòng mốc in cả `cpu=` (% một nhân). Không gõ
+  `space` trong `-Keys` (phát ra loa).
+
 ## Lệnh
 
 ```bash
@@ -82,7 +98,7 @@ bash packaging/macos/build-macos.sh                           # .app, .dmg, ký 
 bash packaging/linux/build-deb.sh                             # .deb, libasound là phụ thuộc (G-2); chạy trên Ubuntu
 ```
 
-`pwsh tools/measure-hidden.ps1 -Exe <groove.exe> [-Keys …] [-Shot ảnh.png]`: chạy app thật trong desktop Win32 ẩn, không hiện ở
+`pwsh tools/measure-hidden.ps1 -Exe <groove.exe> [-Keys …] [-Shot ảnh.png] [-Seed <exe>] [-Active]`: chạy app thật trong desktop Win32 ẩn, không hiện ở
 màn nào, không giành focus, dữ liệu tạm; in RAM, số cửa sổ, tiêu đề, dòng WARN / ERROR. Từ chối exe không đọc
 `GROOVE_DATA_DIR` (bản phát hành thật sẽ mở thư viện thật); đo gần bản phát hành thì build release với
 `CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=true`. Không có nền mờ, con trỏ, taskbar thật; xem ảnh xong xoá.

@@ -32,6 +32,8 @@ pub const HEIGHT: f32 = 36.;
 /// Ô tìm rộng 40 % thanh, canh giữa.
 const SEARCH_WIDTH: f32 = 0.4;
 const CONTROL_WIDTH: f32 = 46.;
+/// Nút Lùi tròn 32 px cách mép trái bằng khoảng nó cách mép trên / dưới thanh 36 px.
+const BACK_INSET: f32 = 2.;
 /// Icon nút cửa sổ: 10 px nét 1 px như Segoe Fluent Icons.
 const CAPTION_ICON: f32 = 10.;
 
@@ -150,13 +152,14 @@ impl RenderOnce for AppBar {
 
         let back = {
             let on_back = self.on_back.clone();
-            div().occlude().child(
+            // Nút icon tròn như mọi nút icon (ui-audit), không phải ô chữ nhật cao bằng thanh; nút cửa sổ bên phải mới theo
+            // kiểu Windows.
+            div().occlude().ml(px(BACK_INSET)).child(
                 IconButton::new("app-bar-back", GrooveIcon::AngleLeft)
                     .accessibility_label(t!("shell.app_bar.back"))
                     .disabled(!self.can_back)
                     .on_click(move |_: &ClickEvent, window, cx| on_back(window, cx))
-                    .rounded_none()
-                    .h(px(HEIGHT)),
+                    .rounded_full(),
             )
         };
 

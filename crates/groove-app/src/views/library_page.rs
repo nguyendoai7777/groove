@@ -28,6 +28,7 @@ use groove_library::covers::CoverStore;
 use groove_library::db::queries::CategorySummary;
 use groove_library::store::Library;
 use materiant::button::Button;
+use materiant::effect::ripple::{RippleConfig, RippleExt};
 // `#[derive(IntoElement)]` trỏ crate `gpui`; bản không test chỉ có `materiant::gpui_kit`.
 use materiant::gpui_kit as gpui;
 use materiant::gpui_kit::prelude::*;
@@ -452,6 +453,8 @@ fn action_card(
                 .child(div().text_color(c.text).child(title))
                 .child(div().text_size(px(12.)).text_color(c.primary_ink).child(hint.into())),
         )
+        // Sau `.rounded_lg()`: ripple chép bo góc lúc gọi.
+        .ripple(RippleConfig::default())
 }
 
 /// Icon + tiêu đề + gợi ý ở giữa vùng nội dung (lưới rỗng, lỗi mở thư viện).

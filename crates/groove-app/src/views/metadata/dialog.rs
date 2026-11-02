@@ -27,6 +27,7 @@ use materiant::gpui_kit::{
 use materiant::icon::{Icon, IconName};
 use materiant::overlay::dialog::{Dialog, DialogHandle};
 use materiant::select::{Select, SelectItem};
+use materiant::style::Accent;
 use materiant::tabs::{TabItem, Tabs};
 use materiant::theme::{ActiveTheme, Neutral};
 
@@ -534,7 +535,12 @@ impl MetadataDialog {
                 .flex_wrap()
                 .items_center()
                 .gap_2()
-                .child(inline_note(t!("metadata.grouping.warning").to_owned(), c.warning, IconName::Warning))
+                // Chữ cảnh báo trên nền hộp: `ink` của màu cảnh báo (cam `#c2410c` trần trên nền tối chỉ ~3,3 : 1).
+                .child(inline_note(
+                    t!("metadata.grouping.warning").to_owned(),
+                    Accent::Warning.tokens(cx).ink,
+                    IconName::Warning,
+                ))
                 .child(
                     Button::new("metadata-fix-grouping", t!("metadata.grouping.fix"))
                         .outlined()
@@ -640,6 +646,7 @@ impl MetadataDialog {
         if self.error.is_none() && self.bulk.is_none() {
             return None;
         }
+        let warning_ink = Accent::Warning.tokens(cx).ink;
         let c = cx.theme().colors();
         let mut col = div().flex().flex_col().gap_1().p_3().rounded_md().bg(c.layer(Neutral::N100));
         if let Some(error) = &self.error {
@@ -648,7 +655,7 @@ impl MetadataDialog {
         if let Some(bulk) = &self.bulk {
             col = col.child(div().text_color(c.text).child(bulk.headline.clone()));
             for line in &bulk.problems {
-                col = col.child(inline_note(line.clone(), c.warning, IconName::Warning));
+                col = col.child(inline_note(line.clone(), warning_ink, IconName::Warning));
             }
         }
         Some(col.into_any_element())

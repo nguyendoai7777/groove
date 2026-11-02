@@ -16,6 +16,7 @@
 use groove_core::settings::{EqSettings, Settings};
 use groove_core::t;
 use materiant::button::Button;
+use materiant::effect::ripple::{RippleConfig, RippleExt};
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
     AnyElement, AnyWindowHandle, App, ClickEvent, Context, Entity, FocusHandle, IntoElement, KeyDownEvent,
@@ -228,6 +229,7 @@ impl SettingsDialog {
                     go(this, window, cx, SettingsTab::ALL[to]);
                 }))
                 .child(tab.label())
+                .ripple(RippleConfig::default())
         });
         div()
             .flex()

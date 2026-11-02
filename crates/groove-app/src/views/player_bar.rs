@@ -33,8 +33,7 @@ use materiant::gpui_kit::base::Disableable;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
     AnyElement, AnyWindowHandle, App, ClickEvent, Context, Entity, FocusHandle, FontWeight, Image, ImageFormat,
-    ImageSource, IntoElement, ObjectFit, ParentElement, Render, ScrollEvent, Styled, Subscription, Window, black, div,
-    img, px, relative,
+    IntoElement, ParentElement, Render, ScrollEvent, Styled, Subscription, Window, black, div, px, relative,
 };
 use materiant::overlay::tooltip::TooltipExt;
 use materiant::slider::Slider;
@@ -48,7 +47,7 @@ use crate::app::{self, Slot};
 use crate::icons::GrooveIcon;
 use crate::player::{self, Player, PlayerEvent};
 use crate::route::Route;
-use crate::views::cover_image::{CoverImage, CoverKind};
+use crate::views::cover_image::{self, CoverImage, CoverKind};
 use crate::views::marquee::Marquee;
 use crate::views::seek_bar::{SLIDER_SCALE, SeekBar};
 use play_morph::PlayMorph;
@@ -210,18 +209,12 @@ impl PlayerBar {
     }
 
     fn cover(&self, cx: &App) -> AnyElement {
-        if let Some(image) = &self.external {
-            return div()
-                .size_full()
-                .overflow_hidden()
-                .child(img(ImageSource::Image(image.clone())).size_full().object_fit(ObjectFit::Cover))
-                .into_any_element();
-        }
         let path = self.player.read(cx).current_song().and_then(|song| {
             let hash = song.cover_hash.as_deref()?;
             Some(self.covers.as_ref()?.path(hash, CoverSize::Small))
         });
-        CoverImage::new(path, CoverKind::Album, None, &self.cache).into_any_element()
+        // Bìa nhúng của tệp ngoài cũng bo góc như bìa thư viện (trước đây vuông).
+        CoverImage::new(path, CoverKind::Album, None, &self.cache).embedded(self.external.clone()).into_any_element()
     }
 
     /// Nút Play / Pause như `toggle-play.vue`: không nền, không đổi màu khi rê; icon màu chữ biến hình theo [`PlayMorph`].
@@ -232,13 +225,13 @@ impl PlayerBar {
         enabled: bool,
         (focus, ripple): (&FocusHandle, &RippleTrigger),
         window: &Window,
-        cx: &App,
+        cx: &mut App,
     ) -> AnyElement {
         let label = if self.player.read(cx).is_playing() { t!("player.bar.pause") } else { t!("player.bar.play") };
         let player = self.player.clone();
         let ink = cx.theme().colors().text;
         let fire = ripple.clone();
-        let ring = (focus.is_focused(window) && window.last_input_was_keyboard())
+        let ring = materiant::style::focus_visible(focus, window, cx)
             .then(|| ring_overlay(cx.focus_ring_color(), px(edge / 2.)));
         div()
             .occlude()
@@ -279,7 +272,16 @@ impl PlayerBar {
             .into_any_element()
     }
 
-    fn controls(&self, enabled: bool, window: &Window, cx: &App) -> impl IntoElement {
+    fn controls(&self, enabled: bool, window: &Window, cx: &mut App) -> impl IntoElement {
+        let play = self.play_button(
+            "player-play",
+            (PLAY_ICON, PLAY_BOX),
+            enabled,
+            (&self.play_focus, &self.play_ripple),
+            window,
+            cx,
+        );
+        let cx: &App = cx;
         let (shuffle, repeat) = {
             let player = self.player.read(cx);
             (player.queue().shuffle(), player.queue().repeat())
@@ -315,14 +317,7 @@ impl PlayerBar {
                 Player::toggle_shuffle,
             ))
             .child(button("player-prev", GrooveIcon::Prev, t!("player.bar.prev"), false, Player::prev))
-            .child(self.play_button(
-                "player-play",
-                (PLAY_ICON, PLAY_BOX),
-                enabled,
-                (&self.play_focus, &self.play_ripple),
-                window,
-                cx,
-            ))
+            .child(play)
             .child(button("player-next", GrooveIcon::Next, t!("player.bar.next"), false, Player::next))
             .child(button("player-repeat", repeat_icon, repeat_label, repeat == RepeatMode::One, Player::toggle_repeat))
     }
@@ -363,6 +358,8 @@ impl Render for PlayerBar {
                     .flex()
                     .items_center()
                     .justify_center()
+                    // Lớp rê bo đúng góc của bìa: GPUI không cắt con theo bo góc của cha.
+                    .rounded(cover_image::RADIUS)
                     .bg(black().opacity(0.4))
                     .invisible()
                     .group_hover("player-cover", |style| style.visible())

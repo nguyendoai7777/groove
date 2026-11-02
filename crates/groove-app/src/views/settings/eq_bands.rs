@@ -155,7 +155,7 @@ pub fn bands_canvas(view: Entity<EqPanel>) -> impl IntoElement {
                 let panel = view.read(cx);
                 (*panel.gains(), panel.drag(), panel.hover(), panel.key_band(), panel.focus().clone())
             };
-            let keyboard_focus = focus.is_focused(window) && window.last_input_was_keyboard();
+            let keyboard_focus = materiant::style::focus_visible(&focus, window, cx);
             let curve = Hsla { l: (c.primary.l + 0.1).min(1.), ..c.primary };
             paint_curve(window, bounds, &gains, curve);
 

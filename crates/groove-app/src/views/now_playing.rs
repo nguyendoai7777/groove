@@ -24,8 +24,8 @@ use groove_library::metadata_ops::MetadataOps;
 use groove_library::store::Library;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    AnyElement, AnyWindowHandle, App, Context, Entity, FontWeight, Hsla, Image, ImageFormat, ImageSource, IntoElement,
-    ObjectFit, ParentElement, Render, SharedString, Styled, Subscription, Task, Window, div, img, linear_color_stop,
+    AnyElement, AnyWindowHandle, App, Context, Entity, FontWeight, Hsla, Image, ImageFormat, IntoElement,
+    ParentElement, Pixels, Render, SharedString, Styled, Subscription, Task, Window, div, linear_color_stop,
     linear_gradient, px, relative,
 };
 use materiant::theme::ActiveTheme;
@@ -275,21 +275,20 @@ impl NowPlaying {
     }
 
     fn cover(&self, cx: &App) -> AnyElement {
-        if let Some(image) = &self.external {
-            return div()
-                .size_full()
-                .overflow_hidden()
-                .rounded_2xl()
-                .child(img(ImageSource::Image(image.clone())).size_full().object_fit(ObjectFit::Cover))
-                .into_any_element();
-        }
         let path = self.player.read(cx).current_song().and_then(|song| {
             let hash = song.cover_hash.as_deref()?;
             Some(self.covers.as_ref()?.path(hash, CoverSize::Large))
         });
-        CoverImage::new(path, CoverKind::Album, self.accent, &self.cache).into_any_element()
+        // Bìa thư viện trước đây bo 8 px trong khung 16 px: bo đúng góc của khung.
+        CoverImage::new(path, CoverKind::Album, self.accent, &self.cache)
+            .embedded(self.external.clone())
+            .radius(COVER_RADIUS)
+            .into_any_element()
     }
 }
+
+/// Bo góc bìa lớn (`rounded-2xl`).
+const COVER_RADIUS: Pixels = px(16.);
 
 /// Cột có bề ngang theo tỉ lệ, kẹp giữa hai mức.
 fn column(spec: (f32, f32, f32)) -> materiant::gpui_kit::Div {
@@ -318,7 +317,7 @@ impl Render for NowPlaying {
         let left = column(LEFT_COLUMN)
             .flex()
             .flex_col()
-            .child(div().w_full().aspect_square().flex_none().overflow_hidden().rounded_2xl().child(self.cover(cx)))
+            .child(div().w_full().aspect_square().flex_none().rounded(COVER_RADIUS).child(self.cover(cx)))
             .child(
                 div()
                     .mt_4()
