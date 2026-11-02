@@ -165,13 +165,12 @@ impl Queue {
     /// Thêm vào cuối hàng đợi (`/queue`, mở nhiều tệp). Bài đã có trong history thì chuyển sang queue để nghe lại, bài đang phát
     /// thì bỏ qua. Không đụng `original`, nên vòng lặp repeat không gồm các bài này. Chưa có bài nào thì phát bài đầu.
     pub fn append(&mut self, tracks: impl IntoIterator<Item = TrackRef>) -> QueueOutcome {
-        for track in tracks {
-            if self.current.as_ref() == Some(&track) || self.queue.contains(&track) {
-                continue;
-            }
-            self.history.retain(|t| *t != track);
-            self.queue.push(track);
-        }
+        // Dùng tập hợp: mở cả nghìn tệp ngoài mà so từng cặp thì mỗi lần so lại chuẩn hoá đường dẫn.
+        let mut taken: HashSet<TrackRef> = self.queue.iter().chain(self.current.iter()).cloned().collect();
+        let added: Vec<TrackRef> = tracks.into_iter().filter(|track| taken.insert(track.clone())).collect();
+        let added_set: HashSet<&TrackRef> = added.iter().collect();
+        self.history.retain(|track| !added_set.contains(track));
+        self.queue.extend(added);
         if self.current.is_none() && !self.queue.is_empty() {
             return self.select_next();
         }
