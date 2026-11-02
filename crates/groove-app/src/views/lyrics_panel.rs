@@ -136,7 +136,7 @@ impl Render for LyricsPanel {
             .px_4()
             .pt_3()
             .pb_2()
-            .child(div().text_lg().font_weight(FontWeight::BOLD).child(t!("now_playing.lyrics.title")))
+            .child(div().text_lg().font_weight(FontWeight::NORMAL).child(t!("now_playing.lyrics.title")))
             .when(has_song, |row| {
                 let edit =
                     if has_text { t!("now_playing.actions.edit_lyrics") } else { t!("now_playing.actions.add_lyrics") };

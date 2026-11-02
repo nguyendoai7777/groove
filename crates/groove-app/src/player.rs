@@ -408,18 +408,37 @@ impl Player {
         self.seek(target, cx);
     }
 
+    /// Kéo lên khỏi 0 khi đang tắt tiếng thì bỏ tắt tiếng.
     pub fn set_volume(&mut self, volume: u8, cx: &mut Context<Self>) {
-        self.change_settings(cx, |settings| settings.volume = volume);
+        self.change_settings(cx, |settings| {
+            settings.volume = volume;
+            if volume > 0 {
+                settings.is_muted = false;
+                settings.volume_before_mute = None;
+            }
+        });
     }
 
-    /// Bánh xe, phím `volume_step`. Giữ nguyên mute.
+    /// Bánh xe, phím `volume_step`. Tăng lên khỏi 0 thì bỏ tắt tiếng (xem [`Player::set_volume`]).
     pub fn adjust_volume(&mut self, delta: i16, cx: &mut Context<Self>) {
         let volume = i16::from(self.prefs(cx).volume).saturating_add(delta).clamp(0, 100);
         self.set_volume(volume as u8, cx);
     }
 
+    /// Tắt tiếng đưa âm lượng về 0 và nhớ mức cũ; bỏ tắt tiếng trả về mức đó ([`mute_toggle`]).
     pub fn toggle_mute(&mut self, cx: &mut Context<Self>) {
-        self.change_settings(cx, |settings| settings.is_muted = !settings.is_muted);
+        let now = self.prefs(cx);
+        let before = match &self.settings {
+            SettingsSource::App => app::settings(cx).volume_before_mute,
+            #[cfg(test)]
+            SettingsSource::Local(settings) => settings.volume_before_mute,
+        };
+        let (volume, muted, saved) = mute_toggle(now.volume, now.muted, before);
+        self.change_settings(cx, |settings| {
+            settings.volume = volume;
+            settings.is_muted = muted;
+            settings.volume_before_mute = saved;
+        });
     }
 
     /// Sửa EQ: lưu và gửi engine. Gọi liên tục khi kéo thanh trượt được, DSP tự trượt 10 ms.
@@ -906,6 +925,21 @@ fn settings_prefs(source: &SettingsSource, cx: &App) -> AudioPrefs {
     }
 }
 
+/// Âm lượng khi bỏ tắt tiếng mà không nhớ mức cũ (tệp settings cũ chưa có `volumeBeforeMute`).
+const UNMUTE_FALLBACK_VOLUME: u8 = 50;
+
+/// Bấm Mute: `(âm lượng, đang tắt, mức nhớ)` mới. Đang im (tắt tiếng hoặc âm lượng 0) thì trả về mức nhớ, không có thì mức
+/// đang đặt, không có nữa thì [`UNMUTE_FALLBACK_VOLUME`]; ngược lại nhớ mức hiện tại rồi về 0.
+fn mute_toggle(volume: u8, muted: bool, saved: Option<u8>) -> (u8, bool, Option<u8>) {
+    if muted || volume == 0 {
+        let restored = saved.filter(|v| *v > 0).or((volume > 0).then_some(volume)).unwrap_or(UNMUTE_FALLBACK_VOLUME);
+        (restored, false, None)
+    } else {
+        (0, true, Some(volume))
+    }
+}
+
+/// Thanh 0..100 ra gain tuyến tính, y như `audioEngine.setVolume(volume / 100)` của bản web (G-7): 100 là nguyên mức bài.
 fn volume_gain(volume: u8) -> f32 {
     f32::from(volume.min(100)) / 100.0
 }
@@ -1510,6 +1544,40 @@ mod tests {
         assert_eq!(rig.read(cx, |p| p.current_track().cloned()), Some(a));
     }
 
+    #[test]
+    fn mute_toggle_saves_and_restores_the_volume() {
+        // Mở lại app đang tắt tiếng: settings đã có mức nhớ nên trả đúng mức đó.
+        assert_eq!(mute_toggle(0, true, Some(37)), (37, false, None));
+        assert_eq!(mute_toggle(70, false, None), (0, true, Some(70)));
+        assert_eq!(mute_toggle(0, true, Some(70)), (70, false, None));
+        assert_eq!(mute_toggle(0, false, Some(70)), (70, false, None), "âm lượng kéo về 0 tay rồi bấm Mute");
+        assert_eq!(mute_toggle(30, true, None), (30, false, None), "tắt tiếng kiểu cũ: giữ mức đang đặt");
+        assert_eq!(mute_toggle(0, true, None), (UNMUTE_FALLBACK_VOLUME, false, None), "mở lại app đang tắt tiếng");
+        assert_eq!(mute_toggle(0, true, Some(0)), (UNMUTE_FALLBACK_VOLUME, false, None));
+    }
+
+    /// Bấm Mute rồi bấm lại: trả đúng mức cũ. Kéo thanh lên khỏi 0 khi đang tắt tiếng thì bỏ tắt tiếng.
+    #[gpui::test]
+    fn mute_zeroes_the_volume_and_dragging_up_unmutes(cx: &mut TestAppContext) {
+        let rig = rig(cx, |_, _| {});
+        rig.update(cx, |p, cx| p.set_volume(64, cx));
+        rig.update(cx, |p, cx| p.toggle_mute(cx));
+        assert_eq!(rig.read(cx, |p| (p.applied.volume, p.applied.muted)), (0, true));
+        rig.update(cx, |p, cx| p.toggle_mute(cx));
+        assert_eq!(rig.read(cx, |p| (p.applied.volume, p.applied.muted)), (64, false), "trả về mức trước đó");
+        rig.update(cx, |p, cx| p.toggle_mute(cx));
+        rig.update(cx, |p, cx| p.set_volume(20, cx));
+        assert_eq!(rig.read(cx, |p| (p.applied.volume, p.applied.muted)), (20, false), "kéo lên khỏi 0 thì bỏ mute");
+        rig.update(cx, |p, cx| p.toggle_mute(cx));
+        let saved = rig.read(cx, |p| match &p.settings {
+            SettingsSource::Local(settings) => settings.volume_before_mute,
+            SettingsSource::App => None,
+        });
+        assert_eq!(saved, Some(20), "mức trước khi tắt nằm trong settings, đi theo tệp");
+        rig.update(cx, |p, cx| p.adjust_volume(1, cx));
+        assert_eq!(rig.read(cx, |p| (p.applied.volume, p.applied.muted)), (1, false), "bánh xe lên cũng bỏ mute");
+    }
+
     /// C20: âm lượng, mute đi thẳng xuống engine, EQ gửi được; kẹp ở 0..=100.
     #[gpui::test]
     fn volume_and_mute_reach_the_engine(cx: &mut TestAppContext) {
@@ -1520,6 +1588,7 @@ mod tests {
         rig.update(cx, |p, cx| p.toggle_mute(cx));
         assert!(loudness(&rig.fake) < SILENCE);
         assert!(rig.read(cx, |p| p.applied.muted));
+        assert_eq!(rig.read(cx, |p| p.applied.volume), 0, "tắt tiếng thì thanh về 0");
         rig.update(cx, |p, cx| {
             p.toggle_mute(cx);
             p.adjust_volume(1000, cx);

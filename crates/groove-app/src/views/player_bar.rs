@@ -1,7 +1,8 @@
 //! groove-gd1_14: thanh phát ở đáy cửa sổ (đặc tả 1.3, N5, S20).
 //!
 //! Trái: bìa vuông 90 px (hover phủ nút phát; bấm bìa hoặc chữ sang Now Playing), nghệ sĩ, tiêu đề chạy [`Marquee`] khi tràn.
-//! Giữa: Shuffle, Prev, Play / Pause, Next, Repeat, dưới là [`SeekBar`]. Phải: Mute, thanh âm lượng (bánh xe ±1), Settings.
+//! Giữa: Shuffle, Prev, Play / Pause, Next, Repeat, dưới là [`SeekBar`]. Phải: Mute, thanh âm lượng (bánh xe ±1); Settings mở từ
+//! side nav nên không còn nút ở đây.
 //! Không có bài thì cả thanh mờ và không bấm được. Mọi thao tác đi qua `player::player(cx)`; âm lượng qua `Player`, không
 //! qua `app::update_settings`, để tới được engine.
 //!
@@ -10,8 +11,7 @@
 //! cách gỡ.
 //!
 //! Nút Play / Pause (giữa thanh và phủ trên bìa) chép `toggle-play.vue` của bản web: không nền, icon màu chữ biến hình giữa
-//! tam giác và hai vạch trong 250 ms ([`play_morph`]). Các nút icon khác chép `icon-btn.vue`: tròn, hộp 36 px icon 28 px
-//! (Settings 24 / 20), icon màu chữ phụ rê thành màu chữ; Shuffle / Repeat bật thì xanh lá `green-500` như web.
+//! tam giác và hai vạch trong 250 ms ([`play_morph`]), thêm ripple từ tâm như các nút khác (cả khi Space / Enter lúc có focus). Các nút icon khác chép `icon-btn.vue`: tròn, hộp 36 px icon 28 px, icon màu chữ phụ rê thành màu chữ; Shuffle / Repeat bật thì xanh lá `green-500` như web.
 //! Số giờ không nhấp nháy mỗi giây: tốn khung hình liên tục (đặc tả mục 4).
 //!
 //! ```ignore
@@ -28,12 +28,13 @@ use groove_core::model::RepeatMode;
 use groove_core::t;
 use groove_library::covers::{CoverSize, CoverStore};
 use materiant::button::IconButton;
+use materiant::effect::ripple::{RippleConfig, RippleExt, RippleTrigger};
 use materiant::gpui_kit::base::Disableable;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    AnyElement, AnyWindowHandle, App, ClickEvent, Context, Entity, FocusHandle, Image, ImageFormat, ImageSource,
-    IntoElement, ObjectFit, ParentElement, Render, ScrollEvent, Styled, Subscription, Window, black, div, img, px,
-    relative,
+    AnyElement, AnyWindowHandle, App, ClickEvent, Context, Entity, FocusHandle, FontWeight, Image, ImageFormat,
+    ImageSource, IntoElement, ObjectFit, ParentElement, Render, ScrollEvent, Styled, Subscription, Window, black, div,
+    img, px, relative,
 };
 use materiant::overlay::tooltip::TooltipExt;
 use materiant::slider::Slider;
@@ -49,7 +50,7 @@ use crate::player::{self, Player, PlayerEvent};
 use crate::route::Route;
 use crate::views::cover_image::{CoverImage, CoverKind};
 use crate::views::marquee::Marquee;
-use crate::views::seek_bar::SeekBar;
+use crate::views::seek_bar::{SLIDER_SCALE, SeekBar};
 use play_morph::PlayMorph;
 
 /// Cạnh bìa = chiều cao thanh (`app::PLAYER_BAR_HEIGHT`).
@@ -60,11 +61,9 @@ const VOLUME_WIDTH: f32 = 110.;
 /// Nút Play: icon 36 px (`--size: 36px` của web) trong vùng bấm tròn 60 px (`width: 60px` của `.MainController`).
 const PLAY_ICON: f32 = 36.;
 const PLAY_BOX: f32 = 60.;
-/// `icon-btn.vue` cỡ `md`: hộp `w-9` 36 px, icon `w-7` 28 px; cỡ `sm` (Settings): 24 / 20.
+/// `icon-btn.vue` cỡ `md`: hộp `w-9` 36 px, icon `w-7` 28 px.
 const ICON_BOX: f32 = 36.;
 const ICON_GLYPH: f32 = 28.;
-const SMALL_ICON_BOX: f32 = 24.;
-const SMALL_ICON_GLYPH: f32 = 20.;
 /// `text-green-500` của Shuffle / Repeat đang bật.
 const TOGGLE_ON: u32 = 0x22c55e;
 /// Nút Play phủ trên bìa: icon 32 px (cỡ mặc định của `toggle-play.vue`).
@@ -146,6 +145,9 @@ pub struct PlayerBar {
     morph: PlayMorph,
     play_focus: FocusHandle,
     cover_play_focus: FocusHandle,
+    /// Phát ripple khi nhấn Space / Enter lên nút Play (chuột thì ripple tự bắt).
+    play_ripple: RippleTrigger,
+    cover_play_ripple: RippleTrigger,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -187,6 +189,8 @@ impl PlayerBar {
             morph,
             play_focus: cx.focus_handle(),
             cover_play_focus: cx.focus_handle(),
+            play_ripple: RippleTrigger::default(),
+            cover_play_ripple: RippleTrigger::default(),
             _subscriptions: subscriptions,
         };
         bar.refresh_external(cx);
@@ -226,13 +230,14 @@ impl PlayerBar {
         id: &'static str,
         (icon, edge): (f32, f32),
         enabled: bool,
-        focus: &FocusHandle,
+        (focus, ripple): (&FocusHandle, &RippleTrigger),
         window: &Window,
         cx: &App,
     ) -> AnyElement {
         let label = if self.player.read(cx).is_playing() { t!("player.bar.pause") } else { t!("player.bar.play") };
         let player = self.player.clone();
         let ink = cx.theme().colors().text;
+        let fire = ripple.clone();
         let ring = (focus.is_focused(window) && window.last_input_was_keyboard())
             .then(|| ring_overlay(cx.focus_ring_color(), px(edge / 2.)));
         div()
@@ -247,8 +252,27 @@ impl PlayerBar {
                     .size(px(edge))
                     .rounded_full()
                     .when(enabled, |b| b.cursor_pointer())
-                    .on_click(move |_: &ClickEvent, _, cx| player.update(cx, |p, cx| p.toggle_play(cx)))
+                    .text_color(ink)
+                    .on_click(move |event: &ClickEvent, window, cx| {
+                        if matches!(event, ClickEvent::Keyboard(_)) {
+                            fire.fire(window);
+                        }
+                        player.update(cx, |p, cx| p.toggle_play(cx));
+                    })
                     .child(self.morph.icon(px(icon), ink))
+                    .when(enabled, |b| {
+                        // Gọi sau `.rounded_full()`: lớp ripple chép bo góc lúc đó.
+                        b.child(
+                            div()
+                                .id((id, 2usize))
+                                .absolute()
+                                .top_0()
+                                .left_0()
+                                .size_full()
+                                .rounded_full()
+                                .ripple_with(RippleConfig::centered(), ripple),
+                        )
+                    })
                     .children(ring)
                     .with_tooltip((id, 0usize), label),
             )
@@ -291,7 +315,14 @@ impl PlayerBar {
                 Player::toggle_shuffle,
             ))
             .child(button("player-prev", GrooveIcon::Prev, t!("player.bar.prev"), false, Player::prev))
-            .child(self.play_button("player-play", (PLAY_ICON, PLAY_BOX), enabled, &self.play_focus, window, cx))
+            .child(self.play_button(
+                "player-play",
+                (PLAY_ICON, PLAY_BOX),
+                enabled,
+                (&self.play_focus, &self.play_ripple),
+                window,
+                cx,
+            ))
             .child(button("player-next", GrooveIcon::Next, t!("player.bar.next"), false, Player::next))
             .child(button("player-repeat", repeat_icon, repeat_label, repeat == RepeatMode::One, Player::toggle_repeat))
     }
@@ -339,7 +370,7 @@ impl Render for PlayerBar {
                         "player-cover-play",
                         (COVER_PLAY_ICON, PLAY_BOX),
                         true,
-                        &self.cover_play_focus,
+                        (&self.cover_play_focus, &self.cover_play_ripple),
                         window,
                         cx,
                     )),
@@ -411,6 +442,7 @@ impl Render for PlayerBar {
                             .step(1.)
                             .value(f32::from(volume))
                             .w(px(VOLUME_WIDTH))
+                            .scale(SLIDER_SCALE)
                             .accessibility_label(t!("player.bar.volume"))
                             .disabled(!enabled)
                             .on_change({
@@ -421,26 +453,11 @@ impl Render for PlayerBar {
                                 }
                             }),
                     ),
-            )
-            .child(
-                div().occlude().ml_1().child(
-                    web_icon_button(
-                        "player-settings",
-                        GrooveIcon::Settings,
-                        SMALL_ICON_BOX,
-                        SMALL_ICON_GLYPH,
-                        false,
-                        cx,
-                    )
-                    .accessibility_label(t!("player.bar.settings"))
-                    .disabled(!enabled)
-                    .on_click(|_: &ClickEvent, _, cx| app::open_settings(cx))
-                    .with_tooltip(("player-settings", 0usize), t!("player.bar.settings")),
-                ),
             );
 
         let bar = div()
             .id("player-bar-view")
+            .font_weight(FontWeight::NORMAL)
             .relative()
             .size_full()
             .flex()

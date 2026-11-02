@@ -26,8 +26,8 @@ use materiant::badge::Badge;
 use materiant::field::input::{FieldEvent, TextField};
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    AnyElement, AnyWindowHandle, App, Context, Entity, Focusable, IntoElement, Keystroke, ParentElement, Render,
-    Styled, Subscription, Task, WeakEntity, Window, div, px,
+    AnyElement, AnyWindowHandle, App, Context, Entity, Focusable, FontWeight, IntoElement, Keystroke, ParentElement,
+    Render, Styled, Subscription, Task, WeakEntity, Window, div, px,
 };
 use materiant::icon::Icon;
 use materiant::kbd::Kbd;
@@ -46,6 +46,8 @@ use crate::views::song_row::display_title;
 const DIALOG_WIDTH: f32 = 600.;
 /// Lề trong của bảng (ô tìm, danh sách, chân bảng); danh sách đặt nó bằng `padding_x` để thumb sát mép hộp (D-16).
 const EDGE: f32 = 16.;
+/// Cao hàng ô tìm (launcher fastcast: 56 px).
+const SEARCH_HEIGHT: f32 = 56.;
 /// Cao một dòng, tiêu đề nhóm cũng cao bằng (danh sách ảo cần dòng đều nhau).
 const ROW_HEIGHT: f32 = 44.;
 /// Cao tối đa của danh sách (bản cũ `max-h-cmd-list-max-h`).
@@ -192,6 +194,7 @@ impl CommandPalette {
             TextField::new("palette-input", window, cx)
                 .placeholder(t!("palette.placeholder"))
                 .leading_icon(materiant::icon::IconName::Search)
+                .flat(true)
                 .clearable(true)
         });
         let mut subscriptions = vec![cx.subscribe_in(&field, window, |this, _, event: &FieldEvent, window, cx| {
@@ -627,11 +630,9 @@ impl CommandPalette {
 
 impl Render for CommandPalette {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let mode = if self.is_cli() {
-            Badge::new(t!("palette.mode_cli"))
-        } else {
-            Badge::new(t!("palette.mode_search")).outline()
-        };
+        // Chỉ chế độ lệnh có nhãn; chế độ tìm kiếm không còn nút "Search" (G-6: chữ độ đậm normal).
+        let mode = self.is_cli().then(|| Badge::new(t!("palette.mode_cli")).font_weight(FontWeight::NORMAL));
+        let border = cx.theme().colors().border;
         let notice = self.notice.clone().filter(|_| !self.rows.is_empty());
         let danger = cx.theme().colors().danger;
         let list = self.render_list(window, cx);
@@ -647,20 +648,32 @@ impl Render for CommandPalette {
                 div()
                     .flex()
                     .flex_col()
-                    .gap_2()
-                    .py(px(EDGE))
+                    // Ô tìm kiểu launcher fastcast: liền, icon ở đầu, gạch ngăn dưới ô.
                     .child(
                         div()
                             .flex()
                             .items_center()
                             .gap_3()
                             .px(px(EDGE))
+                            .pr(px(EDGE + 4.))
+                            .h(px(SEARCH_HEIGHT))
+                            .border_b_1()
+                            .border_color(border)
                             .child(div().flex_1().min_w_0().child(self.field.clone()))
-                            .child(mode),
+                            .children(mode),
                     )
-                    .children(notice.map(|text| div().px(px(EDGE)).text_size(px(12.)).text_color(danger).child(text)))
-                    .child(list)
-                    .child(div().px(px(EDGE)).child(footer))
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_2()
+                            .py(px(EDGE))
+                            .children(
+                                notice.map(|text| div().px(px(EDGE)).text_size(px(12.)).text_color(danger).child(text)),
+                            )
+                            .child(list)
+                            .child(div().px(px(EDGE)).child(footer)),
+                    )
                     .into_any_element(),
             )
     }
