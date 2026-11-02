@@ -11,6 +11,16 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `views/{player_bar,seek_bar,marquee,playing_bars}.rs`, `i18n/*/player.toml` |
 
+## 0. Bàn giao từ groove-gd1_03 (02/11/2026)
+
+<!-- handoff: groove-gd1_03 -->
+
+- **Chỗ đặt**: `Slot::PlayerBar`, vùng đáy cao 90 px, nền `surface` đục, viền trên; một lời gọi `app::install_slot(Slot::PlayerBar, view, cx)` trong `run`. Slot trống vẫn chừa 90 px.
+- **Chữ ký ở `app::`** (chi tiết `plan/groove-gd1_03_app-shell.md` mục 9): `Slot::{PlayerBar, Library, NowPlaying}`, `install_slot(slot, view, cx)`, `navigate(Route, cx)`, `current_route(cx)`, `settings(cx)`, `update_settings(cx, |s| …)`, `shell(cx)` phát `ShellEvent`.
+- **Icon sẵn**: `icons::GrooveIcon::{Shuffle, Loop, LoopBadge, Prev, Next, Play, VolumeMute, VolumeMin, VolumeMedium, VolumeMax}` (`impl From<GrooveIcon> for IconSource`, viewBox 36 × 36 và 46 × 46 cho bộ media / volume giữ nguyên từ sprite cũ). Thiếu icon thì thêm tệp vào `crates/groove-app/assets/icons/` + một dòng `groove_icons!` (tệp `icons.rs` do task 03 sở hữu, task này được thêm dòng).
+- **Cài đặt**: âm lượng, tắt tiếng, seek / volume step qua `app::update_settings`; đã có `JsonSaver` duy nhất, không tạo cái khác.
+- **Bẫy**: `#[derive(IntoElement)]` ở bản không test cần `use materiant::gpui_kit as gpui;`; bọc `.occlude()` quanh phần tử bấm được nằm trong vùng kéo cửa sổ.
+
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 14. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 1. Làm gì
