@@ -72,3 +72,11 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_05] `LegacyFailed` để thư viện ở trạng thái lỗi, UI cho chọn thử lại hoặc bắt đầu trống — tự `open_fresh` — tạo `library.db` rồi thì không bao giờ chuyển DB cũ lại nữa.
 - [groove-gd1_05] Hạt giống `watched_roots` từ `folders` chỉ một lần sau chuyển đổi — mỗi lần đọc như bản cũ — để bỏ hết gốc không bị gốc quay lại (N9).
 - [groove-gd1_05] Chưa thêm `missing_since`, `excluded_paths` vào schema — thêm ngay — `schema.rs` thuộc task 04 đã đóng, đặc tả 2.2 không ghi; đẩy sang 09, 17, cần quyết cách nâng `user_version`.
+
+## groove-gd1_08
+
+- [groove-gd1_08] Import bỏ qua tệp `(mtime, size)` khớp và đã đọc thẻ — đọc thẻ mọi tệp như 1.11 — S26 không muốn kéo tệp OneDrive khi không đổi; đọc hết thì dùng `rescan`.
+- [groove-gd1_08] `file_mtime` mới tính bằng ms — giữ giây như DB cũ — khớp `FileStamp`, so chính xác hơn; dòng cũ đổi khi đọc lại thẻ, task 09 phải tính tới dòng `tags_read_at IS NULL`.
+- [groove-gd1_08] Import xoá thật dòng đã xác nhận mất — đợi `missing_since` — 1.11 yêu cầu xoá, `missing_since` thuộc task 09; đã chặn đủ các lỗi đọc.
+- [groove-gd1_08] Giữ dòng nằm sau liên kết thư mục không đi theo — xoá như tệp mất — bản cũ có theo liên kết, DB cũ có thể chứa bài ở đó.
+- [groove-gd1_08] Đọc theo lô, chờ đủ lô rồi ghi — luồng đọc liên tục có bộ đệm sắp xếp — đơn giản, RAM có trần; tệp cloud chậm giữ cả lô.

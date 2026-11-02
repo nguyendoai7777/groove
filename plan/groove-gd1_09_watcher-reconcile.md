@@ -11,6 +11,18 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `library/{watcher,reconcile}.rs` (N1, N4, S6) |
 
+## 0. Bàn giao từ groove-gd1_08 (02/11/2026)
+
+<!-- handoff: groove-gd1_08 -->
+
+- **Đã có sẵn để dùng**: `scanner::scan(root) -> ScanOutcome { files (có `stamp`), failed_dirs, failed_files, skipped_links }`, `may_still_exist(path)`, `root_failure(root)`; không theo liên kết thư mục. `Indexer::index_paths(paths) -> IndexJob<IndexTally>` đọc và upsert theo lô, không xoá, không phát `Synced`: tự gộp với phần xoá, đổi tên rồi `emit`. Chi tiết: `plan/groove-gd1_08_indexer-import.md` mục 9.
+- **Một điểm vào (S7)**: mọi cập nhật từ tệp đi qua `indexer::{TrackRow, apply_scanned_track}` hoặc `index_paths`, đừng viết đường thứ hai.
+- **Đơn vị mtime**: `file_mtime` mới là ms (`FileStamp`). Dòng `tags_read_at IS NULL` từ DB cũ còn là giây: khi so S6 phải coi đó là "chưa có mốc", không phải "đã đổi", nếu không lần mở đầu sẽ báo cả nghìn bài cập nhật. `SongFileState` chưa có `tags_read_at`, xem `known_rows` trong `indexer.rs`.
+- **Nợ chuyển sang đây**: `Indexer::import` hiện xoá thật dòng đã xác nhận mất, cascade mất playlist. Thêm `missing_since` thì đổi `import_steps` sang đánh dấu; đổi tên ngoài app (N4) cũng cần nhánh ở đó, vì import coi tệp mới và dòng mất là hai việc riêng.
+- **Mẫu xoá an toàn**: `plan_removals` chỉ xoá khi `NotFound` thật, chỗ chứa đã xem hết; gốc 0 tệp mà còn dòng là offline. Dùng lại luật này, có thể cho thành `pub(crate)`.
+- **Bẫy**: `Indexer` chạy lần lượt từng việc; reconcile chạy qua `index_paths` sẽ chờ import đang chạy, không cần khoá thêm. Test quyền thật: dùng `icacls /deny *S-1-1-0`, xem `Locked` trong `tests/indexer_import.rs`.
+- **Soát lại khi làm**: `cargo test -p groove-library --test indexer_import`.
+
 ## 0. Bàn giao từ groove-gd1_05 (02/11/2026)
 
 <!-- handoff: groove-gd1_05 -->
