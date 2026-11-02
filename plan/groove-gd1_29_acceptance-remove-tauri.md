@@ -11,6 +11,14 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | Bảng so bản cũ, số đo RAM, gỡ `src/`, `src-tauri/`, Node; viết `groove/CLAUDE.md`, `groove/ROADMAP.md` |
 
+## 0. Bàn giao từ groove-gd1_23 (02/11/2026)
+
+<!-- handoff: groove-gd1_23 -->
+
+- **Đã có**: `views/command_palette.rs`, `command_palette::install` gọi trong `app::run`; `app.rs` có thêm `Slot::CommandPalette`.
+- **Chưa kiểm**: nhìn bảng thật và `ShellEvent::OpenSearch` nối thật từ ô tìm, `Ctrl+K` (`[owner-qa]` ở `_backlog.md`).
+- **Cần biết**: khung đệm 24 px của `Dialog` là hằng của materiant, bảng lệnh hẹp hơn bản cũ một chút; muốn khít thì đề xuất tuỳ chọn đệm cho `Dialog`.
+
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 29. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 1. Làm gì
