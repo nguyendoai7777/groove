@@ -11,6 +11,16 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `app/library_ctl.rs`, `views/{song_menu,playlist_dialog,card_menu}.rs`, `i18n/*/actions.toml` (N9, S2, S3) |
 
+## 0. Bàn giao từ groove-gd1_16 (02/11/2026)
+
+<!-- handoff: groove-gd1_16 -->
+
+- **Đã có sẵn để dùng**: `views::song_list::{SongList, SongListEvent}`: `cx.new(|cx| SongList::new(reference, cx))`, đổi mục bằng `set_reference(reference, cx)`. Chi tiết API: `plan/groove-gd1_16_song-list.md` mục 9.
+- **Phải nối**: trong `LibraryPage::render` thay nhánh `Route::Category(..)` (chữ giữ chỗ `category_pending`) bằng view `SongList`; tạo một lần, đổi mục bằng `set_reference`, gọi `focus` khi vào. Nghe `SongListEvent::CategoryGone` thì `app::go_back`.
+- **Menu bài**: `SongListEvent::ContextMenu { reference, song: Box<Song>, position }` đã chọn sẵn dòng; vẽ `song_menu.rs` tại `position`; `reference` là `CategoryRef::Playlist(_)` thì thêm "Xoá khỏi danh sách phát" (chữ đỏ). Danh sách chưa có phím mở menu bằng bàn phím (Menu / Shift+F10).
+- **Đã làm sẵn, đừng làm lại**: Play all của đầu danh sách (kèm toast khi rỗng), bấm dòng phát / đảo phát dừng, Enter, nạp lại khi `Synced` / `PlaylistsChanged` / `Moved`.
+- **Bẫy đã gặp**: `VirtualList::on_select` bắn cả khi ↑ ↓ lẫn khi bấm chuột; tách bằng `window.last_input_was_keyboard()`. Test view cần `cx.executor().allow_parking()` và `player::install_for_test`; dòng đã có `debug_selector` `song-row-<số thứ tự từ 1>`.
+
 ## 0. Bàn giao từ groove-gd1_09 (02/11/2026)
 
 <!-- handoff: groove-gd1_09 -->
