@@ -111,8 +111,6 @@ pub struct Player {
     sync: SessionSync,
     settings: SettingsSource,
     applied: AudioPrefs,
-    /// Mức âm lượng trước khi tắt tiếng, để bỏ tắt tiếng thì trả về (player-polish; không lưu đĩa).
-    volume_before_mute: Option<u8>,
 
     song: Option<Song>,
     lyrics: Option<String>,
@@ -181,7 +179,6 @@ impl Player {
                 sync,
                 settings,
                 applied: prefs,
-                volume_before_mute: None,
                 song: None,
                 lyrics: None,
                 timeline_text: None,
@@ -417,6 +414,7 @@ impl Player {
             settings.volume = volume;
             if volume > 0 {
                 settings.is_muted = false;
+                settings.volume_before_mute = None;
             }
         });
     }
@@ -430,11 +428,16 @@ impl Player {
     /// Tắt tiếng đưa âm lượng về 0 và nhớ mức cũ; bỏ tắt tiếng trả về mức đó ([`mute_toggle`]).
     pub fn toggle_mute(&mut self, cx: &mut Context<Self>) {
         let now = self.prefs(cx);
-        let (volume, muted, saved) = mute_toggle(now.volume, now.muted, self.volume_before_mute);
-        self.volume_before_mute = saved;
+        let before = match &self.settings {
+            SettingsSource::App => app::settings(cx).volume_before_mute,
+            #[cfg(test)]
+            SettingsSource::Local(settings) => settings.volume_before_mute,
+        };
+        let (volume, muted, saved) = mute_toggle(now.volume, now.muted, before);
         self.change_settings(cx, |settings| {
             settings.volume = volume;
             settings.is_muted = muted;
+            settings.volume_before_mute = saved;
         });
     }
 
@@ -922,7 +925,7 @@ fn settings_prefs(source: &SettingsSource, cx: &App) -> AudioPrefs {
     }
 }
 
-/// Âm lượng khi bỏ tắt tiếng mà không nhớ mức cũ (mở lại app đang tắt tiếng).
+/// Âm lượng khi bỏ tắt tiếng mà không nhớ mức cũ (tệp settings cũ chưa có `volumeBeforeMute`).
 const UNMUTE_FALLBACK_VOLUME: u8 = 50;
 
 /// Bấm Mute: `(âm lượng, đang tắt, mức nhớ)` mới. Đang im (tắt tiếng hoặc âm lượng 0) thì trả về mức nhớ, không có thì mức
@@ -1542,6 +1545,8 @@ mod tests {
 
     #[test]
     fn mute_toggle_saves_and_restores_the_volume() {
+        // Mở lại app đang tắt tiếng: settings đã có mức nhớ nên trả đúng mức đó.
+        assert_eq!(mute_toggle(0, true, Some(37)), (37, false, None));
         assert_eq!(mute_toggle(70, false, None), (0, true, Some(70)));
         assert_eq!(mute_toggle(0, true, Some(70)), (70, false, None));
         assert_eq!(mute_toggle(0, false, Some(70)), (70, false, None), "âm lượng kéo về 0 tay rồi bấm Mute");
@@ -1563,6 +1568,11 @@ mod tests {
         rig.update(cx, |p, cx| p.set_volume(20, cx));
         assert_eq!(rig.read(cx, |p| (p.applied.volume, p.applied.muted)), (20, false), "kéo lên khỏi 0 thì bỏ mute");
         rig.update(cx, |p, cx| p.toggle_mute(cx));
+        let saved = rig.read(cx, |p| match &p.settings {
+            SettingsSource::Local(settings) => settings.volume_before_mute,
+            SettingsSource::App => None,
+        });
+        assert_eq!(saved, Some(20), "mức trước khi tắt nằm trong settings, đi theo tệp");
         rig.update(cx, |p, cx| p.adjust_volume(1, cx));
         assert_eq!(rig.read(cx, |p| (p.applied.volume, p.applied.muted)), (1, false), "bánh xe lên cũng bỏ mute");
     }
