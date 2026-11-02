@@ -43,7 +43,12 @@ pub const PLAY: [Quad; 2] = [
 
 /// `cubic-bezier(x1, y1, x2, y2)` của CSS tại thời điểm `t` (0..1): tìm tham số có x = t bằng chia đôi rồi trả y.
 pub fn cubic_bezier(t: f32, (x1, y1, x2, y2): (f32, f32, f32, f32)) -> f32 {
-    let t = t.clamp(0., 1.);
+    if t <= 0. {
+        return 0.;
+    }
+    if t >= 1. {
+        return 1.;
+    }
     let curve = |s: f32, a: f32, b: f32| {
         let inv = 1. - s;
         3. * inv * inv * s * a + 3. * inv * s * s * b + s * s * s
