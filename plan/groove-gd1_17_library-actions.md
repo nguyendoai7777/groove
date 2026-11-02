@@ -11,6 +11,17 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `app/library_ctl.rs`, `views/{song_menu,playlist_dialog,card_menu}.rs`, `i18n/*/actions.toml` (N9, S2, S3) |
 
+## 0. Bàn giao từ groove-gd1_08 (02/11/2026)
+
+<!-- handoff: groove-gd1_08 -->
+
+- **Đã có sẵn để dùng**: `groove_library::indexer::Indexer::standard(library)`, sao chép rẻ; `import(path)`, `rescan()`, `backfill_tags()` trả về ngay `IndexJob<T>`, `await` trên UI. Chọn thư mục ở UI, `LibraryCtl::import` chỉ nối vào đây. Chi tiết: `plan/groove-gd1_08_indexer-import.md` mục 9.
+- **Phải làm**: gọi `backfill_tags()` mỗi lần mở app sau khi thư viện mở xong; không có gì thì xong ngay (đặc tả 2.3 bước 5).
+- **Toast import**: `ImportReport.tally.added`, `removed.len()`. Nên báo thêm khi `root_offline` (gốc rỗng mà còn bài, không xoá gì), khi `failed_dirs` không rỗng, khi `tally.failed` không rỗng. `Err(IndexError::RootUnavailable)` là thư mục không đọc được.
+- **Toast rescan**: `tally.read()`, `tally.missing.len()`; `tally.failed` không phải là thiếu.
+- **Sự kiện**: `Progress { kind: Import | Rescan | TagBackfill, done, total }` mỗi lô, xong `Synced`. Nhận `Progress` là đã đọc được lô đó. Import toàn tệp không đổi có `total = 0`, không có `Progress`, chỉ có `Synced`.
+- **N9**: bỏ gốc đang chưa có `excluded_paths`; import lại vẫn thêm gốc qua `add_watched_root`.
+
 ## 0. Bàn giao từ groove-gd1_05 (02/11/2026)
 
 <!-- handoff: groove-gd1_05 -->
