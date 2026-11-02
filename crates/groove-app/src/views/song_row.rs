@@ -173,10 +173,10 @@ impl SongRow {
                 ))
                 .child(on_hover(hover_icon().into_any_element())),
             RowPlay::Playing => stack
-                .child(rest(PlayingBars::new(true).size(px(14.)).color(accent).into_any_element()))
+                .child(rest(PlayingBars::new(true).size(px(14.)).into_any_element()))
                 .child(on_hover(Icon::new(GrooveIcon::Pause).size(px(12.)).color(accent).into_any_element())),
             RowPlay::Paused => stack
-                .child(rest(PlayingBars::new(false).size(px(14.)).color(accent).into_any_element()))
+                .child(rest(PlayingBars::new(false).size(px(14.)).into_any_element()))
                 .child(on_hover(hover_icon().into_any_element())),
         }
     }

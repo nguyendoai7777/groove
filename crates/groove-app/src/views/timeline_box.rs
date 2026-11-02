@@ -116,7 +116,7 @@ impl Render for TimelineBox {
             .gap_2()
             .border_b_1()
             .border_color(c.border.opacity(0.4))
-            .child(PlayingBars::new(playing).size(px(14.)).color(c.primary_ink))
+            .child(PlayingBars::new(playing).size(px(14.)))
             .child(div().text_sm().text_color(c.muted).child(progress_label(position, duration)));
 
         let active = self.active;
