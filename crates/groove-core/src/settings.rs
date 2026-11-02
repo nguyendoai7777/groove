@@ -204,6 +204,8 @@ pub struct Settings {
     pub theme: ThemeChoice,
     pub volume: u8,
     pub is_muted: bool,
+    /// Mức âm lượng trước khi tắt tiếng (tắt tiếng đưa `volume` về 0); bỏ tắt tiếng trả về mức này. `None` khi không nhớ gì.
+    pub volume_before_mute: Option<u8>,
     pub seek_step: u32,
     pub volume_step: u8,
     pub eq: EqSettings,
@@ -221,6 +223,7 @@ impl Default for Settings {
             theme: ThemeChoice::default(),
             volume: 75,
             is_muted: false,
+            volume_before_mute: None,
             seek_step: 5,
             volume_step: 2,
             eq: EqSettings::default(),
@@ -261,6 +264,7 @@ impl Settings {
     /// Đưa giá trị về khoảng hợp lệ của đặc tả 1.10.
     pub fn sanitize(&mut self) {
         self.volume = self.volume.min(100);
+        self.volume_before_mute = self.volume_before_mute.map(|v| v.min(100));
         self.seek_step = self.seek_step.max(1);
         self.volume_step = self.volume_step.clamp(1, 100);
         self.eq.sanitize();
@@ -457,6 +461,19 @@ mod tests {
         assert_eq!(s.eq.preset, EqPreset::Flat);
         assert_eq!(s.last_active_route, StartPage::MyMusic);
         assert!(!s.side_nav_collapsed);
+    }
+
+    #[test]
+    fn volume_before_mute_survives_a_restart_and_old_files_lack_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = temp_file(&dir);
+        let s = Settings { volume: 0, is_muted: true, volume_before_mute: Some(64), ..Settings::default() };
+        s.save_to(&path).unwrap();
+        assert!(std::fs::read_to_string(&path).unwrap().contains("\"volumeBeforeMute\""));
+        assert_eq!(Settings::load_from(&path).volume_before_mute, Some(64));
+        std::fs::write(&path, r#"{"volume": 30, "isMuted": true}"#).unwrap();
+        let old = Settings::load_from(&path);
+        assert_eq!((old.volume, old.is_muted, old.volume_before_mute), (30, true, None));
     }
 
     #[test]
