@@ -13,6 +13,14 @@
 
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 24. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
+## 0. Bàn giao từ groove-gd1_02 (02/11/2026)
+
+<!-- handoff: groove-gd1_02 -->
+
+- **Đã có sẵn để dùng**: `settings::{EqSettings, EqPreset, EQ_BANDS_HZ, EQ_GAIN_LIMIT_DB, BASS_BOOST_MAX_DB}`. Không tự viết luật EQ trong view: `select_preset`, `set_band`, `set_bass_boost` đã làm đúng đặc tả 1.10 và M7.
+- **Đường cong** vẽ từ `eq.gains` (không tính bass boost); DSP nhận `effective_gains()`.
+- **Nhãn preset** do view map `EqPreset` sang `t!`, `EqPreset::ALL` đúng thứ tự bản cũ. Ngôn ngữ đổi xong gọi `Settings::apply_language`. Phím tắt: `Settings::custom_keybindings`, `None` là mặc định.
+
 ## 1. Làm gì
 - Làm đúng hành vi ở mục 1 và dữ liệu ở mục 2 của đặc tả cho phạm vi "File đụng tới".
 - Chỉ sửa tệp mình sở hữu; thiếu API từ task khác thì ghi mục 8, không sửa tệp của làn khác.

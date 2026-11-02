@@ -13,6 +13,14 @@
 
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 22. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
+## 0. Bàn giao từ groove-gd1_02 (02/11/2026)
+
+<!-- handoff: groove-gd1_02 -->
+
+- **Đã có sẵn để dùng**: `settings::{KeyBinding, DEFAULT_KEYBINDINGS, default_keybindings}`, `Settings::keybindings()` (mặc định khi `custom_keybindings` là `None`).
+- **Không kiểm ở task 02**: lệnh lạ và phím trùng (M5) thuộc `keymap`. `KeyBinding` chỉ là hai chuỗi, tải tệp không loại dòng sai lệnh nên `keymap` phải chịu được.
+- **Nguồn bảng mặc định**: dùng `DEFAULT_KEYBINDINGS`, không chép lại vào `keymap.rs`; thêm lệnh mặc định mới thì ghi mục 8, bảng thuộc `settings.rs`.
+
 ## 1. Làm gì
 - Làm đúng hành vi ở mục 1 và dữ liệu ở mục 2 của đặc tả cho phạm vi "File đụng tới".
 - Sửa dứt điểm các lỗi M4, M5, S21 theo mục 3 của đặc tả, mỗi lỗi có test tái hiện.
