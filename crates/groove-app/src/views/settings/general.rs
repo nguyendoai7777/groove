@@ -7,9 +7,7 @@ use groove_core::settings::Settings;
 use groove_core::t;
 use materiant::field::number::NumberField;
 use materiant::gpui_kit::prelude::*;
-use materiant::gpui_kit::{
-    App, Context, Entity, FontWeight, IntoElement, ParentElement, Render, Styled, Window, div, px,
-};
+use materiant::gpui_kit::{Context, Entity, FontWeight, IntoElement, ParentElement, Render, Styled, Window, div, px};
 
 use super::eq_panel::EqPanel;
 use crate::app;
@@ -69,6 +67,9 @@ impl GeneralPanel {
         self.eq.update(cx, |panel, cx| panel.show(eq, cx));
     }
 }
+
+#[cfg(test)]
+use materiant::gpui_kit::App;
 
 #[cfg(test)]
 impl GeneralPanel {

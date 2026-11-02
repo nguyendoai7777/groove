@@ -170,3 +170,14 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_21] Nút Metadata mở `MetadataDialog` (task 19), Sửa / Thêm lời và Timeline mở `TextDialog` (task 20) thay cho sửa tại chỗ ở đặc tả 1.5 — sửa tại chỗ — theo bàn giao task 20.
 - [groove-gd1_21] Tiêu đề cửa sổ bỏ phần `- <nghệ sĩ>` khi bài không có nghệ sĩ — hiện "Unknown artist" — tiêu đề gọn, không bịa chữ.
 - [groove-gd1_21] Phím mũi tên trong hàng đợi chỉ dời con trỏ, Enter / bấm mới phát — phát ngay khi dời — tránh đổi bài theo từng lần nhấn.
+- [groove-gd1_24] Hộp Settings có ba tab (Cài đặt chung, Phím tắt, Thư viện) — hai tab theo đặc tả 1.10 — danh sách tệp của task có `roots.rs` và bàn giao task 17 giao `forget_root`, cần một chỗ đặt.
+- [groove-gd1_24] Thêm `Slot::Settings`, một dòng vẽ trong `Shell::render` và một lời gọi `install` trong `app::run` (tệp của task 03), cộng hai hàm `#[cfg(test)]` `install_settings_for_test`, `set_shell_for_test` — dựng cửa sổ phụ cho hộp — `Dialog` của materiant chỉ vẽ được trong cây view; làm như bảng lệnh.
+- [groove-gd1_24] Bước tua, bước âm lượng cũng áp ngay và Huỷ trả về giá trị lúc mở — chỉ lưu khi bấm OK — đặc tả chỉ nói EQ áp ngay; cùng một luật thì Huỷ nhất quán.
+- [groove-gd1_24] Esc và nút ✕ coi như Huỷ (trả EQ, hai bước về lúc mở) — giữ thay đổi như bấm nền của bản cũ — M3 chỉ nói bấm nền; đóng mà không bấm OK thì không nên để lại thay đổi âm thanh âm thầm. Bấm nền không đóng (M3).
+- [groove-gd1_24] Không có ô ngôn ngữ, theme trong hộp — thêm hai `Select` — đặc tả 1.10 không liệt kê; `/theme` đã đổi theme, ngôn ngữ theo OS.
+- [groove-gd1_24] Ô JSON phím tắt bỏ tự đóng ngoặc và gợi ý tên lệnh, thay bằng danh sách lệnh dưới ô — làm gợi ý — `TextArea` của materiant chưa có chỗ chèn gợi ý; đặc tả mục 4 cũng ghi bỏ tự đóng ngoặc.
+- [groove-gd1_24] OK ghi `None` khi danh sách bằng mặc định và không ghi gì khi không đổi — luôn ghi `Some(list)` — phím mới của bản sau tới được người chưa tuỳ biến.
+- [groove-gd1_24] Bỏ gốc thư mục hỏi lại bằng nút đổi chữ (bấm lần hai mới bỏ), không mở hộp xác nhận — hộp trong hộp — dialog lồng cần thêm `Slot`; thao tác không xoá tệp.
+- [groove-gd1_24] Bước tua có trần 3600 giây — không trần — chỉ để ô không nhận số vô lý; `Settings::sanitize` vẫn chỉ chặn dưới.
+- [groove-gd1_24] Không sửa `library_ctl.rs`: danh sách gốc đọc lại theo `LibraryCtlEvent::Notice`, bỏ gốc thì gỡ khỏi danh sách ngay — thêm sự kiện "gốc đổi" vào `LibraryCtl` — task 17 đã xong, ngoài danh sách tệp, và không cần.
+- [groove-gd1_24] Vượt trần 900 dòng code (khoảng 1.060 kể cả chú thích), sáu tệp — tách task — một lát dọc chạy được; tách ra thì mỗi mảnh vẫn dính `dialog.rs`.

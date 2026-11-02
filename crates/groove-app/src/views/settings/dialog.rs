@@ -432,7 +432,7 @@ mod tests {
     }
 
     fn play_tone(rig: &Rig, cx: &mut VisualTestContext) -> f32 {
-        let track = TrackRef::from_path(&write_tone(rig.dir.path()));
+        let track = TrackRef::from_path(write_tone(rig.dir.path()));
         cx.update(|_, cx| player::player(cx).update(cx, |p, cx| p.play_track(track, cx)));
         loudness_until(rig, cx, "có tiếng", |l| l > SOUND);
         // Trung bình vài khung: một khung đơn lẻ dao động vài phần trăm theo pha của sóng.
@@ -699,7 +699,7 @@ mod tests {
     }
 
     fn picker(answer: Option<PathBuf>, asked: Rc<RefCell<Vec<PickKind>>>) -> Picker {
-        Rc::new(move |kind| {
+        Rc::new(move |kind, _| {
             asked.borrow_mut().push(kind);
             let answer = answer.clone();
             Box::pin(async move { answer })
@@ -738,7 +738,7 @@ mod tests {
         wait_until(cx, "danh sách đầu tiên", |cx| {
             roots.read_with(cx, |p, _| matches!(p.state(), RootsState::Ready(_)))
         });
-        assert_eq!(roots.read_with(cx, |p, _| p.roots().to_vec()), [first.clone()]);
+        assert_eq!(roots.read_with(cx, |p, _| p.roots().to_vec()), vec![first.clone()]);
 
         // Thêm: hộp chọn thư mục, nhập xong thì danh sách có hai gốc.
         roots.update(cx, |panel, cx| panel.add(cx));
@@ -751,7 +751,7 @@ mod tests {
         assert_eq!(env.songs(), 2, "bấm lần đầu chưa xoá gì");
         assert_eq!(roots.read_with(cx, |p, _| p.roots().len()), 2);
         roots.update(cx, |panel, cx| panel.remove(&first, cx));
-        assert_eq!(roots.read_with(cx, |p, _| p.roots().to_vec()), [second.clone()], "gỡ khỏi danh sách ngay");
+        assert_eq!(roots.read_with(cx, |p, _| p.roots().to_vec()), vec![second.clone()], "gỡ khỏi danh sách ngay");
         wait_until(cx, "bài bị gỡ khỏi thư viện", |_| env.songs() == 1);
         assert_eq!(env.roots(), [second]);
         assert!(first.join("song.wav").exists(), "tệp trên đĩa vẫn còn");

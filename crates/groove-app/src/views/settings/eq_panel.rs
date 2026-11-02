@@ -13,7 +13,7 @@ use materiant::select::Select;
 use materiant::slider::Slider;
 use materiant::theme::ActiveTheme;
 
-use super::eq_curve::EqCurve;
+use super::eq_curve::eq_curve;
 use crate::player::player;
 
 /// Cao thanh dọc (đủ 20 dB chia nấc 0,5 mà vẫn dễ kéo).
@@ -139,7 +139,7 @@ impl EqPanel {
                     .left_0()
                     .w_full()
                     .h(px(SLIDER_HEIGHT))
-                    .child(EqCurve::new(self.eq.gains, c.primary)),
+                    .child(eq_curve(self.eq.gains, c.primary)),
             )
     }
 

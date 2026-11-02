@@ -11,6 +11,16 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | Bảng so bản cũ, số đo RAM, gỡ `src/`, `src-tauri/`, Node; viết `groove/CLAUDE.md`, `groove/ROADMAP.md` |
 
+## 0. Bàn giao từ groove-gd1_24 (02/11/2026)
+
+<!-- handoff: groove-gd1_24 -->
+
+- **Đã có**: `views/settings/*`, `settings::dialog::install` gọi trong `app::run`; `app.rs` có thêm `Slot::Settings` và hai hàm test `install_settings_for_test`, `set_shell_for_test`. Hộp có ba tab (Cài đặt chung, Phím tắt, Thư viện), nối `ShellEvent::OpenSettings` (nút đáy cột trái, lệnh).
+- **Đổi so với đặc tả 1.10**: thêm tab Thư viện (danh sách gốc, Thêm, Quét lại, Bỏ); Esc và ✕ coi như Huỷ; bước tua, bước âm lượng áp ngay như EQ; không có ô ngôn ngữ, theme; ô JSON không gợi ý tên lệnh, thay bằng danh sách lệnh dưới ô. Danh sách ở mục "Quyết định tự chọn" của mục 9 và `plan/confirm.md`.
+- **Chưa kiểm**: nhìn hộp thật (đường cong khớp núm trượt, bố cục 800 × 480, chữ vi / en) — `[owner-qa]` ở `_backlog.md`. Cần ghi vào bảng so bản cũ.
+- **Bảng so bản cũ**: S6 / N9 (bỏ gốc) đã có đường vào từ Settings; M3, M5, M7 đã làm; S23 (preamp) nghe được ngay khi kéo.
+- **Số đo**: hộp dựng một lần lúc khởi động, chưa đo RAM; đo cùng lượt số đo RAM của task này.
+
 ## 0. Bàn giao từ groove-gd1_23 (02/11/2026)
 
 <!-- handoff: groove-gd1_23 -->

@@ -4,9 +4,7 @@
 //! như bản cũ). Phần hình học là hàm thuần để test; chỗ vẽ là một `canvas` không nhận chuột nên không chặn thanh trượt.
 
 use groove_core::settings::{EQ_BAND_COUNT, EQ_GAIN_LIMIT_DB};
-use materiant::gpui_kit::{
-    App, Bounds, Hsla, IntoElement, PathBuilder, Pixels, RenderOnce, Styled, Window, canvas, point, px,
-};
+use materiant::gpui_kit::{Bounds, Hsla, IntoElement, PathBuilder, Pixels, Styled, canvas, point, px};
 use materiant::slider::SLIDER_THUMB_SIZE;
 
 /// Bề dày nét.
@@ -56,39 +54,24 @@ pub fn spline(points: &[(f32, f32)], height: f32) -> Vec<(f32, f32)> {
 }
 
 /// Phần tử vẽ: đặt `absolute` đè lên hàng thanh trượt.
-#[derive(IntoElement)]
-pub struct EqCurve {
-    gains: [f32; EQ_BAND_COUNT],
-    color: Hsla,
-}
-
-impl EqCurve {
-    pub fn new(gains: [f32; EQ_BAND_COUNT], color: Hsla) -> EqCurve {
-        EqCurve { gains, color }
-    }
-}
-
-impl RenderOnce for EqCurve {
-    fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
-        let (gains, color) = (self.gains, self.color);
-        canvas(
-            |_, _, _| (),
-            move |bounds: Bounds<Pixels>, _, window, _| {
-                let (width, height) = (f32::from(bounds.size.width), f32::from(bounds.size.height));
-                let line = spline(&band_points(&gains, width, height), height);
-                let points: Vec<_> = line.into_iter().map(|(x, y)| bounds.origin + point(px(x), px(y))).collect();
-                let mut builder = PathBuilder::stroke(px(STROKE));
-                builder.add_polygon(&points, false);
-                if let Ok(path) = builder.build() {
-                    window.paint_path(path, color);
-                }
-            },
-        )
-        .absolute()
-        .top_0()
-        .left_0()
-        .size_full()
-    }
+pub fn eq_curve(gains: [f32; EQ_BAND_COUNT], color: Hsla) -> impl IntoElement {
+    canvas(
+        |_, _, _| (),
+        move |bounds: Bounds<Pixels>, _, window, _| {
+            let (width, height) = (f32::from(bounds.size.width), f32::from(bounds.size.height));
+            let line = spline(&band_points(&gains, width, height), height);
+            let points: Vec<_> = line.into_iter().map(|(x, y)| bounds.origin + point(px(x), px(y))).collect();
+            let mut builder = PathBuilder::stroke(px(STROKE));
+            builder.add_polygon(&points, false);
+            if let Ok(path) = builder.build() {
+                window.paint_path(path, color);
+            }
+        },
+    )
+    .absolute()
+    .top_0()
+    .left_0()
+    .size_full()
 }
 
 #[cfg(test)]
