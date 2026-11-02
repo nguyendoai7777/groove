@@ -11,6 +11,14 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `core/{keymap,cli}.rs`, `app/commands.rs` (M4, M5, S21) |
 
+## 0. Bàn giao từ groove-gd1_13 (02/11/2026)
+
+<!-- handoff: groove-gd1_13 -->
+
+- **Đã có sẵn để dùng**: `crate::player::player(cx) -> Entity<Player>`. Đọc `.read(cx)`, thao tác `.update(cx, |p, cx| p.next(cx))`, nghe `cx.observe` (mọi đổi trạng thái, 4 lần mỗi giây khi phát) và `cx.subscribe` (`PlayerEvent`). Danh sách API: mục 9 của `plan/groove-gd1_13_player-controller.md`.
+- **Test view**: `player::install` dùng thiết bị và tệp thật. Test dùng `player::install_for_test(PlayerDeps { library, output: Box::new(FakeOutput::new(48_000, 2)), options, session_file }, cx)` rồi `player::player(cx)` như thường, kèm `cx.executor().allow_parking()` vì engine, thư viện đánh thức từ luồng khác; cài đặt của nó là bản cục bộ.
+- **Lệnh**: `toggle_play`, `next`, `prev`, `play_random`, `toggle_shuffle`, `toggle_repeat`, `toggle_mute`; `seek_by(±seek_step as f64, cx)`, `adjust_volume(±volume_step as i16, cx)`, step đọc từ `app::settings(cx)`.
+
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 22. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 0. Bàn giao từ groove-gd1_02 (02/11/2026)
