@@ -1,1 +1,32 @@
 # Vùng player: khoá viết không tiền tố, tra bằng t!("player.<khoá>").
+
+[bar]
+no_song = "No song selected"
+unknown_artist = "Unknown artist"
+open_now_playing = "Open Now Playing"
+shuffle = "Shuffle"
+prev = "Previous"
+next = "Next"
+play = "Play"
+pause = "Pause"
+repeat_off = "Repeat: off"
+repeat_one = "Repeat one"
+mute = "Mute"
+unmute = "Unmute"
+volume = "Volume"
+seek = "Seek"
+settings = "Settings"
+
+[toast]
+unknown_track = "this song"
+track_failed_title = "Cannot play the song"
+output_failed_title = "No audio device"
+output_failed = "No sound output was found. Connect speakers or headphones, then press Play to retry."
+gave_up = "Stopped after several errors in a row."
+
+[toast.kind]
+not_found = "The file for {title} was not found. It may have been deleted or renamed."
+io = "Cannot read the file for {title}."
+unsupported = "The format of {title} is not supported."
+corrupt = "The file for {title} is damaged."
+output = "Cannot open the audio device for {title}."
