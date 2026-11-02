@@ -82,6 +82,8 @@ pub fn run(dev: DevArgs) {
         library_page::install(cx);
         // Task 13: player cần thư viện ở trên.
         crate::player::install(cx);
+        // Task 22: phím tắt, cần player ở trên.
+        crate::commands::install(cx);
         dev::replay(handle, dev.keys, cx);
     });
 }

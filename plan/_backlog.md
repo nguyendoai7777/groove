@@ -19,3 +19,4 @@ ngay, không vào đây). Có task thì trỏ tới tệp task, đừng chép l�
 =======
 - **[groove-gd1_08 · owner-qa] Import lần đầu trên thư viện OneDrive thật (S26)** — lý do: phải chạy trên máy thật, sau khi task 17 nối UI. Mong đợi: thấy tiến độ, UI không đứng, không bài nào mất; import lại lần hai không tải tệp về, số tệp ở thư mục bìa không tăng.
 >>>>>>> master
+- [groove-gd1_22] Chờ kiểm tay, máy hai màn: `pwsh tools/run.ps1 -Keys "g p wait@300 shot@np ctrl-k wait@300 shot@search"`, phím tắt chạy thật qua `AppHost`, `Ctrl+K` khi đang gõ, dialog mở thì phím tắt tắt.
