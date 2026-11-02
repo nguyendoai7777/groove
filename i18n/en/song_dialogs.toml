@@ -1,1 +1,21 @@
 # Vùng song_dialogs: khoá viết không tiền tố, tra bằng t!("song_dialogs.<khoá>").
+
+[lyrics]
+title = "Lyrics"
+placeholder = "Paste or type the lyrics here. Leave it empty and Save to remove them."
+save_failed = "Could not save the lyrics"
+load_failed = "Could not open the lyrics"
+
+[timeline]
+title = "Timeline"
+hint = "One segment per line: a time, then a name, for example 1:30 Chorus. The time is seconds, m:ss or h:mm:ss. Lines in any other shape are ignored."
+placeholder = "0:00 Intro"
+save_failed = "Could not save the timeline"
+load_failed = "Could not open the timeline"
+
+[error]
+not_found = "This song is no longer in the library."
+write_failed = "Could not write to the music file; it is unchanged. Check that the file is not locked or read-only, then Save again; your text is kept."
+database_after_write = "The file was written but the library was not updated; it will read the file again by itself. Your text is kept."
+rename_failed = "The file was written but could not be renamed."
+generic = "The library is busy or hit an error. Try again in a moment; your text is kept."

@@ -11,6 +11,15 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `views/settings/{dialog,general,eq_panel,eq_curve,keybindings,roots}.rs`, `i18n/*/settings.toml` |
 
+## 0. Bàn giao từ groove-gd1_22 (02/11/2026)
+
+<!-- handoff: groove-gd1_22 -->
+
+- **Đã có sẵn để dùng** (`groove_core::keymap`): `parse_json(text) -> Result<Vec<KeyBinding>, KeyJsonError>` soát hình dạng; `validate(&bindings) -> Vec<KeyIssue>` soát nội dung (M5); `to_json(&bindings)` cho nút Đặt lại mặc định với `settings::default_keybindings()`; `Command::ALL` + `.name()` cho gợi ý lệnh.
+- **OK**: `parse_json` lỗi, hoặc `validate` không rỗng thì nhảy về tab Phím tắt, không đóng (M5). Chữ báo lỗi map từ biến thể `KeyJsonError`, `KeyIssue` sang vùng `settings`; `index` tính từ 0.
+- **Áp phím**: chỉ cần `app::update_settings(cx, |s| s.custom_keybindings = Some(list))`. `commands` tự so ở phím kế, không có hàm nạp lại.
+- **Cần biết**: hộp Settings là dialog, phím toàn cục tự tắt khi mở.
+
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 24. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 0. Bàn giao từ groove-gd1_11 (02/11/2026)

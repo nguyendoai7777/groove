@@ -119,6 +119,11 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_09] Dọn sau 30 ngày chỉ khi gốc quét được và tệp vẫn `NotFound` lúc đó — dọn theo mốc thời gian — ổ tháo lâu không được mất playlist.
 - [groove-gd1_09] Import đúng chỗ đang bị `excluded_paths` che thì gỡ che, import gốc cha thì không — luôn tôn trọng — chọn thẳng là ý muốn rõ ràng.
 - [groove-gd1_09] `excluded_paths` có thêm cột `path_key` ngoài `path` của đặc tả — chỉ `path` — so đường dẫn kiểu M2.
+- [groove-gd1_22] Phím tắt qua `intercept_keystrokes` + ngữ cảnh GPUI — `KeyBinding` của GPUI — chuỗi GPUI cố định 1 giây (đặc tả 800 ms), đổi phím lúc chạy phải xoá cả phím materiant.
+- [groove-gd1_22] Dialog mở thì `Ctrl+K` cũng tắt — vẫn mở bảng lệnh — chồng dialog lên dialog; M4 chỉ đòi `Ctrl+K` chạy ở ô nhập thường.
+- [groove-gd1_22] Space trên nút đến bằng Tab là bấm nút, đến bằng chuột là phát / dừng — luôn phát / dừng như bản cũ — giữ dùng được bằng bàn phím mà bấm Next xong Space không Next tiếp.
+- [groove-gd1_22] `/playall` phát lại danh sách hiện tại từ đầu, trống thì báo — phát cả thư viện — thư viện không có khái niệm tất cả bài; giữ như bản cũ.
+- [groove-gd1_22] `/theme` không đối số đổi qua lại sáng, tối; `/queue <tên>` thêm bài khớp đầu — bắt buộc đối số; thêm mọi bài khớp — ít bất ngờ nhất.
 - [groove-gd1_14] Nút Play đổi icon Play / Pause tức thì — biến hình hai đa giác 250 ms bằng `canvas` — đặc tả mục 4 cho phép khi không cần; thêm icon `Pause` vào `icons.rs`.
 - [groove-gd1_14] Marquee đứng ở đầu dòng khi rê chuột, chạy lại từ đầu khi rời — tạm dừng giữ nguyên chỗ — `with_animation` của GPUI không tạm dừng giữa chừng.
 - [groove-gd1_14] Không bài thì chặn cả nút Settings của thanh phát — chừa riêng Settings — đặc tả 1.3 "không bấm được"; Settings còn ở cột trái.
@@ -129,6 +134,8 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_25] Không giành được endpoint trong 2 giây thì vẫn mở app, không có một phiên — thoát im lặng — tiến trình lạ giữ tên pipe không được làm người dùng không mở nổi app. Phiên chính treo quá 3 giây thì phiên sau thoát, không mở phiên hai giành DB.
 - [groove-gd1_25] Tên không phải Unicode không chuyển qua IPC được, bỏ khi gửi — mã hoá riêng — đặc tả chốt dòng JSON; hiếm gặp.
 - [groove-gd1_25] Bản debug dùng endpoint riêng (`-dev`, có `GROOVE_DATA_DIR` thì theo băm thư mục) — chung một tên — chạy thử không được đánh thức phiên thật của chủ dự án. Mã Windows, Unix đặt trong `mod sys` của `instance.rs`, không ở `app/platform` — task này chỉ sở hữu tệp của mình, `platform/mod.rs` không được sửa.
+- [groove-gd1_20] Hộp lyrics, timeline nhận MetadataOps qua tham số, không có Global — thêm Global ở app.rs — tệp thuộc task 03 / chưa rõ chủ; để Opus chọn chỗ đặt.
+- [groove-gd1_20] Esc và bấm nền đóng hộp lyrics, timeline kể cả khi có chữ chưa lưu — chặn Esc + hỏi xác nhận — như bản Tauri; đổi là quyết định UX.
 
 ## groove-gd1_16
 
@@ -137,3 +144,11 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_16] Playlist không hiện dòng phụ, chỉ "n bài" — hiện cả hai như dòng phụ của thẻ — tránh nói số bài hai lần.
 - [groove-gd1_16] Cột nghệ sĩ ẩn khi cửa sổ < 768 px — theo bề ngang vùng nội dung — đặc tả không nêu ngưỡng, `md` của bản cũ là theo viewport.
 - [groove-gd1_16] Bìa đầu danh sách dùng bản 256 px cho cả hai cỡ — bản 512 px — không đảm bảo tệp lớn tồn tại; nhoè nhẹ ở màn DPI cao.
+
+## groove-gd1_19
+
+- [groove-gd1_19] Áp cho nhóm chỉ gửi trường đã đổi so với lúc mở — gửi đủ sáu trường như bản cũ — `GroupEdit` ghi đè mọi bài trong nhóm, gửi trường không đụng sẽ xoá thể loại / năm riêng của bài khác.
+- [groove-gd1_19] Nhãn chế độ `merge` là "Gộp vào thẻ hiện có" — "Chỉ sửa trường đã đổi" — form gửi mọi trường theo đặc tả, nên nhãn cũ sai nghĩa.
+- [groove-gd1_19] Ctrl+V chỉ dán ảnh khi chuột đang trên ô bìa và clipboard có ảnh / tệp ảnh — luôn chặn Ctrl+V trong dialog — để ô nhập vẫn dán chữ được.
+- [groove-gd1_19] Bài `not_started` của báo cáo lô chỉ hiện số lượng — kèm tên — `BulkReport.not_started` chỉ có id, tra tên cần DB đang đóng.
+- [groove-gd1_19] Nền dialog bấm không đóng, Esc bị chặn khi đang lưu — theo mặc định của materiant — tránh mất bản sửa dài.

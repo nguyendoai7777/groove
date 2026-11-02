@@ -2,7 +2,7 @@
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Trạng thái | ☐ |
+| Trạng thái | ✅ (02/11/2026) |
 | Repo | groove |
 | Model | opus |
 | Cỡ | ~650 dòng |
@@ -37,3 +37,45 @@
 
 ## 2. Không làm trong task này
 - Không thêm tính năng ngoài đặc tả; không sửa bản Tauri + Vue (G-1).
+
+## 6. Nghiệm thu
+
+Phủ bằng test `[opus-unit]`. `core/keymap.rs`, `core/cli.rs`: luật khớp, M5, S21 phần chữ. `#[gpui::test]` trong `app/commands.rs`, cửa sổ ảo, `FakeOutput`, DB tạm:
+
+- C1 mọi phím mặc định chạy đúng lệnh. C2 `meta` là `ctrl`. C3 chuỗi quên sau 800 ms.
+- C4 (M4) trong ô nhập chỉ `Ctrl+K` chạy, chữ vẫn vào ô. C5 (M4) dialog mở, kể cả mất focus, không phím nào chạy; đóng thì chạy lại.
+- C6 thành phần đang focus giữ phím của nó. C7 nút đến bằng Tab: Space, Enter bấm nút; nút đến bằng chuột: Space phát / dừng.
+- C8 (M5) đổi phím áp ngay, dòng sai không làm hỏng dòng đúng. C9 (S21) ba thao tác nhanh đều chạy.
+- C10..C13 (S21) `/queue`, `/play`, `/playall`, `/pause`, `/volume`, `/theme`, `/help` làm thật; chọn bài từ kết quả tìm giữ nguyên hàng đợi.
+- `[owner-qa]` chạy thật: máy phiên này chỉ một màn nên chưa mở cửa sổ, chưa bấm phím trên app thật.
+
+## 9. Bàn giao thực tế
+
+**Kiểm** (cwd worktree): `cargo build`, `clippy --workspace --all-targets -D warnings`, `cargo test --workspace`, `cargo deny check licenses` xanh. Test `commands::` chạy lặp 3 lần xanh. Không ra loa, không chạm DB thật, không đăng ký phím toàn cục OS: phím chỉ nghe trong cửa sổ của app.
+
+**Chưa kiểm**: `AppHost` (nối `commands` với `app::*`) chỉ biên dịch; `app::settings`, `Shell` là `Global` riêng của `app.rs` nên test dùng `FakeHost`. `tools/run.ps1` từ chối vì máy một màn, không ép. Chờ kiểm tay: `plan/_backlog.md`.
+
+**API đã khoá**:
+
+- `groove_core::keymap`: `Command` (`ALL`, `name`, `from_name`, `works_in_text_input`), `Chord`, `KeySequence` (`parse`, `label`), `Keymap` (`from_bindings`, `sequence_for`), `KeyMatcher::press`, `KeyScope`, `validate` -> `KeyIssue`, `parse_json` -> `KeyJsonError`, `to_json`, `SEQUENCE_TIMEOUT`, `MAX_SEQUENCE`.
+- `groove_core::cli`: `COMMANDS`, `CliSpec` (`completion`), `CliArg`, `CliCommand`, `CliError`, `is_cli`, `filter`, `parse`, `resolve`.
+- `crate::commands`: `install`, `run`, `run_cli` -> `Task<CliOutcome>`, `CliOutcome`, `play_search_result`, `key_label`, `QUICK_ACTIONS`.
+- `app.rs`: đúng một lời gọi `crate::commands::install(cx)` trong `run`.
+
+**Quyết định** (Opus chọn 02/11/2026, ghi cả `plan/confirm.md`):
+
+- Phím đi qua `cx.intercept_keystrokes` + `window.context_stack()`, không `KeyBinding` của GPUI: chuỗi GPUI cố định 1 giây (đặc tả 800 ms), đổi phím lúc chạy phải xoá cả phím của materiant, `meta` phải gán đôi.
+- Dialog mở thì `Ctrl+K` cũng tắt; đang ở ô nhập ngoài dialog thì `Ctrl+K` chạy.
+- Space, Enter trên phần tử đến bằng Tab là bấm phần tử; focus do chuột thì Space là phát / dừng. GPUI không cho biết nguồn focus nên tự nhớ phần tử sau phím Tab.
+- `/playall`: phát lại danh sách hiện tại từ đầu, như bản cũ; trống thì `NoMatch`. Thư viện không có "tất cả bài".
+- `/theme` không đối số đổi qua lại sáng, tối; nhận thêm `system`. `/queue <tên>` thêm bài khớp đầu tiên. `/volume` nhận số nguyên, kẹp 0-100, chữ thì báo lỗi.
+- Nhận cả `left`, `arrowleft`, thứ tự tiền tố tuỳ ý; `meta+k` là `ctrl+k`. Báo thêm `UnreachableSequence` (`g` và `g m` cùng tồn tại).
+- `dialogShortcuts` không chuyển sang (S21).
+
+**Soi cải tiến**: bảo mật: log chỉ ghi số dòng sai, không ghi nội dung. UI/UX: dùng được hết bằng bàn phím (C7); lỗi có biến thể cho task 23, 24 báo. RAM: không thêm phụ thuộc, không luồng mới; so bảng phím chỉ khi có phím. Pro: không áp.
+
+## 10. Đề xuất cải tiến
+
+- [ux] Giữ Space làm phát / dừng nhấp nháy theo nhịp lặp phím, như bản cũ — `KeystrokeEvent` của GPUI không có `is_held`, `app/commands.rs:on_keystroke` — bỏ lặp cho `toggle_play` khi GPUI lộ cờ này — nhỏ — S — P3. Chưa làm: không có API, không phải lỗi mới.
+
+**Test nhạy**: `player::tests::volume_and_mute_reach_the_engine` (của task 13) đỏ từng lúc khi máy bận, nặng hơn khi chạy cùng test của task này; ghi ở `plan/_backlog.md`. Lúc gộp, `master` gồm cả 14, 16: xung đột `app.rs`, `_backlog.md`, `confirm.md` giữ cả hai phía.
