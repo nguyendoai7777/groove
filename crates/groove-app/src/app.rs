@@ -17,10 +17,13 @@
 //!   duy nhất cho cả app, đừng tạo cái thứ hai.
 //! - **Tiêu đề cửa sổ**: [`set_title_override`] (Now Playing đặt `<bài> - <nghệ sĩ> | Groove X`, `None` để về tên trang).
 
+use std::cell::OnceCell;
 use std::time::Duration;
 
 use groove_core::settings::{JsonSaver, Settings, ThemeChoice};
 use groove_core::{paths, t};
+use groove_library::covers::CoverStore;
+use groove_library::metadata_ops::MetadataOps;
 use groove_library::store::Library;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
@@ -86,6 +89,8 @@ pub fn run(dev: DevArgs) {
         crate::commands::install(cx);
         // Task 14: thanh phát vào `Slot::PlayerBar`, cần player ở trên.
         crate::views::player_bar::install(handle, cx);
+        // Task 21: màn Now Playing vào `Slot::NowPlaying`, cần player và thư viện ở trên.
+        crate::views::now_playing::install(handle, cx);
         dev::replay(handle, dev.keys, cx);
     });
 }
@@ -442,6 +447,33 @@ impl Global for LibraryHandle {}
 /// Đặt thư viện dùng chung. Gọi một lần lúc khởi động.
 pub fn set_library(library: Library, cx: &mut App) {
     cx.set_global(LibraryHandle(library));
+    cx.set_global(MetadataOpsHandle::default());
+}
+
+/// `Global` giữ `MetadataOps` dùng chung (mỗi bản một luồng ghi tệp nên dựng một lần, lười ở lần gọi đầu).
+#[derive(Default)]
+struct MetadataOpsHandle(OnceCell<MetadataOps>);
+
+impl Global for MetadataOpsHandle {}
+
+/// `MetadataOps` dùng chung, dựng lười từ [`library`] và `CoverStore::default_location()`; `None` khi chưa có thư viện hoặc
+/// không dựng được (đã ghi log). Sao chép rẻ, gửi được giữa luồng.
+pub fn try_metadata_ops(cx: &App) -> Option<MetadataOps> {
+    let library = try_library(cx)?;
+    let handle = cx.try_global::<MetadataOpsHandle>()?;
+    if let Some(ops) = handle.0.get() {
+        return Some(ops.clone());
+    }
+    let covers = CoverStore::default_location().map_err(|err| log::warn!("cannot locate covers: {err}")).ok()?;
+    let ops = MetadataOps::new(library.clone(), covers)
+        .map_err(|err| log::error!("cannot start metadata ops: {err}"))
+        .ok()?;
+    Some(handle.0.get_or_init(|| ops).clone())
+}
+
+/// Như [`try_metadata_ops`], panic nếu chưa `set_library`. Dùng ở chỗ chắc chắn đã khởi động xong.
+pub fn metadata_ops(cx: &App) -> MetadataOps {
+    try_metadata_ops(cx).expect("metadata ops need the library: call set_library first")
 }
 
 /// Thư viện dùng chung (sao chép rẻ, gửi được giữa luồng). Panic nếu chưa `set_library`; `try_library` cho chỗ có thể

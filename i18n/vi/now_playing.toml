@@ -1,1 +1,31 @@
 # Vùng now_playing: khoá viết không tiền tố, tra bằng t!("now_playing.<khoá>").
+
+[cover]
+alt = "Ảnh bìa"
+
+[song]
+no_song = "Chưa chọn bài nào"
+unknown_artist = "Chưa rõ nghệ sĩ"
+
+[timeline]
+current = "{position} / {duration}"
+segment_start = "Tới đầu đoạn {title}"
+
+[lyrics]
+title = "Lời bài hát"
+no_song = "Phát một bài để xem lời ở đây."
+empty = "Bài này chưa có lời."
+
+[actions]
+metadata = "Thông tin bài"
+timeline = "Timeline"
+edit_lyrics = "Sửa lời"
+add_lyrics = "Thêm lời"
+
+[queue]
+title = "Hàng đợi phát"
+count = "({count} bài)"
+count_one = "(1 bài)"
+empty = "Hàng đợi trống. Phát một bài trong thư viện để nạp hàng đợi."
+loading = "Đang tải…"
+unknown = "Bài không rõ"
