@@ -4,26 +4,26 @@
 //!
 //! - `Route::MyMusic`: tiêu đề, hai thẻ hành động (nhập thư mục, đọc lại thẻ), tab Album / Thư mục, lưới;
 //! - `Route::Playlists`: tiêu đề, thẻ "tạo danh sách phát mới", lưới playlist;
-//! - `Route::Category(..)`: danh sách bài của một category. `SongList` là của task 16 chưa có, nên đang vẽ chữ giữ chỗ
-//!   (`category_pending`); xem mục 8, 9 của task.
+//! - `Route::Category(..)`: danh sách bài của một category: `SongList` của task 16, tạo một lần, đổi mục bằng
+//!   `set_reference` (task 17 gắn).
 //!
 //! Dữ liệu từ `app::library(cx)` (`Library`, đọc nền, UI không chạm đĩa); nạp lại khi `Opened`, `Synced`,
-//! `PlaylistsChanged`. Lưới là `VirtualGrid` với một `LruImageCache` cho bìa. Nghiệp vụ (nhập, quét lại, tạo / xoá
-//! playlist, phát) không nằm ở đây: view phát [`LibraryPageEvent`] cho task 17 nghe.
+//! `PlaylistsChanged`, `Moved`, khi sửa thẻ cả nhóm xong. Lưới là `VirtualGrid` với một `LruImageCache` cho bìa. Nghiệp vụ (nhập, quét lại, tạo / xoá
+//! playlist, phát) không nằm ở đây: view phát [`LibraryPageEvent`], `library_ctl` nghe (task 17).
 //!
 //! # Cho task sau
 //!
 //! - `views::library_page::install(cx)` gọi một lần trong `app::run` (đã nối): mở `Library` chuẩn, đặt global
 //!   `app::library(cx)`, tạo view, gắn vào `Slot::Library`, nối route và `Open` thành `app::navigate`.
-//! - Nghe `LibraryPageEvent::{Import, Rescan, CreatePlaylist, PlayAll, Delete}`; báo trạng thái ngược lại bằng
-//!   `set_importing`, `set_rescanning`.
+//! - `library_ctl::install` (gọi trong `install_with`) nghe `LibraryPageEvent` và báo ngược bằng `set_importing`,
+//!   `set_rescanning`.
 
 use std::sync::Arc;
 
 use futures::StreamExt;
 use groove_core::model::CategoryRef;
 use groove_core::t;
-use groove_library::actor::{LibraryError, LibraryEvent, OpenFailure, OpenStatus};
+use groove_library::actor::{LibraryError, LibraryEvent, OpenFailure, OpenStatus, ProgressKind};
 use groove_library::covers::CoverStore;
 use groove_library::db::queries::CategorySummary;
 use groove_library::store::Library;
@@ -32,8 +32,8 @@ use materiant::button::Button;
 use materiant::gpui_kit as gpui;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    App, ClickEvent, Context, Entity, EventEmitter, FocusHandle, FontWeight, IntoElement, ParentElement, Render,
-    SharedString, Styled, Task, Window, div, px,
+    AnyView, App, ClickEvent, Context, Entity, EventEmitter, FocusHandle, FontWeight, IntoElement, ParentElement,
+    Render, SharedString, Styled, Subscription, Task, Window, div, px,
 };
 use materiant::icon::Icon;
 use materiant::progress::ProgressCircular;
@@ -43,8 +43,11 @@ use materiant::virtual_grid::{LruImageCache, VirtualGrid, VirtualGridHandle};
 
 use crate::app::{self, ShellEvent, Slot};
 use crate::icons::GrooveIcon;
+use crate::library_ctl;
 use crate::route::Route;
 use crate::views::category_card::{CARD_EXTRA_HEIGHT, CategoryCard};
+use crate::views::metadata::dialog::MetadataDialog;
+use crate::views::song_list::{SongList, SongListEvent};
 
 /// Lề hai bên của cả màn (đặc tả: `p-6`); lưới dùng cùng số này làm `padding_x` nên thanh cuộn nổi trên dải bên phải.
 const PAGE_PADDING: f32 = 24.;
@@ -73,6 +76,8 @@ pub enum LibraryPageEvent {
     Rescan,
     /// Thẻ "Create a New Playlist": hộp tên + màu.
     CreatePlaylist,
+    /// Mục đang xem không còn: `library_ctl` lùi về màn trước.
+    CategoryGone(CategoryRef),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -110,8 +115,17 @@ pub struct LibraryPage {
     busy: bool,
     grid: VirtualGridHandle,
     focus: FocusHandle,
+    /// Danh sách bài, dựng khi vào category lần đầu.
+    song_list: Option<Entity<SongList>>,
+    /// Vừa vào category: lần vẽ tới giao focus cho danh sách.
+    focus_list: bool,
+    /// Hộp thoại của `library_ctl`, vẽ ở mọi route của slot này.
+    overlays: Vec<AnyView>,
+    /// Hộp metadata đang mở; `LibraryCtl` giữ vòng đời.
+    metadata_dialog: Option<Entity<MetadataDialog>>,
     load_task: Option<Task<()>>,
     _events: Option<Task<()>>,
+    _song_list_events: Option<Subscription>,
 }
 
 impl EventEmitter<LibraryPageEvent> for LibraryPage {}
@@ -154,8 +168,13 @@ impl LibraryPage {
             busy: false,
             grid: VirtualGridHandle::new(),
             focus: cx.focus_handle(),
+            song_list: None,
+            focus_list: matches!(route, Route::Category(_)),
+            overlays: Vec::new(),
+            metadata_dialog: None,
             load_task: None,
             _events: None,
+            _song_list_events: None,
         };
         page.listen(cx);
         page.reload(cx);
@@ -181,8 +200,14 @@ impl LibraryPage {
                 self.refresh_status();
                 self.reload(cx);
             }
-            LibraryEvent::Synced(_) | LibraryEvent::PlaylistsChanged => self.reload(cx),
-            LibraryEvent::Moved(_) | LibraryEvent::Progress(_) => {}
+            LibraryEvent::Synced(_) | LibraryEvent::PlaylistsChanged | LibraryEvent::Moved(_) => self.reload(cx),
+            // Sửa thẻ cả nhóm xong: bìa, tên nhóm có thể đã đổi.
+            LibraryEvent::Progress(progress)
+                if progress.kind == ProgressKind::MetadataBulk && progress.done == progress.total =>
+            {
+                self.reload(cx)
+            }
+            LibraryEvent::Progress(_) => {}
         }
     }
 
@@ -255,6 +280,7 @@ impl LibraryPage {
     pub fn set_route(&mut self, route: Route, cx: &mut Context<Self>) {
         let section_changed = route.nav_section() != self.route.nav_section();
         self.route = route;
+        self.focus_list = matches!(route, Route::Category(_));
         if section_changed && !matches!(route, Route::Category(_)) {
             self.tab = Tab::Albums;
             self.selected = None;
@@ -277,6 +303,54 @@ impl LibraryPage {
             self.rescanning = rescanning;
             cx.notify();
         }
+    }
+
+    /// Hộp thoại của `library_ctl`.
+    pub fn set_overlays(&mut self, overlays: Vec<AnyView>, cx: &mut Context<Self>) {
+        self.overlays = overlays;
+        cx.notify();
+    }
+
+    /// Thêm một hộp thoại dựng muộn (lyrics, timeline).
+    pub fn add_overlay(&mut self, overlay: AnyView, cx: &mut Context<Self>) {
+        self.overlays.push(overlay);
+        cx.notify();
+    }
+
+    pub fn set_metadata_dialog(&mut self, dialog: Option<Entity<MetadataDialog>>, cx: &mut Context<Self>) {
+        self.metadata_dialog = dialog;
+        cx.notify();
+    }
+
+    #[cfg(test)]
+    pub fn has_metadata_dialog(&self) -> bool {
+        self.metadata_dialog.is_some()
+    }
+
+    /// Thẻ của bài vừa sửa: nạp lại lưới và danh sách đang mở.
+    pub fn refresh_lists(&mut self, cx: &mut Context<Self>) {
+        self.reload(cx);
+        if let Some(list) = &self.song_list {
+            list.update(cx, |list, cx| list.refresh(cx));
+        }
+    }
+
+    /// `SongList` của `reference`: dùng lại view đã có, chỉ đổi mục.
+    fn song_list(&mut self, reference: CategoryRef, cx: &mut Context<Self>) -> Entity<SongList> {
+        if let Some(list) = &self.song_list {
+            list.update(cx, |list, cx| list.set_reference(reference, cx));
+            return list.clone();
+        }
+        let (library, covers) = (self.library.clone(), self.covers.clone());
+        let list = cx.new(|cx| SongList::with_deps(library, covers, reference, cx));
+        self._song_list_events = Some(cx.subscribe(&list, |_, _, event: &SongListEvent, cx| {
+            // Menu bài do `SongList` tự vẽ qua `song_menu`; ở đây chỉ còn điều hướng.
+            if let SongListEvent::CategoryGone(reference) = event {
+                cx.emit(LibraryPageEvent::CategoryGone(*reference));
+            }
+        }));
+        self.song_list = Some(list.clone());
+        list
     }
 
     fn is_playlists(&self) -> bool {
@@ -633,10 +707,22 @@ fn importing_tile(c: &ThemeColors) -> gpui::Div {
 impl Render for LibraryPage {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let c = cx.theme().colors().clone();
-        let root = div().id("library-page").size_full().flex().flex_col().overflow_hidden().text_color(c.text);
+        let root = div()
+            .id("library-page")
+            .size_full()
+            .flex()
+            .flex_col()
+            .overflow_hidden()
+            .text_color(c.text)
+            .children(self.overlays.iter().map(|view| view.clone().into_any_element()))
+            .children(self.metadata_dialog.clone());
 
-        if matches!(self.route, Route::Category(_)) {
-            return root.child(centered_message(GrooveIcon::Song, t!("library.category_pending.title"), "", &c));
+        if let Route::Category(reference) = self.route {
+            let list = self.song_list(reference, cx);
+            if std::mem::take(&mut self.focus_list) {
+                list.update(cx, |list, cx| list.focus(window, cx));
+            }
+            return root.child(list);
         }
         if self.library.is_none() {
             return root.child(self.header(&c)).child(centered_message(
@@ -678,12 +764,10 @@ pub fn install(cx: &mut App) -> Entity<LibraryPage> {
 pub fn install_with(library: Option<Library>, covers: Option<CoverStore>, cx: &mut App) -> Entity<LibraryPage> {
     if let Some(library) = &library {
         app::set_library(library.clone(), cx);
-        // Việc đang ghi dở phải xong trước khi thoát.
-        let library = library.clone();
-        cx.on_app_quit(move |_| library.shutdown()).detach();
     }
     let route = app::current_route(cx);
-    let page = cx.new(|cx| LibraryPage::new(library, covers, route, cx));
+    let (page_library, page_covers) = (library.clone(), covers.clone());
+    let page = cx.new(|cx| LibraryPage::new(page_library, page_covers, route, cx));
     let weak = page.downgrade();
     cx.subscribe(&app::shell(cx), move |_, event: &ShellEvent, cx| {
         if let ShellEvent::RouteChanged(route) = event {
@@ -698,6 +782,8 @@ pub fn install_with(library: Option<Library>, covers: Option<CoverStore>, cx: &m
     })
     .detach();
     app::install_slot(Slot::Library, page.clone(), cx);
+    // Giữ `Indexer`, watcher; đóng thư viện khi thoát (watcher dừng trước).
+    library_ctl::install(library, covers, &page, cx);
     page
 }
 
@@ -764,7 +850,6 @@ mod tests {
             "library.open_error.other.hint",
             "library.open_error.unavailable.title",
             "library.open_error.unavailable.hint",
-            "library.category_pending.title",
         ];
         {
             for key in keys {
@@ -1042,13 +1127,123 @@ mod tests {
         assert!(cx.debug_bounds("card-album-1").is_none());
     }
 
-    /// C9 — danh sách bài chưa dựng (task 16): route Category vẽ chữ giữ chỗ, không vẽ lưới.
+    /// C9 — route Category gắn `SongList`, dùng lại một view khi đổi mục; mục biến mất thì báo `CategoryGone`.
     #[::gpui::test]
-    fn category_route_renders_placeholder(cx: &mut TestAppContext) {
+    fn category_route_shows_the_song_list(cx: &mut TestAppContext) {
+        use groove_audio::engine::EngineOptions;
+        use groove_audio::output::FakeOutput;
+
         let env = env(None);
-        let (_, _, cx) = open_page(cx, &env, Route::Category(CategoryRef::Album(1)));
+        seed(&env.library);
+        let library = env.library.clone();
+        cx.update(|cx| {
+            crate::player::install_for_test(
+                crate::player::PlayerDeps {
+                    library: Some(library),
+                    output: Box::new(FakeOutput::new(48_000, 2)),
+                    options: EngineOptions::default(),
+                    session_file: None,
+                },
+                cx,
+            );
+        });
+        let (page, events, cx) = open_page(cx, &env, Route::MyMusic);
+        let (abbey, zed) = page.read_with(cx, |p, _| (p.albums[0].reference, p.albums[1].reference));
+        page.update(cx, |p, cx| p.set_route(Route::Category(abbey), cx));
         frame(cx);
-        assert!(cx.debug_bounds("card-album-1").is_none());
+        let list = page.read_with(cx, |p, _| p.song_list.clone()).expect("đã dựng SongList");
+        assert!(cx.debug_bounds("card-album-1").is_none(), "không vẽ lưới");
+        wait_until(cx, "bài của album", |cx| {
+            frame(cx);
+            cx.debug_bounds("song-row-1").is_some()
+        });
+
+        page.update(cx, |p, cx| p.set_route(Route::Category(zed), cx));
+        frame(cx);
+        let again = page.read_with(cx, |p, _| p.song_list.clone()).unwrap();
+        assert_eq!(list.entity_id(), again.entity_id(), "một view, đổi mục");
+        assert_eq!(again.read_with(cx, |l, _| l.reference()), zed);
+
+        // Mục không còn: `SongList` báo, view chuyển lên.
+        let CategoryRef::Album(zed_id) = zed else { unreachable!() };
+        env.library.writer().transaction(move |conn| Ok(queries::delete_album(conn, zed_id)?)).wait().unwrap();
+        env.library.writer().emit(LibraryEvent::Synced(Default::default()));
+        wait_until(cx, "CategoryGone", |_| events.borrow().contains(&LibraryPageEvent::CategoryGone(zed)));
+    }
+
+    /// C12 — Shift+F10 ở danh sách bài mở menu; playlist có mục xoá khỏi danh sách.
+    #[::gpui::test]
+    fn shift_f10_opens_the_song_menu(cx: &mut TestAppContext) {
+        use groove_audio::engine::EngineOptions;
+        use groove_audio::output::FakeOutput;
+
+        let env = env(None);
+        seed(&env.library);
+        let library = env.library.clone();
+        cx.update(|cx| {
+            crate::player::install_for_test(
+                crate::player::PlayerDeps {
+                    library: Some(library),
+                    output: Box::new(FakeOutput::new(48_000, 2)),
+                    options: EngineOptions::default(),
+                    session_file: None,
+                },
+                cx,
+            );
+        });
+        let (page, _, cx) = open_page(cx, &env, Route::MyMusic);
+        let abbey = page.read_with(cx, |p, _| p.albums[0].reference);
+        page.update(cx, |p, cx| p.set_route(Route::Category(abbey), cx));
+        frame(cx);
+        wait_until(cx, "bài của album", |cx| {
+            frame(cx);
+            cx.debug_bounds("song-row-1").is_some()
+        });
+        let list = page.read_with(cx, |p, _| p.song_list.clone()).unwrap();
+        assert!(list.read_with(cx, |l, _| l.menu_opens_on_first_song()), "chưa chọn dòng: nhắm dòng đầu");
+        // Không có `LibraryCtl` trong test này: menu rỗng nhưng phím không được làm sập, focus phải ở trong danh sách.
+        cx.simulate_keystrokes("shift-f10");
+        frame(cx);
+    }
+
+    /// C13 — sửa thẻ cả nhóm xong (`MetadataBulk`, `done == total`) và `Moved` đều nạp lại lưới.
+    #[::gpui::test]
+    fn bulk_progress_and_moved_reload_the_grid(cx: &mut TestAppContext) {
+        use groove_library::actor::Progress;
+
+        let env = env(None);
+        let (page, _, cx) = open_page(cx, &env, Route::MyMusic);
+        let add_album = |library: &Library, name: &'static str| {
+            library
+                .writer()
+                .transaction(move |conn| {
+                    let folder = queries::get_or_create_folder(conn, "Rock", Path::new("/music/rock"))?;
+                    let album = queries::get_or_create_album(conn, name, name, None)?;
+                    let path = format!("/music/rock/{name}.mp3");
+                    let song = SongUpsert {
+                        path: path.into(),
+                        folder_id: folder,
+                        album_id: Some(album),
+                        ..SongUpsert::default()
+                    };
+                    queries::upsert_song(conn, &song)?;
+                    Ok(())
+                })
+                .wait()
+                .unwrap();
+        };
+        add_album(&env.library, "Bulk");
+        let bulk = |done, total| LibraryEvent::Progress(Progress { kind: ProgressKind::MetadataBulk, done, total });
+        env.library.writer().emit(bulk(1, 2));
+        std::thread::sleep(Duration::from_millis(50));
+        cx.run_until_parked();
+        page.read_with(cx, |p, _| assert!(p.albums.is_empty(), "chưa xong thì chưa nạp"));
+        env.library.writer().emit(bulk(2, 2));
+        wait_until(cx, "nạp sau bulk", |cx| page.read_with(cx, |p, _| names(&p.albums) == ["Bulk"]));
+
+        add_album(&env.library, "Moved");
+        env.library.writer().emit(LibraryEvent::Moved(Vec::new()));
+        wait_until(cx, "nạp sau Moved", |cx| page.read_with(cx, |p, _| p.albums.len() == 2));
     }
 
     /// C10 — lùi từ danh sách về lưới cũ giữ tab và ô chọn, sang mục khác thì về Album và bỏ chọn.

@@ -11,6 +11,15 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `views/settings/{dialog,general,eq_panel,eq_curve,keybindings,roots}.rs`, `i18n/*/settings.toml` |
 
+## 0. Bàn giao từ groove-gd1_17 (02/11/2026)
+
+<!-- handoff: groove-gd1_17 -->
+
+- **Đã có sẵn để dùng**: `library_ctl::ctl(cx) -> Option<Entity<LibraryCtl>>`. Danh sách gốc đọc bằng `Library::watched_roots()`; bỏ gốc bằng `LibraryCtl::forget_root(path, cx)`: xoá bài dưới gốc, không đụng tệp, tự báo watcher. Chi tiết: mục 9 của `plan/groove-gd1_17_library-actions.md`.
+- **Thêm gốc**: `LibraryCtl::pick_and_import(cx)`, đã có toast và cờ đang nhập.
+- **Hộp thoại**: dialog của materiant là khai báo, chủ vẽ làm con; `LibraryPage::add_overlay` chỉ vẽ trong `Slot::Library`, nên hộp mở được ở Now Playing phải gắn ở chỗ khác.
+- **Bẫy đã gặp**: mở hộp từ `on_select` của menu phải hoãn (`library_ctl::with_window`), cửa sổ đang bị mượn nên `window.update` lỗi.
+
 ## 0. Bàn giao từ groove-gd1_22 (02/11/2026)
 
 <!-- handoff: groove-gd1_22 -->

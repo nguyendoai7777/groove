@@ -13,6 +13,16 @@
 
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 27. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
+## 0. Bàn giao từ groove-gd1_25 (02/11/2026)
+
+<!-- handoff: groove-gd1_25 -->
+
+- **Đã có sẵn để dùng**: nhận tệp xong hết ở `open_paths`: `argv` (nhiều tệp một tiến trình hay nhiều tiến trình đều đúng) và `on_open_urls` trên macOS. Task này chỉ khai liên kết theo đặc tả 5.6: NSIS ProgID, `OpenWithProgids`; `CFBundleDocumentTypes`; `.desktop` `MimeType`, `Exec=groove %F`. Danh sách đuôi: `groove_core::model::AUDIO_EXTENSIONS`.
+- **Đổi so với lúc viết spec này**: `app::run` gọi `open_paths::run_app(application, closure)` thay cho `.run(closure)`; lời gọi của task này vẫn thêm một dòng trong closure như cũ.
+- **Khi đóng gói**: phiên sau kiểm exe phiên chính cùng thư mục (`instance::sys::prepare_server`); bản cài ở thư mục khác bản đang chạy thì không chuyển được, app mở phiên riêng sau 5 giây. Bộ cài gỡ, cập nhật phải đóng phiên cũ trước.
+- **Bẫy đã gặp**: chạy thử không kèm `GROOVE_DATA_DIR` thì mọi bản debug chung endpoint `-dev`, lần chạy sau chỉ đánh thức lần trước rồi thoát. `activate_window` của GPUI bấm giả phím Alt.
+- **Soát lại khi làm**: kiểm tay `groove-gd1_25` ở `plan/_backlog.md`, mục macOS cần bản `.app` của task này.
+
 ## 0. Bàn giao từ groove-gd1_02 (02/11/2026)
 
 <!-- handoff: groove-gd1_02 -->
