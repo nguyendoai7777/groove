@@ -299,7 +299,7 @@ fn nav_item(
 mod tests {
     use std::cell::RefCell;
 
-    use ::gpui::{AppContext as _, Context, Render, TestAppContext, VisualTestContext};
+    use ::gpui::{Context, Render, TestAppContext, VisualTestContext};
     use materiant::gpui_kit::base::Root;
     use materiant::gpui_kit::{KeyDownEvent, KeyUpEvent, Keystroke, point, size};
 
