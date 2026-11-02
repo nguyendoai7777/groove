@@ -56,7 +56,7 @@
 
 ## 9. Bàn giao thực tế
 
-**Kết quả**: `-p groove-library`: build, clippy `-D warnings`, 43 test xanh (1 `#[ignore]`), `cargo deny check licenses` xanh. Đã thử bằng ffprobe như C11; không dùng thư viện nhạc thật.
+**Kết quả**: `-p groove-library`: build, clippy `-D warnings`, test xanh (35 test của `tags`, 1 `#[ignore]`; cả crate 60 test đơn vị sau khi gộp master), `cargo deny check licenses` xanh. Đã thử bằng ffprobe như C11; không dùng thư viện nhạc thật.
 
 **API đã khoá** (`groove_library::tags`):
 
