@@ -22,6 +22,18 @@
 - **Watcher (task 09)**: bỏ qua bản tạm bằng `tags::is_temp_path`; đuôi nhạc ở `groove_core::model`.
 - **Bẫy**: mẫu OGG có setup giả, chỉ dùng để thử thẻ.
 
+## 0. Bàn giao từ groove-gd1_07 (02/11/2026)
+
+<!-- handoff: groove-gd1_07 -->
+
+- **Đã có sẵn để dùng**: `groove_library::covers::CoverStore`: `default_location()`, `save(&self, &[u8]) -> Result<CoverRecord, CoverError>`, `has_files(hash)`, `path(hash, CoverSize)`; hàm `cover_hash(&[u8])`. `Clone + Send + Sync`, gọi được từ worker. API đủ ở `plan/groove-gd1_07_covers.md` mục 9.
+- **Phải làm**: `save` không chạm DB. Indexer tự `INSERT OR IGNORE INTO covers` từ `CoverRecord` và gán `cover_hash`, ở `LibraryActor` như mọi lệnh ghi.
+- **Tránh giải mã lặp**: album 12 bài có 12 bản bìa giống nhau. Tính `cover_hash` trước; đã có dòng `covers` và `has_files(hash)` đúng thì bỏ qua `save`. Cache có thể bị xoá trong khi DB còn dòng, nên vẫn phải soát `has_files`.
+- **Giữ RAM**: mỗi `save` đỉnh bằng một lần giải mã, trần 192 MiB. Chỉ cho một luồng giải mã bìa tại một thời điểm, không chạy theo số worker đọc thẻ. Gọi ngoài transaction.
+- **Ảnh hỏng**: `save` trả `Err` kể cả khi decoder panic, không cần bọc `catch_unwind`. `Err` chỉ mất bìa, bài vẫn vào thư viện với `cover_hash = NULL`, ghi `log::warn!`.
+- **Bìa album**: `save` nhận byte gốc, ảnh nhỏ không phóng to nên `_512.jpg` có thể nhỏ hơn 512 và không vuông.
+- **Soát lại khi làm**: `cargo test -p groove-library --test covers_migrate`; nhập lại một thư mục không tăng số tệp ở thư mục bìa.
+
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 08. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 1. Làm gì
