@@ -80,6 +80,8 @@ pub fn run(dev: DevArgs) {
         // Task sau thêm đúng một lời gọi `install_slot(..)` / khởi tạo của mình ở đây.
         // Task 15: mở thư viện chuẩn, đặt global `library(cx)`, dựng màn lưới vào `Slot::Library`.
         library_page::install(cx);
+        // Task 13: player cần thư viện ở trên.
+        crate::player::install(cx);
         dev::replay(handle, dev.keys, cx);
     });
 }

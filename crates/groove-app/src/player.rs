@@ -43,8 +43,13 @@ const PLAYED_OK_SEC: f64 = 1.0;
 pub enum PlayerEvent {
     /// Bài đang chọn đổi, kể cả về `None`, hoặc thông tin của nó vừa đọc xong.
     TrackChanged,
-    /// Tệp không phát được: toast. `gave_up` là đã tới [`MAX_CONSECUTIVE_ERRORS`] và dừng, ngược lại đã tự sang bài kế.
-    TrackFailed { track: TrackRef, title: Option<String>, kind: AudioErrorKind, gave_up: bool },
+    /// Tệp không phát được: toast. `gave_up` là đã tới [`MAX_CONSECUTIVE_ERRORS`] và dừng; ngược lại đã tự sang bài kế nếu còn.
+    TrackFailed {
+        track: TrackRef,
+        title: Option<String>,
+        kind: AudioErrorKind,
+        gave_up: bool,
+    },
     /// Không có thiết bị ra tiếng. Không phải lỗi tệp: không sang bài, không tính vào giới hạn; Play thử lại.
     OutputFailed,
     DeviceChanged,
@@ -57,10 +62,16 @@ impl EventEmitter<PlayerEvent> for Player {}
 enum LoadState {
     Idle,
     /// Đang tra bài trong thư viện, chưa gửi `Load`.
-    Resolving { start_sec: f64 },
+    Resolving {
+        start_sec: f64,
+    },
     /// Đã gửi `Load`, chờ `Loaded`.
-    Loading { start_sec: f64 },
-    Loaded { start_sec: f64 },
+    Loading {
+        start_sec: f64,
+    },
+    Loaded {
+        start_sec: f64,
+    },
     Failed,
 }
 
@@ -158,7 +169,7 @@ impl Player {
             // Gửi cả khi EQ phẳng (bàn giao groove-gd1_11).
             engine.send(AudioCmd::SetVolume(volume_gain(prefs.volume)));
             engine.send(AudioCmd::SetMuted(prefs.muted));
-            engine.send(AudioCmd::SetEq(prefs.eq.clone()));
+            engine.send(AudioCmd::SetEq(prefs.eq));
             Player {
                 engine,
                 library,
@@ -272,6 +283,9 @@ impl Player {
         }
         // Thắng bài của phiên ngay từ lúc này, không đợi tra đường dẫn xong.
         self.touched = true;
+        if self.load_task.is_none() {
+            self.load = LoadState::Idle;
+        }
         let library = self.library.clone();
         cx.spawn(async move |this, cx| {
             let mut tracks = Vec::with_capacity(paths.len());
@@ -413,7 +427,7 @@ impl Player {
             self.engine.send(AudioCmd::SetMuted(now.muted));
         }
         if now.eq != self.applied.eq {
-            self.engine.send(AudioCmd::SetEq(now.eq.clone()));
+            self.engine.send(AudioCmd::SetEq(now.eq));
         }
         if now != self.applied {
             self.applied = now;
@@ -763,7 +777,7 @@ impl Player {
                     dead.extend(in_library.into_iter().filter(|track| !alive.contains(track)));
                 }
             }
-            let _ = this.update(cx, |this, cx| this.finish_restore(&dead, session.current, session.position_sec, cx));
+            let _ = this.update(cx, |this, cx| this.finish_restore(&dead, cx));
         })
     }
 
@@ -773,6 +787,10 @@ impl Player {
         let restore = !self.touched;
         if restore {
             self.queue = Queue::from_session(session);
+            // Chưa tra bài, nhưng thoát app lúc này vẫn phải lưu đúng vị trí cũ, và Play phải chờ `finish_restore`.
+            if self.queue.current().is_some() {
+                self.load = LoadState::Resolving { start_sec: session.position_sec };
+            }
         }
         let pending = std::mem::take(&mut self.pending_paths);
         self.play_paths(pending, cx);
@@ -780,18 +798,22 @@ impl Player {
         restore.then(|| (session_sync::tracks_of(&self.queue), self.library.clone()))
     }
 
-    fn finish_restore(
-        &mut self,
-        dead: &HashSet<TrackRef>,
-        expected: Option<TrackRef>,
-        position_sec: f64,
-        cx: &mut Context<Self>,
-    ) {
+    fn finish_restore(&mut self, dead: &HashSet<TrackRef>, cx: &mut Context<Self>) {
         // Không đi qua `remove_tracks`: bài của phiên chưa nạp, mất nó thì không có gì phải dừng.
         self.queue.retain_tracks(|track| !dead.contains(track));
-        let untouched = !self.touched && self.load == LoadState::Idle && self.queue.current() == expected.as_ref();
-        if untouched && let Some(track) = expected {
-            self.start_load(track, position_sec, false, cx);
+        // Có `load_task`, hoặc không còn `Resolving`: người dùng đã đổi bài, mở tệp trong lúc chờ soát.
+        if let (LoadState::Resolving { start_sec }, None) = (self.load, &self.load_task) {
+            match self.queue.current().cloned() {
+                // Không tự phát, trừ khi người dùng vừa bấm Play trong lúc chờ.
+                Some(track) => self.start_load(track, start_sec, self.wants_playback, cx),
+                None => {
+                    self.load = LoadState::Idle;
+                    if self.wants_playback {
+                        let outcome = self.queue.next_track();
+                        self.apply_outcome(outcome, cx);
+                    }
+                }
+            }
         }
         cx.notify();
     }
@@ -918,6 +940,7 @@ mod tests {
     use super::*;
 
     const TIMEOUT: Duration = Duration::from_secs(15);
+    const SILENCE: f32 = 1e-3;
 
     struct Rig {
         dir: TempDir,
@@ -933,6 +956,8 @@ mod tests {
 
     /// Thư mục tạm, DB tạm, `FakeOutput`: không chạm loa, không chạm DB thật.
     fn rig(cx: &mut TestAppContext, prepare: impl FnOnce(&Path, &Library)) -> Rig {
+        // Engine và thư viện chạy luồng thật, đánh thức foreground task từ luồng khác.
+        cx.executor().allow_parking();
         let dir = TempDir::new().unwrap();
         let config = LibraryConfig { target: dir.path().join("library.db"), legacy: None };
         let library = Library::open(config, no_covers()).unwrap();
@@ -1059,6 +1084,15 @@ mod tests {
             .unwrap()
     }
 
+    /// Tổng biên độ một khung, sau đoạn nội suy tránh click.
+    fn loudness(fake: &FakeOutput) -> f32 {
+        for _ in 0..20 {
+            let _ = fake.pull(480);
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        fake.pull(480).map_or(0.0, |s| s.iter().map(|x| x.abs()).sum::<f32>())
+    }
+
     fn lib(id: i64) -> TrackRef {
         TrackRef::Library(id)
     }
@@ -1083,8 +1117,7 @@ mod tests {
         rig.update(cx, |p, cx| p.next(cx));
         assert!(!rig.read(cx, Player::is_playing), "Pause có hiệu lực ngay");
         rig.until_quiet(cx, "back to 0", |p| p.position_sec() == 0.0);
-        let frames = rig.fake.pull(480).map_or(0.0, |s| s.iter().map(|x| x.abs()).sum::<f32>());
-        assert_eq!(frames, 0.0, "không còn tiếng sau khi dừng");
+        assert!(loudness(&rig.fake) < SILENCE, "không còn tiếng sau khi dừng");
         assert_eq!(rig.read(cx, |p| p.current_track().cloned()), Some(lib(id)));
         assert_eq!(rig.flush(cx).position_sec, 0.0);
 
@@ -1362,6 +1395,7 @@ mod tests {
     /// C18 (đặc tả 5.6): tệp mở lúc khởi động thắng bài của phiên.
     #[gpui::test]
     fn opened_file_beats_the_restored_track(cx: &mut TestAppContext) {
+        cx.executor().allow_parking();
         let dir = TempDir::new().unwrap();
         let a = fixtures::write_sample(dir.path(), "a", AudioKind::Wav).unwrap();
         let b = fixtures::write_sample(dir.path(), "b", AudioKind::Wav).unwrap();
@@ -1418,6 +1452,25 @@ mod tests {
         assert!(path.exists());
     }
 
+    /// C21: trong lúc soát phiên: thoát vẫn lưu đúng vị trí cũ; bấm Play không kẹt, bài của phiên phát từ vị trí cũ.
+    #[gpui::test]
+    fn play_while_the_session_is_being_checked(cx: &mut TestAppContext) {
+        let rig = rig(cx, |_, _| {});
+        let a = ext(&rig.wav("a"));
+        let session = Session { current: Some(a.clone()), position_sec: 0.5, ..Session::default() };
+        rig.update(cx, |p, cx| {
+            p.touched = false;
+            p.apply_session(&session, cx);
+        });
+        assert_eq!(rig.flush(cx).position_sec, 0.5);
+        rig.update(cx, |p, cx| {
+            p.play(cx);
+            p.finish_restore(&HashSet::new(), cx);
+        });
+        rig.until(cx, "plays from the old position", |p| p.is_playing() && p.position_sec() >= 0.5);
+        assert_eq!(rig.read(cx, |p| p.current_track().cloned()), Some(a));
+    }
+
     /// C20: âm lượng, mute đi thẳng xuống engine, EQ gửi được; kẹp ở 0..=100.
     #[gpui::test]
     fn volume_and_mute_reach_the_engine(cx: &mut TestAppContext) {
@@ -1425,25 +1478,18 @@ mod tests {
         let a = ext(&rig.wav("a"));
         rig.update(cx, |p, cx| p.play_track(a, cx));
         rig.until(cx, "moving", |p| p.position_sec() > 0.05);
-        let loudness = |fake: &FakeOutput| {
-            // Nội suy tránh click: bỏ các khung đầu.
-            for _ in 0..20 {
-                let _ = fake.pull(480);
-                std::thread::sleep(Duration::from_millis(1));
-            }
-            fake.pull(480).map_or(0.0, |s| s.iter().map(|x| x.abs()).sum::<f32>())
-        };
         rig.update(cx, |p, cx| p.toggle_mute(cx));
-        assert_eq!(loudness(&rig.fake), 0.0);
+        assert!(loudness(&rig.fake) < SILENCE);
         assert!(rig.read(cx, |p| p.applied.muted));
         rig.update(cx, |p, cx| {
             p.toggle_mute(cx);
             p.adjust_volume(1000, cx);
         });
+        assert!(loudness(&rig.fake) > SILENCE, "bỏ mute thì có tiếng lại");
         assert_eq!(rig.read(cx, |p| p.applied.volume), 100);
         rig.update(cx, |p, cx| p.adjust_volume(-1000, cx));
         assert_eq!(rig.read(cx, |p| p.applied.volume), 0);
-        assert_eq!(loudness(&rig.fake), 0.0);
+        assert!(loudness(&rig.fake) < SILENCE);
         rig.update(cx, |p, cx| p.update_eq(cx, |eq| eq.set_band(0, 5.0)));
         assert_eq!(rig.read(cx, |p| p.applied.eq.gains_db[0]), 5.0);
     }

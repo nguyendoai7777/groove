@@ -11,6 +11,14 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `views/metadata/{dialog,fields,cover_pane,raw_frames}.rs`, `i18n/*/metadata.toml` |
 
+## 0. Bàn giao từ groove-gd1_13 (02/11/2026)
+
+<!-- handoff: groove-gd1_13 -->
+
+- **Đã có sẵn để dùng**: `crate::player::player(cx) -> Entity<Player>`. Đọc `.read(cx)`, thao tác `.update(cx, |p, cx| p.next(cx))`, nghe `cx.observe` (mọi đổi trạng thái, 4 lần mỗi giây khi phát) và `cx.subscribe` (`PlayerEvent`). Danh sách API: mục 9 của `plan/groove-gd1_13_player-controller.md`.
+- **Test view**: `player::install` dùng thiết bị và tệp thật. Test dùng `Player::spawn(PlayerDeps { library, output: Box::new(FakeOutput), .. }, cx)` với `app::update_settings` đã có, và `cx.executor().allow_parking()` vì engine, thư viện đánh thức từ luồng khác.
+- **Sau khi lưu**: bài đang phát thì gọi `refresh_current(cx)` nếu đường ghi không phát `LibraryEvent::Synced`; bài có `updated > 0` thì player tự làm. Tệp ngoài: `current_song().track` là `External`, bìa ở `external_cover()`, sửa thẻ ghi tệp, không có phần DB (N6).
+
 ## 0. Bàn giao từ groove-gd1_18 (02/11/2026)
 
 <!-- handoff: groove-gd1_18 -->

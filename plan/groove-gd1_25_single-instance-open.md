@@ -11,6 +11,15 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `app/instance.rs`, `app/open_paths.rs` (N6, S22) |
 
+## 0. Bàn giao từ groove-gd1_13 (02/11/2026)
+
+<!-- handoff: groove-gd1_13 -->
+
+- **Đã có sẵn để dùng**: `crate::player::player(cx) -> Entity<Player>`. Đọc `.read(cx)`, thao tác `.update(cx, |p, cx| p.next(cx))`, nghe `cx.observe` (mọi đổi trạng thái, 4 lần mỗi giây khi phát) và `cx.subscribe` (`PlayerEvent`). Danh sách API: mục 9 của `plan/groove-gd1_13_player-controller.md`.
+- **Test view**: `player::install` dùng thiết bị và tệp thật. Test dùng `Player::spawn(PlayerDeps { library, output: Box::new(FakeOutput), .. }, cx)` với `app::update_settings` đã có, và `cx.executor().allow_parking()` vì engine, thư viện đánh thức từ luồng khác.
+- **Mở tệp**: `play_paths(Vec<PathBuf>, cx)`: tệp đầu phát, tệp sau vào hàng đợi, tự đổi sang `TrackRef::Library` nếu có trong thư viện. Gọi trước khi phiên đọc xong thì tự chờ và thắng bài của phiên (đặc tả 5.6), không cần hẹn giờ. Lọc đuôi (S22) là việc của bên gọi, player không lọc. Trùng bài đang phát thì chỉ tiếp tục (N6 đã đúng theo đường dẫn).
+- **Thứ tự**: `player::install` ở `app::run` sau `library_page::install`; lời gọi của task này đặt sau nó.
+
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 25. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 1. Làm gì
