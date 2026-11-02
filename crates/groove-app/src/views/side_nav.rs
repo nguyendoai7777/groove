@@ -9,15 +9,17 @@ use std::time::Duration;
 
 use groove_core::t;
 use materiant::button::IconButton;
+use materiant::gpui_kit::base::Button;
 use materiant::gpui_kit::base::motion::{Transition, transition};
 // `#[derive(IntoElement)]` trỏ crate `gpui`; bản không test chỉ có `materiant::gpui_kit`.
 use materiant::gpui_kit as gpui;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    AnyElement, App, ClickEvent, FontWeight, Hsla, IntoElement, ParentElement, RenderOnce, SharedString, Styled,
-    Window, div, px, svg, transparent_black,
+    AnyElement, App, ClickEvent, ElementId, FontWeight, Hsla, IntoElement, ParentElement, RenderOnce, SharedString,
+    Styled, Window, div, px, svg, transparent_black,
 };
 use materiant::overlay::tooltip::TooltipExt;
+use materiant::style::ActiveTokens;
 use materiant::theme::color::hex;
 use materiant::theme::{ActiveTheme, Neutral};
 use materiant::window::{DragRegionExt, translucent_surface};
@@ -119,10 +121,11 @@ impl RenderOnce for SideNav {
             .drag_region()
             .child(toggle);
 
-        let items = Route::NAV.iter().enumerate().map(|(ix, &route)| {
-            let active = route == self.active;
-            nav_item(ix, route, active, wide, self.on_select.clone(), cx)
-        });
+        let items: Vec<AnyElement> = Route::NAV
+            .iter()
+            .enumerate()
+            .map(|(ix, &route)| nav_item(ix, route, route == self.active, wide, self.on_select.clone(), window, cx))
+            .collect();
 
         let settings = nav_button(
             "side-nav-settings",
@@ -131,6 +134,7 @@ impl RenderOnce for SideNav {
             wide,
             false,
             self.on_settings.clone(),
+            window,
             cx,
         );
 
@@ -189,9 +193,12 @@ fn nav_button(
     wide: bool,
     active: bool,
     on_click: Handler<()>,
-    cx: &App,
+    window: &mut Window,
+    cx: &mut App,
 ) -> AnyElement {
     let ink = NavInk::resolve(active, cx);
+    let focus = window.use_keyed_state(ElementId::from((id, 1u32)), cx, |_, cx| cx.focus_handle()).read(cx).clone();
+    let ring = focus.is_focused(window) && window.last_input_was_keyboard();
     let group = SharedString::from(format!("{id}-group"));
     let glyph = svg()
         .path(icon.path())
@@ -199,8 +206,11 @@ fn nav_button(
         .size(px(ICON_SIZE))
         .text_color(ink.icon)
         .when(!active, |s| s.group_hover(group.clone(), move |s| s.text_color(ink.hover)));
-    let row = div()
-        .id(id)
+    let row = Button::new(id)
+        .track_focus(&focus)
+        .selected(active)
+        .accessibility_label(label)
+        .relative()
         .group(group.clone())
         .w_full()
         .h(px(ITEM_HEIGHT))
@@ -216,6 +226,19 @@ fn nav_button(
         .when(!active, |d| d.hover(move |s| s.bg(ink.hover_bg).border_color(ink.hover_bar)))
         .on_click(move |_: &ClickEvent, window, cx| on_click((), window, cx))
         .child(glyph)
+        .when(ring, |d| {
+            d.child(
+                div()
+                    .absolute()
+                    .top(px(2.))
+                    .bottom(px(2.))
+                    .left(px(2.))
+                    .right(px(2.))
+                    .border_2()
+                    .rounded(px(4.))
+                    .border_color(cx.focus_ring_color()),
+            )
+        })
         .when(wide, |d| {
             d.child(
                 div()
@@ -232,7 +255,15 @@ fn nav_button(
     if wide { row.into_any_element() } else { row.with_tooltip((id, 0usize), label).into_any_element() }
 }
 
-fn nav_item(ix: usize, route: Route, active: bool, wide: bool, on_select: Handler<Route>, cx: &App) -> AnyElement {
+fn nav_item(
+    ix: usize,
+    route: Route,
+    active: bool,
+    wide: bool,
+    on_select: Handler<Route>,
+    window: &mut Window,
+    cx: &mut App,
+) -> AnyElement {
     let id: &'static str = ["side-nav-0", "side-nav-1", "side-nav-2"][ix];
     nav_button(
         id,
@@ -241,6 +272,94 @@ fn nav_item(ix: usize, route: Route, active: bool, wide: bool, on_select: Handle
         wide,
         active,
         Rc::new(move |(), window, cx| on_select(route, window, cx)),
+        window,
         cx,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::RefCell;
+
+    use ::gpui::{Context, Render, TestAppContext, VisualTestContext};
+    use materiant::gpui_kit::base::Root;
+    use materiant::gpui_kit::{KeyDownEvent, KeyUpEvent, Keystroke, point, size};
+
+    use super::*;
+
+    struct Probe {
+        picked: Rc<RefCell<Vec<Route>>>,
+        settings: Rc<RefCell<usize>>,
+    }
+
+    impl Render for Probe {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            let (picked, settings) = (self.picked.clone(), self.settings.clone());
+            SideNav::new(
+                false,
+                Route::MyMusic,
+                move |route, _, _| picked.borrow_mut().push(route),
+                |_, _| {},
+                move |_, _| *settings.borrow_mut() += 1,
+            )
+        }
+    }
+
+    fn open(cx: &mut TestAppContext) -> (Rc<RefCell<Vec<Route>>>, Rc<RefCell<usize>>, &mut VisualTestContext) {
+        groove_core::i18n::set_language(groove_core::i18n::Language::En);
+        cx.update(materiant::init);
+        let picked = Rc::new(RefCell::new(Vec::new()));
+        let settings = Rc::new(RefCell::new(0));
+        let (p, s) = (picked.clone(), settings.clone());
+        let window = cx.add_window(move |window, cx| {
+            let probe = cx.new(|_| Probe { picked: p, settings: s });
+            Root::new(probe, window, cx)
+        });
+        let cx = VisualTestContext::from_window(window.into(), cx).into_mut();
+        cx.simulate_resize(size(px(400.), px(400.)));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        (picked, settings, cx)
+    }
+
+    fn press(cx: &mut VisualTestContext, keys: &str) {
+        let keystroke = cx.update(|_, cx| Keystroke::parse_with_os(keys, cx.platform_info().os).unwrap());
+        cx.simulate_event(KeyDownEvent { keystroke: keystroke.clone(), is_held: false, prefer_character_input: false });
+        cx.simulate_event(KeyUpEvent { keystroke });
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+    }
+
+    /// Cửa sổ chưa có gì focus thì Tab của `Root` không chạy: bấm chuột vào My Music trước (như người dùng).
+    fn click_my_music(cx: &mut VisualTestContext) {
+        cx.simulate_click(point(px(100.), px(HEADER_HEIGHT + ITEM_HEIGHT / 2.)), Default::default());
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+    }
+
+    /// Tab dẫn qua ba mục rồi Settings; Enter và Space chọn mục đang focus.
+    #[::gpui::test]
+    fn tab_reaches_every_row_and_enter_space_activate(cx: &mut TestAppContext) {
+        let (picked, settings, cx) = open(cx);
+        click_my_music(cx);
+        assert_eq!(*picked.borrow(), vec![Route::MyMusic]);
+        press(cx, "tab");
+        press(cx, "enter");
+        press(cx, "tab");
+        press(cx, "space");
+        assert_eq!(*picked.borrow(), vec![Route::MyMusic, Route::NowPlaying, Route::Playlists]);
+        press(cx, "tab");
+        press(cx, "enter");
+        assert_eq!(*settings.borrow(), 1, "mục Settings cũng vào được bằng bàn phím");
+        press(cx, "shift-tab");
+        press(cx, "enter");
+        assert_eq!(picked.borrow().last(), Some(&Route::Playlists), "Shift+Tab quay lại mục trước");
+    }
+
+    /// Đi bằng bàn phím thì hàng đang focus có vòng focus.
+    #[::gpui::test]
+    fn keyboard_focus_is_visible(cx: &mut TestAppContext) {
+        let (_, _, cx) = open(cx);
+        click_my_music(cx);
+        press(cx, "tab");
+        assert!(cx.update(|window, cx| window.focused(cx).is_some()), "có phần tử đang giữ focus");
+        assert!(cx.update(|window, _| window.last_input_was_keyboard()), "vòng focus chỉ hiện khi đi bằng phím");
+    }
 }
