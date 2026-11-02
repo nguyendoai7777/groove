@@ -1,1 +1,50 @@
 # Vùng palette: khoá viết không tiền tố, tra bằng t!("palette.<khoá>").
+
+title = "Command palette"
+placeholder = "Type / for playback commands, or search songs and artists..."
+mode_search = "Search"
+mode_cli = "Command mode"
+searching = "Searching..."
+no_results = "No results for \"{query}\""
+search_failed = "Search is unavailable right now. The library is busy, try again in a moment."
+song_kind = "Song"
+not_found = "No song matches. Try another keyword."
+playall_empty = "The list is empty, there is nothing to play."
+
+[group]
+quick = "Quick actions"
+songs = "Songs"
+commands = "Commands"
+
+[quick]
+play_random = "Shuffle the library"
+play_random_desc = "Action • Play songs in random order"
+go_to_library = "Go to Library"
+go_to_library_desc = "Navigation • Open My Music"
+go_to_now_playing = "Go to Now Playing"
+go_to_now_playing_desc = "Navigation • Open Now Playing"
+
+[cli]
+play = "Resume playback, or play the song matching a name"
+playall = "Play the whole current list"
+queue = "Add the song matching a name to the end of the queue"
+pause = "Pause"
+next = "Next song"
+prev = "Previous song"
+volume = "Set the volume from 0 to 100"
+theme = "Switch between light and dark (dark, light, system)"
+help = "Show the list of commands"
+tab = "pick"
+
+[error]
+unknown = "No command named {name}. Type /help for the list of commands."
+missing_arg = "The {name} command needs an argument. Example: {name} <value>"
+invalid_volume = "Volume \"{value}\" is not valid. Enter a number from 0 to 100."
+invalid_theme = "Theme \"{value}\" is not valid. Choose dark, light or system."
+
+[footer]
+move = "Move"
+choose = "Select"
+choose_command = "Pick command"
+run = "Run command"
+close = "Close"

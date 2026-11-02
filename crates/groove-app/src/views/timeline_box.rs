@@ -1,1 +1,225 @@
-//! groove-gd1_21.
+//! groove-gd1_21: hộp đoạn timeline ở cột trái Now Playing (đặc tả 1.5, 1.6).
+//!
+//! Đầu hộp: bốn thanh nhảy [`PlayingBars`] và `<hiện tại> / <tổng>`. Dưới là từng dòng `<thời gian> <tên>` trong một
+//! `VirtualList`; dòng đang phát tô màu nhấn và tự cuộn vào giữa khi đổi đoạn. Bấm dòng (hoặc Enter) là tua tới đầu đoạn
+//! và phát. Bài không có timeline thì hộp trống, không chiếm chỗ.
+//!
+//! Hộp chỉ đọc `Player` (`timeline`, `position_sec`), không giữ bản sao của timeline: đoạn đã parse theo thời lượng thật.
+
+use std::rc::Rc;
+
+use groove_core::t;
+use groove_core::timeline::{self, Segment};
+use materiant::gpui_kit::prelude::*;
+use materiant::gpui_kit::{
+    AnyElement, App, Context, Entity, FontWeight, IntoElement, ParentElement, Render, SharedString, Styled,
+    Subscription, Window, div, px,
+};
+use materiant::list::{Align, VirtualList, VirtualListHandle};
+use materiant::theme::{ActiveTheme, Neutral};
+
+use crate::player::{self, Player};
+use crate::views::playing_bars::PlayingBars;
+
+/// Cao một dòng đoạn (bản cũ `py-1.5` + chữ `text-sm`).
+pub const ROW_HEIGHT: f32 = 34.;
+const HEADER_HEIGHT: f32 = 36.;
+
+/// `<hiện tại> / <tổng>` theo `m:ss` hoặc `h:mm:ss`.
+pub fn progress_label(position_sec: f64, duration_sec: f64) -> String {
+    t!(
+        "now_playing.timeline.current",
+        position = timeline::format_time(position_sec),
+        duration = timeline::format_time(duration_sec)
+    )
+}
+
+/// Đoạn đang phát lúc `position_sec`.
+pub fn active_segment(segments: &[Segment], position_sec: f64) -> Option<usize> {
+    timeline::active_index(segments, position_sec)
+}
+
+/// Giây cần tua tới khi bấm dòng `ix`: đầu đoạn. Dòng không còn thì `None`.
+pub fn jump_target(segments: &[Segment], ix: usize) -> Option<f64> {
+    segments.get(ix).map(|segment| segment.start)
+}
+
+pub struct TimelineBox {
+    player: Entity<Player>,
+    list: VirtualListHandle,
+    active: Option<usize>,
+    _observe: Subscription,
+}
+
+impl TimelineBox {
+    pub fn new(cx: &mut Context<Self>) -> TimelineBox {
+        let player = player::player(cx);
+        let observe = cx.observe(&player, |this, player, cx| {
+            let active = {
+                let player = player.read(cx);
+                active_segment(player.timeline(), player.position_sec())
+            };
+            if active != this.active {
+                this.active = active;
+                if let Some(ix) = active {
+                    this.list.scroll_to(ix, Align::Center);
+                }
+            }
+            cx.notify();
+        });
+        let active = {
+            let player = player.read(cx);
+            active_segment(player.timeline(), player.position_sec())
+        };
+        TimelineBox { player, list: VirtualListHandle::new(), active, _observe: observe }
+    }
+
+    /// Đoạn đang tô (cho test).
+    pub fn active(&self) -> Option<usize> {
+        self.active
+    }
+
+    /// Bài hiện tại có timeline không.
+    pub fn has_segments(&self, cx: &App) -> bool {
+        !self.player.read(cx).timeline().is_empty()
+    }
+}
+
+struct Line {
+    time: SharedString,
+    title: SharedString,
+}
+
+impl Render for TimelineBox {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let (lines, starts, position, duration, playing) = {
+            let player = self.player.read(cx);
+            let segments = player.timeline();
+            let lines: Vec<Line> = segments
+                .iter()
+                .map(|segment| Line {
+                    time: timeline::format_time(segment.start).into(),
+                    title: segment.title.clone().into(),
+                })
+                .collect();
+            let starts: Vec<f64> = segments.iter().map(|segment| segment.start).collect();
+            (lines, starts, player.position_sec(), player.duration_sec(), player.is_playing())
+        };
+        if lines.is_empty() {
+            return div().into_any_element();
+        }
+        let c = cx.theme().colors().clone();
+        let lines = Rc::new(lines);
+        let starts = Rc::new(starts);
+        let count = lines.len();
+
+        let header = div()
+            .flex_none()
+            .h(px(HEADER_HEIGHT))
+            .px_3()
+            .flex()
+            .items_center()
+            .gap_2()
+            .border_b_1()
+            .border_color(c.border.opacity(0.4))
+            .child(PlayingBars::new(playing).size(px(14.)).color(c.primary_ink))
+            .child(div().text_sm().text_color(c.muted).child(progress_label(position, duration)));
+
+        let active = self.active;
+        let rows = {
+            let (lines, primary, text, muted) = (lines.clone(), c.primary_ink, c.text, c.muted);
+            move |ix: usize, _: &mut Window, _: &mut App| -> AnyElement {
+                let line = &lines[ix];
+                let current = active == Some(ix);
+                div()
+                    .w_full()
+                    .px_2()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .text_sm()
+                    .when(current, |row| row.font_weight(FontWeight::SEMIBOLD))
+                    .child(
+                        div()
+                            .flex_none()
+                            .min_w(px(40.))
+                            .text_color(if current { primary } else { muted })
+                            .child(line.time.clone()),
+                    )
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .truncate()
+                            .text_color(if current { primary } else { text.opacity(0.85) })
+                            .child(line.title.clone()),
+                    )
+                    .into_any_element()
+            }
+        };
+
+        let player = self.player.clone();
+        let jump = {
+            let starts = starts.clone();
+            move |ix: &usize, _: &mut Window, cx: &mut App| {
+                let Some(&start) = starts.get(*ix) else { return };
+                player.update(cx, |player, cx| {
+                    player.seek(start, cx);
+                    player.play(cx);
+                });
+            }
+        };
+
+        div()
+            .id("timeline-box")
+            .w_full()
+            .flex_1()
+            .min_h_0()
+            .mt_4()
+            .flex()
+            .flex_col()
+            .overflow_hidden()
+            .rounded_xl()
+            .border_1()
+            .border_color(c.border.opacity(0.4))
+            .bg(c.layer(Neutral::N100).opacity(0.5))
+            .child(header)
+            .child(
+                VirtualList::new("timeline-box-rows", count, px(ROW_HEIGHT), rows)
+                    .selected(active)
+                    .on_select(jump.clone())
+                    .on_activate(jump)
+                    .track(&self.list)
+                    .flex_1()
+                    .min_h_0()
+                    .p_1(),
+            )
+            .into_any_element()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn seg(start: f64, end: f64, title: &str) -> Segment {
+        Segment { start, end, title: title.to_owned() }
+    }
+
+    #[test]
+    fn progress_label_uses_clock_format() {
+        groove_core::i18n::set_language(groove_core::i18n::Language::En);
+        assert_eq!(progress_label(65., 3725.), "1:05 / 1:02:05");
+        assert_eq!(progress_label(f64::NAN, -1.), "0:00 / 0:00");
+    }
+
+    #[test]
+    fn active_segment_follows_the_position_and_jump_goes_to_its_start() {
+        let segments = [seg(0., 65., "A"), seg(65., 200., "B")];
+        assert_eq!(active_segment(&segments, 10.), Some(0));
+        assert_eq!(active_segment(&segments, 65.), Some(1), "đầu đoạn tính vào đoạn đó");
+        assert_eq!(active_segment(&[], 10.), None);
+        assert_eq!(jump_target(&segments, 1), Some(65.));
+        assert_eq!(jump_target(&segments, 2), None);
+    }
+}

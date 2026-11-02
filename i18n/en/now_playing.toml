@@ -1,1 +1,31 @@
 # Vùng now_playing: khoá viết không tiền tố, tra bằng t!("now_playing.<khoá>").
+
+[cover]
+alt = "Album art"
+
+[song]
+no_song = "No song selected"
+unknown_artist = "Unknown artist"
+
+[timeline]
+current = "{position} / {duration}"
+segment_start = "Jump to the start of {title}"
+
+[lyrics]
+title = "Lyrics"
+no_song = "Play a song to see its lyrics here."
+empty = "This song has no lyrics yet."
+
+[actions]
+metadata = "Metadata"
+timeline = "Timeline"
+edit_lyrics = "Edit lyrics"
+add_lyrics = "Add lyrics"
+
+[queue]
+title = "Playing queue"
+count = "({count} tracks)"
+count_one = "(1 track)"
+empty = "The queue is empty. Play a song from your library to fill it."
+loading = "Loading…"
+unknown = "Unknown song"
