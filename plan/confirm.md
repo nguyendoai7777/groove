@@ -128,6 +128,13 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_14] Marquee đứng ở đầu dòng khi rê chuột, chạy lại từ đầu khi rời — tạm dừng giữ nguyên chỗ — `with_animation` của GPUI không tạm dừng giữa chừng.
 - [groove-gd1_14] Không bài thì chặn cả nút Settings của thanh phát — chừa riêng Settings — đặc tả 1.3 "không bấm được"; Settings còn ở cột trái.
 - [groove-gd1_14] Âm lượng, tắt tiếng đọc từ `app::settings` — thêm hàm đọc vào `Player` — `player.rs` thuộc task 13 đã ✅; ghi mục 8.
+- [groove-gd1_25] Lời gọi duy nhất trong `app::run` là `open_paths::run_app(application, |cx| ..)` bọc `Application::run` — thêm một dòng `install(cx)` trong closure — `on_open_urls` phải đăng ký trước `run`, macOS gửi tệp lần đầu trước khi closure chạy.
+- [groove-gd1_25] Gộp các yêu cầu về cách nhau dưới 200 ms, trần khoảng 1 giây — mỗi yêu cầu một lần `play_paths` — Explorer có thể bật mỗi tệp một tiến trình, tệp sau sẽ cướp bài của tệp trước; đổi lại mở một tệp trễ thêm 200 ms, focus thì ngay.
+- [groove-gd1_25] Không gọi `ShowWindow(SW_RESTORE)` riêng — gọi như đặc tả 5.5 — `activate_window` của GPUI đã `IsIconic` + `ShowWindowAsync(SW_RESTORE)`, gọi thêm từ luồng UI dễ lồng wndproc.
+- [groove-gd1_25] Không giành được endpoint trong 5 giây thì vẫn mở app, không có một phiên — thoát im lặng — tiến trình lạ giữ tên pipe không được làm người dùng không mở nổi app. Phiên chính treo quá 10 giây thì phiên sau thoát, không mở phiên hai giành DB.
+- [groove-gd1_25] Phiên chính trả `ok` một dòng, phiên sau chờ rồi mới thoát — gửi rồi thoát ngay như đặc tả 5.5 — test hai tiến trình tái hiện được mất tệp khi máy bận: phiên sau thoát trước khi tệp tới phiên chính.
+- [groove-gd1_25] Tên không phải Unicode không chuyển qua IPC được, bỏ khi gửi — mã hoá riêng — đặc tả chốt dòng JSON; hiếm gặp.
+- [groove-gd1_25] Bản debug dùng endpoint riêng (`-dev`, có `GROOVE_DATA_DIR` thì theo băm thư mục) — chung một tên — chạy thử không được đánh thức phiên thật của chủ dự án. Mã Windows, Unix đặt trong `mod sys` của `instance.rs`, không ở `app/platform` — task này chỉ sở hữu tệp của mình, `platform/mod.rs` không được sửa.
 - [groove-gd1_20] Hộp lyrics, timeline nhận MetadataOps qua tham số, không có Global — thêm Global ở app.rs — tệp thuộc task 03 / chưa rõ chủ; để Opus chọn chỗ đặt.
 - [groove-gd1_20] Esc và bấm nền đóng hộp lyrics, timeline kể cả khi có chữ chưa lưu — chặn Esc + hỏi xác nhận — như bản Tauri; đổi là quyết định UX.
 

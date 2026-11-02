@@ -59,7 +59,8 @@ pub fn run(dev: DevArgs) {
         .map_err(|err| log::warn!("settings saver: {err}"))
         .ok();
 
-    gpui_kit::application().with_assets(icons::Assets).run(move |cx: &mut App| {
+    // Task 25: bọc `run` để nhận tệp từ OS trước khi app chạy; bơm yêu cầu cài sau mọi khởi tạo dưới đây.
+    crate::open_paths::run_app(gpui_kit::application().with_assets(icons::Assets), move |cx: &mut App| {
         materiant::init(cx);
         install_settings(settings, saver, cx);
         // Đóng cửa sổ là thoát app, không có khay (đặc tả 1.1).
