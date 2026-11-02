@@ -21,7 +21,6 @@ failed = "Could not read the list of songs."
 failed = "Could not remove this from the library."
 
 [cover]
-filter = "Images"
 failed = "This image cannot be used as a cover."
 
 [card]
