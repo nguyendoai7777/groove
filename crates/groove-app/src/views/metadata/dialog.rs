@@ -599,6 +599,8 @@ impl MetadataDialog {
             WriteMode::Merge => t!("metadata.mode.merge_hint"),
         };
         let select = Select::new("metadata-mode")
+            .label_weight(materiant::gpui_kit::FontWeight::NORMAL)
+            .selected_weight(materiant::gpui_kit::FontWeight::NORMAL)
             .label(t!("metadata.mode.label"))
             .items([
                 SelectItem::new(t!("metadata.mode.clean_keep")),
@@ -714,6 +716,7 @@ impl Render for MetadataDialog {
         Dialog::new("metadata-dialog", &self.handle)
             .max_width(px(900.))
             .title(self.title())
+            .title_weight(materiant::gpui_kit::FontWeight::NORMAL)
             .divided(true)
             // D-16: vùng cuộn chạm mép hộp và hai đường kẻ, đệm nằm trong nội dung cuộn.
             .flush_body(true)

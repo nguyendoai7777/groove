@@ -92,7 +92,9 @@ pub fn error_message(error: &MetadataError) -> &'static str {
 }
 
 fn error_toast(title: &'static str, error: &MetadataError) -> ToastSpec {
-    ToastSpec::new(ToastKind::Danger, error_message(error)).title(title)
+    ToastSpec::new(ToastKind::Danger, error_message(error))
+        .title(title)
+        .title_weight(materiant::gpui_kit::FontWeight::NORMAL)
 }
 
 pub struct TextDialog {
@@ -118,6 +120,7 @@ impl TextDialog {
         let area = cx.new(|cx| {
             let mut area = TextArea::new(("text-dialog-area", kind as usize), window, cx)
                 .rows(ROWS)
+                .label_weight(materiant::gpui_kit::FontWeight::NORMAL)
                 .placeholder(kind.placeholder());
             if let Some(hint) = kind.hint() {
                 area = area.hint(hint);
@@ -293,6 +296,7 @@ impl Render for TextDialog {
         Dialog::new(id, &self.handle)
             .max_width(px(DIALOG_WIDTH))
             .title(self.kind.title())
+            .title_weight(materiant::gpui_kit::FontWeight::NORMAL)
             .divided(true)
             .actions(actions)
             .child(div().w_full().child(self.area.clone()))

@@ -165,7 +165,9 @@ impl KeybindingsPanel {
 impl Render for KeybindingsPanel {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let muted = cx.theme().colors().muted;
-        let commands = Command::ALL.iter().map(|command| Badge::new(command.name()).outline());
+        let commands = Command::ALL
+            .iter()
+            .map(|command| Badge::new(command.name()).outline().font_weight(materiant::gpui_kit::FontWeight::NORMAL));
         div()
             .flex()
             .flex_col()
