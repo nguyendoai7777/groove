@@ -120,8 +120,8 @@ màn không có thì thoát, không rơi về màn mặc định. Xem ảnh xong
 
 ## Bẫy
 
-- **Worktree**: đặt ở `<gốc>/.claude/worktrees/groove-<task>`. `materiant = { path = "../materiant" }` nhờ lối nối
-  `.claude/worktrees/materiant` đã có. `CARGO_TARGET_DIR` riêng từng worktree (`groove/target/<task>`), xoá khi xong.
+- **Worktree** cố định (D-18): `<gốc>/.claude/worktrees/groove-w<N>`, build ở `groove/target/w<N>`, xong task giữ cả hai. `materiant = { path = "../materiant" }` nhờ lối nối
+  `.claude/worktrees/materiant` đã có. `CARGO_TARGET_DIR` riêng từng worktree (`groove/target/w<N>`), không xoá.
 - **AppData ảo hoá MSIX**: exe chạy từ app Claude trên Windows ghi vào `LocalCache` của gói. Không thấy DB cũ ở đó không có
   nghĩa là máy không có DB.
 - `notify` dùng bản 8 + `notify-debouncer-full` 0.5, không phải bản `-rc` mà `cargo info` đưa ra.
