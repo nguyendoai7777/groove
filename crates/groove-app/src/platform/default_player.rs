@@ -363,6 +363,17 @@ mod tests {
         assert!(matches!(status, Status::Default | Status::NotDefault | Status::NotInstalled | Status::Unknown));
     }
 
+    /// Đổi liên kết THẬT của tài khoản đang chạy: chỉ chạy trong container đã cài `.deb`
+    /// (`cargo test -p groove-app linux_make_default -- --ignored`).
+    #[cfg(target_os = "linux")]
+    #[test]
+    #[ignore = "đổi liên kết mặc định thật, chỉ chạy trong container"]
+    fn linux_make_default_sets_every_declared_type() {
+        assert_eq!(status(), Status::NotDefault);
+        assert_eq!(make_default(), Ok(Outcome::Applied));
+        assert_eq!(status(), Status::Default);
+    }
+
     #[cfg(windows)]
     #[test]
     fn windows_uri_names_the_registered_app() {

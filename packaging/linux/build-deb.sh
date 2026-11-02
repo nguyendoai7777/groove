@@ -46,7 +46,12 @@ trap 'rm -rf "$work"' EXIT
 root="$work/root"
 mkdir -p "$root/DEBIAN" "$root/usr/bin" "$root/usr/share/applications" "$root/usr/share/doc/groove-x"
 install -m 0755 "$exe" "$root/usr/bin/groove"
-install -m 0644 "$repo/packaging/linux/groove.desktop" "$root/usr/share/applications/groove.desktop"
+# Chuẩn desktop entry cấm CR: checkout từ Windows có thể là CRLF.
+tr -d '\r' < "$repo/packaging/linux/groove.desktop" > "$root/usr/share/applications/groove.desktop"
+chmod 0644 "$root/usr/share/applications/groove.desktop"
+if command -v desktop-file-validate >/dev/null 2>&1; then
+  desktop-file-validate "$root/usr/share/applications/groove.desktop"
+fi
 # Icon hicolor mọi cỡ trong `packaging/linux/icons/<cỡ>.png` (gd2_01): menu, "Mở bằng", thanh tác vụ không phải co ảnh 256.
 for icon in "$repo"/packaging/linux/icons/*x*.png; do
   dim="$(basename "$icon" .png)"
