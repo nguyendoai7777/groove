@@ -866,6 +866,12 @@ mod tests {
             }
         }
 
+        /// Chờ decoder đẩy đủ `frames` vào ring. Máy bận thì không biết trước bao lâu luồng decoder mới được chạy; kéo mẫu mà
+        /// không chờ thì gặp ring rỗng, vị trí không tăng.
+        fn wait_buffered(&self, frames: usize) {
+            self.wait_until("ring filled", |r| r.fake.buffered_frames() >= frames);
+        }
+
         /// Kéo mẫu trong khi chờ sự kiện, gom các mẫu khác 0 của kênh trái.
         fn drain_until_event(&mut self, audio: &mut Vec<f32>) -> AudioEvent {
             let deadline = Instant::now() + TIMEOUT;
@@ -958,8 +964,7 @@ mod tests {
         let mut rig = rig();
         let generation = rig.load(&wav.0, 0.0, true);
         rig.wait_event();
-        rig.wait_until("stream", |r| r.fake.is_open());
-        std::thread::sleep(Duration::from_millis(50));
+        rig.wait_buffered(1000);
         rig.fake.pull(1000).unwrap();
         rig.engine.send(AudioCmd::Seek { generation, sec: 1.5 });
         rig.wait_until("anchor", |r| r.engine.position_sec() >= 1.5);
@@ -988,8 +993,7 @@ mod tests {
         let mut rig = rig();
         rig.load(&wav.0, 0.25, true);
         rig.wait_event();
-        rig.wait_until("stream", |r| r.fake.is_open());
-        std::thread::sleep(Duration::from_millis(50));
+        rig.wait_buffered(4800);
         assert_eq!(rig.engine.position_sec(), 0.25, "ring full but nothing played");
         rig.fake.pull(4800).unwrap();
         assert!((rig.engine.position_sec() - 0.35).abs() < 1e-6);
@@ -1049,8 +1053,7 @@ mod tests {
         let mut rig = rig_with(RATE, options);
         let generation = rig.load(&wav.0, 0.0, true);
         rig.wait_event();
-        rig.wait_until("stream", |r| r.fake.is_open());
-        std::thread::sleep(Duration::from_millis(50));
+        rig.wait_buffered(9600);
         rig.fake.pull(9600).unwrap();
         rig.engine.send(AudioCmd::Pause);
         rig.silence_until("idle close", |r| !r.fake.is_open());
@@ -1074,8 +1077,7 @@ mod tests {
         let mut rig = rig();
         let generation = rig.load(&wav.0, 0.0, true);
         rig.wait_event();
-        rig.wait_until("stream", |r| r.fake.is_open());
-        std::thread::sleep(Duration::from_millis(50));
+        rig.wait_buffered(4800);
         rig.fake.pull(4800).unwrap();
         rig.fake.set_config(44_100, 2);
         rig.fake.trigger_failure(StreamFailure::DeviceLost);

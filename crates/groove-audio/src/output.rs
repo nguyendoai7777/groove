@@ -372,6 +372,13 @@ impl FakeOutput {
         lock(&self.state).renderer.is_some()
     }
 
+    /// Số frame đang nằm trong ring, chưa ai kéo. Test chờ theo số này thay vì ngủ rồi đoán decoder đã đẩy xong.
+    pub fn buffered_frames(&self) -> usize {
+        let state = lock(&self.state);
+        let channels = usize::from(state.config.channels.max(1));
+        state.renderer.as_ref().map_or(0, |renderer| renderer.consumer.occupied_len() / channels)
+    }
+
     /// Số lần mở stream thành công.
     pub fn open_count(&self) -> usize {
         lock(&self.state).opens

@@ -1093,13 +1093,19 @@ mod tests {
             .unwrap()
     }
 
-    /// Tổng biên độ một khung, sau đoạn nội suy tránh click.
+    /// Tổng biên độ một khung, sau đoạn nội suy tránh click. Mỗi lần kéo đều chờ ring đủ dữ liệu: máy bận thì decoder không kịp
+    /// nhịp kéo, khung thiếu dữ liệu là im lặng dù âm lượng đúng (và làm phép thử "phải im" đúng một cách vô nghĩa).
     fn loudness(fake: &FakeOutput) -> f32 {
-        for _ in 0..20 {
-            let _ = fake.pull(480);
-            std::thread::sleep(Duration::from_millis(1));
+        let mut frame = Vec::new();
+        for _ in 0..21 {
+            let deadline = Instant::now() + TIMEOUT;
+            while fake.buffered_frames() < 480 {
+                assert!(Instant::now() < deadline, "timed out: ring has no audio to measure");
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            frame = fake.pull(480).unwrap_or_default();
         }
-        fake.pull(480).map_or(0.0, |s| s.iter().map(|x| x.abs()).sum::<f32>())
+        frame.iter().map(|x| x.abs()).sum()
     }
 
     fn lib(id: i64) -> TrackRef {
