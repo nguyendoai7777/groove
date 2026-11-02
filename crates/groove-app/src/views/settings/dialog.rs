@@ -416,27 +416,43 @@ mod tests {
         fake.pull(480).map_or(0.0, |samples| samples.iter().map(|s| s.abs()).sum())
     }
 
-    /// Kéo mẫu tới khi độ lớn thoả `ok`, trả giá trị đó. EQ áp ở decoder trước ring nên đổi EQ trễ cỡ 200 ms: chờ theo điều
+    /// Kéo mẫu (đúng nhịp thật) tới khi độ lớn thoả `ok`, trả giá trị đó. EQ áp ở decoder trước ring nên đổi EQ trễ cỡ 200 ms: chờ theo điều
     /// kiện, không ngủ cố định.
     fn loudness_until(rig: &Rig, cx: &mut VisualTestContext, what: &str, ok: impl Fn(f32) -> bool) -> f32 {
         let deadline = Instant::now() + TIMEOUT;
+        let mut seen: Vec<i32> = Vec::new();
         loop {
             cx.run_until_parked();
             let loudness = frame_loudness(&rig.fake);
             if ok(loudness) {
                 return loudness;
             }
-            assert!(Instant::now() < deadline, "timed out: {what} (last loudness {loudness})");
-            std::thread::sleep(Duration::from_millis(1));
+            seen.push(loudness as i32);
+            if seen.len() > 400 {
+                seen.remove(0);
+            }
+            assert!(Instant::now() < deadline, "timed out: {what} (last loudness {:?})", seen);
+            // Kéo đúng nhịp thời gian thật (10 ms âm thanh mỗi 10 ms): kéo nhanh hơn thì máy bận làm engine nạp ring không kịp,
+            // còn máy rảnh thì ngốn hết đoạn mẫu trước khi EQ kịp tới.
+            std::thread::sleep(Duration::from_millis(10));
         }
     }
 
+    /// Phát sóng sin rồi trả độ lớn ổn định. Bỏ nửa giây đầu: âm lượng nội suy từ 0 nên các khung đầu nhỏ hơn mức thật (máy
+    /// bận thì đoạn nội suy kéo dài hơn), lấy làm mốc sẽ lệch. Mốc là trung bình mười khung, vì một khung dao động vài phần
+    /// trăm theo pha của sóng.
     fn play_tone(rig: &Rig, cx: &mut VisualTestContext) -> f32 {
         let track = TrackRef::from_path(write_tone(rig.dir.path()));
         cx.update(|_, cx| player::player(cx).update(cx, |p, cx| p.play_track(track, cx)));
-        loudness_until(rig, cx, "có tiếng", |l| l > SOUND);
-        // Trung bình vài khung: một khung đơn lẻ dao động vài phần trăm theo pha của sóng.
-        let frames: Vec<f32> = (0..10).map(|_| loudness_until(rig, cx, "khung kế", |l| l > SOUND)).collect();
+        let mut frame = |cx: &mut VisualTestContext| {
+            let loudness = loudness_until(rig, cx, "khung có tiếng", |l| l > SOUND);
+            std::thread::sleep(Duration::from_millis(10));
+            loudness
+        };
+        for _ in 0..50 {
+            frame(cx);
+        }
+        let frames: Vec<f32> = (0..10).map(|_| frame(cx)).collect();
         frames.iter().sum::<f32>() / frames.len() as f32
     }
 
