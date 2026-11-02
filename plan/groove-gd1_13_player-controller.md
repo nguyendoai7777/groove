@@ -11,6 +11,15 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `app/player.rs`, `app/session_sync.rs` (N5, N6, N8) |
 
+## 0. Bàn giao từ groove-gd1_09 (02/11/2026)
+
+<!-- handoff: groove-gd1_09 -->
+
+- **N5, bài mất**: `SyncReport.removed` gồm cả bài vừa đánh dấu `missing_since`, dòng chưa bị xoá. Bỏ khỏi hàng đợi như thường. `Library::song`, `songs_for_tracks` không trả bài đang mất, nên hàng đợi khôi phục tự sạch.
+- **N5, đổi đường dẫn**: đổi tên ngoài app giữ `id`, tới qua `LibraryEvent::Moved`. Tra theo `TrackRef::Library(id)` là tự đúng.
+- **Tệp về lại**: `id` cũ dùng lại được, tính vào `SyncReport.updated`.
+- Chi tiết: `plan/groove-gd1_09_watcher-reconcile.md` mục 9.
+
 ## 0. Bàn giao từ groove-gd1_10 (02/11/2026)
 
 <!-- handoff: groove-gd1_10 -->

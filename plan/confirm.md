@@ -112,3 +112,10 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_13] Âm lượng, mute, EQ đi qua hàm của `Player` — quan sát `Settings` — `app.rs` không mở entity ra ngoài; sửa bằng `update_settings` thì phải gọi `apply_settings`.
 - [groove-gd1_13] Bài của phiên hỏng lúc mở app chỉ báo, không sang bài — tự sang bài như lúc đang nghe — đặc tả 1.4 không tự phát.
 - [groove-gd1_13] Tệp ngoài đã mất bị bỏ khỏi phiên lúc khôi phục — giữ tới lúc phát rồi lỗi — ổ rời chưa cắm thì mất bài khỏi hàng đợi, đổi lại không đầy bài chết (N5).
+- [groove-gd1_09] Bài có `missing_since` ẩn khỏi mọi danh sách, kể cả playlist, về thì hiện đúng chỗ — hiện dòng xám trong playlist — `Song` thuộc `groove-core` không có cờ mất, phát bài chết chỉ ra lỗi.
+- [groove-gd1_09] `SyncReport.removed` gồm cả bài vừa đánh dấu mất — thêm trường riêng — `actor.rs` ngoài phạm vi; với hàng đợi thì đều không phát được.
+- [groove-gd1_09] Đổi tên vào tên của dòng đang mất thì xoá dòng đó, mất chỗ trong playlist của nó — từ chối đổi tên — tệp không còn trên đĩa, đường dẫn là danh tính của dòng; `metadata_ops` đã coi tên đó là trống.
+- [groove-gd1_09] Hai bản sao giống hệt đổi cả tên thì không ghép — ghép đại — gán nhầm playlist khó phát hiện hơn là một dòng mất.
+- [groove-gd1_09] Dọn sau 30 ngày chỉ khi gốc quét được và tệp vẫn `NotFound` lúc đó — dọn theo mốc thời gian — ổ tháo lâu không được mất playlist.
+- [groove-gd1_09] Import đúng chỗ đang bị `excluded_paths` che thì gỡ che, import gốc cha thì không — luôn tôn trọng — chọn thẳng là ý muốn rõ ràng.
+- [groove-gd1_09] `excluded_paths` có thêm cột `path_key` ngoài `path` của đặc tả — chỉ `path` — so đường dẫn kiểu M2.

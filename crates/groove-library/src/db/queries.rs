@@ -2,6 +2,9 @@
 //!
 //! Hàm thuần trên `&Connection`, không biết luồng: đọc gọi từ `store`, ghi gọi từ `actor` trong transaction. Bài luôn tra
 //! qua `path_key` (M2), `file_path` chỉ để mở tệp. Danh sách bài không kèm lyrics, timeline (S16): lấy riêng `song_text`.
+//!
+//! Bài có `missing_since` (N1) vắng khỏi mọi thứ người dùng thấy (lưới, danh sách, tìm kiếm, hàng đợi) nhưng vẫn giữ dòng và
+//! chỗ trong playlist; tệp quay lại thì hiện lại đúng chỗ. Chỉ `song_by_id`, `song_by_path`, `song_file_states` còn thấy nó.
 
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -74,6 +77,15 @@ pub struct SongFileState {
 pub struct PendingTagRead {
     pub id: i64,
     pub path: PathBuf,
+}
+
+/// Bài đã xác nhận mất, chờ tệp quay lại hoặc được dọn (N1).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MissingSong {
+    pub id: i64,
+    pub path: PathBuf,
+    /// ms từ epoch.
+    pub missing_since: i64,
 }
 
 /// Toàn bộ trường của một bài đọc được từ tệp. `filename`, `path_key`, `search_key` tự tính ở đây.
@@ -176,7 +188,7 @@ fn album_summaries(conn: &Connection, only: Option<i64>) -> Result<Vec<CategoryS
     let (join, filter) = if only.is_some() { ("LEFT", "a.id = ?1") } else { ("INNER", "?1 IS NULL") };
     let sql = format!(
         "SELECT a.id, a.name, a.artist, COUNT(s.id), a.cover_hash, c.accent_color
-         FROM albums a {join} JOIN songs s ON s.album_id = a.id LEFT JOIN covers c ON c.hash = a.cover_hash
+         FROM albums a {join} JOIN songs s ON s.album_id = a.id AND s.missing_since IS NULL LEFT JOIN covers c ON c.hash = a.cover_hash
          WHERE {filter} GROUP BY a.id"
     );
     let mut stmt = conn.prepare_cached(&sql)?;
@@ -198,8 +210,11 @@ fn album_summaries(conn: &Connection, only: Option<i64>) -> Result<Vec<CategoryS
 fn folder_summaries(conn: &Connection, only: Option<i64>) -> Result<Vec<CategorySummary>> {
     let mut stmt = conn.prepare_cached(
         "SELECT f.id, f.name, f.path, COUNT(s.id), f.cover_hash, c.accent_color
-         FROM folders f LEFT JOIN songs s ON s.folder_id = f.id LEFT JOIN covers c ON c.hash = f.cover_hash
-         WHERE ?1 IS NULL OR f.id = ?1 GROUP BY f.id",
+         FROM folders f LEFT JOIN songs s ON s.folder_id = f.id AND s.missing_since IS NULL
+             LEFT JOIN covers c ON c.hash = f.cover_hash
+         WHERE ?1 IS NULL OR f.id = ?1 GROUP BY f.id
+         HAVING ?1 IS NOT NULL OR COUNT(s.id) > 0
+             OR NOT EXISTS (SELECT 1 FROM songs gone WHERE gone.folder_id = f.id)",
     )?;
     let rows = stmt.query_map(params![only], |row| {
         Ok(CategorySummary {
@@ -218,8 +233,9 @@ fn folder_summaries(conn: &Connection, only: Option<i64>) -> Result<Vec<Category
 
 fn playlist_summaries(conn: &Connection, only: Option<i64>) -> Result<Vec<CategorySummary>> {
     let mut stmt = conn.prepare_cached(
-        "SELECT p.id, p.name, p.color, COUNT(ps.song_id)
+        "SELECT p.id, p.name, p.color, COUNT(s.id)
          FROM playlists p LEFT JOIN playlist_songs ps ON ps.playlist_id = p.id
+             LEFT JOIN songs s ON s.id = ps.song_id AND s.missing_since IS NULL
          WHERE ?1 IS NULL OR p.id = ?1 GROUP BY p.id",
     )?;
     let rows = stmt.query_map(params![only], |row| {
@@ -257,18 +273,22 @@ fn songs_sql(reference: CategoryRef) -> (String, i64) {
     match reference {
         CategoryRef::Album(id) => (
             format!(
-                "SELECT {SONG_COLUMNS} WHERE s.album_id = ?1
+                "SELECT {SONG_COLUMNS} WHERE s.album_id = ?1 AND s.missing_since IS NULL
                  ORDER BY COALESCE(s.disc_no, 1), s.track_no IS NULL, s.track_no, s.filename COLLATE NOCASE, s.id"
             ),
             id,
         ),
-        CategoryRef::Folder(id) => {
-            (format!("SELECT {SONG_COLUMNS} WHERE s.folder_id = ?1 ORDER BY s.filename COLLATE NOCASE, s.id"), id)
-        }
+        CategoryRef::Folder(id) => (
+            format!(
+                "SELECT {SONG_COLUMNS} WHERE s.folder_id = ?1 AND s.missing_since IS NULL
+                     ORDER BY s.filename COLLATE NOCASE, s.id"
+            ),
+            id,
+        ),
         CategoryRef::Playlist(id) => (
             format!(
                 "SELECT {SONG_COLUMNS} JOIN playlist_songs ps ON ps.song_id = s.id
-                 WHERE ps.playlist_id = ?1 ORDER BY ps.position, s.id"
+                 WHERE ps.playlist_id = ?1 AND s.missing_since IS NULL ORDER BY ps.position, s.id"
             ),
             id,
         ),
@@ -282,7 +302,7 @@ pub fn search(conn: &Connection, query: &str, limit: usize) -> Result<Vec<Song>>
         return Ok(Vec::new());
     }
     let mut stmt = conn.prepare_cached(&format!(
-        "SELECT {SONG_COLUMNS} WHERE instr(s.search_key, ?1) > 0
+        "SELECT {SONG_COLUMNS} WHERE instr(s.search_key, ?1) > 0 AND s.missing_since IS NULL
          ORDER BY instr(s.search_key, ?1) > instr(s.search_key || char(10), char(10)),
                   s.search_key, s.id
          LIMIT ?2"
@@ -303,15 +323,18 @@ pub fn song_by_path(conn: &Connection, path: &Path) -> Result<Option<Song>> {
 
 /// Bài của một tham chiếu; tệp ngoài mà thực ra nằm trong thư viện cũng ra dòng thư viện. Tệp ngoài thật trả `None`.
 pub fn song(conn: &Connection, track: &TrackRef) -> Result<Option<Song>> {
-    match track {
-        TrackRef::Library(id) => song_by_id(conn, *id),
-        TrackRef::External(path) => song_by_path(conn, path),
-    }
+    let (sql, key) = match track {
+        TrackRef::Library(id) => ("s.id = ?1", rusqlite::types::Value::Integer(*id)),
+        TrackRef::External(path) => ("s.path_key = ?1", rusqlite::types::Value::Text(key_of(path))),
+    };
+    let mut stmt = conn.prepare_cached(&format!("SELECT {SONG_COLUMNS} WHERE {sql} AND s.missing_since IS NULL"))?;
+    Ok(stmt.query_row([key], song_from_row).optional()?)
 }
 
-/// Đường dẫn thành tham chiếu (N6): có trong thư viện thì theo `id`, không thì `External`.
+/// Đường dẫn thành tham chiếu (N6): có trong thư viện thì theo `id`, không thì `External`. Dòng đang đánh dấu mất tính là
+/// không có: `song` không tra ra nó, còn tệp đang mở ở đây thì rõ ràng có thật.
 pub fn track_for_path(conn: &Connection, path: &Path) -> Result<TrackRef> {
-    let mut stmt = conn.prepare_cached("SELECT id FROM songs WHERE path_key = ?1")?;
+    let mut stmt = conn.prepare_cached("SELECT id FROM songs WHERE path_key = ?1 AND missing_since IS NULL")?;
     let id: Option<i64> = stmt.query_row([key_of(path)], |row| row.get(0)).optional()?;
     Ok(id.map_or_else(|| TrackRef::External(path.to_owned()), TrackRef::Library))
 }
@@ -351,6 +374,35 @@ pub fn pending_tag_reads(conn: &Connection, limit: usize) -> Result<Vec<PendingT
     let rows = stmt.query_map([limit as i64], |row| {
         Ok(PendingTagRead { id: row.get(0)?, path: PathBuf::from(row.get::<_, String>(1)?) })
     })?;
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
+}
+
+pub fn missing_songs(conn: &Connection) -> Result<Vec<MissingSong>> {
+    let mut stmt = conn.prepare_cached(
+        "SELECT id, file_path, missing_since FROM songs WHERE missing_since IS NOT NULL ORDER BY missing_since, id",
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok(MissingSong { id: row.get(0)?, path: PathBuf::from(row.get::<_, String>(1)?), missing_since: row.get(2)? })
+    })?;
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
+}
+
+/// Theo đường dẫn người dùng đã bỏ (N9), xếp theo `path_key`.
+pub fn excluded_paths(conn: &Connection) -> Result<Vec<PathBuf>> {
+    let mut stmt = conn.prepare_cached("SELECT path FROM excluded_paths ORDER BY path_key")?;
+    let rows = stmt.query_map([], |row| Ok(PathBuf::from(row.get::<_, String>(0)?)))?;
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
+}
+
+/// `path` là chính một chỗ đã bỏ, hoặc nằm dưới nó.
+pub fn is_excluded(conn: &Connection, path: &Path) -> Result<bool> {
+    let wanted = key_of(path);
+    Ok(excluded_keys(conn)?.iter().any(|key| paths::is_under(&wanted, key)))
+}
+
+pub(crate) fn excluded_keys(conn: &Connection) -> Result<Vec<String>> {
+    let mut stmt = conn.prepare_cached("SELECT path_key FROM excluded_paths")?;
+    let rows = stmt.query_map([], |row| row.get(0))?;
     Ok(rows.collect::<rusqlite::Result<_>>()?)
 }
 
@@ -405,7 +457,8 @@ pub fn upsert_song(conn: &Connection, song: &SongUpsert) -> Result<UpsertOutcome
              file_mtime = excluded.file_mtime,
              file_size = excluded.file_size,
              search_key = excluded.search_key,
-             tags_read_at = excluded.tags_read_at
+             tags_read_at = excluded.tags_read_at,
+             missing_since = NULL
          RETURNING id",
     )?;
     let id = stmt.query_row(
@@ -448,10 +501,14 @@ fn album_name(conn: &Connection, album_id: Option<i64>) -> Result<Option<String>
 }
 
 /// Đổi đường dẫn, giữ `id` (N3, N4). Đích là bài khác thì báo lỗi, không đè; chỉ đổi hoa thường trên hệ tệp gập thì được.
+/// Đích chỉ là dòng đang đánh dấu mất (`track_for_path` đã coi là trống) thì dòng đó nhường chỗ: tên giờ thuộc về bài này, và
+/// đường dẫn là danh tính của dòng nên nó không thể quay lại được nữa.
 pub fn move_song(conn: &Connection, id: i64, new_path: &Path, folder_id: Option<i64>) -> Result<()> {
     let file_path = path_text(new_path);
     let path_key = schema::path_key(&file_path);
-    if song_id_by_key(conn, &path_key)?.is_some_and(|other| other != id) {
+    if let Some(other) = song_id_by_key(conn, &path_key)?.filter(|other| *other != id)
+        && !delete_missing_song(conn, other)?
+    {
         return Err(QueryError::PathConflict(new_path.to_owned()));
     }
     let mut stmt = conn.prepare_cached(
@@ -465,7 +522,7 @@ pub fn move_song(conn: &Connection, id: i64, new_path: &Path, folder_id: Option<
     let search_key = schema::search_key(title.as_deref(), artist.as_deref(), album.as_deref(), &filename);
     conn.prepare_cached(
         "UPDATE songs SET file_path = ?2, path_key = ?3, filename = ?4, search_key = ?5,
-             folder_id = COALESCE(?6, folder_id)
+             folder_id = COALESCE(?6, folder_id), missing_since = NULL
          WHERE id = ?1",
     )?
     .execute(params![id, file_path, path_key, filename, search_key, folder_id])?;
@@ -474,6 +531,24 @@ pub fn move_song(conn: &Connection, id: i64, new_path: &Path, folder_id: Option<
 
 pub fn delete_song(conn: &Connection, id: i64) -> Result<bool> {
     Ok(conn.prepare_cached("DELETE FROM songs WHERE id = ?1")?.execute([id])? > 0)
+}
+
+/// Không xoá dòng, nên playlist còn nguyên (N1). `false` khi đã đánh dấu từ trước: mốc 30 ngày không bị đẩy lùi.
+pub fn mark_song_missing(conn: &Connection, id: i64, at_ms: i64) -> Result<bool> {
+    let sql = "UPDATE songs SET missing_since = ?2 WHERE id = ?1 AND missing_since IS NULL";
+    Ok(conn.prepare_cached(sql)?.execute(params![id, at_ms])? > 0)
+}
+
+/// Tệp đã quay lại mà không đổi, không cần đọc lại thẻ.
+pub fn clear_song_missing(conn: &Connection, id: i64) -> Result<bool> {
+    let sql = "UPDATE songs SET missing_since = NULL WHERE id = ?1 AND missing_since IS NOT NULL";
+    Ok(conn.prepare_cached(sql)?.execute([id])? > 0)
+}
+
+/// Chỉ xoá khi dòng vẫn đang đánh dấu mất: bài vừa quay lại không bị dọn nhầm. FK cascade bỏ nó khỏi playlist.
+pub fn delete_missing_song(conn: &Connection, id: i64) -> Result<bool> {
+    let sql = "DELETE FROM songs WHERE id = ?1 AND missing_since IS NOT NULL";
+    Ok(conn.prepare_cached(sql)?.execute([id])? > 0)
 }
 
 /// Trả `id` đã xoá, để hàng đợi bỏ đúng bài (N5).
@@ -595,6 +670,27 @@ pub fn remove_watched_root(conn: &Connection, path: &Path) -> Result<bool> {
             conn.prepare_cached("DELETE FROM watched_roots WHERE path = ?1")?.execute([root])?;
             removed = true;
         }
+    }
+    Ok(removed)
+}
+
+/// Quét, watcher, import sau đó bỏ qua chỗ này và mọi thứ dưới nó (N9). Không đụng tệp, không xoá dòng: caller quyết. `false`
+/// khi đã có.
+pub fn add_excluded_path(conn: &Connection, path: &Path) -> Result<bool> {
+    let sql = "INSERT INTO excluded_paths (path_key, path) VALUES (?1, ?2) ON CONFLICT(path_key) DO NOTHING";
+    Ok(conn.prepare_cached(sql)?.execute(params![key_of(path), path_text(path)])? > 0)
+}
+
+pub fn remove_excluded_path(conn: &Connection, path: &Path) -> Result<bool> {
+    Ok(conn.prepare_cached("DELETE FROM excluded_paths WHERE path_key = ?1")?.execute([key_of(path)])? > 0)
+}
+
+/// Người dùng chọn lại đúng chỗ này để import: gỡ những dòng đang che nó. Chỗ đã bỏ nằm bên dưới thì vẫn giữ.
+pub fn remove_exclusions_covering(conn: &Connection, path: &Path) -> Result<usize> {
+    let wanted = key_of(path);
+    let mut removed = 0;
+    for key in excluded_keys(conn)?.iter().filter(|key| paths::is_under(&wanted, key)) {
+        removed += conn.prepare_cached("DELETE FROM excluded_paths WHERE path_key = ?1")?.execute([key])?;
     }
     Ok(removed)
 }
@@ -1005,6 +1101,98 @@ mod tests {
 
         assert_eq!(delete_song_by_path(&conn, Path::new("/m/a.mp3")).unwrap(), Some(a));
         assert_eq!(delete_song_by_path(&conn, Path::new("/m/a.mp3")).unwrap(), None);
+    }
+
+    #[test]
+    fn a_missing_song_leaves_every_list_and_comes_back_in_place() {
+        // N1: mất tệp không được mất chỗ trong playlist.
+        let (_dir, conn) = db();
+        let f = folder(&conn);
+        let album = get_or_create_album(&conn, "Mưa", "k", None).unwrap();
+        let entry_a = SongUpsert { album_id: Some(album), title: Some("Mưa".into()), ..entry("/m/a.mp3", f) };
+        let a = upsert_song(&conn, &entry_a).unwrap().id;
+        let b = upsert_song(&conn, &entry("/m/b.mp3", f)).unwrap().id;
+        let list = create_playlist(&conn, "L", "#fff").unwrap();
+        add_song_to_playlist(&conn, list, a).unwrap();
+        add_song_to_playlist(&conn, list, b).unwrap();
+
+        assert!(mark_song_missing(&conn, a, 100).unwrap());
+        // Mốc đầu tiên giữ nguyên.
+        assert!(!mark_song_missing(&conn, a, 200).unwrap());
+        assert_eq!(missing_songs(&conn).unwrap(), [MissingSong { id: a, path: "/m/a.mp3".into(), missing_since: 100 }]);
+
+        assert!(categories(&conn).unwrap().albums.is_empty());
+        assert_eq!(categories(&conn).unwrap().folders[0].song_count, 1);
+        assert_eq!(ids(&songs(&conn, CategoryRef::Folder(f)).unwrap()), [b]);
+        assert!(songs(&conn, CategoryRef::Album(album)).unwrap().is_empty());
+        assert_eq!(ids(&songs(&conn, CategoryRef::Playlist(list)).unwrap()), [b]);
+        assert_eq!(playlists(&conn).unwrap()[0].song_count, 1);
+        assert!(search(&conn, "mua", 5).unwrap().is_empty());
+        assert!(song(&conn, &TrackRef::Library(a)).unwrap().is_none());
+        assert!(songs_for_tracks(&conn, &[TrackRef::Library(a)]).unwrap().is_empty());
+        assert_eq!(track_for_path(&conn, Path::new("/m/a.mp3")).unwrap(), TrackRef::from_path("/m/a.mp3"));
+        assert!(song_by_id(&conn, a).unwrap().is_some());
+
+        assert!(clear_song_missing(&conn, a).unwrap());
+        assert!(!clear_song_missing(&conn, a).unwrap());
+        assert_eq!(ids(&songs(&conn, CategoryRef::Playlist(list)).unwrap()), [a, b]);
+
+        // Đọc lại thẻ và đổi đường dẫn cũng là bằng chứng tệp còn.
+        mark_song_missing(&conn, a, 1).unwrap();
+        upsert_song(&conn, &entry_a).unwrap();
+        assert!(missing_songs(&conn).unwrap().is_empty());
+        mark_song_missing(&conn, a, 1).unwrap();
+        move_song(&conn, a, Path::new("/m/z.mp3"), None).unwrap();
+        assert!(missing_songs(&conn).unwrap().is_empty());
+
+        // Chỉ dòng đang đánh dấu mới dọn được.
+        assert!(!delete_missing_song(&conn, a).unwrap());
+        mark_song_missing(&conn, a, 1).unwrap();
+        assert!(delete_missing_song(&conn, a).unwrap());
+        assert_eq!(ids(&songs(&conn, CategoryRef::Playlist(list)).unwrap()), [b]);
+    }
+
+    #[test]
+    fn a_rename_may_take_the_name_of_a_missing_song_only() {
+        let (_dir, conn) = db();
+        let f = folder(&conn);
+        let a = upsert_song(&conn, &entry("/m/a.mp3", f)).unwrap().id;
+        let b = upsert_song(&conn, &entry("/m/b.mp3", f)).unwrap().id;
+        assert!(matches!(move_song(&conn, a, Path::new("/m/b.mp3"), None), Err(QueryError::PathConflict(_))));
+        mark_song_missing(&conn, b, 1).unwrap();
+        move_song(&conn, a, Path::new("/m/b.mp3"), None).unwrap();
+        assert_eq!(track_for_path(&conn, Path::new("/m/b.mp3")).unwrap(), TrackRef::Library(a));
+        assert!(song_by_id(&conn, b).unwrap().is_none());
+    }
+
+    #[test]
+    fn a_folder_with_only_missing_songs_is_hidden_until_they_return() {
+        let (_dir, conn) = db();
+        let f = folder(&conn);
+        let a = upsert_song(&conn, &entry("/m/a.mp3", f)).unwrap().id;
+        mark_song_missing(&conn, a, 1).unwrap();
+        assert!(categories(&conn).unwrap().folders.is_empty());
+        // Trang đang mở vẫn lấy được tiêu đề.
+        assert_eq!(category(&conn, CategoryRef::Folder(f)).unwrap().unwrap().song_count, 0);
+        clear_song_missing(&conn, a).unwrap();
+        assert_eq!(categories(&conn).unwrap().folders.len(), 1);
+    }
+
+    #[test]
+    fn exclusions_cover_what_is_under_them() {
+        let (_dir, conn) = db();
+        assert!(add_excluded_path(&conn, Path::new(r"C:\m\old")).unwrap());
+        assert!(!add_excluded_path(&conn, Path::new("C:/m/old/")).unwrap());
+        assert!(add_excluded_path(&conn, Path::new("C:/m/old/deep")).unwrap());
+        assert!(is_excluded(&conn, Path::new("C:/m/old/a.mp3")).unwrap());
+        assert!(!is_excluded(&conn, Path::new("C:/m/older/a.mp3")).unwrap());
+        assert_eq!(excluded_paths(&conn).unwrap().len(), 2);
+
+        assert_eq!(remove_exclusions_covering(&conn, Path::new("C:/m/old")).unwrap(), 1);
+        assert!(is_excluded(&conn, Path::new("C:/m/old/deep/a.mp3")).unwrap());
+        assert!(!remove_excluded_path(&conn, Path::new("C:/m/old")).unwrap());
+        assert!(remove_excluded_path(&conn, Path::new("C:/m/old/deep")).unwrap());
+        assert!(excluded_paths(&conn).unwrap().is_empty());
     }
 
     #[test]

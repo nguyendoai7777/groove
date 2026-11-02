@@ -137,7 +137,7 @@ fn import_indexes_files_under_their_direct_parent() {
     fs::write(fx.music.join("note.txt"), "x").unwrap();
 
     let report = fx.indexer.import(&fx.music).wait().unwrap();
-    assert_eq!((report.tally.added, report.tally.updated, report.removed.len()), (2, 0, 0));
+    assert_eq!((report.tally.added, report.tally.updated, report.marked_missing.len()), (2, 0, 0));
 
     let song = fx.library.track_for_path(a).wait().unwrap();
     let song = fx.library.song(song).wait().unwrap().unwrap();
@@ -225,7 +225,7 @@ fn reimport_skips_unchanged_files_and_rereads_changed_ones() {
 }
 
 #[test]
-fn deleted_files_leave_with_their_empty_groups() {
+fn deleted_files_hide_with_their_groups_but_keep_their_playlist_place() {
     let fx = fixture();
     let keep = write(&fx.music, "keep", Tags { album: Some("Còn"), ..Tags::default() });
     let gone = write(&fx.music.join("Old"), "gone", Tags { album: Some("Hết"), ..Tags::default() });
@@ -237,13 +237,15 @@ fn deleted_files_leave_with_their_empty_groups() {
     fs::remove_file(&gone).unwrap();
     fs::remove_dir(gone.parent().unwrap()).unwrap();
     let report = fx.indexer.import(&fx.music).wait().unwrap();
-    assert_eq!(report.removed, [gone_id]);
+    assert_eq!(report.marked_missing, [gone_id]);
     assert!(!report.root_offline);
 
     let categories = fx.library.categories().wait().unwrap();
     assert_eq!(categories.albums.iter().map(|a| a.name.as_str()).collect::<Vec<_>>(), ["Còn"]);
     assert_eq!(categories.folders.len(), 1);
-    assert_eq!(ids(&fx, "SELECT COUNT(*) FROM albums"), [1]);
+    // N1: dòng, nhóm và chỗ trong playlist còn nguyên, chờ tệp quay lại.
+    assert_eq!(ids(&fx, "SELECT COUNT(*) FROM albums"), [2]);
+    assert_eq!(ids(&fx, "SELECT COUNT(*) FROM playlist_songs"), [1]);
     assert!(matches!(fx.library.track_for_path(keep).wait().unwrap(), TrackRef::Library(_)));
 }
 
@@ -257,7 +259,7 @@ fn an_empty_root_with_known_rows_counts_as_offline() {
 
     let report = fx.indexer.import(&fx.music).wait().unwrap();
     assert!(report.root_offline);
-    assert!(report.removed.is_empty());
+    assert!(report.marked_missing.is_empty());
     assert_eq!(ids(&fx, "SELECT COUNT(*) FROM songs"), [1]);
 }
 
@@ -326,7 +328,7 @@ fn a_folder_that_cannot_be_read_keeps_its_songs_and_playlists() {
 
     assert_eq!(report.failed_dirs, [locked_dir]);
     // Tệp mất thật ở chỗ đọc được vẫn đi, chứng tỏ cơ chế xoá vẫn chạy.
-    assert_eq!(report.removed, [dead_id]);
+    assert_eq!(report.marked_missing, [dead_id]);
     assert_eq!(fx.library.track_for_path(inside).wait().unwrap(), TrackRef::Library(inside_id));
     assert_eq!(fx.library.songs(CategoryRef::Playlist(playlist)).wait().unwrap().len(), 1);
     assert!(matches!(fx.library.track_for_path(outside).wait().unwrap(), TrackRef::Library(_)));
@@ -350,7 +352,7 @@ fn a_file_that_will_not_parse_does_not_stop_the_rest_or_lose_its_row() {
     failed.sort();
     assert_eq!(failed, [bad, flip.clone()]);
     assert_eq!(report.tally.updated, 1);
-    assert!(report.removed.is_empty());
+    assert!(report.marked_missing.is_empty());
     // Dòng cũ giữ nguyên trường, không bị xoá trắng vì lần đọc lỗi.
     let track = fx.library.track_for_path(flip).wait().unwrap();
     assert_eq!(fx.library.song(track).wait().unwrap().unwrap().title.as_deref(), Some("Lành"));

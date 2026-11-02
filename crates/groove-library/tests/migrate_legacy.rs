@@ -127,7 +127,7 @@ fn keeps_ids_and_every_old_column() {
     assert_eq!((report.folders, report.albums, report.songs), (2, 3, 4));
     assert_eq!((report.playlists, report.playlist_entries), (2, 4));
     assert_eq!((report.merged_songs, report.orphan_rows), (0, 0));
-    assert_eq!(schema::user_version(&conn).unwrap(), 1);
+    assert_eq!(schema::user_version(&conn).unwrap(), schema::SCHEMA_VERSION);
 
     let song: (String, String, i64, i64, i64, String, String, i64) = conn
         .query_row(
@@ -380,14 +380,14 @@ fn refuses_a_library_from_a_newer_build() {
     fs::create_dir_all(fixture.target.parent().unwrap()).unwrap();
     {
         let newer = Connection::open(&fixture.target).unwrap();
-        newer.execute_batch("CREATE TABLE future (x); PRAGMA user_version = 2;").unwrap();
+        newer.execute_batch("CREATE TABLE future (x); PRAGMA user_version = 99;").unwrap();
     }
     let before = fs::read(&fixture.target).unwrap();
 
     let err = open_or_migrate(&fixture.target, Some(&fixture.legacy), &mut fake_sink).unwrap_err();
-    assert!(matches!(err, MigrateError::TooNew { found: 2, .. }), "{err}");
+    assert!(matches!(err, MigrateError::TooNew { found: 99, .. }), "{err}");
     let err = open_fresh(&fixture.target).unwrap_err();
-    assert!(matches!(err, MigrateError::TooNew { found: 2, .. }), "{err}");
+    assert!(matches!(err, MigrateError::TooNew { found: 99, .. }), "{err}");
     assert_eq!(fs::read(&fixture.target).unwrap(), before);
 }
 
@@ -426,7 +426,7 @@ fn a_failed_migration_leaves_nothing_behind() {
 
         // Lối thoát cho người dùng: thư viện trống, tệp cũ vẫn nguyên.
         let conn = open_fresh(&fixture.target).unwrap();
-        assert_eq!(schema::user_version(&conn).unwrap(), 1, "{name}");
+        assert_eq!(schema::user_version(&conn).unwrap(), schema::SCHEMA_VERSION, "{name}");
     }
 }
 
