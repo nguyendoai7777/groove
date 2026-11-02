@@ -13,6 +13,13 @@
 
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 24. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
+## 0. Bàn giao từ groove-gd1_11 (02/11/2026)
+
+<!-- handoff: groove-gd1_11 -->
+
+- **Không cần gọi `dsp` từ view**: view đổi `EqSettings`; task 13 chuyển thành `SetEq`. Kéo thanh trượt gửi liên tục được, DSP tự trượt 10 ms.
+- **Cần biết**: preamp tự động làm cả bài nhỏ đi khi tăng dải (S23). Đường cong vẫn vẽ từ `eq.gains`, không tính preamp, không tính bass boost.
+
 ## 0. Bàn giao từ groove-gd1_02 (02/11/2026)
 
 <!-- handoff: groove-gd1_02 -->
