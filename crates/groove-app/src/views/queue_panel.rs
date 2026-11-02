@@ -19,6 +19,7 @@ use materiant::gpui_kit::{
     Subscription, Task, Window, div, px,
 };
 use materiant::list::{Align, VirtualList, VirtualListHandle};
+use materiant::scroll::TRACK_THICKNESS;
 use materiant::theme::{ActiveTheme, Neutral};
 
 use crate::player::{self, Player};
@@ -28,6 +29,8 @@ use crate::views::song_row::{display_artist, display_title};
 /// Cao một dòng: tên bài + nghệ sĩ.
 pub const ROW_HEIGHT: f32 = 52.;
 const INDEX_WIDTH: f32 = 28.;
+/// Đệm trái của nội dung dòng; cộng `TRACK_THICKNESS` (9) của danh sách = 16, thẳng hàng với tiêu đề (`px_4`).
+const ROW_INSET: f32 = 7.;
 
 /// Chữ của một dòng.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -286,7 +289,7 @@ impl Render for QueuePanel {
                     div()
                         .id(("np-queue-row", ix))
                         .size_full()
-                        .px_2()
+                        .px(px(ROW_INSET))
                         .flex()
                         .items_center()
                         .gap_2()
@@ -303,7 +306,6 @@ impl Render for QueuePanel {
                                     div()
                                         .truncate()
                                         .text_sm()
-                                        .font_weight(if is_current { FontWeight::SEMIBOLD } else { FontWeight::MEDIUM })
                                         .text_color(if is_current { c.primary_ink } else { c.text.opacity(0.9) })
                                         .child(title),
                                 )
@@ -329,9 +331,11 @@ impl Render for QueuePanel {
                     activate.update(cx, |panel, cx| panel.play_at(ix, true, cx));
                 })
                 .track(&self.list)
+                // D-16: khung cuộn chạm hai mép khung bảng, đệm ngang nằm trong (`padding_x`) để thumb sát mép phải.
+                .padding_x(TRACK_THICKNESS)
                 .flex_1()
                 .min_h_0()
-                .p_1()
+                .py_1()
                 .into_any_element()
         };
 

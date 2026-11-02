@@ -26,8 +26,8 @@ use materiant::badge::Badge;
 use materiant::field::input::{FieldEvent, TextField};
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    AnyElement, AnyWindowHandle, App, Context, Entity, Focusable, FontWeight, IntoElement, Keystroke, ParentElement,
-    Render, Styled, Subscription, Task, WeakEntity, Window, div, px,
+    AnyElement, AnyWindowHandle, App, Context, Entity, Focusable, IntoElement, Keystroke, ParentElement, Render,
+    Styled, Subscription, Task, WeakEntity, Window, div, px,
 };
 use materiant::icon::Icon;
 use materiant::kbd::Kbd;
@@ -44,6 +44,8 @@ use crate::views::song_row::display_title;
 
 /// Bề ngang hộp (đặc tả 1.9).
 const DIALOG_WIDTH: f32 = 600.;
+/// Lề trong của bảng (ô tìm, danh sách, chân bảng); danh sách đặt nó bằng `padding_x` để thumb sát mép hộp (D-16).
+const EDGE: f32 = 16.;
 /// Cao một dòng, tiêu đề nhóm cũng cao bằng (danh sách ảo cần dòng đều nhau).
 const ROW_HEIGHT: f32 = 44.;
 /// Cao tối đa của danh sách (bản cũ `max-h-cmd-list-max-h`).
@@ -543,7 +545,6 @@ impl CommandPalette {
                     .flex()
                     .items_end()
                     .text_size(px(12.))
-                    .font_weight(FontWeight::SEMIBOLD)
                     .text_color(c.muted)
                     .child(*title)
                     .into_any_element(),
@@ -577,6 +578,7 @@ impl CommandPalette {
         .selected(self.selected)
         .on_select(on_select)
         .on_activate(|_, _, _| {})
+        .padding_x(px(EDGE))
         .h(px(height));
         let _ = window;
         list.into_any_element()
@@ -634,24 +636,33 @@ impl Render for CommandPalette {
         let danger = cx.theme().colors().danger;
         let list = self.render_list(window, cx);
         let footer = self.footer(cx);
-        Dialog::new("command-palette", &self.handle).max_width(px(DIALOG_WIDTH)).align_top(true).child(
-            div()
-                .flex()
-                .flex_col()
-                .gap_2()
-                .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .gap_3()
-                        .child(div().flex_1().min_w_0().child(self.field.clone()))
-                        .child(mode),
-                )
-                .children(notice.map(|text| div().text_size(px(12.)).text_color(danger).child(text)))
-                .child(list)
-                .child(footer)
-                .into_any_element(),
-        )
+        // D-16: hộp không đệm (`flush_body`), danh sách chạm hai mép hộp, lề `EDGE` nằm trong danh sách (`padding_x`); ô tìm,
+        // dòng báo, chân bảng tự lùi cùng số đó.
+        Dialog::new("command-palette", &self.handle)
+            .max_width(px(DIALOG_WIDTH))
+            .align_top(true)
+            .divided(true)
+            .flush_body(true)
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_2()
+                    .py(px(EDGE))
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap_3()
+                            .px(px(EDGE))
+                            .child(div().flex_1().min_w_0().child(self.field.clone()))
+                            .child(mode),
+                    )
+                    .children(notice.map(|text| div().px(px(EDGE)).text_size(px(12.)).text_color(danger).child(text)))
+                    .child(list)
+                    .child(div().px(px(EDGE)).child(footer))
+                    .into_any_element(),
+            )
     }
 }
 

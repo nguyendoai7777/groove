@@ -10,7 +10,7 @@ use groove_core::t;
 use materiant::button::Button;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    ClickEvent, Context, FontWeight, IntoElement, ParentElement, Render, Styled, Subscription, Window, div, px,
+    ClickEvent, Context, IntoElement, ParentElement, Render, Styled, Subscription, Window, div, px,
 };
 use materiant::theme::ActiveTheme;
 
@@ -140,7 +140,7 @@ impl Render for DefaultPlayerPanel {
             .flex()
             .flex_col()
             .gap_2()
-            .child(div().font_weight(FontWeight::SEMIBOLD).child(t!("settings.default_player.title")))
+            .child(div().child(t!("settings.default_player.title")))
             .child(div().child(status))
             .child(
                 div().flex().items_center().gap_3().child(

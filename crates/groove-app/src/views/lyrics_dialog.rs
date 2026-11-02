@@ -293,7 +293,7 @@ impl Render for TextDialog {
         Dialog::new(id, &self.handle)
             .max_width(px(DIALOG_WIDTH))
             .title(self.kind.title())
-            .close_button(t!("common.close"))
+            .divided(true)
             .actions(actions)
             .child(div().w_full().child(self.area.clone()))
     }

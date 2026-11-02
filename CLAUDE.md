@@ -63,7 +63,8 @@ Viết tắt trong task: `core`, `library`, `audio`, `app`, `views` = `crates/gr
   khối nổi nền alpha 0,85 (D-10) thay `backdrop-blur`, chỉ cột trái mờ cả cửa sổ (`Blurred`); bỏ `scale` khi hover, đổi
   nền / viền; bỏ nhấp nháy số giờ; thanh phát cập nhật tối đa 4 lần / s và chỉ khi đang phát. Nền `Blurred` làm GPUI tắt
   ClearType, chữ cả app khử răng cưa xám — chờ chủ dự án xem trên màn thật.
-- **Màu nhấn**: cyan `#06b6d4` của bản cũ, đặt ở `app::apply_theme` (`ACCENT`), không dùng màu mặc định của materiant.
+- **Màu nhấn** theo theme materiant (deeppink, như fastcast — G-4): `app::apply_theme` không đặt `primary`; view lấy
+  `cx.theme().colors().primary` (chữ trên nền nhạt: `primary_ink`), không mã màu nhấn cứng. Playlist chưa có màu dùng màu nhấn.
 
 ## Lệnh
 

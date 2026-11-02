@@ -170,7 +170,7 @@ impl NavInk {
         let theme = cx.theme();
         let c = theme.colors();
         let dark = theme.is_dark();
-        let accent: Hsla = if dark { hex(0x22d3ee).into() } else { c.primary };
+        let accent = c.primary;
         let secondary: Hsla = if dark { hex(0xd4d4d8).into() } else { c.text };
         NavInk {
             icon: if active { accent } else { c.muted },
@@ -246,7 +246,6 @@ fn nav_button(
                     .text_sm()
                     .line_height(px(20.))
                     .text_color(ink.label)
-                    .when(active, |t| t.font_weight(FontWeight::SEMIBOLD))
                     .when(!active, |t| t.group_hover(group.clone(), move |s| s.text_color(ink.hover)))
                     .child(label),
             )

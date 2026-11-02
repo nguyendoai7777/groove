@@ -4,8 +4,11 @@
 //!
 //! - **EQ và hai bước áp ngay** (nghe, thấy tác dụng liền). **Huỷ** khôi phục giá trị lúc mở; **OK** lưu phím tắt.
 //! - **OK** soát JSON phím tắt (M5): sai thì nhảy về tab Phím tắt, hiện lỗi dưới ô, **không đóng**.
-//! - **Bấm nền không đóng** (M3, `close_on_backdrop(false)`), tránh mất bản nháp phím tắt. Đóng bằng Esc hay nút ✕ coi như
-//!   Huỷ: hộp phát hiện mình đã đóng mà chưa qua OK thì trả giá trị về (`plan/confirm.md`).
+//! - **Bấm nền đóng, coi như Huỷ** (G-5; không còn nút ✕): Esc hay bấm nền đều trả bước tua, bước âm lượng, EQ đã áp tạm
+//!   về lúc mở và bỏ nháp phím tắt; hộp phát hiện mình đã đóng mà chưa qua OK thì trả giá trị về. Không lặp M3 của bản
+//!   cũ (bấm ra ngoài giữ EQ mà bỏ phím tắt): mọi thứ cùng về như lúc mở.
+//! - Hộp chia header / body / footer có đường kẻ (`Dialog::divided`); body không đệm (`flush_body`) để khung cuộn chạm
+//!   mép phải của hộp và hai đường kẻ, đệm ngang nằm trong nội dung cuộn (D-16).
 //! - Phím toàn cục tự tắt khi hộp mở (`commands`), nên gõ vào ô JSON không kích hoạt lệnh.
 //!
 //! Hộp nằm trong cây của khung như bảng lệnh (`Slot::Settings`), dựng một lần ở `install`.
@@ -15,7 +18,7 @@ use groove_core::t;
 use materiant::button::Button;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    AnyElement, AnyWindowHandle, App, ClickEvent, Context, Entity, FocusHandle, FontWeight, IntoElement, KeyDownEvent,
+    AnyElement, AnyWindowHandle, App, ClickEvent, Context, Entity, FocusHandle, IntoElement, KeyDownEvent,
     ParentElement, Render, Styled, Window, div, px,
 };
 use materiant::overlay::dialog::{Dialog, DialogHandle};
@@ -36,6 +39,12 @@ const BODY_HEIGHT: f32 = 470.;
 const CHROME_HEIGHT: f32 = 170.;
 /// Rộng cột tab (web: `w-40`, mục chọn có nền).
 const TABS_WIDTH: f32 = 160.;
+/// Đệm của body: cột tab cách mép trái hộp `EDGE`; nội dung cuộn đệm `CONTENT_PADDING` đều hai bên (≥ vùng bắt chuột 9 px
+/// của thanh cuộn, D-16), trên dưới `EDGE`. Bản web: tab cách mép 12 px, nội dung cách mép phải ~16 px.
+const EDGE: f32 = 12.;
+const CONTENT_PADDING: f32 = 16.;
+/// Khe giữa cột tab và khung cuộn.
+const TABS_GAP: f32 = 8.;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SettingsTab {
@@ -203,7 +212,6 @@ impl SettingsDialog {
                 .rounded_md()
                 .cursor_pointer()
                 .text_sm()
-                .font_weight(FontWeight::MEDIUM)
                 .when(selected, |d| d.bg(c.primary.opacity(0.15)).text_color(c.primary))
                 .when(!selected, |d| d.text_color(c.muted).hover(|s| s.bg(c.text.opacity(0.06)).text_color(c.text)))
                 .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| go(this, window, cx, tab)))
@@ -221,7 +229,16 @@ impl SettingsDialog {
                 }))
                 .child(tab.label())
         });
-        div().flex().flex_col().flex_none().gap_1().w(px(TABS_WIDTH)).children(items)
+        div()
+            .flex()
+            .flex_col()
+            .flex_none()
+            .gap_1()
+            .w(px(TABS_WIDTH))
+            .ml(px(EDGE))
+            .py(px(EDGE))
+            .debug_selector(|| "settings-tabs".into())
+            .children(items)
     }
 
     fn body(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
@@ -234,24 +251,19 @@ impl SettingsDialog {
         let tabs = self.tab_list(window, cx);
         div()
             .flex()
-            .gap_4()
+            .gap(px(TABS_GAP))
             .h(px(height))
             .child(tabs)
-            .child(
-                ScrollArea::new(("settings-body", self.tab.index()))
-                    .vertical()
-                    .flex_1()
-                    .min_w_0()
-                    .h_full()
-                    .child(div().pr_3().child(panel)),
-            )
+            .child(ScrollArea::new(("settings-body", self.tab.index())).vertical().flex_1().min_w_0().h_full().child(
+                div().px(px(CONTENT_PADDING)).py(px(EDGE)).debug_selector(|| "settings-content".into()).child(panel),
+            ))
             .into_any_element()
     }
 }
 
 impl Render for SettingsDialog {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        // Đóng bằng Esc hay nút ✕ không đi qua `cancel`: phát hiện ở đây, trả giá trị về sau khung này.
+        // Đóng bằng Esc hay bấm nền không đi qua `cancel`: phát hiện ở đây, trả giá trị về sau khung này (G-5).
         if !self.handle.is_open()
             && let Some(snapshot) = self.opened.take()
         {
@@ -270,8 +282,8 @@ impl Render for SettingsDialog {
         Dialog::new("settings-dialog", &self.handle)
             .max_width(px(DIALOG_WIDTH))
             .title(t!("settings.title"))
-            .close_button(t!("common.close"))
-            .close_on_backdrop(false)
+            .divided(true)
+            .flush_body(true)
             .actions(actions)
             .child(self.body(window, cx))
     }
@@ -590,29 +602,86 @@ mod tests {
         assert!(!is_open(&rig, cx));
     }
 
-    /// C5 (M3) — Esc coi như Huỷ; bấm nền không đóng và không mất nháp.
+    /// Sửa bước tua, EQ, nháp phím tắt như người dùng đang dở tay.
+    fn edit_everything(rig: &Rig, cx: &mut VisualTestContext) {
+        type_seek(rig, "45", cx);
+        eq_panel(rig, cx).update(cx, |panel, cx| {
+            panel.apply(|eq| eq.set_band(3, 5.0), cx);
+            panel.apply(|eq| eq.set_bass_boost(4.0), cx);
+        });
+        set_keys_text(rig, "[ nháp ]", cx);
+        draw(cx);
+        assert_eq!(settings(cx).seek_step, 45);
+        assert_eq!(eq_panel(rig, cx).read_with(cx, |p, _| p.eq().gains[3]), 5.0);
+    }
+
+    /// Mọi thứ về như lúc mở: bước tua, EQ (bảng lẫn cài đặt), nháp phím tắt không được lưu và mở lại không còn.
+    fn assert_everything_reverted(rig: &Rig, cx: &mut VisualTestContext, how: &str) {
+        assert!(!is_open(rig, cx), "{how}: đóng");
+        let after = settings(cx);
+        assert_eq!(after.seek_step, 5, "{how}: trả bước tua");
+        assert_eq!(after.eq, EqSettings::default(), "{how}: trả EQ đã lưu");
+        let eq = eq_panel(rig, cx).read_with(cx, |p, _| p.eq().clone());
+        assert_eq!(eq, EqSettings::default(), "{how}: bảng EQ về lúc mở");
+        assert_eq!(after.custom_keybindings, None, "{how}: không lưu nháp phím tắt");
+        open(rig, cx);
+        assert!(keys_text(rig, cx).contains("ctrl+k"), "{how}: mở lại thì nháp cũ không còn");
+    }
+
+    /// C5 (G-5) — bấm lớp phủ đóng hộp, coi như Huỷ: trả mọi thay đổi chưa OK, kể cả EQ đã áp tạm.
     #[gpui::test]
-    fn c5_escape_cancels_and_backdrop_does_not_close(cx: &mut TestAppContext) {
+    fn c5_backdrop_click_closes_as_cancel(cx: &mut TestAppContext) {
         let (rig, cx) = rig(cx);
         open(&rig, cx);
-        type_seek(&rig, "45", cx);
-        eq_panel(&rig, cx).update(cx, |panel, cx| panel.apply(|eq| eq.set_band(3, 5.0), cx));
-        set_keys_text(&rig, "[ nháp ]", cx);
-        draw(cx);
+        edit_everything(&rig, cx);
         cx.simulate_click(point(px(4.), px(4.)), Default::default());
         draw(cx);
-        assert!(is_open(&rig, cx), "bấm nền không đóng (M3)");
-        assert_eq!(keys_text(&rig, cx), "[ nháp ]");
+        draw(cx);
+        assert_everything_reverted(&rig, cx, "bấm nền");
+    }
 
+    /// Bấm trong hộp (vùng trống của body) không đóng.
+    #[gpui::test]
+    fn click_inside_the_panel_keeps_it_open(cx: &mut TestAppContext) {
+        let (rig, cx) = rig(cx);
+        open(&rig, cx);
+        let footer = cx.debug_bounds("dialog-footer").expect("có footer");
+        cx.simulate_click(point(footer.origin.x + px(20.), footer.center().y), Default::default());
+        draw(cx);
+        assert!(is_open(&rig, cx));
+    }
+
+    /// C5b — Esc coi như Huỷ, như bấm nền.
+    #[gpui::test]
+    fn c5b_escape_cancels(cx: &mut TestAppContext) {
+        let (rig, cx) = rig(cx);
+        open(&rig, cx);
+        edit_everything(&rig, cx);
         cx.simulate_keystrokes("escape");
         draw(cx);
         draw(cx);
-        assert!(!is_open(&rig, cx));
-        assert_eq!(settings(cx).seek_step, 5, "Esc trả bước tua về lúc mở");
-        assert_eq!(eq_panel(&rig, cx).read_with(cx, |p, _| p.eq().gains[3]), 0.0, "Esc trả EQ về lúc mở");
+        assert_everything_reverted(&rig, cx, "Esc");
+    }
 
+    /// Bố cục: header / body / footer chồng sát nhau, cùng bề ngang; cột tab cách mép trái 12 px; khung cuộn chạm mép phải
+    /// của hộp và hai đường kẻ, nội dung đệm đều 16 px hai bên trong khung cuộn (D-16).
+    #[gpui::test]
+    fn layout_has_divided_sections_and_flush_scroll(cx: &mut TestAppContext) {
+        let (rig, cx) = rig(cx);
         open(&rig, cx);
-        assert!(keys_text(&rig, cx).contains("ctrl+k"), "mở lại thì nháp cũ không còn");
+        let header = cx.debug_bounds("dialog-header").expect("có header");
+        let body = cx.debug_bounds("dialog-body").expect("có body");
+        let footer = cx.debug_bounds("dialog-footer").expect("có footer");
+        assert_eq!(header.bottom(), body.origin.y);
+        assert_eq!(body.bottom(), footer.origin.y);
+        assert_eq!(f32::from(header.size.width), DIALOG_WIDTH);
+        let tabs = cx.debug_bounds("settings-tabs").expect("có cột tab");
+        assert_eq!(f32::from(tabs.origin.x - body.origin.x), EDGE);
+        assert_eq!(tabs.origin.y, body.origin.y, "cột tab đệm trên `EDGE` bên trong");
+        let content = cx.debug_bounds("settings-content").expect("có nội dung");
+        assert_eq!(content.right(), body.right(), "khung cuộn chạm mép phải của hộp");
+        assert_eq!(content.origin.y, body.origin.y, "nội dung cuộn bắt đầu ngay dưới đường kẻ");
+        let _ = rig;
     }
 
     /// C6 (M5) — OK với JSON sai: nhảy về tab Phím tắt, báo lỗi, không đóng, không lưu gì.

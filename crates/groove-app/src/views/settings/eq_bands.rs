@@ -1,6 +1,6 @@
 //! groove-gd1_24: mười cột dọc và thanh bass của bảng EQ, vẽ và nhận chuột bằng `canvas` (dáng của `setting-general.vue`).
 //!
-//! Cột: đường rãnh mảnh mờ suốt chiều cao, phần tô cyan dày từ đáy lên tới núm, núm tròn 14 px, vầng sáng quanh núm khi rê,
+//! Cột: đường rãnh mảnh mờ suốt chiều cao, phần tô màu nhấn dày từ đáy lên tới núm, núm tròn 14 px, vầng sáng quanh núm khi rê,
 //! kéo hay có focus bàn phím. Đường cong nối các núm vẽ trước (nằm dưới cột) như `z-0` / `z-10` của bản web. Bấm chỗ nào
 //! trong cột cũng đặt giá trị tại đó rồi kéo tiếp được (như bấm rãnh của thanh trượt); đang kéo thì chuột ra ngoài khung
 //! vẫn theo. Mọi đổi giá trị đi qua `EqPanel::set_band` / `set_bass`, nên áp ngay tới player.

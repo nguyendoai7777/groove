@@ -45,15 +45,16 @@ use crate::app::{self, ShellEvent, Slot};
 use crate::icons::GrooveIcon;
 use crate::library_ctl;
 use crate::route::Route;
-use crate::views::category_card::{CARD_EXTRA_HEIGHT, CategoryCard};
+use crate::views::category_card::{CARD_EXTRA_HEIGHT, CARD_RADIUS, CategoryCard};
 use crate::views::metadata::dialog::MetadataDialog;
 use crate::views::song_list::{SongList, SongListEvent};
 
 /// Lề hai bên của cả màn (đặc tả: `p-6`); lưới dùng cùng số này làm `padding_x` nên thanh cuộn nổi trên dải bên phải.
 const PAGE_PADDING: f32 = 24.;
-const GRID_GAP: f32 = 16.;
-/// Ô rộng tối thiểu. 130 để cửa sổ nhỏ nhất (560 px, cột trái mở) vẫn ra 2 cột; trần 6 cột xem [`min_cell_width`].
-const MIN_CELL_WIDTH: f32 = 130.;
+/// `gap-6` của lưới bản web: khe giữa hai viền thẻ (ô không chừa đệm, thẻ lấp kín ô).
+const GRID_GAP: f32 = 24.;
+/// Ô rộng tối thiểu (thẻ lấp kín ô). 128 để cửa sổ nhỏ nhất (560 px, cột trái mở) vẫn ra 2 cột; trần 6 cột xem [`min_cell_width`].
+const MIN_CELL_WIDTH: f32 = 128.;
 const MAX_COLUMNS: f32 = 6.;
 /// Bề ngang cột trái lúc thu: dùng để ước bề ngang vùng nội dung theo hướng rộng nhất, nên không bao giờ quá `MAX_COLUMNS`.
 const NAV_COLLAPSED_WIDTH: f32 = crate::views::side_nav::COLLAPSED_WIDTH;
@@ -448,7 +449,7 @@ fn action_card(
                 .min_w_0()
                 .flex()
                 .flex_col()
-                .child(div().font_weight(FontWeight::SEMIBOLD).text_color(c.text).child(title))
+                .child(div().text_color(c.text).child(title))
                 .child(div().text_size(px(12.)).text_color(c.primary_ink).child(hint.into())),
         )
 }
@@ -466,7 +467,7 @@ fn centered_message(icon: GrooveIcon, title: &'static str, hint: &'static str, c
         .px(px(PAGE_PADDING))
         .text_center()
         .child(Icon::new(icon).size(px(64.)).color(c.muted.opacity(0.6)))
-        .child(div().text_size(px(18.)).font_weight(FontWeight::SEMIBOLD).text_color(c.muted).child(title))
+        .child(div().text_size(px(18.)).text_color(c.muted).child(title))
         .child(div().max_w(px(420.)).text_size(px(12.)).text_color(c.muted.opacity(0.8)).child(hint))
 }
 
@@ -535,6 +536,7 @@ impl LibraryPage {
     fn tabs(&self, cx: &mut Context<Self>) -> impl IntoElement {
         div().flex_none().px(px(PAGE_PADDING)).child(
             Tabs::new("library-tabs")
+                .font_weight(FontWeight::NORMAL)
                 .tab(t!("library.tab.albums"))
                 .tab(t!("library.tab.folders"))
                 .selected(self.tab.index())
@@ -649,6 +651,9 @@ impl LibraryPage {
             .height_per_width(1.)
             .gap(px(GRID_GAP))
             .padding_x(px(PAGE_PADDING))
+            .cell_padding(px(0.))
+            .cell_radius(px(CARD_RADIUS))
+            .clip_cells(false)
             .track(&self.grid)
             .track_focus(&self.focus)
             .selected(self.selected)
@@ -681,25 +686,9 @@ fn importing_tile(c: &ThemeColors) -> gpui::Div {
                 .justify_center()
                 .child(ProgressCircular::new("library-importing").scale(0.6)),
         )
-        .child(
-            div()
-                .child(
-                    div()
-                        .h(px(20.))
-                        .truncate()
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .text_color(c.text)
-                        .child(t!("library.importing.title")),
-                )
-                .child(
-                    div()
-                        .h(px(16.))
-                        .truncate()
-                        .text_size(px(12.))
-                        .text_color(c.muted)
-                        .child(t!("library.importing.hint")),
-                ),
-        )
+        .child(div().child(div().h(px(20.)).truncate().text_color(c.text).child(t!("library.importing.title"))).child(
+            div().h(px(16.)).truncate().text_size(px(12.)).text_color(c.muted).child(t!("library.importing.hint")),
+        ))
 }
 
 impl Render for LibraryPage {
@@ -1068,6 +1057,21 @@ mod tests {
         // Góc trên trái của thẻ, ngoài hai nút.
         cx.simulate_click(card.origin + ::gpui::point(px(8.), px(8.)), Modifiers::default());
         assert_eq!(*events.borrow(), [LibraryPageEvent::Open(abbey)]);
+    }
+
+    /// Thẻ lấp kín ô của lưới (nền rê / chọn của ô trùng viền thẻ): hai thẻ cạnh nhau cách đúng `GRID_GAP`, thẻ đầu cách mép
+    /// trái của lưới đúng `PAGE_PADDING` (lề nằm trong khung cuộn, D-16).
+    #[::gpui::test]
+    fn cards_fill_their_cells(cx: &mut TestAppContext) {
+        let env = env(None);
+        seed(&env.library);
+        let (_, _, cx) = open_page(cx, &env, Route::MyMusic);
+        let first = cx.debug_bounds("card-album-1").expect("thẻ 1");
+        let second = cx.debug_bounds("card-album-2").expect("thẻ 2");
+        let (left, right) = if first.origin.x < second.origin.x { (first, second) } else { (second, first) };
+        assert_eq!(left.origin.y, right.origin.y, "cùng hàng");
+        assert_eq!(f32::from(right.origin.x - left.right()), GRID_GAP);
+        assert_eq!(f32::from(left.origin.x), PAGE_PADDING);
     }
 
     /// C5 — thư viện đổi (tạo playlist) thì lưới nạp lại.
