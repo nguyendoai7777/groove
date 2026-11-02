@@ -100,7 +100,7 @@
 - `LibraryCtlEvent::Notice { kind, message }`, `connect` đổi thành toast.
 - Hàm thuần: `remove_category_from(&library, reference) -> Removed { songs, root_removed }`, `forget_root_in`, `store_category_cover`, `import_notice`, `rescan_notice`.
 - `with_window(cx, f)` luôn hoãn bằng `cx.defer`: `on_select` của menu chạy lúc cửa sổ đang bị mượn, `window.update` trực tiếp sẽ lỗi.
-- `app::metadata_ops(cx) -> MetadataOps`, `app::set_metadata_ops(ops, cx)` (chủ trì chốt, task 21 dùng cùng chữ ký).
+- `app::metadata_ops(cx)`: dùng bản đã có trên `master`; ở đây chỉ thêm `app::set_metadata_ops` cho test.
 - `views::card_menu::{build, ConfirmDelete, delete_label}`, `views::song_menu::build`, `views::playlist_dialog::PlaylistDialog`.
 - `LibraryPageEvent::CategoryGone(reference)`, `LibraryPage::{set_overlays, add_overlay, set_metadata_dialog, refresh_lists}`, `SongList::refresh`.
 
@@ -115,7 +115,7 @@
 - Nạp lại: lưới và danh sách nghe `Moved`, `Progress { MetadataBulk, done == total }`; hộp metadata `Saved` gọi `refresh_lists`.
 - Menu bài dựng trong `SongList` bằng `context_menu` của materiant, nên Shift+F10 có sẵn. `SongListEvent::ContextMenu` vẫn phát nhưng không còn ai cần để vẽ.
 
-**Tệp ngoài dòng "File đụng tới"**: `views/library_page.rs`, `views/song_list.rs`, `views/category_card.rs`, `app.rs` (hai hàm `metadata_ops`), `groove-app/Cargo.toml` (`rfd`, `rusqlite`), `i18n/*/library.toml` (bỏ `category_pending`).
+**Tệp ngoài dòng "File đụng tới"**: `views/library_page.rs`, `views/song_list.rs`, `views/category_card.rs`, `app.rs` (`set_metadata_ops` cho test), `groove-app/Cargo.toml` (`rfd`, `rusqlite`), `i18n/*/library.toml` (bỏ `category_pending`).
 
 **Soát**: `cargo build`, `cargo clippy --all-targets -- -D warnings`, `cargo deny check licenses`, `cargo test`, cwd = worktree; kết quả cuối ở báo cáo gộp. Test: thư viện thư mục tạm, `FakeOutput`, `Picker` giả. Chưa mở cửa sổ thật: `[owner-qa]` ở `plan/_backlog.md`. **Hộp chọn `rfd` thật chưa chạy lần nào** vì test dùng `Picker` giả.
 

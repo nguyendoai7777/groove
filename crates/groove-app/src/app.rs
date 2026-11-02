@@ -17,6 +17,7 @@
 //!   duy nhất cho cả app, đừng tạo cái thứ hai.
 //! - **Tiêu đề cửa sổ**: [`set_title_override`] (Now Playing đặt `<bài> - <nghệ sĩ> | Groove X`, `None` để về tên trang).
 
+use std::cell::OnceCell;
 use std::time::Duration;
 
 use groove_core::settings::{JsonSaver, Settings, ThemeChoice};
@@ -88,6 +89,10 @@ pub fn run(dev: DevArgs) {
         crate::commands::install(cx);
         // Task 14: thanh phát vào `Slot::PlayerBar`, cần player ở trên.
         crate::views::player_bar::install(handle, cx);
+        // Task 23: bảng lệnh vào `Slot::CommandPalette`, nghe `ShellEvent::OpenSearch`.
+        crate::views::command_palette::install(handle, cx);
+        // Task 21: màn Now Playing vào `Slot::NowPlaying`, cần player và thư viện ở trên.
+        crate::views::now_playing::install(handle, cx);
         dev::replay(handle, dev.keys, cx);
     });
 }
@@ -193,6 +198,8 @@ pub enum Slot {
     Library,
     /// Now Playing (task 21).
     NowPlaying,
+    /// Bảng lệnh (task 23): dialog tự vẽ lớp phủ, nên chỉ cần nằm trong cây của khung.
+    CommandPalette,
 }
 
 /// Sự kiện của khung cho view khác nghe.
@@ -210,6 +217,7 @@ struct Slots {
     player_bar: Option<AnyView>,
     library: Option<AnyView>,
     now_playing: Option<AnyView>,
+    command_palette: Option<AnyView>,
 }
 
 impl Slots {
@@ -218,6 +226,7 @@ impl Slots {
             Slot::PlayerBar => self.player_bar.as_ref(),
             Slot::Library => self.library.as_ref(),
             Slot::NowPlaying => self.now_playing.as_ref(),
+            Slot::CommandPalette => self.command_palette.as_ref(),
         }
     }
 
@@ -226,6 +235,7 @@ impl Slots {
             Slot::PlayerBar => self.player_bar = Some(view),
             Slot::Library => self.library = Some(view),
             Slot::NowPlaying => self.now_playing = Some(view),
+            Slot::CommandPalette => self.command_palette = Some(view),
         }
     }
 }
@@ -409,6 +419,7 @@ impl Render for Shell {
                     .border_color(c.border)
                     .children(player),
             )
+            .children(self.slots.get(Slot::CommandPalette).map(|view| view.clone().into_any_element()))
             .child(ToastViewport::new().inset_top(px(app_bar::HEIGHT)))
     }
 }
@@ -444,6 +455,33 @@ impl Global for LibraryHandle {}
 /// Đặt thư viện dùng chung. Gọi một lần lúc khởi động.
 pub fn set_library(library: Library, cx: &mut App) {
     cx.set_global(LibraryHandle(library));
+    cx.set_global(MetadataOpsHandle::default());
+}
+
+/// `Global` giữ `MetadataOps` dùng chung (mỗi bản một luồng ghi tệp nên dựng một lần, lười ở lần gọi đầu).
+#[derive(Default)]
+struct MetadataOpsHandle(OnceCell<MetadataOps>);
+
+impl Global for MetadataOpsHandle {}
+
+/// `MetadataOps` dùng chung, dựng lười từ [`library`] và `CoverStore::default_location()`; `None` khi chưa có thư viện hoặc
+/// không dựng được (đã ghi log). Sao chép rẻ, gửi được giữa luồng.
+pub fn try_metadata_ops(cx: &App) -> Option<MetadataOps> {
+    let library = try_library(cx)?;
+    let handle = cx.try_global::<MetadataOpsHandle>()?;
+    if let Some(ops) = handle.0.get() {
+        return Some(ops.clone());
+    }
+    let covers = CoverStore::default_location().map_err(|err| log::warn!("cannot locate covers: {err}")).ok()?;
+    let ops = MetadataOps::new(library.clone(), covers)
+        .map_err(|err| log::error!("cannot start metadata ops: {err}"))
+        .ok()?;
+    Some(handle.0.get_or_init(|| ops).clone())
+}
+
+/// Như [`try_metadata_ops`], panic nếu chưa `set_library`. Dùng ở chỗ chắc chắn đã khởi động xong.
+pub fn metadata_ops(cx: &App) -> MetadataOps {
+    try_metadata_ops(cx).expect("metadata ops need the library: call set_library first")
 }
 
 /// Thư viện dùng chung (sao chép rẻ, gửi được giữa luồng). Panic nếu chưa `set_library`; `try_library` cho chỗ có thể
@@ -456,26 +494,10 @@ pub fn try_library(cx: &App) -> Option<&Library> {
     cx.try_global::<LibraryHandle>().map(|handle| &handle.0)
 }
 
-/// `Global` giữ `MetadataOps` dùng chung.
-struct MetadataOpsHandle(MetadataOps);
-
-impl Global for MetadataOpsHandle {}
-
-/// `MetadataOps` dùng chung của app (sao chép rẻ), dựng ở lần gọi đầu từ [`library`] và thư mục bìa chuẩn. Cần
-/// `set_library` đã chạy.
-pub fn metadata_ops(cx: &mut App) -> MetadataOps {
-    if let Some(handle) = cx.try_global::<MetadataOpsHandle>() {
-        return handle.0.clone();
-    }
-    let covers = CoverStore::default_location().expect("locate covers");
-    let ops = MetadataOps::new(library(cx).clone(), covers).expect("start metadata worker");
-    set_metadata_ops(ops.clone(), cx);
-    ops
-}
-
-/// Đặt `MetadataOps` dùng chung có sẵn (test trỏ thư mục tạm).
+/// Đặt sẵn `MetadataOps` trỏ thư mục tạm. Gọi sau `set_library`.
+#[cfg(test)]
 pub fn set_metadata_ops(ops: MetadataOps, cx: &mut App) {
-    cx.set_global(MetadataOpsHandle(ops));
+    assert!(cx.global::<MetadataOpsHandle>().0.set(ops).is_ok(), "metadata ops already built");
 }
 
 pub fn install_slot(slot: Slot, view: impl Into<AnyView>, cx: &mut App) {
