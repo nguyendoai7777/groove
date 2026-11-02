@@ -80,7 +80,7 @@ màu nhấn là hồng mặc định của materiant → cyan bản cũ; chữ t
 (thấy khi chạy thật). Mười một khoá i18n không dùng đã bỏ. Hai dòng nợ test chập chờn ở `_backlog.md` đã gỡ (sửa ở `f5f0fa3`).
 
 **Đã chạy** (cwd = worktree, `CARGO_TARGET_DIR=groove/target/gd1_29`): `cargo build`, `cargo clippy --all-targets -- -D warnings`,
-`cargo test --workspace --no-fail-fast` (707 test, gồm 3 test thêm ở task này; mọi bộ xanh, 4 ignored), `cargo deny check licenses` — xanh.
+`cargo test --workspace --no-fail-fast` (699 passed, 0 failed, 4 ignored; gồm 3 test thêm ở task này), `cargo deny check licenses` — xanh.
 Cùng bộ lệnh trên nhánh `claude/remove-tauri`. App thật: `tools/measure-hidden.ps1` (mới) chạy exe trong desktop Win32 ẩn với phím
 `g p`, `ctrl-k`, `escape`, bấm nút Settings; tiêu đề đổi đúng, các ảnh chụp (My Music, Now Playing, bảng lệnh, Settings) đã xem
 rồi xoá, `foreground_unchanged=True`.
