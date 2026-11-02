@@ -213,11 +213,16 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd2_01] Không làm mục chuột phải "Phát bằng Groove X" cho thư mục, không verb "Thêm vào hàng đợi" — làm luôn — `open_paths::resolve` chỉ nhận tệp nhạc, app chưa có cờ dòng lệnh xếp hàng; ghi mục 8.
 - [groove-gd2_01] Mục Settings "Trình phát mặc định" nằm ở tab Cài đặt chung, giữa bước tua và EQ; bản không qua bộ cài thì khoá nút và nói lý do — ẩn hẳn mục — người dùng bản dev vẫn hiểu vì sao không đặt được.
 - [groove-gd2_01] Version info của exe sinh `.rc` trong `OUT_DIR` từ `Cargo.toml`, bỏ `assets/app/groove.rc` — giữ `.rc` tĩnh — phiên bản không lệch khi `tag.sh` nâng.
+- [groove-ui-settings] Vẽ mười cột EQ và thanh bass bằng `canvas` riêng (`eq_bands.rs`) thay `materiant::slider` — bản web có cột dày 7 px, núm 14 px, vầng sáng khi kéo; `Slider` của materiant cố định rail 4 px, núm 16 px, vầng 34 px và không đổi được bằng style — không sửa materiant theo yêu cầu của một app; bàn phím vẫn đủ (Tab vào bảng, ← → chọn dải, ↑ ↓ 0,5 dB, PageUp / PageDown 5 dB, Home / End).
+- [groove-ui-settings] Bảng EQ đứng đầu tab Cài đặt chung, bước tua / bước âm lượng / trình phát mặc định xuống dưới có đường kẻ ngăn — ảnh mẫu của chủ dự án mở tab ở Equalizer, trong khi `setting-general.vue` hiện tại đặt bước tua trên đầu — theo ảnh vì đó là cái chủ dự án muốn thấy — EQ là phần dùng nhiều nhất, bước tua ít đổi.
+- [groove-ui-settings] Cột tab của hộp Settings tự vẽ (mục chọn có nền màu nhấn nhạt, chữ màu nhấn) thay `materiant::tabs` (vạch ở mép trái) — ảnh mẫu dùng nền mục chọn — giữ bàn phím ↑ ↓ Home End.
+- [groove-ui-settings] Không dùng phông đơn cách cho nhãn dB — web dùng `font-mono` — app chưa khai phông đơn cách nào và máy mỗi OS một tên phông — nhãn dB dùng phông chung của app.
+- [groove-ui-settings] Bỏ dòng ghi chú dưới bảng EQ (khoá `settings.eq.note`) và khoá `band_label` — bản web không có, dòng đó chiếm chỗ của bảng — bỏ ở cả hai ngôn ngữ; thêm `settings.eq.bass_boost_hint` cho dòng mô tả của thẻ bass; ô chọn mẫu bỏ nhãn phía trên, `settings.eq.preset` thành tiền tố "Mẫu cài sẵn:" cạnh ô chọn. Nhãn thẻ bass giữ "Tăng bass" (bản web viết hoa từng chữ, D-13).
 
 - [groove-ui-nav] Side nav tự dựng hàng điều hướng ở groove, không dùng `materiant::tabs::Tabs::nav` — dùng Tabs.nav — Tabs.nav có vạch trượt 2 px, icon chỉ nhận `IconName` của materiant, một màu cho cả icon và chữ; bản web cần vạch 3 px đứng, icon accent-light + chữ trắng khi chọn, hover đổi riêng icon / chữ, kèm chế độ thu chỉ icon.
 - [groove-ui-nav] Màu hàng nav: icon + vạch `#22d3ee` (accent-light), chữ trắng đậm khi chọn; muted `#a1a1aa`, hover `#d4d4d8` — `primary_ink` của materiant — `primary_ink` ở theme tối là cyan pha trắng, lệch màu web; theme sáng vẫn dùng `primary`.
 - [groove-ui-nav] Thanh nhảy chạy một `with_animation` lặp 2 713 200 ms (bội chung nhỏ nhất của bốn chu kỳ 600 / 760 / 560 / 680 ms), mỗi thanh tính pha riêng — chu kỳ 1200 ms sin như cũ — web có bốn thời lượng không chung bội nhỏ, nhịp tổng hợp khớp thật; trần 30 khung/s.
-- [groove-ui-nav] Thanh nhảy tạm dừng đứng ở giữa hai đầu mút (scaleY 0.525 / 0.575 / 0.5 / 0.55) — giữ đúng khung đang chạy như web — GPUI không giữ pha qua lần vẽ lại, vẽ lại từ trạng thái chạy cần lưu thời điểm dừng ở từng nơi dùng; hình giữa nhịp trông giống khung đóng băng.
+- [groove-ui-nav] Pha thanh nhảy giữ ở `Phase` toàn app (global, đồng hồ của executor): dừng thì cộng dồn thời gian đã chạy và đứng đúng khung đó, phát lại chạy tiếp — để GPUI tự giữ pha — GPUI không giữ pha qua lần vẽ lại; một bản chung nên mọi nơi dùng thanh nhảy cùng pha, và dừng lúc không có thanh nào đang hiện thì khung đứng là khung ở lần vẽ kế.
 - [groove-ui-nav] Bỏ `PlayingBars::color` và màu `primary_ink` ở ba nơi gọi — giữ tuỳ chỉnh màu — web luôn dùng `--deco-visualizer-color` mặc định cyan-400.
 ## groove-ui-card
 
@@ -228,6 +233,8 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-ui-card-2] Hoạt ảnh hover bằng `with_animation` (thẻ, lớp phủ 300 ms, phóng bìa 1,05 trong 500 ms, đường `cubic-bezier(0.4,0,0.2,1)`), trạng thái rê giữ bằng `window.use_keyed_state` + `on_hover` thay `group_hover` — chỉ giữ `group_hover` — để chạy được hoạt ảnh; chỉ dựng hoạt ảnh sau lần rê đầu, đứng yên thì vẽ tĩnh.
 - [groove-ui-card-2] Quầng bóng accent 25% nhưng blur 12 px — 20 px như web — ô `VirtualGrid` cắt mọi thứ ngoài ô (`virtual_grid.rs` dòng `overflow_hidden`, đệm 6 px), blur 20 để lộ khung chữ nhật bị cắt; muốn đúng 20 thì materiant cần tuỳ chọn không cắt ô.
 - [groove-ui-card-2] Không làm đổi màu tên sang trắng khi rê (150 ms) và `backdrop-blur` của lớp phủ — GPUI không có làm mờ nền; chữ tên đã gần trắng ở nền tối.
+
+- [groove-ui-nav] Hàng side nav dựng trên `gpui_kit::base::Button` (focus, Tab, Enter / Space, vai trò nút, nhãn trợ năng, `selected` cho mục đang chọn) với vòng focus 2 px tự vẽ trong hàng — IconButton / Button của materiant — vòng focus của materiant vẽ tràn ra ngoài, bị cột `overflow_hidden` cắt.
 
 ## ui-player-bar
 

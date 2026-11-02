@@ -11,17 +11,19 @@
 //! | 3 | 280 ms | 25 ms | 0.3 → 0.7 |
 //! | 4 | 340 ms | 125 ms | 0.2 → 0.9 |
 //!
-//! Bốn nhịp không chung bội nhỏ, nên một `with_animation` lặp [`LOOP`] (bội chung nhỏ nhất của bốn chu kỳ, ~45 phút) cho
-//! mỗi thanh tự chạy đúng nhịp của nó mà vòng lặp vẫn nối liền. Chỉ chạy khi `active`: tạm dừng thì bốn thanh đứng ở
-//! [`PAUSED_SCALE`] (web dừng đúng khung đang chạy, GPUI không giữ pha qua lần vẽ lại), không xin khung hình. OS bật giảm
+//! Bốn nhịp không chung bội nhỏ, nên một `with_animation` lặp [`LOOP`] (bội chung nhỏ nhất của bốn chu kỳ, ~45 phút) chỉ làm
+//! nhịp xin khung hình; thời điểm trên nhịp lấy từ [`Phase`] (toàn app, một bản): mỗi thanh tự chạy đúng nhịp của nó, vòng
+//! lặp nối liền. Chỉ chạy khi `active`. Tạm dừng thì [`Phase`] ghi lại thời gian đã chạy và bốn thanh đứng đúng khung đó
+//! (như `animation-play-state: paused` của web), không xin khung hình; phát lại thì chạy tiếp từ pha đã giữ. OS bật giảm
 //! chuyển động thì `with_animation` tự đứng yên. View khác (danh sách bài, hàng đợi, hộp lịch sử, bảng lệnh) dùng lại.
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use materiant::gpui_kit as gpui;
 use materiant::gpui_kit::base::animation::cubic_bezier;
 use materiant::gpui_kit::{
-    Animation, AnimationExt, App, Hsla, IntoElement, ParentElement, Pixels, SharedString, Styled, Window, div, px,
+    Animation, AnimationExt, App, Global, Hsla, IntoElement, ParentElement, Pixels, SharedString, Styled, Window, div,
+    px,
 };
 use materiant::theme::color::hex;
 
@@ -40,8 +42,6 @@ const FROM: [f32; BARS] = [0.25, 0.15, 0.3, 0.2];
 const TO: [f32; BARS] = [0.8, 1., 0.7, 0.9];
 /// Bội chung nhỏ nhất của 600, 760, 560, 680 ms: hết vòng thì cả bốn thanh cùng về pha đầu.
 pub const LOOP: Duration = Duration::from_millis(2_713_200);
-/// Hình dừng: giữa hai đầu mút của từng thanh.
-pub const PAUSED_SCALE: [f32; BARS] = [0.525, 0.575, 0.5, 0.55];
 /// 60 khung/s như trình duyệt thì thừa với bốn thanh 14 px; 30 vẫn mượt, nhẹ CPU.
 const MAX_FPS: f32 = 30.;
 
@@ -54,6 +54,39 @@ pub fn bar_scale(index: usize, elapsed_ms: f32) -> f32 {
     let eased = cubic_bezier(0.42, 0., 0.58, 1.)(leg);
     FROM[index] + (TO[index] - FROM[index]) * eased
 }
+
+/// Thời gian bốn thanh đã chạy: cộng dồn lúc dừng, tính tiếp từ `since` lúc đang chạy.
+#[derive(Default)]
+pub struct Phase {
+    elapsed: Duration,
+    since: Option<Instant>,
+}
+
+impl Phase {
+    /// Báo trạng thái vẽ hiện tại; chỉ đổi khi chuyển giữa chạy và dừng.
+    pub fn set_active(&mut self, active: bool, now: Instant) {
+        match (active, self.since) {
+            (true, None) => self.since = Some(now),
+            (false, Some(_)) => {
+                self.elapsed = self.total(now);
+                self.since = None;
+            }
+            _ => {}
+        }
+    }
+
+    fn total(&self, now: Instant) -> Duration {
+        let running = self.since.map_or(Duration::ZERO, |since| now.saturating_duration_since(since));
+        Duration::from_nanos(((self.elapsed + running).as_nanos() % LOOP.as_nanos()) as u64)
+    }
+
+    /// Mili giây trên nhịp [`bar_scale`] ở thời điểm `now`.
+    pub fn elapsed_ms(&self, now: Instant) -> f32 {
+        self.total(now).as_secs_f32() * 1000.
+    }
+}
+
+impl Global for Phase {}
 
 #[derive(IntoElement)]
 pub struct PlayingBars {
@@ -94,22 +127,25 @@ fn frame(size: Pixels, color: Hsla, scale: [f32; BARS]) -> gpui::Div {
 }
 
 impl gpui::RenderOnce for PlayingBars {
-    fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
+    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let color: Hsla = hex(0x22d3ee).into();
         let size = self.size;
+        let now = cx.background_executor().now();
+        let phase = cx.default_global::<Phase>();
+        phase.set_active(self.active, now);
+        let scale: [f32; BARS] = std::array::from_fn(|ix| bar_scale(ix, phase.elapsed_ms(now)));
+        let still = frame(size, color, scale);
         if self.active {
-            frame(size, color, PAUSED_SCALE)
+            // Hoạt ảnh chỉ để xin khung kế (tối đa MAX_FPS); hình vẽ lấy từ [`Phase`] ở lần render đó.
+            still
                 .with_animation(
                     SharedString::from("playing-bars"),
                     Animation::new(LOOP).repeat().with_max_fps(MAX_FPS),
-                    move |_, progress| {
-                        let elapsed = progress * LOOP.as_millis() as f32;
-                        frame(size, color, std::array::from_fn(|ix| bar_scale(ix, elapsed)))
-                    },
+                    move |element, _| element,
                 )
                 .into_any_element()
         } else {
-            frame(size, color, PAUSED_SCALE).into_any_element()
+            still.into_any_element()
         }
     }
 }
@@ -162,6 +198,73 @@ mod tests {
     #[::gpui::test]
     fn paused_never_redraws(cx: &mut TestAppContext) {
         assert_eq!(renders_after_a_second(false, cx), 0);
+    }
+
+    #[test]
+    fn phase_freezes_on_pause_and_resumes_from_there() {
+        let t0 = Instant::now();
+        let at = |ms: u64| t0 + Duration::from_millis(ms);
+        let mut phase = Phase::default();
+        assert_eq!(phase.elapsed_ms(at(500)), 0., "chưa chạy thì ở pha đầu");
+        phase.set_active(true, at(0));
+        assert!((phase.elapsed_ms(at(250)) - 250.).abs() < 0.5);
+        phase.set_active(false, at(250));
+        let frozen: Vec<f32> = (0..BARS).map(|ix| bar_scale(ix, phase.elapsed_ms(at(250)))).collect();
+        for later in [300, 5_000, 90_000] {
+            let now: Vec<f32> = (0..BARS).map(|ix| bar_scale(ix, phase.elapsed_ms(at(later)))).collect();
+            assert_eq!(now, frozen, "dừng thì giữ nguyên khung ({later} ms sau)");
+        }
+        phase.set_active(true, at(10_000));
+        assert!((phase.elapsed_ms(at(10_100)) - 350.).abs() < 0.5, "phát lại chạy tiếp từ 250 ms");
+        phase.set_active(true, at(10_200));
+        assert!((phase.elapsed_ms(at(10_200)) - 450.).abs() < 0.5, "set_active(true) lặp không đặt lại pha");
+    }
+
+    #[test]
+    fn phase_wraps_at_the_loop() {
+        let t0 = Instant::now();
+        let mut phase = Phase::default();
+        phase.set_active(true, t0);
+        let ms = phase.elapsed_ms(t0 + LOOP + Duration::from_millis(100));
+        assert!((ms - 100.).abs() < 1., "{ms}");
+    }
+
+    /// Dừng rồi phát lại trong view thật: khung lúc dừng đúng khung đang chạy, phát lại chạy tiếp từ đó.
+    #[::gpui::test]
+    fn pausing_in_a_view_keeps_the_running_frame(cx: &mut TestAppContext) {
+        let renders = Rc::new(Cell::new(0));
+        let counter = renders.clone();
+        let window = cx.add_window(move |_, _| Probe { active: true, renders: counter });
+        let ms = |cx: &mut TestAppContext| {
+            let now = cx.executor().now();
+            cx.read(|cx| cx.global::<Phase>().elapsed_ms(now))
+        };
+        cx.run_until_parked();
+        cx.executor().advance_clock(Duration::from_millis(400));
+        cx.run_until_parked();
+        window
+            .update(cx, |probe, _, cx| {
+                probe.active = false;
+                cx.notify();
+            })
+            .unwrap();
+        cx.run_until_parked();
+        let frozen = ms(cx);
+        assert!(frozen >= 350., "đã chạy khoảng 400 ms trước khi dừng: {frozen}");
+        cx.executor().advance_clock(Duration::from_secs(3));
+        cx.run_until_parked();
+        assert_eq!(ms(cx), frozen, "dừng 3 giây vẫn đứng ở khung cũ");
+        window
+            .update(cx, |probe, _, cx| {
+                probe.active = true;
+                cx.notify();
+            })
+            .unwrap();
+        cx.run_until_parked();
+        cx.executor().advance_clock(Duration::from_millis(200));
+        cx.run_until_parked();
+        let resumed = ms(cx);
+        assert!((resumed - frozen - 200.).abs() < 30., "chạy tiếp từ {frozen}, được {resumed}");
     }
 
     #[test]
