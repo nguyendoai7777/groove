@@ -3,13 +3,8 @@
 //! Bốn cột: `#`, tiêu đề, thời lượng, nghệ sĩ (ẩn khi cửa sổ hẹp). Cột `#`: bài khác hiện số, rê chuột hiện Play; bài
 //! đang chọn hiện bars (chạy khi đang phát), rê chuột hiện Pause / Play. Dòng chỉ vẽ và báo chuột phải: nhấp, phím, hàng
 //! đợi là việc của `song_list.rs`; khung dòng (cao, nền rê / chọn, nhấp) do `materiant::list::VirtualList` lo.
-//!
-//! Bars của dòng là bản cục bộ (bốn thanh `div`, chỉ xin khung khi đang phát): `views/playing_bars.rs` của task 14 chưa
-//! có lúc làm task này. Có rồi thì thay `NowBars` bằng nó (mục 9 của task 16).
 
-use std::f32::consts::TAU;
 use std::rc::Rc;
-use std::time::Duration;
 
 use groove_core::model::Song;
 use groove_core::t;
@@ -17,13 +12,14 @@ use groove_core::t;
 use materiant::gpui_kit as gpui;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    Animation, AnimationExt, AnyElement, App, FontWeight, Hsla, IntoElement, MouseButton, MouseDownEvent,
-    ParentElement, Pixels, Point, RenderOnce, SharedString, Styled, Window, div, px,
+    AnyElement, App, FontWeight, IntoElement, MouseButton, MouseDownEvent, ParentElement, Pixels, Point, RenderOnce,
+    SharedString, Styled, Window, div, px,
 };
 use materiant::icon::Icon;
 use materiant::theme::{ActiveTheme, ThemeColors};
 
 use crate::icons::GrooveIcon;
+use crate::views::playing_bars::PlayingBars;
 
 /// Cao một dòng (bản cũ `py-3` + chữ `text-sm`).
 pub const ROW_HEIGHT: f32 = 44.;
@@ -34,8 +30,6 @@ pub const ARTIST_MIN_WINDOW_WIDTH: f32 = 768.;
 const CELL_PADDING: f32 = 16.;
 const TEXT_SIZE: f32 = 14.;
 const GROUP: &str = "song-row";
-/// Chu kỳ một nhịp của bars (bản cũ `playing-visualizer.vue` quanh 1 s).
-const BARS_PERIOD: Duration = Duration::from_millis(1100);
 
 /// Cột nghệ sĩ có hiện không, theo bề ngang cửa sổ.
 pub fn show_artist(window_width: f32) -> bool {
@@ -142,55 +136,6 @@ pub fn header_row(show_artist: bool, c: &ThemeColors) -> AnyElement {
         .into_any_element()
 }
 
-/// Bốn thanh của bài đang chọn: chạy khi `playing`, đứng yên ở độ cao giữa khi dừng. Chỉ phát khung khi đang phát.
-#[derive(IntoElement)]
-struct NowBars {
-    playing: bool,
-    color: Hsla,
-}
-
-const BAR_COUNT: usize = 4;
-const BAR_BOX: f32 = 14.;
-const BAR_WIDTH: f32 = 2.;
-
-/// Độ cao thanh `ix` (0..1 của `BAR_BOX`) tại pha `phase` (0..1) của nhịp.
-fn bar_height(ix: usize, phase: f32) -> f32 {
-    let offset = ix as f32 / BAR_COUNT as f32;
-    0.35 + 0.65 * (0.5 + 0.5 * ((phase + offset) * TAU).sin())
-}
-
-impl RenderOnce for NowBars {
-    fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
-        let color = self.color;
-        let bars = move |phase: f32| {
-            div().w(px(BAR_BOX)).h(px(BAR_BOX)).flex().items_end().justify_center().gap(px(1.)).children(
-                (0..BAR_COUNT).map(move |ix| {
-                    div().w(px(BAR_WIDTH)).h(px(BAR_BOX * bar_height(ix, phase))).rounded_sm().bg(color)
-                }),
-            )
-        };
-        if self.playing {
-            bars(0.)
-                .with_animation("song-row-bars", Animation::new(BARS_PERIOD).repeat(), move |_, delta| bars(delta))
-                .into_any_element()
-        } else {
-            bars(0.25).into_any_element()
-        }
-    }
-}
-
-/// Biểu tượng Pause: hai thanh đứng (GrooveIcon chưa có Pause).
-fn pause_glyph(color: Hsla) -> gpui::Div {
-    div()
-        .w(px(12.))
-        .h(px(12.))
-        .flex()
-        .items_center()
-        .justify_between()
-        .child(div().w(px(4.)).h_full().rounded_sm().bg(color))
-        .child(div().w(px(4.)).h_full().rounded_sm().bg(color))
-}
-
 impl SongRow {
     fn index_cell(&self, c: &ThemeColors) -> impl IntoElement + use<> {
         let accent = c.primary_ink;
@@ -228,10 +173,10 @@ impl SongRow {
                 ))
                 .child(on_hover(hover_icon().into_any_element())),
             RowPlay::Playing => stack
-                .child(rest(NowBars { playing: true, color: accent }.into_any_element()))
-                .child(on_hover(pause_glyph(accent).into_any_element())),
+                .child(rest(PlayingBars::new(true).size(px(14.)).color(accent).into_any_element()))
+                .child(on_hover(Icon::new(GrooveIcon::Pause).size(px(12.)).color(accent).into_any_element())),
             RowPlay::Paused => stack
-                .child(rest(NowBars { playing: false, color: accent }.into_any_element()))
+                .child(rest(PlayingBars::new(false).size(px(14.)).color(accent).into_any_element()))
                 .child(on_hover(hover_icon().into_any_element())),
         }
     }
@@ -311,15 +256,5 @@ mod tests {
         assert!(!show_artist(560.));
         assert!(!show_artist(767.9));
         assert!(show_artist(768.));
-    }
-
-    #[test]
-    fn bar_heights_stay_inside_the_box() {
-        for ix in 0..BAR_COUNT {
-            for step in 0..=20 {
-                let h = bar_height(ix, step as f32 / 20.);
-                assert!((0.35..=1.0001).contains(&h), "{h}");
-            }
-        }
     }
 }
