@@ -235,3 +235,10 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-ui-card-2] Không làm đổi màu tên sang trắng khi rê (150 ms) và `backdrop-blur` của lớp phủ — GPUI không có làm mờ nền; chữ tên đã gần trắng ở nền tối.
 
 - [groove-ui-nav] Hàng side nav dựng trên `gpui_kit::base::Button` (focus, Tab, Enter / Space, vai trò nút, nhãn trợ năng, `selected` cho mục đang chọn) với vòng focus 2 px tự vẽ trong hàng — IconButton / Button của materiant — vòng focus của materiant vẽ tràn ra ngoài, bị cột `overflow_hidden` cắt.
+
+## ui-player-bar
+
+- [ui-player-bar] Nút Play giữa thanh vùng bấm tròn 48 px, icon 36 px — 60 px như `toggle-play.vue` — thanh Rust cao 90 px, khung 60 px đẩy hàng tua xuống sát đáy; phần nhìn thấy (icon 36 px) vẫn đúng cỡ web.
+- [ui-player-bar] Nút Play không nền, không đổi màu khi rê (đúng web), chỉ thêm vòng focus khi Tab tới — nền cyan tròn của bản Rust cũ — chủ dự án muốn khớp web.
+- [ui-player-bar] Nút tròn dùng `IconButton::rounded_full()` sẵn có của materiant (hover, nhấn, ripple đều theo bo góc), không thêm API ở materiant — thêm tuỳ chọn mới — đã có, thêm nữa là trùng.
+- [ui-player-bar] Giữ cỡ, màu icon nút phụ như cũ (Shuffle / Repeat bật màu nhấn, không xanh lá `green-500` của web; hộp 32 px thay 36 px) — đổi theo web — ngoài phạm vi việc (chỉ vùng hover tròn và nút Play).
