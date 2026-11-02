@@ -77,3 +77,5 @@ Phủ bằng test `[opus-unit]`. `core/keymap.rs`, `core/cli.rs`: luật khớp,
 ## 10. Đề xuất cải tiến
 
 - [ux] Giữ Space làm phát / dừng nhấp nháy theo nhịp lặp phím, như bản cũ — `KeystrokeEvent` của GPUI không có `is_held`, `app/commands.rs:on_keystroke` — bỏ lặp cho `toggle_play` khi GPUI lộ cờ này — nhỏ — S — P3. Chưa làm: không có API, không phải lỗi mới.
+
+**Test nhạy**: `player::tests::volume_and_mute_reach_the_engine` (của task 13) đỏ từng lúc khi máy bận, nặng hơn khi chạy cùng test của task này; ghi ở `plan/_backlog.md`. Lúc gộp, `master` gồm cả 14, 16: xung đột `app.rs`, `_backlog.md`, `confirm.md` giữ cả hai phía.

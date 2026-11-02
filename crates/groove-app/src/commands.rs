@@ -800,9 +800,10 @@ mod tests {
         until(rig.cx, "phát alpha", |cx| player(cx).read(cx).current_track() == Some(&a));
         assert_eq!(queued(&mut rig), std::slice::from_ref(&c));
         // Chọn lại đúng bài đang phát: phát / dừng.
-        let playing = rig.cx.update(|_, cx| player(cx).read(cx).is_playing());
+        // `current_track` đổi trước khi engine nạp xong: chờ thật sự phát rồi mới bấm, kẻo bấm dừng thành không đổi gì.
+        until(rig.cx, "alpha đang phát", |cx| player(cx).read(cx).is_playing());
         rig.cx.update(|_, cx| play_search_result(a.clone(), cx));
-        until(rig.cx, "đổi trạng thái", |cx| player(cx).read(cx).is_playing() != playing);
+        until(rig.cx, "đã dừng", |cx| !player(cx).read(cx).is_playing());
         assert_eq!(current(&mut rig), Some(a.clone()));
 
         // `/play <tên>`: danh sách mới từ kết quả tìm.
