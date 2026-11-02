@@ -1,1 +1,21 @@
 # Vùng song_dialogs: khoá viết không tiền tố, tra bằng t!("song_dialogs.<khoá>").
+
+[lyrics]
+title = "Lời bài hát"
+placeholder = "Dán hoặc gõ lời bài hát ở đây. Để trống rồi Lưu là xoá lời."
+save_failed = "Không lưu được lời bài hát"
+load_failed = "Không mở được lời bài hát"
+
+[timeline]
+title = "Timeline"
+hint = "Mỗi dòng một đoạn: thời gian rồi tên, ví dụ 1:30 Điệp khúc. Thời gian là giây, m:ss hoặc h:mm:ss. Dòng sai khuôn dạng bị bỏ qua."
+placeholder = "0:00 Mở đầu"
+save_failed = "Không lưu được timeline"
+load_failed = "Không mở được timeline"
+
+[error]
+not_found = "Bài này không còn trong thư viện."
+write_failed = "Không ghi được vào tệp nhạc, tệp còn nguyên. Kiểm tra tệp có đang bị khoá hoặc chỉ đọc không, rồi Lưu lại; chữ bạn gõ vẫn được giữ."
+database_after_write = "Đã ghi vào tệp nhưng thư viện chưa cập nhật; thư viện sẽ tự đọc lại tệp. Chữ bạn gõ vẫn được giữ."
+rename_failed = "Đã ghi vào tệp nhưng không đổi được tên tệp."
+generic = "Thư viện đang bận hoặc gặp lỗi. Thử lại sau giây lát; chữ bạn gõ vẫn được giữ."
