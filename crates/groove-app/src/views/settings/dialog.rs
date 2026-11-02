@@ -528,7 +528,7 @@ mod tests {
         loudness_until(&rig, cx, "tiếng trở lại", |l| l > before * 0.85);
     }
 
-    /// C1b — chọn mẫu cài sẵn đi cùng đường: `Bass strong` đổi tiếng của engine, `Flat` trả về.
+    /// C1b — chọn mẫu cài sẵn đi cùng đường: `Vocal` đổi tiếng của engine, `Flat` trả về.
     #[gpui::test]
     fn c1b_preset_reaches_the_engine(cx: &mut TestAppContext) {
         use groove_core::settings::EqPreset;
@@ -537,9 +537,9 @@ mod tests {
         let flat = play_tone(&rig, cx);
         open(&rig, cx);
         let panel = eq_panel(&rig, cx);
-        // Preamp tự động hạ cả bài khi tăng dải (S23), nên tiếng 440 Hz đổi rõ dù không dải nào chạm nó.
-        panel.update(cx, |panel, cx| panel.apply(|eq| eq.select_preset(EqPreset::BassStrong), cx));
-        assert_eq!(panel.read_with(cx, |p, _| p.eq().preset), EqPreset::BassStrong);
+        // Không còn preamp (G-7): dải không chạm 440 Hz thì 440 Hz giữ nguyên, nên chọn mẫu có dải 250 / 500 Hz dương.
+        panel.update(cx, |panel, cx| panel.apply(|eq| eq.select_preset(EqPreset::Vocal), cx));
+        assert_eq!(panel.read_with(cx, |p, _| p.eq().preset), EqPreset::Vocal);
         loudness_until(&rig, cx, "tiếng đổi theo preset", |l| l > SOUND && (l - flat).abs() > flat * 0.1);
         panel.update(cx, |panel, cx| panel.apply(|eq| eq.select_preset(EqPreset::Flat), cx));
         loudness_until(&rig, cx, "về phẳng", |l| l > SOUND && (l - flat).abs() < flat * 0.15);

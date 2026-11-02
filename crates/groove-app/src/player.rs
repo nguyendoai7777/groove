@@ -906,6 +906,7 @@ fn settings_prefs(source: &SettingsSource, cx: &App) -> AudioPrefs {
     }
 }
 
+/// Thanh 0..100 ra gain tuyến tính, y như `audioEngine.setVolume(volume / 100)` của bản web (G-7): 100 là nguyên mức bài.
 fn volume_gain(volume: u8) -> f32 {
     f32::from(volume.min(100)) / 100.0
 }

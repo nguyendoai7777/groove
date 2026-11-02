@@ -51,7 +51,7 @@ pub enum AudioCmd {
         generation: u64,
         sec: f64,
     },
-    /// 0..=1, độ lớn thật là `v²` (S23).
+    /// 0..=1, gain tuyến tính như `GainNode` của bản web (G-7): 1,0 là nguyên mức của bài.
     SetVolume(f32),
     SetMuted(bool),
     SetEq(EqParams),
@@ -794,6 +794,17 @@ mod tests {
 
     impl TempWav {
         fn new(rate: u32, frames: usize) -> Self {
+            Self::from_fn(rate, frames, |i| value(i, frames))
+        }
+
+        /// Sin stereo hai kênh như nhau.
+        fn tone(rate: u32, frames: usize, freq: f64, amplitude: f64) -> Self {
+            Self::from_fn(rate, frames, |i| {
+                (amplitude * (i as f64 * freq * std::f64::consts::TAU / f64::from(rate)).sin()) as f32
+            })
+        }
+
+        fn from_fn(rate: u32, frames: usize, sample_at: impl Fn(usize) -> f32) -> Self {
             let mut data = Vec::with_capacity(44 + frames * 8);
             let bytes = (frames * 8) as u32;
             data.extend_from_slice(b"RIFF");
@@ -809,7 +820,7 @@ mod tests {
             data.extend_from_slice(b"data");
             data.extend_from_slice(&bytes.to_le_bytes());
             for i in 0..frames {
-                let sample = value(i, frames).to_le_bytes();
+                let sample = sample_at(i).to_le_bytes();
                 data.extend_from_slice(&sample);
                 data.extend_from_slice(&sample);
             }
@@ -922,6 +933,49 @@ mod tests {
         assert!(last.abs_diff(frames - 1) <= 2, "last frame {last}");
         assert!(!rig.engine.is_playing());
         assert!((rig.engine.position_sec() - 0.5).abs() < 1e-6);
+    }
+
+    /// Phát hết một tệp sin qua engine thật (FakeOutput, không ra loa), trả RMS kênh trái của nửa sau.
+    fn played_rms(path: &Path, volume: f32, eq: EqParams) -> f64 {
+        let mut rig = rig();
+        rig.engine.send(AudioCmd::SetVolume(volume));
+        rig.engine.send(AudioCmd::SetEq(eq));
+        let generation = rig.load(path, 0.0, true);
+        assert!(matches!(rig.wait_event(), AudioEvent::Loaded { generation: g, .. } if g == generation));
+        let mut audio = Vec::new();
+        assert_eq!(rig.drain_until_event(&mut audio), AudioEvent::Ended { generation });
+        let tail = &audio[audio.len() / 2..];
+        (tail.iter().map(|&s| f64::from(s).powi(2)).sum::<f64>() / tail.len() as f64).sqrt()
+    }
+
+    /// G-7: chuỗi web là `nguồn → 10 biquad → GainNode(volume / 100) → loa`. Âm lượng tối đa là nguyên mức bài, đường âm lượng
+    /// tuyến tính, bass boost +10 dB làm 40 Hz to lên đúng như spec còn 1 kHz giữ nguyên. Trước G-7: max với bass boost +10 dB
+    /// nhỏ đi 9,87 dB (3,1 lần), thanh 50 % nhỏ hơn web 6 dB (`v²`).
+    #[test]
+    fn output_level_matches_the_web_audio_chain() {
+        const AMPLITUDE: f64 = 0.25;
+        let reference = AMPLITUDE / std::f64::consts::SQRT_2;
+        let db = |rms: f64| 20.0 * (rms / reference).log10();
+        let mid = TempWav::tone(RATE, RATE as usize, 1000.0, AMPLITUDE);
+        let low = TempWav::tone(RATE, RATE as usize, 40.0, AMPLITUDE);
+
+        let flat = EqParams::default();
+        assert!(db(played_rms(&mid.0, 1.0, flat)).abs() < 0.05, "max volume is unity");
+        let half = played_rms(&mid.0, 0.5, flat) / reference;
+        assert!((half - 0.5).abs() < 0.005, "50 % is half the amplitude, like GainNode: {half}");
+        let quiet = played_rms(&mid.0, 0.3, flat) / reference;
+        assert!((quiet - 0.3).abs() < 0.005, "{quiet}");
+
+        let mut settings = groove_core::settings::EqSettings::default();
+        settings.set_bass_boost(10.0);
+        let boost = EqParams::from(&settings);
+        let gains = boost.gains_db.map(f64::from);
+        let mid_db = db(played_rms(&mid.0, 1.0, boost));
+        let low_db = db(played_rms(&low.0, 1.0, boost));
+        let want_mid = crate::dsp::chain_response_db(&gains, RATE, 1000.0);
+        let want_low = crate::dsp::chain_response_db(&gains, RATE, 40.0);
+        assert!((mid_db - want_mid).abs() < 0.05 && mid_db.abs() < 0.2, "1 kHz {mid_db} dB, spec {want_mid}");
+        assert!((low_db - want_low).abs() < 0.05 && low_db > 5.5, "40 Hz {low_db} dB, spec {want_low}");
     }
 
     #[test]
