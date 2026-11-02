@@ -11,7 +11,7 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `Cargo.toml`, `deny.toml`, `crates/*/Cargo.toml`, `core/{paths,i18n}.rs`, `app/main.rs`, `i18n/*/common.toml` |
 
-Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 01. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
+Đặc tả (đã làm xong, đọc qua lịch sử git): `git show 1a2480f:docs/rewrite-spec.md`, bảng mục 6 dòng 01. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 1. Làm gì
 - Làm đúng hành vi ở mục 1 và dữ liệu ở mục 2 của đặc tả cho phạm vi "File đụng tới".

@@ -39,7 +39,7 @@
 - **Chưa kiểm**: nhìn bảng thật và `ShellEvent::OpenSearch` nối thật từ ô tìm, `Ctrl+K` (`[owner-qa]` ở `_backlog.md`).
 - **Cần biết**: khung đệm 24 px của `Dialog` là hằng của materiant, bảng lệnh hẹp hơn bản cũ một chút; muốn khít thì đề xuất tuỳ chọn đệm cho `Dialog`.
 
-Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 29. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
+Đặc tả (đã làm xong, đọc qua lịch sử git): `git show 1a2480f:docs/rewrite-spec.md`, bảng mục 6 dòng 29. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 0. Bàn giao từ groove-gd1_26 (02/11/2026)
 
@@ -59,7 +59,7 @@
 
 ## 9. Bàn giao thực tế (02/11/2026)
 
-**Kết quả**: `#![allow(dead_code)]` đã gỡ; bảng so bản cũ `docs/parity.md` (mỗi dòng: test / chạy thật / chỉ đọc mã / chưa kiểm);
+**Kết quả**: `#![allow(dead_code)]` đã gỡ; bảng so bản cũ `git show 1a2480f:docs/parity.md` (mỗi dòng: test / chạy thật / chỉ đọc mã / chưa kiểm);
 RAM đo được (dưới); `CLAUDE.md`, `ROADMAP.md` viết lại; gỡ Tauri là một commit riêng trên nhánh `claude/remove-tauri`, chưa gộp,
 tag `tauri-final` đặt trên `master` trước khi gỡ.
 
@@ -85,7 +85,7 @@ Cùng bộ lệnh trên nhánh `claude/remove-tauri`. App thật: `tools/measure
 `g p`, `ctrl-k`, `escape`, bấm nút Settings; tiêu đề đổi đúng, các ảnh chụp (My Music, Now Playing, bảng lệnh, Settings) đã xem
 rồi xoá, `foreground_unchanged=True`.
 
-**RAM** (`docs/parity.md`): release + debug assertions, thư viện trống: 59,5 MB working set / 66,4 MB private lúc nghỉ, 64 MB sau
+**RAM** (`CLAUDE.md` mục Bẫy): release + debug assertions, thư viện trống: 59,5 MB working set / 66,4 MB private lúc nghỉ, 64 MB sau
 khi đi qua các màn; 48 luồng. Chưa đo: thư viện thật, đang phát, bản phát hành thật.
 
 **Chưa kiểm**: mọi thứ cần màn thật, loa, macOS, Ubuntu (`_backlog.md`); nền mờ; hộp chọn tệp của OS.

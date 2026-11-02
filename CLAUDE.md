@@ -2,8 +2,10 @@
 
 Repo git riêng trong workspace `xdesktop` (luật chung, quyết định D-* / G-*: `../CLAUDE.md`, `../docs/decisions.md`).
 Đã viết lại từ Tauri + Vue sang Rust + GPUI + materiant (G-1): mọi task GĐ1 đã gộp, trừ task 28 (đọc localStorage cũ, tuỳ
-chọn, chưa làm). Đặc tả, lỗi đã sửa: `docs/rewrite-spec.md`; bảng so bản cũ, số đo RAM: `docs/parity.md`; lộ trình:
-`ROADMAP.md`. Task: `plan/groove-gd1_*.md` (skill `run-task`), việc treo `plan/_backlog.md`, việc đã tự chọn `plan/confirm.md`.
+chọn, chưa làm). Lộ trình: `ROADMAP.md`.
+Repo không có `docs/` (D-7): đặc tả viết lại và bảng so bản cũ đã làm xong, đọc qua lịch sử git —
+`git show 1a2480f:docs/rewrite-spec.md`, `git show 1a2480f:docs/parity.md`. Comment `đặc tả <mục>` và mã lỗi `S<n>`, `N<n>`,
+`M<n>` trong mã, task trỏ vào đặc tả đó (mục 3 là danh sách lỗi). Task: `plan/groove-gd1_*.md` (skill `run-task`), việc treo `plan/_backlog.md`, việc đã tự chọn `plan/confirm.md`.
 
 **Bản Rust chưa được chủ dự án nhìn trên màn thật.** Cửa sổ thật mới chạy trong desktop ẩn (`tools/measure-hidden.ps1`), nên
 bản Tauri vẫn là bản chạy được duy nhất đã kiểm:
@@ -54,6 +56,13 @@ Viết tắt trong task: `core`, `library`, `audio`, `app`, `views` = `crates/gr
 - **`libasound` (LGPL) đã chấp nhận, chỉ link động** (G-2): ở Linux `cpal` sau feature `groove-audio/linux-alsa`, bật mặc
   định; không link tĩnh, không kèm vào bản cài, gói `.deb` khai là phụ thuộc. Build Linux cần `libasound2-dev`.
 - Mã chỉ một OS ⇒ `#[cfg(target_os = …)]` trong `app/platform`, không rải khắp nơi.
+- **DB cũ của bản Tauri** (`paths::legacy_db`, `<data>/com.mrdxd.groovex/groovex.db`): chép sang `library.db` rồi migrate bản
+  chép trong một transaction, không sửa tệp cũ; giữ nguyên `id` của `songs`, `playlists`, `albums`, `folders`; `user_version`
+  lớn hơn bản đang hỗ trợ thì từ chối mở và báo, không ghi đè. Thẻ tệp nhạc tương thích hai chiều, `TXXX:TIMELINE` giữ tên.
+- **Lệch có chủ đích so với bản web** (GPUI: `div` không có `scale`, `transform`, `backdrop-filter`, transition khai báo):
+  khối nổi nền alpha 0,85 (D-10) thay `backdrop-blur`, chỉ cột trái mờ cả cửa sổ (`Blurred`); bỏ `scale` khi hover, đổi
+  nền / viền; bỏ nhấp nháy số giờ; thanh phát cập nhật tối đa 4 lần / s và chỉ khi đang phát. Nền `Blurred` làm GPUI tắt
+  ClearType, chữ cả app khử răng cưa xám — chờ chủ dự án xem trên màn thật.
 - **Màu nhấn**: cyan `#06b6d4` của bản cũ, đặt ở `app::apply_theme` (`ACCENT`), không dùng màu mặc định của materiant.
 
 ## Lệnh
@@ -86,8 +95,13 @@ màn không có thì thoát, không rơi về màn mặc định. Xem ảnh xong
 - **Worktree**: đặt ở `<gốc>/.claude/worktrees/groove-<task>`. `materiant = { path = "../materiant" }` nhờ lối nối
   `.claude/worktrees/materiant` đã có. `CARGO_TARGET_DIR` riêng từng worktree (`groove/target/<task>`), xoá khi xong.
 - **AppData ảo hoá MSIX**: exe chạy từ app Claude trên Windows ghi vào `LocalCache` của gói. Không thấy DB cũ ở đó không có
-  nghĩa là máy không có DB (đặc tả 2.3).
+  nghĩa là máy không có DB.
 - `notify` dùng bản 8 + `notify-debouncer-full` 0.5, không phải bản `-rc` mà `cargo info` đưa ra.
 - Dòng ERROR `directx_devices.rs:82 ... 0x887A002D` lúc chạy debug chỉ là thiếu lớp debug DXGI, không phải lỗi.
 - Trên desktop ẩn còn `unable to get cursor position: Access is denied` và `taskbar list init: 0x80004001`: do desktop ẩn.
 - `GROOVE_DATA_DIR` kéo theo cả chỗ tìm DB Tauri cũ (`paths::legacy_db`): chạy thử không bao giờ đọc DB thật.
+- **Số đo RAM** (02/11/2026, desktop ẩn, thư viện trống, không phát; release + `debug-assertions` để `GROOVE_DATA_DIR` còn
+  hiệu lực): nghỉ 59,5 MB working set / 66,4 MB private, sau khi đi qua Now Playing, bảng lệnh, Settings 63–64 / 68,5–69 MB,
+  48 luồng; debug 76 / 70 MB. Chưa đo thư viện thật, lúc phát, macOS, Linux. Lệnh:
+  `$env:CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS = "true"; cargo build --release -p groove-app` rồi
+  `pwsh tools/measure-hidden.ps1 -Exe target/release/groove.exe -Seconds 30`.

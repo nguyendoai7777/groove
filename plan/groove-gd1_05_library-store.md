@@ -23,7 +23,7 @@
 - **Phải xử lý**: `MigrateError::TooNew` (báo, không mở), `LegacyFailed` (`library.db` chưa có, tệp cũ nguyên; báo rồi `open_fresh` hoặc thử lại lần sau), `OpenOutcome::Migrated(report)`.
 - **Nợ**: sink thật ở `covers.rs` (07). Khi 07 chưa gộp thì nhận sink từ caller, không tự viết sink bỏ bìa ở đường chạy thật.
 - **Bẫy**: `Connection::close` trước khi đổi tên tệp trên Windows. Test dùng closure làm sink được. Thử bằng thư mục tạm, không đụng DB thật.
-Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 05. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
+Đặc tả (đã làm xong, đọc qua lịch sử git): `git show 1a2480f:docs/rewrite-spec.md`, bảng mục 6 dòng 05. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 1. Làm gì
 - Làm đúng hành vi ở mục 1 và dữ liệu ở mục 2 của đặc tả cho phạm vi "File đụng tới".

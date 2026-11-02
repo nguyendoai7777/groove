@@ -41,7 +41,7 @@
 - **Nghe**: `Library::subscribe()` trả `Stream<LibraryEvent>`; `Synced(report).removed` là `id` cần bỏ khỏi hàng đợi.
 - **Mở thư viện chưa có chủ**: đường chạy thật gọi `Library::open_standard()` một lần (không chặn), giữ một bản; khi thoát `block_on(library.shutdown())`. Ai làm trước trong 13, 15, 17 thì gọi trong `app.rs`.
 
-Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 13. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
+Đặc tả (đã làm xong, đọc qua lịch sử git): `git show 1a2480f:docs/rewrite-spec.md`, bảng mục 6 dòng 13. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 0. Bàn giao từ groove-gd1_12 (02/11/2026)
 

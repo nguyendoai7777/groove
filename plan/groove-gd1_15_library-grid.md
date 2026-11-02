@@ -29,7 +29,7 @@
 - **Vùng nội dung**: đục (`surface`), cao = cửa sổ trừ thanh trên 36 px và thanh phát 90 px; slot nằm trong `div` `flex_1 min_h_0`, view dùng `size_full()`.
 - **Icon sẵn**: `GrooveIcon::{DefaultCover, Folder, Delete, Play, Album, Song}`.
 
-Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 15. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
+Đặc tả (đã làm xong, đọc qua lịch sử git): `git show 1a2480f:docs/rewrite-spec.md`, bảng mục 6 dòng 15. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 1. Làm gì
 - Làm đúng hành vi ở mục 1 và dữ liệu ở mục 2 của đặc tả cho phạm vi "File đụng tới".

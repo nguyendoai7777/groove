@@ -20,7 +20,7 @@
 - **Bẫy đã gặp**: `CARGO_TARGET_DIR` riêng từng worktree, build nguội khoảng 3 phút; `tools/run.ps1` từ chối khi máy chỉ một màn.
 - **Nợ chuyển sang đây**: gọi `i18n::set_language` theo cài đặt (`i18n::Language` serde `vi`, `en`, `Language::detect` theo OS); giữ hằng đuôi tệp nhạc một chỗ ở `core/model.rs` (S22); đường dẫn tệp: `paths::settings_file`, `paths::session_file`.
 
-Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 02. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
+Đặc tả (đã làm xong, đọc qua lịch sử git): `git show 1a2480f:docs/rewrite-spec.md`, bảng mục 6 dòng 02. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 1. Làm gì
 - Làm đúng hành vi ở mục 1 và dữ liệu ở mục 2 của đặc tả cho phạm vi "File đụng tới".

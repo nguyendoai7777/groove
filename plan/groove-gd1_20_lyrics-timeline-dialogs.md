@@ -29,7 +29,7 @@
 - **Làm mới**: nghe `Progress` kind `MetadataBulk`, `done == total`; không có `Synced`.
 - **Soát lại khi làm**: `cargo test -p groove-library --test metadata_ops`.
 
-Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 20. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
+Đặc tả (đã làm xong, đọc qua lịch sử git): `git show 1a2480f:docs/rewrite-spec.md`, bảng mục 6 dòng 20. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 1. Làm gì
 - Làm đúng hành vi ở mục 1 và dữ liệu ở mục 2 của đặc tả cho phạm vi "File đụng tới".

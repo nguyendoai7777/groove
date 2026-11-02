@@ -19,7 +19,7 @@
 - **Không có trong `Command`**: Play, Pause tách riêng, tua tuyệt đối. Media session gọi thẳng `player(cx).update(cx, |p, cx| p.play(cx))`, `pause`, `seek`: `Command` là danh sách lệnh gán phím, thêm vào là lộ ra JSON phím tắt.
 - **Cần biết**: `commands::run` không qua luật ngữ cảnh M4, nên phím media vẫn chạy khi dialog đang mở, đúng ý vì chúng đến từ OS.
 
-Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 26. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
+Đặc tả (đã làm xong, đọc qua lịch sử git): `git show 1a2480f:docs/rewrite-spec.md`, bảng mục 6 dòng 26. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 1. Làm gì
 - Làm đúng hành vi ở mục 1 và dữ liệu ở mục 2 của đặc tả cho phạm vi "File đụng tới".

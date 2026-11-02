@@ -20,7 +20,7 @@
 - **Mở tệp**: `play_paths(Vec<PathBuf>, cx)`: tệp đầu phát, tệp sau vào hàng đợi, tự đổi sang `TrackRef::Library` nếu có trong thư viện. Gọi trước khi phiên đọc xong thì tự chờ và thắng bài của phiên (đặc tả 5.6), không cần hẹn giờ. Lọc đuôi (S22) là việc của bên gọi, player không lọc. Trùng bài đang phát thì chỉ tiếp tục (N6 đã đúng theo đường dẫn).
 - **Thứ tự**: `player::install` ở `app::run` sau `library_page::install`; lời gọi của task này đặt sau nó.
 
-Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 25. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
+Đặc tả (đã làm xong, đọc qua lịch sử git): `git show 1a2480f:docs/rewrite-spec.md`, bảng mục 6 dòng 25. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 1. Làm gì
 - Làm đúng hành vi ở mục 1 và dữ liệu ở mục 2 của đặc tả cho phạm vi "File đụng tới".

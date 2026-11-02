@@ -29,7 +29,7 @@
 - **Áp phím**: chỉ cần `app::update_settings(cx, |s| s.custom_keybindings = Some(list))`. `commands` tự so ở phím kế, không có hàm nạp lại.
 - **Cần biết**: hộp Settings là dialog, phím toàn cục tự tắt khi mở.
 
-Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 24. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
+Đặc tả (đã làm xong, đọc qua lịch sử git): `git show 1a2480f:docs/rewrite-spec.md`, bảng mục 6 dòng 24. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 0. Bàn giao từ groove-gd1_11 (02/11/2026)
 

@@ -33,7 +33,7 @@
 - **Bẫy**: bìa quá 16 MiB trên FLAC là `TagError::Write` (trần định dạng).
 - **Soát lại khi làm**: `cargo test -p groove-library tags`.
 
-Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 18. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
+Đặc tả (đã làm xong, đọc qua lịch sử git): `git show 1a2480f:docs/rewrite-spec.md`, bảng mục 6 dòng 18. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 1. Làm gì
 - Làm đúng hành vi ở mục 1 và dữ liệu ở mục 2 của đặc tả cho phạm vi "File đụng tới".

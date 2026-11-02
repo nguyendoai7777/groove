@@ -38,7 +38,7 @@
 - **Đổi so với bản cũ**: `RawFrame { id, description, value, known }` không còn `name`: nhãn khung tra theo `id` qua i18n vùng `metadata`, `description` là mô tả của `TXXX`. Số khung rác là số dòng `known == false`; `TXXX:TIMELINE` có `known == true`.
 - **Bìa**: dùng `CoverEdit { Keep, Remove, Set(Vec<u8>) }`, không còn `data:` URI.
 
-Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 19. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
+Đặc tả (đã làm xong, đọc qua lịch sử git): `git show 1a2480f:docs/rewrite-spec.md`, bảng mục 6 dòng 19. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 1. Làm gì
 - Làm đúng hành vi ở mục 1 và dữ liệu ở mục 2 của đặc tả cho phạm vi "File đụng tới".
