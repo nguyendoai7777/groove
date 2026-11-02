@@ -1,4 +1,8 @@
-//! groove-gd1_11: biquad EQ, preamp (S23). Bass boost cộng ở `groove_core::settings::EqSettings::effective_gains`.
+//! groove-gd1_11: biquad EQ. Bass boost cộng ở `groove_core::settings::EqSettings::effective_gains`.
+//!
+//! G-7: chuỗi y như bản web (`src/shared/core/audio-engine.ts` ở tag `tauri-final`): 10 `BiquadFilterNode` nối tiếp, không
+//! preamp, không limiter, không tự hạ mức khi tăng dải. Preamp tự động của S23 (trừ đỉnh đáp ứng) đã gỡ: bass boost +10 dB
+//! hạ cả bài 10 dB, bass 40 Hz còn thấp hơn lúc tắt EQ. Mẫu vượt 0 dBFS chỉ bị cắt cứng ở `output::Renderer::render`.
 //!
 //! Luồng decoder gọi [`Equalizer::process`] trước khi đẩy vào ring (đặc tả 5.1). `process` và `set_params` không cấp phát,
 //! không khoá; chỉ `new` và `set_format` cấp phát.
@@ -41,10 +45,6 @@ impl EqParams {
         self.gains_db
             .map(|gain| if gain.is_finite() { gain.clamp(-EQ_GAIN_LIMIT_DB, EQ_GAIN_LIMIT_DB) as f64 } else { 0.0 })
     }
-}
-
-fn db_to_linear(db: f64) -> f64 {
-    10f64.powf(db / 20.0)
 }
 
 /// Hệ số đã chia `a0`.
@@ -112,6 +112,7 @@ impl Biquad {
     }
 
     /// |H|² tại tần số góc `w`.
+    #[cfg(test)]
     fn power_at(&self, w: f64) -> f64 {
         // Dạng theo sin²(w/2) của Cookbook: dạng theo cos(w) mất độ chính xác ở tần số thấp, nơi mẫu số sát 0.
         let phi = (w / 2.0).sin().powi(2);
@@ -122,8 +123,9 @@ impl Biquad {
     }
 }
 
-/// Đáp ứng của cả chuỗi 10 bộ lọc, chưa tính preamp, đơn vị dB.
-fn chain_response_db(gains_db: &[f64; BAND_COUNT], sample_rate: u32, freq_hz: f64) -> f64 {
+/// Đáp ứng của cả chuỗi 10 bộ lọc, đơn vị dB: cũng là đáp ứng của cả EQ, vì không có preamp.
+#[cfg(test)]
+pub(crate) fn chain_response_db(gains_db: &[f64; BAND_COUNT], sample_rate: u32, freq_hz: f64) -> f64 {
     let w = 2.0 * PI * freq_hz / sample_rate as f64;
     let power: f64 = gains_db
         .iter()
@@ -131,20 +133,6 @@ fn chain_response_db(gains_db: &[f64; BAND_COUNT], sample_rate: u32, freq_hz: f6
         .map(|(band, &gain)| Biquad::for_band(band, gain, sample_rate).power_at(w))
         .product();
     10.0 * power.log10()
-}
-
-/// Preamp tự động (S23): trừ đúng đỉnh đáp ứng thật của chuỗi. Một dải thì bằng `-max(gain dương)` của đặc tả; các dải
-/// chồng lấn cộng dồn vượt gain từng dải (toàn +10 dB ra khoảng +15 dB), đỉnh thật mới giữ được không rè. Chỉ giảm, không tăng.
-fn auto_preamp_db(gains_db: &[f64; BAND_COUNT], sample_rate: u32) -> f64 {
-    if sample_rate == 0 || gains_db.iter().all(|&g| g <= 0.0) {
-        return 0.0;
-    }
-    let nyquist = sample_rate as f64 / 2.0;
-    // Lưới 1/6 quãng 8 từ 20 Hz, cộng tâm các dải, DC và Nyquist nơi hai shelf đạt đủ gain.
-    let grid = (0..60).map(|k| 20.0 * 2f64.powf(k as f64 / 6.0));
-    let points = grid.chain(EQ_BANDS_HZ.map(f64::from)).chain([0.0, nyquist]).filter(|&f| f <= nyquist);
-    let peak = points.map(|f| chain_response_db(gains_db, sample_rate, f)).fold(0.0, f64::max);
-    -peak
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -155,14 +143,12 @@ struct History {
     y2: f64,
 }
 
-/// EQ 10 dải + preamp cho một luồng PCM xen kẽ `f32`. Cài phẳng thì đi tắt, trả nguyên từng bit.
+/// EQ 10 dải cho một luồng PCM xen kẽ `f32`. Cài phẳng thì đi tắt, trả nguyên từng bit.
 pub struct Equalizer {
     sample_rate: u32,
     channels: usize,
     target_db: [f64; BAND_COUNT],
     current_db: [f64; BAND_COUNT],
-    preamp_target_db: f64,
-    preamp_db: f64,
     coeffs: [Biquad; BAND_COUNT],
     /// Trạng thái riêng từng kênh, mỗi kênh đủ 10 dải.
     history: Vec<[History; BAND_COUNT]>,
@@ -177,8 +163,6 @@ impl Equalizer {
             channels,
             target_db: [0.0; BAND_COUNT],
             current_db: [0.0; BAND_COUNT],
-            preamp_target_db: 0.0,
-            preamp_db: 0.0,
             coeffs: [Biquad::IDENTITY; BAND_COUNT],
             history: vec![[History::default(); BAND_COUNT]; channels],
             bypassed: true,
@@ -188,7 +172,6 @@ impl Equalizer {
     /// Đổi cài đặt lúc đang phát: gain trượt tới đích với hằng thời gian 10 ms, không lách tách.
     pub fn set_params(&mut self, params: &EqParams) {
         self.target_db = params.clamped_gains_db();
-        self.preamp_target_db = auto_preamp_db(&self.target_db, self.sample_rate);
         if self.bypassed && !self.target_is_flat() {
             self.wake();
         }
@@ -202,7 +185,6 @@ impl Equalizer {
         self.sample_rate = sample_rate;
         self.channels = channels;
         self.history.resize(channels, [History::default(); BAND_COUNT]);
-        self.preamp_target_db = auto_preamp_db(&self.target_db, sample_rate);
         self.reset();
     }
 
@@ -210,7 +192,6 @@ impl Equalizer {
     pub fn reset(&mut self) {
         self.history.fill([History::default(); BAND_COUNT]);
         self.current_db = self.target_db;
-        self.preamp_db = self.preamp_target_db;
         self.refresh_coeffs();
         self.bypassed = self.target_is_flat();
     }
@@ -240,20 +221,16 @@ impl Equalizer {
         if frames == 0 {
             return;
         }
-        let gain_start = db_to_linear(self.preamp_db);
         self.advance_smoothing(frames);
-        let gain_end = db_to_linear(self.preamp_db);
-        let gain_step = (gain_end - gain_start) / frames as f64;
 
-        for (i, frame) in block.chunks_exact_mut(self.channels).enumerate() {
-            let gain = gain_start + gain_step * (i + 1) as f64;
+        for frame in block.chunks_exact_mut(self.channels) {
             for (sample, bands) in frame.iter_mut().zip(&mut self.history) {
                 // Một mẫu NaN mà lọt vào trạng thái thì kênh đó câm vĩnh viễn.
                 let mut value = if sample.is_finite() { *sample as f64 } else { 0.0 };
                 for (coeff, h) in self.coeffs.iter().zip(bands.iter_mut()) {
                     value = coeff.run(h, value);
                 }
-                *sample = (value * gain) as f32;
+                *sample = value as f32;
             }
         }
         self.flush_denormals();
@@ -268,7 +245,6 @@ impl Equalizer {
                 self.coeffs[band] = Biquad::for_band(band, self.current_db[band], self.sample_rate);
             }
         }
-        self.preamp_db = approach(self.preamp_db, self.preamp_target_db, step);
     }
 
     fn refresh_coeffs(&mut self) {
@@ -278,7 +254,7 @@ impl Equalizer {
     }
 
     fn target_is_flat(&self) -> bool {
-        self.target_db.iter().all(|&g| g == 0.0) && self.preamp_target_db == 0.0
+        self.target_db.iter().all(|&g| g == 0.0)
     }
 
     /// Từ đi tắt sang lọc: hệ số lúc này sát đơn vị (x - y = 0 trong trạng thái), nên bắt đầu từ trạng thái rỗng không có cú nhảy.
@@ -299,7 +275,7 @@ impl Equalizer {
 
     /// Về phẳng rồi vẫn phải đợi đuôi tắt hẳn, cắt ngang đuôi là một cú nhảy mẫu.
     fn try_enter_bypass(&mut self) {
-        let settled = self.current_db == self.target_db && self.preamp_db == self.preamp_target_db;
+        let settled = self.current_db == self.target_db;
         if settled
             && self.target_is_flat()
             && self
@@ -408,41 +384,90 @@ mod tests {
         assert_eq!(p.clamped_gains_db(), [8.0, 9.5, -10.0, 10.0, -10.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
     }
 
-    #[test]
-    fn preamp_equals_band_gain_for_single_band() {
-        for band in 0..BAND_COUNT {
-            let got = auto_preamp_db(&single_band(band, 10.0), 48000);
-            // Shelf cao ở 48 kHz chưa đạt đủ +10 tại Nyquist nên cao hơn -10 một chút.
-            assert!((-10.000001..-9.0).contains(&got), "band {band}: {got}");
+    /// Đặc tả Web Audio (mục BiquadFilterNode), viết lại độc lập: hệ số theo đúng chữ của spec, |H| tính bằng số phức tại
+    /// `e^{jw}` chứ không qua dạng sin² của `power_at`. Shelf: `alpha_S` với S = 1; peaking: `alpha_Q = sin w0 / 2Q`.
+    fn web_audio_spec_db(band: usize, gain_db: f64, rate: u32, freq: f64) -> f64 {
+        let f0 = f64::from(EQ_BANDS_HZ[band]);
+        let nyquist = f64::from(rate) / 2.0;
+        if f0 >= nyquist || gain_db == 0.0 {
+            return 0.0;
         }
-        assert!((auto_preamp_db(&single_band(5, 6.0), 48000) + 6.0).abs() < 1e-9);
-        assert_eq!(auto_preamp_db(&[-10.0; BAND_COUNT], 48000), 0.0);
-        assert_eq!(auto_preamp_db(&[0.0; BAND_COUNT], 48000), 0.0);
+        let a = 10f64.powf(gain_db / 40.0);
+        let w0 = 2.0 * PI * f0 / f64::from(rate);
+        let s = 1.0;
+        let alpha_s = w0.sin() / 2.0 * ((a + 1.0 / a) * (1.0 / s - 1.0) + 2.0).sqrt();
+        let alpha_q = w0.sin() / (2.0 * PEAKING_Q);
+        let c = w0.cos();
+        let sa = a.sqrt();
+        let [b0, b1, b2, a0, a1, a2] = match band {
+            0 => [
+                a * ((a + 1.0) - (a - 1.0) * c + 2.0 * alpha_s * sa),
+                2.0 * a * ((a - 1.0) - (a + 1.0) * c),
+                a * ((a + 1.0) - (a - 1.0) * c - 2.0 * alpha_s * sa),
+                (a + 1.0) + (a - 1.0) * c + 2.0 * alpha_s * sa,
+                -2.0 * ((a - 1.0) + (a + 1.0) * c),
+                (a + 1.0) + (a - 1.0) * c - 2.0 * alpha_s * sa,
+            ],
+            9 => [
+                a * ((a + 1.0) + (a - 1.0) * c + 2.0 * alpha_s * sa),
+                -2.0 * a * ((a - 1.0) + (a + 1.0) * c),
+                a * ((a + 1.0) + (a - 1.0) * c - 2.0 * alpha_s * sa),
+                (a + 1.0) - (a - 1.0) * c + 2.0 * alpha_s * sa,
+                2.0 * ((a - 1.0) - (a + 1.0) * c),
+                (a + 1.0) - (a - 1.0) * c - 2.0 * alpha_s * sa,
+            ],
+            _ => [1.0 + alpha_q * a, -2.0 * c, 1.0 - alpha_q * a, 1.0 + alpha_q / a, -2.0 * c, 1.0 - alpha_q / a],
+        };
+        let w = 2.0 * PI * freq / f64::from(rate);
+        // H(z) tại z = e^{jw}: (b0 + b1 z⁻¹ + b2 z⁻²) / (a0 + a1 z⁻¹ + a2 z⁻²).
+        let eval = |k0: f64, k1: f64, k2: f64| {
+            let re = k0 + k1 * w.cos() + k2 * (2.0 * w).cos();
+            let im = -(k1 * w.sin() + k2 * (2.0 * w).sin());
+            re.hypot(im)
+        };
+        20.0 * (eval(b0, b1, b2) / eval(a0, a1, a2)).log10()
     }
 
+    fn web_audio_chain_db(gains: &[f64; BAND_COUNT], rate: u32, freq: f64) -> f64 {
+        (0..BAND_COUNT).map(|band| web_audio_spec_db(band, gains[band], rate, freq)).sum()
+    }
+
+    /// Từng loại lọc (lowshelf 31 Hz, 8 peaking Q 1,414, highshelf 16 kHz) khớp công thức của spec tại 1/12 quãng 8 từ 20 Hz.
     #[test]
-    fn preamp_keeps_whole_chain_at_or_below_unity() {
-        let curves: [[f64; BAND_COUNT]; 4] = [
-            [10.0; BAND_COUNT],
-            [10.0, 8.0, 5.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-            [10.0, -10.0, 10.0, -10.0, 10.0, -10.0, 10.0, -10.0, 10.0, -10.0],
-            [0.0, 0.0, 0.0, 0.0, 0.0, 10.0, 10.0, 10.0, 0.0, 0.0],
-        ];
-        for gains in curves {
-            for rate in [22050, 44100, 48000, 96000] {
-                let preamp = auto_preamp_db(&gains, rate);
-                let nyquist = rate as f64 / 2.0;
-                let mut freq = 10.0;
-                while freq < nyquist {
-                    let total = chain_response_db(&gains, rate, freq) + preamp;
-                    assert!(total < 0.1, "{gains:?} @{rate}, {freq} Hz: {total}");
-                    freq *= 1.01;
+    fn every_band_matches_web_audio_spec_formula() {
+        for rate in [44100, 48000, 96000] {
+            for band in 0..BAND_COUNT {
+                for gain in [-10.0, -4.5, 3.0, 10.0] {
+                    let gains = single_band(band, gain);
+                    let mut freq = 20.0;
+                    while freq < f64::from(rate) / 2.0 * 0.98 {
+                        let got = chain_response_db(&gains, rate, freq);
+                        let want = web_audio_chain_db(&gains, rate, freq);
+                        assert!((got - want).abs() < 1e-6, "band {band} {gain} dB @{rate}, {freq} Hz: {got} != {want}");
+                        freq *= 2f64.powf(1.0 / 12.0);
+                    }
                 }
             }
         }
-        // Chứng minh vì sao không dùng `-max(gain dương)`: toàn +10 dB vượt xa +10 dB.
-        let peak = -auto_preamp_db(&[10.0; BAND_COUNT], 48000);
-        assert!(peak > 12.0, "{peak}");
+    }
+
+    /// G-7: không có preamp, đáp ứng cả EQ là tích các bộ lọc. Dải giữa không bị kéo xuống khi tăng dải khác.
+    #[test]
+    fn positive_gains_do_not_lower_untouched_frequencies() {
+        let curves: [[f32; BAND_COUNT]; 3] = [
+            [10.0, 8.0, 5.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 10.0, 10.0],
+            [10.0; BAND_COUNT],
+        ];
+        for gains in curves {
+            let effective = params(gains).clamped_gains_db();
+            // Mọi tần số đều không thấp hơn lúc phẳng: không có gì hạ cả bài.
+            let mut freq = 20.0;
+            while freq < 20000.0 {
+                assert!(chain_response_db(&effective, 48000, freq) > -1e-9, "{gains:?} {freq} Hz");
+                freq *= 1.05;
+            }
+        }
     }
 
     fn sine(freq: f64, rate: u32, amplitude: f64, frames: usize) -> Vec<f32> {
@@ -453,14 +478,13 @@ mod tests {
         (samples.iter().map(|&s| (s as f64).powi(2)).sum::<f64>() / samples.len() as f64).sqrt()
     }
 
-    /// Đo qua `process` thật, không phát tiếng: đáp ứng đo được khớp công thức, gồm cả preamp.
+    /// Đo qua `process` thật, không phát tiếng: đáp ứng đo được khớp công thức của spec Web Audio.
     #[test]
     fn processed_sine_matches_computed_response() {
         let gains = [6.0, -4.0, 3.0, 0.0, 5.0, -8.0, 2.0, 10.0, -6.0, 7.0];
         let p = params(gains);
         let effective = p.clamped_gains_db();
         for rate in [44100, 96000] {
-            let preamp = auto_preamp_db(&effective, rate);
             for freq in [40.0, 100.0, 440.0, 1000.0, 3000.0, 6000.0, 12000.0] {
                 let mut eq = Equalizer::new(rate, 1);
                 eq.set_params(&p);
@@ -469,9 +493,42 @@ mod tests {
                 let input = rms(&buf[rate as usize / 2..]);
                 eq.process(&mut buf);
                 let measured = 20.0 * (rms(&buf[rate as usize / 2..]) / input).log10();
-                let want = chain_response_db(&effective, rate, freq) + preamp;
+                let want = web_audio_chain_db(&effective, rate, freq);
                 assert!((measured - want).abs() < 0.02, "{freq} Hz @{rate}: {measured} != {want}");
             }
+        }
+    }
+
+    /// Bass boost +10 dB (ảnh lỗi 02/11/2026) đo qua `process`: dải thấp tăng đúng số dB của spec, dải giữa giữ nguyên.
+    /// Trước G-7 preamp -10 dB làm 1 kHz -9,87 dB và 40 Hz -3,87 dB: tăng bass mà bass lại nhỏ đi.
+    #[test]
+    fn bass_boost_raises_lows_and_keeps_mids() {
+        let mut settings = EqSettings::default();
+        settings.set_bass_boost(10.0);
+        let p = EqParams::from(&settings);
+        let effective = p.clamped_gains_db();
+        assert_eq!(effective, [10.0, 8.0, 5.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+        const RATE: u32 = 48000;
+        let measure = |freq: f64| {
+            let mut eq = Equalizer::new(RATE, 2);
+            eq.set_params(&p);
+            eq.reset();
+            let mono = sine(freq, RATE, 0.1, RATE as usize * 2);
+            let mut stereo: Vec<f32> = mono.iter().flat_map(|&s| [s, s]).collect();
+            let input = rms(&mono[RATE as usize..]);
+            eq.process(&mut stereo);
+            let left: Vec<f32> = stereo.iter().step_by(2).copied().collect();
+            20.0 * (rms(&left[RATE as usize..]) / input).log10()
+        };
+        for (freq, min_db) in [(31.0, 6.0), (40.0, 5.5), (63.0, 5.0), (125.0, 3.0)] {
+            let got = measure(freq);
+            let want = web_audio_chain_db(&effective, RATE, freq);
+            assert!((got - want).abs() < 0.02, "{freq} Hz: {got} != {want}");
+            assert!(got > min_db, "{freq} Hz chỉ tăng {got} dB");
+        }
+        for freq in [1000.0, 2000.0, 4000.0] {
+            let got = measure(freq);
+            assert!(got.abs() < 0.2, "{freq} Hz đổi {got} dB");
         }
     }
 
@@ -528,15 +585,14 @@ mod tests {
             eq.set_params(&to);
             if hard_jump {
                 eq.current_db = eq.target_db;
-                eq.preamp_db = eq.preamp_target_db;
                 eq.refresh_coeffs();
             }
             eq.process(tail);
             max_curvature(&buf[4790..])
         };
         let (smooth, hard) = (run(false), run(true));
-        // Test có sức phân biệt: nhảy gain thẳng phải tệ hơn hẳn.
-        assert!(hard > smooth * 10.0, "hard {hard}, smooth {smooth}");
+        // Test có sức phân biệt: nhảy gain thẳng phải tệ hơn hẳn (khoảng 9,5 lần; trước G-7 preamp cùng nhảy nên chênh hơn).
+        assert!(hard > smooth * 5.0, "hard {hard}, smooth {smooth}");
         assert!(smooth < 1e-3, "smooth {smooth}");
     }
 
@@ -563,7 +619,7 @@ mod tests {
     #[test]
     fn leaving_and_entering_bypass_is_seamless() {
         const RATE: u32 = 48000;
-        // Bật EQ đúng lúc sin đạt đỉnh, nơi cú nhảy mẫu lớn nhất: 12 120 frame = 25,25 chu kỳ. Ngưỡng 20 lần: preamp bắt đầu
+        // Bật EQ đúng lúc sin đạt đỉnh, nơi cú nhảy mẫu lớn nhất: 12 120 frame = 25,25 chu kỳ. Ngưỡng 20 lần: gain bắt đầu
         // trượt nên độ dốc đổi (bản chất của `setTargetAtTime`), là gãy độ dốc nhỏ, không phải nhảy mẫu.
         const WAKE_AT: usize = 12120;
         let source = sine(100.0, RATE, 0.25, 96000);
@@ -622,7 +678,7 @@ mod tests {
         let mut buf = sine(1000.0, 96000, 0.25, 96000);
         let input = rms(&buf[48000..]);
         eq.process(&mut buf);
-        assert!((rms(&buf[48000..]) / input - 1.0).abs() < 0.01, "6 dB band, -6 dB preamp");
+        assert!((20.0 * (rms(&buf[48000..]) / input).log10() - 6.0).abs() < 0.01, "6 dB band, no preamp");
 
         // Luồng hỏng không được sập.
         let mut degenerate = Equalizer::new(0, 0);

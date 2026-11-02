@@ -61,7 +61,7 @@ pub trait AudioOutput: Send {
 
 /// Điều khiển đọc từ callback, ghi từ luồng khác.
 pub(crate) struct Controls {
-    /// Bit của `f32`, đã qua đường cong `v²` (S23).
+    /// Bit của `f32`: gain tuyến tính bằng đúng giá trị thanh âm lượng, như `GainNode.gain = volume / 100` của bản web (G-7).
     gain_bits: AtomicU32,
     muted: AtomicBool,
     paused: AtomicBool,
@@ -74,7 +74,7 @@ impl Controls {
 
     pub(crate) fn set_volume(&self, volume: f32) {
         let volume = if volume.is_finite() { volume.clamp(0.0, 1.0) } else { 1.0 };
-        self.gain_bits.store((volume * volume).to_bits(), Ordering::Relaxed);
+        self.gain_bits.store(volume.to_bits(), Ordering::Relaxed);
     }
 
     pub(crate) fn set_muted(&self, muted: bool) {
@@ -151,6 +151,8 @@ impl Renderer {
             };
             self.gain += (target_gain - self.gain) * self.volume_coeff;
             let scale = self.fade * self.gain;
+            // Cắt cứng chỉ khi mẫu thật sự vượt 0 dBFS (EQ dương trên bài master sát trần), như đường ra float của trình
+            // duyệt / Windows; không hạ mức cả bài (G-7). Thiết bị kiểu số nguyên cũng cần chặn trước khi đổi kiểu.
             for sample in frame.iter_mut() {
                 *sample = (*sample * scale).clamp(-1.0, 1.0);
             }
@@ -523,7 +525,7 @@ mod tests {
         producer.push_slice(&vec![0.5; 8000]);
         let out = render(&mut renderer, 5000);
         assert!((out[0] - 0.5).abs() < 0.02, "no jump: {}", out[0]);
-        assert!((out[9998] - 0.125).abs() < 1e-3, "v² curve: {}", out[9998]);
+        assert!((out[9998] - 0.25).abs() < 1e-3, "linear like Web Audio GainNode: {}", out[9998]);
         controls.set_muted(true);
         producer.push_slice(&vec![0.5; 12_000]);
         let out = render(&mut renderer, 6000);
