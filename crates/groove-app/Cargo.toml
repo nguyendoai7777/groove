@@ -34,8 +34,8 @@ unicode-normalization.workspace = true
 rusqlite = { version = "0.41", features = ["bundled", "functions"] }
 
 [target.'cfg(windows)'.dependencies]
-# Taskbar, DACL của pipe, focus phiên chính (đặc tả 5.3, 5.5).
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Security", "Win32_Security_Authorization", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_System_LibraryLoader", "Win32_System_Threading", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+# Taskbar, DACL của pipe, focus phiên chính (đặc tả 5.3, 5.5); registry, liên kết tệp, AppUserModelID (gd2_01).
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Security", "Win32_Security_Authorization", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_System_LibraryLoader", "Win32_System_Registry", "Win32_System_Threading", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

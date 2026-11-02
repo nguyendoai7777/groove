@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Dựng `<out>/groove-x_<version>_<arch>.deb` (groove-gd1_27). Chạy trên Ubuntu / Debian.
+# Dựng `<out>/groove-x_<version>_<arch>.deb` (groove-gd1_27, gd2_01). Chạy trên Ubuntu / Debian.
 #   sudo apt install libasound2-dev dpkg-dev
 #   bash packaging/linux/build-deb.sh                  # bản phát hành: thiếu trang giấy phép là dừng
 #   bash packaging/linux/build-deb.sh --draft          # bản thử: thiếu thì cảnh báo, tên có `-draft`
@@ -27,7 +27,9 @@ for tool in dpkg-deb dpkg-shlibdeps dpkg-architecture; do
   command -v "$tool" >/dev/null 2>&1 || { echo "Thiếu $tool: sudo apt install dpkg-dev" >&2; exit 1; }
 done
 
-version="$(sed -n 's/^version = "\(.*\)"$/\1/p' "$repo/Cargo.toml" | head -1)"
+# `tr`: checkout từ Windows có thể là CRLF, `"$` không khớp.
+version="$(tr -d '\r' < "$repo/Cargo.toml" | sed -n 's/^version = "\(.*\)"$/\1/p' | head -1)"
+[ -n "$version" ] || { echo "Không đọc được version trong Cargo.toml" >&2; exit 1; }
 arch="$(dpkg-architecture -qDEB_HOST_ARCH)"
 target_dir="${CARGO_TARGET_DIR:-$repo/target}"
 exe="$target_dir/release/groove"
@@ -42,11 +44,14 @@ mkdir -p "$out"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 root="$work/root"
-mkdir -p "$root/DEBIAN" "$root/usr/bin" "$root/usr/share/applications" \
-  "$root/usr/share/icons/hicolor/256x256/apps" "$root/usr/share/doc/groove-x"
+mkdir -p "$root/DEBIAN" "$root/usr/bin" "$root/usr/share/applications" "$root/usr/share/doc/groove-x"
 install -m 0755 "$exe" "$root/usr/bin/groove"
 install -m 0644 "$repo/packaging/linux/groove.desktop" "$root/usr/share/applications/groove.desktop"
-install -m 0644 "$repo/packaging/linux/groove.png" "$root/usr/share/icons/hicolor/256x256/apps/groove.png"
+# Icon hicolor mọi cỡ trong `packaging/linux/icons/<cỡ>.png` (gd2_01): menu, "Mở bằng", thanh tác vụ không phải co ảnh 256.
+for icon in "$repo"/packaging/linux/icons/*x*.png; do
+  dim="$(basename "$icon" .png)"
+  install -D -m 0644 "$icon" "$root/usr/share/icons/hicolor/$dim/apps/groove.png"
+done
 
 warnings=""
 if command -v pwsh >/dev/null 2>&1 && command -v cargo-about >/dev/null 2>&1; then

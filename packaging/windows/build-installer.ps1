@@ -25,12 +25,15 @@ function Find-Makensis {
     if ($Makensis) { return (Resolve-Path $Makensis).Path }
     $onPath = Get-Command makensis -ErrorAction Ignore
     if ($onPath) { return $onPath.Source }
+    # Worktree nằm ở `.claude/worktrees/…`: tìm theo checkout chính của repo (`<…>/groove/.git`), không theo thư mục đang đứng.
+    $main = git -C $repo rev-parse --path-format=absolute --git-common-dir 2>$null
     $known = @(
         (Join-Path $repo '../../tools/nsis/makensis.exe'),
+        $(if ($main) { Join-Path $main '../../../tools/nsis/makensis.exe' }),
         (Join-Path ${env:ProgramFiles(x86)} 'NSIS/makensis.exe'),
         (Join-Path $env:ProgramFiles 'NSIS/makensis.exe')
     )
-    foreach ($path in $known) { if (Test-Path -LiteralPath $path) { return (Resolve-Path $path).Path } }
+    foreach ($path in ($known | Where-Object { $_ })) { if (Test-Path -LiteralPath $path) { return (Resolve-Path $path).Path } }
     throw 'makensis not found: winget install NSIS.NSIS, or pass -Makensis <path>'
 }
 $nsis = Find-Makensis
