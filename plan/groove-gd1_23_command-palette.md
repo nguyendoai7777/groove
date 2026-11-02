@@ -2,7 +2,7 @@
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Trạng thái | ☐ |
+| Trạng thái | ✅ (02/11/2026) |
 | Repo | groove |
 | Model | sonnet |
 | Cỡ | ~550 dòng |
@@ -38,3 +38,18 @@
 
 ## 2. Không làm trong task này
 - Không thêm tính năng ngoài đặc tả; không sửa bản Tauri + Vue (G-1).
+## 8. Việc thiếu từ làn khác
+
+- Không có. Cần chỗ treo bảng trong cây cửa sổ nên thêm `Slot::CommandPalette` vào `app.rs` (xem mục 9 và `plan/confirm.md`).
+
+## 9. Bàn giao thực tế (02/11/2026)
+
+- **Đã làm**: `views/command_palette.rs` (`CommandPalette`, `install(window, cx)`), `i18n/{vi,en}/palette.toml`. `app::run` gọi `command_palette::install` một lần; bảng nghe `ShellEvent::OpenSearch` (ô tìm, `Ctrl+K`, kể cả đang gõ).
+- **Hành vi**: dialog 600 px `align_top`; trống: ba `QUICK_ACTIONS` (nhãn phím `key_label`), Enter chạy rồi đóng. Có chữ: debounce 250 ms, `Library::search(.., 50)`, `Superseded` thử lại tối đa 2 lần rồi im lặng, kết quả `seq` cũ bỏ; chọn bài `play_search_result`, không đóng; bài đang chọn của player hiện bars. `/`: lọc `cli::filter`, Tab `completion()`, Enter `cli::resolve` + `run_cli`; `Done` đóng, `ShowHelp` điền `/`, `NoMatch` và `CliError` hiện lời báo dưới ô, không đóng. ↑ ↓ quay vòng bỏ tiêu đề nhóm, rê chuột dời con trỏ, nhấp dòng đang chọn là chạy, Esc đóng (Dialog), mở lại thì ô trống. Đóng bảng thì xoá danh sách bài (RAM).
+- **Phím ↑ ↓ Tab Enter** đi qua `cx.intercept_keystrokes` (ô nhập một dòng giữ ↑ ↓ và Tab cho nó). Chỉ chạy khi bảng mở.
+- **Sửa `app.rs` (ngoài danh sách task 23, đã ghi `plan/confirm.md`)**: thêm `Slot::CommandPalette`, một dòng vẽ nó trong `Shell::render`, một lời gọi `install` trong `run`. Dialog của materiant phải nằm trong cây của view; chưa có chỗ nào khác.
+- **Quyết định đã chốt (không đoán nghiệp vụ)**: tiêu đề nhóm cao bằng dòng thường (danh sách ảo đòi dòng đều); mô tả thao tác nhanh và lệnh lấy từ catalog `palette`, không hardcode; chữ "Empty Placeholder" của bản cũ thay bằng `Không tìm thấy kết quả cho "<chữ>"`.
+- **Case**: C1 quick action chạy + đóng; C2 quay vòng; C3 tìm rồi chọn bài không đóng; C4 gõ nhanh chỉ lượt cuối; C5 không kết quả; C6 `/` lọc + Tab; C7 Enter chạy lệnh đang chọn rồi đóng, lệnh `/n`; C8 lệnh sai báo, gõ tiếp xoá báo; C9 `/help`; C10 `/play` không khớp báo; C11 Esc, mở lại sạch; thêm hai test thuần (`step_selection`, `song_description`). 13 test, tất cả `[sonnet-test]`, xanh.
+- **Soát**: `cargo build`, `cargo clippy --all-targets -- -D warnings`, `cargo test --no-fail-fast` (toàn workspace), `cargo deny check licenses`, `cargo fmt --all --check`: xanh. Lần chạy `cargo test` đầu có test engine `idle_closes_stream_and_keeps_position` đỏ (đã ở `_backlog.md`, không dính task), chạy lại xanh.
+- **Soi cải tiến**: bảo mật không áp (không ghi đĩa, không IPC); UX: dùng hết bằng bàn phím, lời báo kèm cách gỡ, vi / en cùng bộ khoá; RAM: một view nhỏ, danh sách bài nhả khi đóng, không thêm phụ thuộc; Pro không áp. Không có đề xuất ngoài phạm vi.
+- **Chờ kiểm tay** `[owner-qa]` (đã vào `plan/_backlog.md`): nhìn bảng thật (khung đệm 24 px của `Dialog` có thể rộng hơn bản cũ), hover, thanh cuộn, `ShellEvent::OpenSearch` nối thật từ ô tìm và `Ctrl+K` (không có test vì `Shell` global của `app.rs` là riêng tư).

@@ -150,6 +150,8 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_26] Bài không bìa trên Windows hiện logo app — giữ nguyên ảnh cũ — souvlaki không xoá được ảnh, ảnh bài trước sẽ dính sang bài sau.
 - [groove-gd1_26] Bỏ qua `SetVolume`, `Quit`, `OpenUri` từ OS, nhận `Raise` — làm đủ — ngoài đặc tả 5.4; `OpenUri` từ tiến trình khác còn là cửa mở tệp tuỳ ý.
 - [groove-gd1_26] Thêm `assets/taskbar`, `assets/media/no_cover.png` chép từ `src-tauri/icons` — trỏ thẳng `src-tauri` — task 29 gỡ thư mục đó.
+- [groove-gd1_23] Thêm `Slot::CommandPalette` và một dòng vẽ trong `Shell::render` của `app.rs` (tệp của task 03) — treo `Dialog` ở slot sẵn có hay dựng cửa sổ phụ — `Dialog` của materiant chỉ vẽ được khi nằm trong cây view, chưa có chỗ chung cho dialog.
+- [groove-gd1_23] Nhấp một dòng của bảng lệnh chạy ngay khi dòng đó đang chọn (rê chuột đã chọn nó), nhấp đúp không chạy lần hai — chạy ngay mọi lần nhấp — tránh chạy hai lần khi nhấp đúp; đặc tả chỉ ghi "rê chuột dời con trỏ".
 - [groove-gd1_21] Quầng accent đổi tức thì, không chuyển 700 ms — transition khai báo — GPUI `div` không có transition (bảng thay thế đặc tả mục 4).
 - [groove-gd1_21] Bài là tệp ngoài không có quầng accent — tính trung bình ảnh ở UI — UI không chạm đĩa / không có crate ảnh trong app; accent chỉ đọc từ `covers.accent_color` ở luồng nền.
 - [groove-gd1_21] Nút Metadata mở `MetadataDialog` (task 19), Sửa / Thêm lời và Timeline mở `TextDialog` (task 20) thay cho sửa tại chỗ ở đặc tả 1.5 — sửa tại chỗ — theo bàn giao task 20.
