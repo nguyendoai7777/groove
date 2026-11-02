@@ -243,6 +243,11 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [ui-player-bar-2] Thêm ở materiant `.ink` / `.hover_ink` (Button, IconButton) và `IconButton::icon_size`, icon đổi màu theo group hover của nút — vẽ nút riêng ở groove — `icon-btn.vue` cần chữ phụ rê thành chữ chính, hộp 36 icon 28; materiant cũ cố định màu icon lúc nghỉ và cỡ icon 62,5 % hộp.
 - [ui-player-bar-2] Nút phụ: hộp 36 px icon 28 px (Settings 24 / 20), cách nhau 16 px (`gap-4`), bên phải 12 px (`gap-3`); tắt dùng `muted` rê thành `text` của theme, bật xanh `#22c55e` cả lúc rê; nền rê là màu chữ (bật: xanh) 9 % — overlay `currentColor` của Vuetify — màu muted của theme materiant (#a3a3a3 tối) lệch 1 bậc so với `#a1a1aa` của web, giữ theme để sáng / tối cùng đúng.
 
+## lyrics-lag
+
+- [lyrics-lag] Hộp lyrics / timeline: bài đang phát điền sẵn chữ panel đang hiện (`Player::loaded_text`), sửa được ngay, không đọc gì; bài khác đọc `MetadataOps::read_text` — bài thư viện lấy DB, chỉ tệp ngoài thư viện mới đọc thẻ — đặc tả 1.6 "lấy từ tệp, tệp không có thì DB" như cũ — 765 / 1769 tệp nhạc của chủ dự án là bản OneDrive chỉ trên mạng, mở tệp là phải tải cả bài về; DB đã khớp thẻ nhờ indexer, watcher, lần lưu của app (N2), và là đúng chữ panel đang hiện. Lưu vẫn ghi tệp (phải tải về nếu tệp chỉ trên mạng).
+- [lyrics-lag] Hộp Metadata giữ đọc tệp lúc mở (hiện ngay, chữ "Đang đọc thẻ từ tệp...") — điền sẵn từ DB — đặc tả 1.8 cần đủ trường, bìa, khung thô của tệp; tệp chỉ trên mạng thì chờ OneDrive tải về.
+
 ## ui-round2
 
 - [ui-round2] Màu nhấn deeppink lấy từ theme (G-4): gỡ `ACCENT`, `DEFAULT_PLAYLIST_COLOR`, cyan cứng ở side nav, thanh nhảy; playlist không có màu dùng `primary`, hộp tạo playlist mặc định màu nhấn lúc mở — giữ `#06b6d4` làm màu playlist mặc định — G-4 cấm mã màu nhấn cứng; playlist cũ đã lưu màu cyan trong DB giữ màu của nó (dữ liệu người dùng). Xanh `#22c55e` của Shuffle / Repeat bật và xám `#d4d4d8` hover side nav không phải màu nhấn, giữ.

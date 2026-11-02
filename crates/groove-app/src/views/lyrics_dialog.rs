@@ -3,8 +3,9 @@
 //! Một lõi chung [`TextDialog`] cho cả hai, khác nhau ở [`TextKind`] (chữ, trường đọc / ghi, hướng dẫn); `timeline_dialog`
 //! chỉ dựng bản timeline. Hộp rộng 500 px, ô nhiều dòng 12 dòng, hai nút Huỷ, Lưu.
 //!
-//! Luồng: `open(track)` đọc nền qua `MetadataOps::read` (lyrics, timeline lấy từ tệp, tệp không có thì DB), ô khoá tới khi
-//! có chữ. Lưu gọi `save_lyrics` / `save_timeline`, xong thì `Player::refresh_current` rồi đóng. Lỗi (S5) ⇒ toast theo biến
+//! Luồng: `open(track)` hiện hộp ngay. Bài đang phát đã nạp chữ (`Player::loaded_text`, đúng chữ panel đang hiện) thì điền
+//! sẵn, sửa được ngay, không đọc gì. Bài khác đọc nền qua `MetadataOps::read_text` (bài thư viện lấy DB, không mở tệp: tệp
+//! OneDrive chỉ trên mạng phải tải cả bài về mới đọc được thẻ), ô khoá tới khi có chữ. Lưu gọi `save_lyrics` / `save_timeline`, xong thì `Player::refresh_current` rồi đóng. Lỗi (S5) ⇒ toast theo biến
 //! thể, hộp vẫn mở và giữ nguyên chữ đang gõ (ghi tệp lỗi thì DB giữ bản cũ). Đổi bài đang phát sang bài khác thì đóng
 //! (đặc tả 1.5); chuỗi rỗng là xoá cả tệp và DB.
 //!
@@ -164,19 +165,32 @@ impl TextDialog {
         self.area.update(cx, |area, cx| area.set_value(text, window, cx));
     }
 
-    /// Mở cho `track`: ô trống và khoá tới khi đọc xong từ tệp.
+    /// Mở cho `track`. Chữ đã có trong bộ nhớ thì điền sẵn, ô dùng được ngay. Chưa có thì ô trống và khoá tới khi đọc xong:
+    /// cho gõ lúc chưa biết chữ cũ thì Lưu sẽ ghi đè lời đang có bằng chữ gõ trên nền trống.
     pub fn open(&mut self, track: TrackRef, window: &mut Window, cx: &mut Context<Self>) {
         self.generation += 1;
         let generation = self.generation;
         self.track = Some(track.clone());
-        self.busy = true;
+        let kind = self.kind;
+        let known = player::player(cx).read(cx).loaded_text(&track).map(|(lyrics, timeline)| {
+            let text = match kind {
+                TextKind::Lyrics => lyrics,
+                TextKind::Timeline => timeline,
+            };
+            SharedString::from(text.unwrap_or_default().to_owned())
+        });
+        self.busy = known.is_none();
+        let busy = self.busy;
         self.area.update(cx, |area, cx| {
-            area.set_value("", window, cx);
-            area.set_disabled(true, cx);
+            area.set_value(known.clone().unwrap_or_default(), window, cx);
+            area.set_disabled(busy, cx);
         });
         self.handle.open(window, cx);
-        let kind = self.kind;
-        let reply = self.ops.read(track);
+        if known.is_some() {
+            cx.notify();
+            return;
+        }
+        let reply = self.ops.read_text(track);
         cx.spawn_in(window, async move |this, cx| {
             let result = reply.await;
             let _ = this.update_in(cx, |this, window, cx| {
@@ -184,10 +198,10 @@ impl TextDialog {
                     return;
                 }
                 match result {
-                    Ok(view) => {
+                    Ok(text) => {
                         let text = match kind {
-                            TextKind::Lyrics => view.fields.lyrics,
-                            TextKind::Timeline => view.fields.timeline,
+                            TextKind::Lyrics => text.lyrics,
+                            TextKind::Timeline => text.timeline,
                         };
                         this.busy = false;
                         this.area.update(cx, |area, cx| {
@@ -390,7 +404,9 @@ mod tests {
     }
 
     #[gpui::test]
-    fn c1_lyrics_open_reads_the_file_and_save_writes_file_and_db_then_refreshes(cx: &mut TestAppContext) {
+    fn c1_lyrics_of_the_playing_song_are_editable_at_once_and_save_writes_file_and_db_then_refreshes(
+        cx: &mut TestAppContext,
+    ) {
         let rig = rig(cx);
         let (track, _) = rig.song("a");
         let TrackRef::Library(id) = track.clone() else { unreachable!() };
@@ -399,10 +415,12 @@ mod tests {
         rig.player.update(cx, |p, cx| p.play_track(track.clone(), cx));
         rig.until(cx, "player has the old lyrics", |cx| rig.player_lyrics(cx).as_deref() == Some("old line"));
 
-        open(&dialog, &track, cx);
-        assert!(dialog.read_with(cx, |d, _| d.is_open() && d.is_busy()), "ô khoá lúc đang đọc");
-        ready(&rig, &dialog, cx);
+        // Chữ panel đang hiện đã có trong bộ nhớ: khung đầu đã điền sẵn và mở khoá, không chờ đọc gì (kể cả khi tệp không đọc
+        // được ngay, như bản OneDrive chỉ trên mạng).
+        dialog.update_in(cx, |d, window, cx| d.open(track.clone(), window, cx));
+        assert!(dialog.read_with(cx, |d, _| d.is_open() && !d.is_busy()), "ô dùng được ngay");
         assert_eq!(dialog.read_with(cx, |d, cx| d.text(cx)).as_str(), "old line");
+        cx.update(|window, cx| window.draw(cx).clear(cx));
 
         dialog.update_in(cx, |d, window, cx| {
             d.set_text("new line 1\n\nnew line 2", window, cx);
@@ -415,6 +433,27 @@ mod tests {
         assert_eq!(in_file.as_deref(), Some("new line 1\n\nnew line 2"));
         let in_db = rig.library.song_text(id).wait().unwrap().unwrap().lyrics;
         assert_eq!(in_db.as_deref(), Some("new line 1\n\nnew line 2"));
+    }
+
+    #[gpui::test]
+    fn c1b_other_songs_read_the_text_from_the_library_without_opening_the_file(cx: &mut TestAppContext) {
+        let rig = rig(cx);
+        let (playing, _) = rig.song("a");
+        let (other, path) = rig.song("b");
+        rig.ops.save_lyrics(other.clone(), "from db".into()).wait().unwrap();
+        std::fs::remove_file(&path).unwrap();
+        let (dialog, cx) = open_dialog(cx, |window, cx| TextDialog::lyrics(rig.ops.clone(), window, cx));
+        rig.player.update(cx, |p, cx| p.play_track(playing.clone(), cx));
+        // Chờ player xong hẳn bài đang phát: `TrackChanged` đến muộn sẽ đóng hộp (đặc tả 1.5).
+        rig.until(cx, "a is loaded", |cx| rig.player.read_with(cx, |p, _| p.loaded_text(&playing).is_some()));
+
+        open(&dialog, &other, cx);
+        assert!(
+            dialog.read_with(cx, |d, _| d.is_open() && d.is_busy()),
+            "chưa biết chữ cũ thì khoá, để Lưu không đè lời"
+        );
+        ready(&rig, &dialog, cx);
+        assert_eq!(dialog.read_with(cx, |d, cx| d.text(cx)).as_str(), "from db");
     }
 
     #[gpui::test]
@@ -473,9 +512,9 @@ mod tests {
         let (dialog, cx) = open_dialog(cx, |window, cx| timeline_dialog::timeline(rig.ops.clone(), window, cx));
         assert_eq!(dialog.read_with(cx, |d, _| d.kind()), TextKind::Timeline);
         rig.player.update(cx, |p, cx| p.play_track(track.clone(), cx));
-        rig.until(cx, "track loaded", |cx| rig.player.read_with(cx, |p, _| p.current_track() == Some(&track)));
+        rig.until(cx, "text loaded", |cx| rig.player.read_with(cx, |p, _| p.loaded_text(&track).is_some()));
         open(&dialog, &track, cx);
-        ready(&rig, &dialog, cx);
+        assert!(dialog.read_with(cx, |d, _| !d.is_busy()), "bài đang phát: không chờ đọc");
         dialog.update_in(cx, |d, window, cx| {
             d.set_text(raw, window, cx);
             d.save(window, cx);
