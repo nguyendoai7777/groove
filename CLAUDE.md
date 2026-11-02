@@ -50,10 +50,8 @@ Viết tắt trong task: `core`, `library`, `audio`, `app`, `views` = `crates/gr
 - **Không `panic = "abort"`** (S25): decoder và đọc thẻ bọc `catch_unwind`, tệp độc thành `Error`, không sập app.
 - **GPUI** đi qua `materiant::gpui_kit`, không ghim lần hai (D-6). Test view: dev-dep `gpui` (`gpui-pre` với `test-support`).
   Lưới, danh sách dùng `materiant::virtual_grid`, `materiant::list`.
-- **`libasound` (LGPL) chưa được chấp nhận**: đang chờ chủ dự án (đặc tả 5.1), không ghi là đã chấp nhận. Ở Linux `cpal` là
-  optional sau feature `groove-audio/linux-alsa`, tắt mặc định; Windows, macOS luôn có. Mã đụng `cpal` đặt sau
-  `#[cfg(any(not(target_os = "linux"), feature = "linux-alsa"))]`, nhánh còn lại trả `Error`, build Linux mặc định vẫn phải
-  qua. Bản Linux mặc định vì vậy chưa có tiếng cho tới khi chủ dự án quyết.
+- **`libasound` (LGPL) đã chấp nhận, chỉ link động** (G-2): ở Linux `cpal` sau feature `groove-audio/linux-alsa`, bật mặc
+  định; không link tĩnh, không kèm vào bản cài, gói `.deb` khai là phụ thuộc. Build Linux cần `libasound2-dev`.
 - Mã chỉ một OS ⇒ `#[cfg(target_os = …)]` trong `app/platform`, không rải khắp nơi.
 
 ## Lệnh
