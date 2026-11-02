@@ -152,6 +152,10 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_17] Bỏ thư mục kéo theo thư mục con — chỉ bỏ đúng thư mục đó — `excluded_paths` loại cả cây, để dòng con lại thì chúng còn hiện mà không còn được quét.
 - [groove-gd1_17] Tên playlist rỗng báo toast, trùng tên báo dưới ô — cùng một kiểu — đặc tả ghi toast cho tên rỗng, trùng tên cần giữ hộp mở để sửa.
 - [groove-gd1_17] Menu thẻ thêm "Phát tất cả" và "Sửa thông tin" cạnh "Đổi ảnh bìa" — chỉ đổi bìa và xoá — dùng được bằng chuột phải khi lớp phủ khó bấm.
+- [groove-gd1_26] Nút giữa taskbar luôn bật, Prev, Next tắt khi chưa có bài — tắt cả ba — bản cũ chỉ tắt hai nút điều hướng, Play khi chưa có bài tự lấy bài kế.
+- [groove-gd1_26] Bài không bìa trên Windows hiện logo app — giữ nguyên ảnh cũ — souvlaki không xoá được ảnh, ảnh bài trước sẽ dính sang bài sau.
+- [groove-gd1_26] Bỏ qua `SetVolume`, `Quit`, `OpenUri` từ OS, nhận `Raise` — làm đủ — ngoài đặc tả 5.4; `OpenUri` từ tiến trình khác còn là cửa mở tệp tuỳ ý.
+- [groove-gd1_26] Thêm `assets/taskbar`, `assets/media/no_cover.png` chép từ `src-tauri/icons` — trỏ thẳng `src-tauri` — task 29 gỡ thư mục đó.
 - [groove-gd1_23] Thêm `Slot::CommandPalette` và một dòng vẽ trong `Shell::render` của `app.rs` (tệp của task 03) — treo `Dialog` ở slot sẵn có hay dựng cửa sổ phụ — `Dialog` của materiant chỉ vẽ được khi nằm trong cây view, chưa có chỗ chung cho dialog.
 - [groove-gd1_23] Nhấp một dòng của bảng lệnh chạy ngay khi dòng đó đang chọn (rê chuột đã chọn nó), nhấp đúp không chạy lần hai — chạy ngay mọi lần nhấp — tránh chạy hai lần khi nhấp đúp; đặc tả chỉ ghi "rê chuột dời con trỏ".
 - [groove-gd1_21] Quầng accent đổi tức thì, không chuyển 700 ms — transition khai báo — GPUI `div` không có transition (bảng thay thế đặc tả mục 4).
