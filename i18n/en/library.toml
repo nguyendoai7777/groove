@@ -1,1 +1,66 @@
-# Vùng library: khoá viết không tiền tố, tra bằng t!("library.<khoá>").
+# Area library: keys without the area prefix, looked up as t!("library.<key>").
+
+[title]
+my_music = "My Music"
+playlists = "Playlists"
+
+[tab]
+albums = "Albums"
+folders = "Folders"
+
+[action.import]
+title = "Not finding everything?"
+hint = "Show us where to look for music"
+
+[action.rescan]
+title = "Albums look wrong?"
+hint = "Re-read tags from disk"
+running = "Re-reading tags..."
+
+[action.create_playlist]
+title = "Create a new playlist"
+hint = "Group your favorite tracks together"
+
+[card]
+unknown_artist = "Unknown artist"
+items = "{count} items"
+play_all = "Play all"
+delete = "Delete"
+
+[importing]
+title = "Importing..."
+hint = "Scanning directory"
+
+[empty.albums]
+title = "No albums found"
+hint = "Import folders containing audio files with album metadata to see them here."
+
+[empty.folders]
+title = "No folders imported"
+hint = "Click the card above to import a folder containing music."
+
+[empty.playlists]
+title = "No playlists found"
+hint = "Create a new playlist to group your songs together."
+
+# Opening the library failed. Technical detail goes to the log only, never the raw error.
+[open_error.too_new]
+title = "The library was created by a newer Groove X"
+hint = "Please update the app. Groove X will not open or overwrite this data."
+
+[open_error.legacy_failed]
+title = "Could not convert the library from the old version"
+hint = "You can try again. Starting fresh uses an empty library and never converts the old data again; the old file is kept as is."
+retry = "Try again"
+start_fresh = "Start fresh"
+
+[open_error.other]
+title = "Could not open the library"
+hint = "The library file could not be read. Details are in the log file."
+
+[open_error.unavailable]
+title = "The library is not ready"
+hint = "Groove X could not start the library reader. Please reopen the app."
+
+[category_pending]
+title = "The song list is not built yet"
