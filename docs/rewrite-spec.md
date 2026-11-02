@@ -200,6 +200,8 @@ INDEX songs(folder_id), songs(album_id), playlist_songs(song_id), songs(cover_ha
 PRAGMA journal_mode=WAL, synchronous=NORMAL, foreign_keys=ON, busy_timeout=5000
 ```
 
+Bản 2 (`groove-gd1_09`, N1, N9): `songs + missing_since INT` (ms, chỉ mục một phần), `excluded_paths(path_key PK, path NN)`. Nâng từ bản 1 trong một transaction khi mở; DB mới đi qua đúng các bước đó.
+
 `group_key` = `album_artist` đã chuẩn hoá khi có; không có thì `folder:<folder_id>`. Cách này vừa tách hai "Greatest Hits" của hai nghệ sĩ khác thư mục (S1), vừa không xé album nhiều nghệ sĩ cùng thư mục mà không có `TPE2`, đúng tình huống mà `lib.rs:128-130` đã né.
 
 Bìa nằm ở tệp `<cache>/covers/<hash>_<256|512>.jpg`, không nằm trong DB (S10). Khớp với `VirtualGrid`, vốn nạp ảnh bằng `img(path).image_cache(&LruImageCache)` (`.claude/worktrees/materiant-gd5_04/src/virtual_grid.rs:24-26`).
@@ -213,7 +215,7 @@ Bìa nằm ở tệp `<cache>/covers/<hash>_<256|512>.jpg`, không nằm trong D
 3. Giữ nguyên `id` của `songs`, `playlists`, `albums`, `folders`.
 4. Giải base64 ở `folders.thumbnail`, `albums.thumbnail` ra tệp bìa; `accent_color` tính lại, vì 8 / 8 album trong DB thật đều là hằng `#06b6d4` (`lib.rs:175,185`), không phải màu từ bìa.
 5. Dòng `albums` cũ: `group_key` tạm là `folder:<folder_id nhỏ nhất>`. Tác vụ nền (`tags_read_at IS NULL`) đọc lại thẻ từng bài để điền `album_artist`, `track_no`, `disc_no`, `cover_hash`, rồi gán lại album, có tiến độ, không chặn UI; 1 002 bài chạy một lần. `search_key` tính ngay từ cột sẵn có trong migration.
-6. Gặp `user_version > 1` thì từ chối mở và báo, không ghi đè.
+6. Gặp `user_version` lớn hơn bản đang hỗ trợ thì từ chối mở và báo, không ghi đè.
 
 **localStorage: không đọc trực tiếp được đơn giản.** Windows là LevelDB của WebView2 (`%LOCALAPPDATA%\com.mrdxd.groovex\EBWebView\Default\Local Storage\leveldb`, 1,6 MB, đã thấy chuỗi khoá trong `.ldb`), macOS và Linux là kho của WebKit, định dạng khác. Hàng đợi và vị trí không đáng giữ vì dựa trên snapshot cũ. Thứ tiếc nếu mất chỉ là `custom-keybindings`, `eqGains`, `bassBoost`, `currentPresetName`, `volume`. Đề xuất: bản mới chạy với mặc định, cài lại tay vài giây. Task 28 là tuỳ chọn, chỉ Windows, đọc bản chép, lỗi thì im lặng về mặc định; định dạng khoá LevelDB còn phải xác minh trong task đó. Vị trí cửa sổ không chuyển.
 
