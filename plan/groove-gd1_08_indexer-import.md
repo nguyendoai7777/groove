@@ -92,7 +92,7 @@ Tất cả `[opus-unit]`, chỉ dùng thư mục tạm.
 - `groove_library::scanner`: `scan(&Path) -> ScanOutcome { files: Vec<ScannedFile { path, stamp }>, failed_dirs, failed_files, skipped_links }`, `may_still_exist(&Path)`, `root_failure(&Path)`, `ScanFailure { path, message }`.
 - `groove_library::indexer`: `Indexer::{new(Library, CoverStore), standard(Library), import(root), rescan(), backfill_tags(), index_paths(Vec<PathBuf>)}`, `Clone`. Mỗi hàm trả về ngay `IndexJob<T>` (`Future`, `wait`). `ImportReport { tally, unchanged, removed, failed_dirs, root_offline }`, `IndexTally { added, updated, missing, failed }` + `read()`, `IndexError::{RootUnavailable, Library}`, `TrackRow::from_scanned`, `apply_scanned_track(&Connection, &TrackRow)`.
 
-**Soát** (`-p groove-library`, trên nhánh sau khi gộp `master`): build, `clippy --all-targets -D warnings`, test xanh (lib 92 có 1 `#[ignore]`, `indexer_import` 21, `library_store` 13, `migrate_legacy` 20, `covers_*` 2), `cargo fmt --all --check`, `cargo deny check licenses` ok. Test quyền thật và junction chạy thật trên Windows, không bị bỏ qua. Không mở DB thật, không đụng thư viện nhạc thật, chưa đo với thư viện thật.
+**Soát** (`-p groove-library`, trên nhánh sau khi gộp `master`): build, `clippy --all-targets -D warnings`, test xanh (lib 92 có 1 `#[ignore]`, `indexer_import` 22, `library_store` 13, `migrate_legacy` 20, `covers_*` 2), `cargo fmt --all --check`, `cargo deny check licenses` ok. Test quyền thật và junction chạy thật trên Windows, không bị bỏ qua. Không mở DB thật, không đụng thư viện nhạc thật, chưa đo với thư viện thật.
 
 **Cỡ**: `indexer.rs` ~630 dòng mã + 90 test, `scanner.rs` ~100 + 100 test, không có phụ thuộc mới.
 
