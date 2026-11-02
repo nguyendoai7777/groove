@@ -2,7 +2,7 @@
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Trạng thái | ☐ |
+| Trạng thái | 🔄 |
 | Repo | groove |
 | Model | opus |
 | Cỡ | ~500 dòng |
