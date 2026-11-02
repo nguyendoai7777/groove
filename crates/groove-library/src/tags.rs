@@ -30,7 +30,6 @@ use lofty::prelude::*;
 use lofty::probe::Probe;
 use lofty::tag::{Tag, TagType};
 
-
 /// Khung của app: mọi chế độ ghi đều giữ, inspector không gắn nhãn rác (N2).
 pub const APP_FRAMES: &[&str] = &[TIMELINE];
 
