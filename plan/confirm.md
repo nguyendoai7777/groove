@@ -181,3 +181,14 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_24] Bước tua có trần 3600 giây — không trần — chỉ để ô không nhận số vô lý; `Settings::sanitize` vẫn chỉ chặn dưới.
 - [groove-gd1_24] Không sửa `library_ctl.rs`: danh sách gốc đọc lại theo `LibraryCtlEvent::Notice`, bỏ gốc thì gỡ khỏi danh sách ngay — thêm sự kiện "gốc đổi" vào `LibraryCtl` — task 17 đã xong, ngoài danh sách tệp, và không cần.
 - [groove-gd1_24] Vượt trần 900 dòng code (khoảng 1.060 kể cả chú thích), sáu tệp — tách task — một lát dọc chạy được; tách ra thì mỗi mảnh vẫn dính `dialog.rs`.
+- [groove-gd1_27] Mở lại theo hình học, id màn chỉ để ưu tiên — coi id không thấy là màn đã mất như đặc tả 5.7 — `DisplayId` trên Windows là `HMONITOR`, đổi sau khởi động lại nên cửa sổ sẽ về giữa màn sau mỗi lần bật máy; hệ quả: rút màn mà màn khác chiếm đúng toạ độ đó thì cửa sổ mở ở đó thay vì giữa màn chính.
+- [groove-gd1_27] `restore` thêm trước `open_window`, đăng ký lưu bằng `observe_new::<Shell>` — lời gọi sau `open_window` rồi dời cửa sổ — GPUI không có lệnh dời, và luật chỉ cho một lời gọi trong `app.rs`.
+- [groove-gd1_27] `--display` thắng và không lưu vị trí — vẫn lưu — chạy thử không được đổi vị trí của người dùng.
+- [groove-gd1_27] Vùng kéo còn tối thiểu 100 × 16 px trên màn thì giữ chỗ — đòi cả cửa sổ trong màn — đặc tả không ghi ngưỡng, cửa sổ thò ra một phần là việc người dùng tự làm.
+- [groove-gd1_27] Một ProgID `GrooveX.AudioFile` cho sáu đuôi — mỗi đuôi một ProgID — cùng lệnh mở, cùng icon. Thêm `Applications\groove.exe` để hiện đúng tên trong "Mở bằng".
+- [groove-gd1_27] Bản cài hỏi đóng phiên đang chạy rồi thử lại, im lặng thì mã 2 — tự đóng app — app không có lệnh thoát từ ngoài, không giết theo tên vì máy dev có thể chạy bản khác.
+- [groove-gd1_27] Gói Debian tên `groove-x`, lệnh `groove`, Maintainer `noreply@groove-x.invalid` — tên khác — chủ dự án đổi địa chỉ khi phát hành thật.
+- [groove-gd1_27] `Depends: libasound2 | libasound2t64` — chỉ tên do `dpkg-shlibdeps` ghi — Ubuntu 24.04 đổi tên gói, chỉ một tên thì gói dựng ở bản này không cài được trên bản kia. Chưa chạy thử.
+- [groove-gd1_27] macOS khai `CFBundleTypeExtensions`, không khai UTI — `LSItemContentTypes` — bản Tauri cũng khai theo đuôi, M4R chưa rõ UTI công khai. Finder có nhận hay không phải kiểm trên Mac.
+- [groove-gd1_27] Không soát chuỗi `GROOVE_DATA_DIR` trong exe release — soát như `fastcast` — `instance.rs:112` đọc tên biến ở mọi bản, `dev_tag` bỏ qua ở release, nên chuỗi còn trong exe mà hành vi vẫn đúng.
+- [groove-gd1_27] Repo gốc: `build.* --project groove` chỉ uỷ quyền cho `packaging/*`, build cho máy đang chạy, không chọn chip; `start.* groove` mở app với dữ liệu thật, không ép `--display` vì lệnh này cho chủ dự án xem tay.

@@ -75,6 +75,8 @@ pub fn run(dev: DevArgs) {
         let start = Route::from_start_page(self::settings(cx).last_active_route);
         let bounds = Bounds::centered(display_id, size(px(WINDOW_SIZE.0), px(WINDOW_SIZE.1)), cx);
         let options = main_window_options(bounds, display_id, !dev.background);
+        // Task 27: vị trí đã lưu, phải có trước khi mở cửa sổ.
+        let options = crate::window_state::restore(options, cx);
         let (handle, shell) =
             gpui_kit::open_window(options, cx, |_, cx| cx.new(|cx| Shell::new(start, cx))).expect("open main window");
         cx.set_global(ShellHandle(shell));

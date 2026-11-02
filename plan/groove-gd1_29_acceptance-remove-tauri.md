@@ -21,6 +21,16 @@
 - **Bảng so bản cũ**: S6 / N9 (bỏ gốc) đã có đường vào từ Settings; M3, M5, M7 đã làm; S23 (preamp) nghe được ngay khi kéo.
 - **Số đo**: hộp dựng một lần lúc khởi động, chưa đo RAM; đo cùng lượt số đo RAM của task này.
 
+## 0. Bàn giao từ groove-gd1_27 (02/11/2026)
+
+<!-- handoff: groove-gd1_27 -->
+
+- **Đã có sẵn để dùng**: `window_state::restore`; `packaging/*`; `crates/groove-app/build.rs` nhúng icon. Icon đã chép khỏi `src-tauri`, gỡ thư mục đó không ảnh hưởng gói.
+- **Đã chạy**: dựng bản cài Windows thật và `pwsh packaging/windows/installer-e2e.ps1 -Setup <setup.exe>`. Script ghi HKCU rồi dọn, máy đã cài Groove X thì từ chối.
+- **Chưa chạy**: `build-macos.sh`, `build-deb.sh`, cửa sổ thật: bốn mục `[groove-gd1_27 · owner-qa]` ở `plan/_backlog.md`, kèm mục macOS của task 25.
+- **Bẫy đã gặp**: `GROOVE_DATA_DIR` còn trong exe release do `instance.rs:112` đọc tên biến; `dev_tag` bỏ qua nên hành vi đúng, muốn sạch chuỗi thì bọc `cfg!`.
+- **Soát lại khi làm**: đo RAM bản release; task này không thêm luồng. `.deb` Maintainer đang là địa chỉ giữ chỗ.
+
 ## 0. Bàn giao từ groove-gd1_23 (02/11/2026)
 
 <!-- handoff: groove-gd1_23 -->

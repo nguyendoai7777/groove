@@ -64,6 +64,10 @@ cargo deny check licenses          # soát cả cây của Windows, macOS, Linux
 cargo fmt --all
 cargo run -p groove-app -- --display secondary --background   # mở cửa sổ ở màn phụ, không giành focus
 pwsh tools/run.ps1 -Keys "ctrl-k wait@300 shot@palette"       # build trước: cargo build -p groove-app
+pwsh packaging/windows/build-installer.ps1                    # bản cài NSIS ở dist/; cần NSIS, cargo-about
+pwsh packaging/windows/installer-e2e.ps1 -Setup <setup.exe>   # soát cài, liên kết, gỡ; ghi HKCU rồi dọn, không mở app
+bash packaging/macos/build-macos.sh                           # .app, .dmg, ký ad-hoc; chạy trên Mac
+bash packaging/linux/build-deb.sh                             # .deb, libasound là phụ thuộc (G-2); chạy trên Ubuntu
 ```
 
 `tools/run.ps1`: màn phụ, không focus, phím đưa thẳng vào GPUI, chụp đúng cửa sổ, in RAM, `foreground_unchanged`; dữ liệu ở
