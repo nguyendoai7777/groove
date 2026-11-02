@@ -29,7 +29,7 @@ use groove_library::indexer::{ImportReport, IndexError, IndexTally, Indexer};
 use groove_library::store::Library;
 use groove_library::watcher::LibraryWatcher;
 use materiant::gpui_kit::{
-    App, AppContext, Context, Entity, EventEmitter, Global, Subscription, Task, WeakEntity, Window,
+    App, AppContext, Context, Entity, EventEmitter, Global, PathPromptOptions, Subscription, Task, WeakEntity, Window,
 };
 use materiant::toast::{Toast, ToastKind, ToastSpec};
 
@@ -43,9 +43,6 @@ use crate::views::metadata::dialog::{GroupScope, MetadataDialog, MetadataDialogE
 use crate::views::playlist_dialog::PlaylistDialog;
 use crate::views::timeline_dialog;
 
-/// Đuôi ảnh chọn làm bìa.
-const COVER_EXTENSIONS: [&str; 4] = ["jpg", "jpeg", "png", "webp"];
-
 /// Hộp chọn của hệ điều hành cần gì.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PickKind {
@@ -54,21 +51,18 @@ pub enum PickKind {
 }
 
 /// Mở hộp chọn. Tách thành tham số để test không mở hộp thoại thật.
-pub type Picker = Rc<dyn Fn(PickKind) -> LocalBoxFuture<'static, Option<PathBuf>>>;
+pub type Picker = Rc<dyn Fn(PickKind, &mut App) -> LocalBoxFuture<'static, Option<PathBuf>>>;
 
-/// Hộp chọn thật. `rfd` tự chạy hộp ngoài luồng UI nên UI không đứng trong lúc chờ.
+/// Hộp chọn thật của GPUI, không chặn UI. Không lọc được đuôi: tệp chọn nhầm báo lỗi ở `set_category_cover`.
 pub fn native_picker() -> Picker {
-    Rc::new(|kind| {
-        Box::pin(async move {
-            let dialog = rfd::AsyncFileDialog::new();
-            let picked = match kind {
-                PickKind::Folder => dialog.pick_folder().await,
-                PickKind::CoverImage => {
-                    dialog.add_filter(t!("actions.cover.filter"), &COVER_EXTENSIONS).pick_file().await
-                }
-            };
-            picked.map(|file| file.path().to_path_buf())
-        })
+    Rc::new(|kind, cx| {
+        let picked = cx.prompt_for_paths(PathPromptOptions {
+            files: kind == PickKind::CoverImage,
+            directories: kind == PickKind::Folder,
+            multiple: false,
+            prompt: None,
+        });
+        Box::pin(async move { picked.await.ok()?.ok()??.into_iter().next() })
     })
 }
 
@@ -464,7 +458,7 @@ impl LibraryCtl {
             return;
         }
         self.picking = true;
-        let picked = (self.picker)(kind);
+        let picked = (self.picker)(kind, cx);
         cx.spawn(async move |this, cx| {
             let path = picked.await;
             this.update(cx, |this, cx| {
@@ -1094,7 +1088,7 @@ mod tests {
     }
 
     fn fake_picker(answer: Option<PathBuf>, asked: Rc<RefCell<Vec<PickKind>>>) -> Picker {
-        Rc::new(move |kind| {
+        Rc::new(move |kind, _| {
             asked.borrow_mut().push(kind);
             let answer = answer.clone();
             Box::pin(async move { answer })
@@ -1591,7 +1585,6 @@ mod tests {
             "actions.play.empty",
             "actions.play.failed",
             "actions.remove.failed",
-            "actions.cover.filter",
             "actions.cover.failed",
             "actions.card.play_all",
             "actions.card.set_cover",

@@ -21,7 +21,6 @@ failed = "Không đọc được danh sách bài."
 failed = "Không bỏ được mục này khỏi thư viện."
 
 [cover]
-filter = "Ảnh"
 failed = "Không dùng được ảnh này làm bìa."
 
 [card]
