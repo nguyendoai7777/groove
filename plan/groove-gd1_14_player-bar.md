@@ -2,7 +2,7 @@
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Trạng thái | ☐ |
+| Trạng thái | ✅ (02/11/2026) |
 | Repo | groove |
 | Model | sonnet |
 | Cỡ | ~800 dòng |
@@ -39,3 +39,43 @@
 
 ## 2. Không làm trong task này
 - Không thêm tính năng ngoài đặc tả; không sửa bản Tauri + Vue (G-1).
+
+## 2b. Phân vai
+| Phần việc | Vai |
+|---|---|
+| `seek_bar`, `marquee`, `playing_bars`, `player_bar`, i18n `player`, icon `Pause`, một lời gọi trong `run` | `[sonnet]` (task Sonnet theo D-14, không giao subagent) |
+| Nhìn thanh thật, nghe, rút thiết bị | `[owner-qa]` |
+
+## 6. Nghiệm thu
+| Case | Cho / Khi / Thì | Phủ |
+|---|---|---|
+| C1 | Không có bài / mở thanh / mờ, không bấm được, vẽ được dù thiếu thư viện, bìa | `[sonnet-test]` `bar_without_a_song_is_inert` |
+| C2 | Âm lượng 0, 1, 35, 36, 65, 66, 100, tắt tiếng / chọn icon / đúng ngưỡng 0-mute, 1-35, 36-65, trên 65 | `[sonnet-test]` `volume_icon_follows_the_thresholds` |
+| C3 | Timeline bắt đầu ở 30 s / bấm trên thanh / nơi bấm khớp nơi vẽ (khúc ẩn danh từ 0) | `[sonnet-test]` `click_matches_what_is_drawn_when_timeline_starts_late` |
+| C4 | Nhấn, kéo, thả / thanh tua / kéo chỉ đổi xem trước, `seek` đúng một lần khi thả | `[sonnet-test]` `scrub_seeks_only_on_release`, `dragging_seeks_once_on_release` |
+| C5 | Rê lên khúc có tên / nhãn / `<tên> (<đầu> - <cuối>)`; khúc ẩn danh, không timeline không nhãn | `[sonnet-test]` `label_names_the_segment_under_the_cursor`, `anonymous_bars_have_no_label` |
+| C6 | `TrackFailed` hoặc `OutputFailed` / player phát sự kiện / mỗi sự kiện một toast; chưa bỏ cuộc là cảnh báo, bỏ cuộc là lỗi, tên trống dùng chữ thay | `[sonnet-test]` `failure_events_become_toasts`, `track_failure_toast_*`, `output_failure_toast_*` |
+| C7 | Chữ rộng hơn khung / marquee / chạy; vòng lặp nối liền; không tràn thì đứng | `[sonnet-test]` `marquee::tests` |
+| C8 | Nhìn thật: bìa, nút, marquee, bánh xe âm lượng, toast thật | `[owner-qa]` (`plan/_backlog.md`) |
+
+## 8. Nợ chuyển task khác
+- `Player` (task 13, `player.rs`) chưa có `volume()` / `is_muted()` công khai: thanh đọc `app::settings(cx)`. Đủ cho app thật vì `Player::apply_settings` `notify` khi đổi; chỉ test phải thay bằng hàm giả (`PrefsFn`). Có hàm đọc thì đổi `app_prefs` ở `player_bar.rs`, một chỗ.
+- Phím tua / chỉnh âm lượng (`seek_step`, `volume_step`) thuộc task 22: `Player::seek_by`, `adjust_volume` đã có; thanh tua chưa nhận phím mũi tên khi focus (không phải việc của task 14).
+
+## 9. Bàn giao thực tế
+- **Soát (cwd = worktree, `CARGO_TARGET_DIR=groove/target/gd1_14`)**: `cargo fmt --all`, `cargo clippy --all-targets -- -D warnings` sạch, `cargo deny check licenses` ok, `cargo test --no-fail-fast` xanh trừ hai test engine nhạy giờ của `groove-audio` (`idle_closes_stream_and_keeps_position`, `position_excludes_audio_still_in_the_ring`) lúc đỏ lúc xanh, không dính mã task này (ghi `plan/_backlog.md`). Test của task: 35 test `views::` xanh, gồm 16 test mới.
+- **Đã làm**: `seek_bar.rs` (`SeekBar`, `Scrub`, `segment_at`, `segment_label`, `thickness`), `marquee.rs` (`Marquee`, `overflows`, `offset`), `playing_bars.rs` (`PlayingBars`, `bar_height`), `player_bar.rs` (`PlayerBar`, `install`, `volume_icon`, `track_failed_toast`, `output_failed_toast`), `i18n/{vi,en}/player.toml`, icon `Pause` (`assets/icons/pause.svg` + một dòng `groove_icons!`), một lời gọi `views::player_bar::install(handle, cx)` trong `app::run` sau `player::install`.
+- **N5**: `PlayerBar` đăng ký `subscribe_in` vào `PlayerEvent`; `TrackFailed` thành toast Warning (đã tự sang bài kế) hoặc Danger (`gave_up`, nối thêm câu "dừng sau nhiều lỗi liên tiếp"), `OutputFailed` thành toast Danger 8 s kèm cách gỡ. `kind` ra chữ riêng cho từng `AudioErrorKind`.
+- **S20**: thanh vẽ và đổi chuột sang thời gian cùng bằng `timeline::segments_to_bar` / `x_to_time` trên một danh sách khúc; `Player::seek` chỉ gọi khi thả chuột.
+- **Opus chọn 02/11/2026** (cũng ở `plan/confirm.md`): Play đổi icon tức thì thay cho biến hình 250 ms (đặc tả cho phép); marquee đứng ở đầu dòng khi rê chuột và chạy lại từ đầu khi rời (animation GPUI không tạm dừng giữa chừng); số giờ không nhấp nháy (đặc tả mục 4); thanh không bài thì chặn cả nút Settings (đặc tả "không bấm được"; Settings vẫn mở được từ cột trái); thêm icon `Pause`; âm lượng đọc từ `app::settings`.
+- **Chưa kiểm**: nhìn thật và nghe thật (C8) — `[owner-qa]` ở `plan/_backlog.md`; máy dev chỉ một màn nên không mở cửa sổ. Chưa đo RAM.
+- **Sửa kèm**: `plan/_backlog.md` đang còn dấu xung đột `<<<<<<<` / `>>>>>>>` từ một lần gộp trước (dòng `groove-gd1_15` trùng, dòng `groove-gd1_08` bị kẹp); đã giải, giữ đủ ba dòng.
+
+## 10. Đề xuất cải tiến
+| Loại | Vấn đề | Bằng chứng | Đề xuất | Giá trị | Cỡ | Ưu tiên |
+|---|---|---|---|---|---|---|
+| ux | Thanh tua không dùng được bằng bàn phím khi focus | `seek_bar.rs` không đăng ký phím; chỉ con trỏ | `Left`/`Right` gọi `Player::seek_by(seek_step)` khi thanh có focus | trợ năng | S | P2 (task 22 đã giữ `seek_step`) |
+| ux | Marquee đứng khi rê chuột nhưng chạy lại từ đầu | `marquee.rs`: `with_animation` không tạm dừng | giữ độ lệch lúc dừng bằng `Instant` khi GPUI cho đặt pha | mượt hơn | S | P3 |
+| pro | Không áp | | | | | |
+
+Không làm trong lượt: cả ba đều ngoài phạm vi hoặc cần GPUI hỗ trợ; bảo mật không áp (không chạm tệp, IPC, đường dẫn); RAM: chỉ có animation khi tiêu đề tràn (30 fps tối đa), bốn thanh nhảy khi phát (20 fps, `PlayingBars` chưa gắn ở đâu), không giữ thêm bộ nhớ ngoài `LruImageCache` 4 bìa.
