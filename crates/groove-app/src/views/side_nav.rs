@@ -14,7 +14,7 @@ use materiant::gpui_kit::base::motion::{Transition, transition};
 use materiant::gpui_kit as gpui;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    AnyElement, App, ClickEvent, FontWeight, Hsla, IntoElement, ParentElement, RenderOnce, Rgba, SharedString, Styled,
+    AnyElement, App, ClickEvent, FontWeight, Hsla, IntoElement, ParentElement, RenderOnce, SharedString, Styled,
     Window, div, px, svg, transparent_black,
 };
 use materiant::overlay::tooltip::TooltipExt;
@@ -167,8 +167,8 @@ impl NavInk {
         let theme = cx.theme();
         let c = theme.colors();
         let dark = theme.is_dark();
-        let accent: Hsla = if dark { Rgba::from(hex(0x22d3ee)).into() } else { c.primary };
-        let secondary: Hsla = if dark { Rgba::from(hex(0xd4d4d8)).into() } else { c.text };
+        let accent: Hsla = if dark { hex(0x22d3ee).into() } else { c.primary };
+        let secondary: Hsla = if dark { hex(0xd4d4d8).into() } else { c.text };
         NavInk {
             icon: if active { accent } else { c.muted },
             label: if active { c.text } else { c.muted },

@@ -21,7 +21,7 @@ use std::time::Duration;
 use materiant::gpui_kit as gpui;
 use materiant::gpui_kit::base::animation::cubic_bezier;
 use materiant::gpui_kit::{
-    Animation, AnimationExt, App, Hsla, IntoElement, ParentElement, Pixels, Rgba, SharedString, Styled, Window, div, px,
+    Animation, AnimationExt, App, Hsla, IntoElement, ParentElement, Pixels, SharedString, Styled, Window, div, px,
 };
 use materiant::theme::color::hex;
 
@@ -95,7 +95,7 @@ fn frame(size: Pixels, color: Hsla, scale: [f32; BARS]) -> gpui::Div {
 
 impl gpui::RenderOnce for PlayingBars {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
-        let color: Hsla = Rgba::from(hex(0x22d3ee)).into();
+        let color: Hsla = hex(0x22d3ee).into();
         let size = self.size;
         if self.active {
             frame(size, color, PAUSED_SCALE)
@@ -191,8 +191,8 @@ mod tests {
         let mid = at(137.);
         assert!(mid.windows(2).any(|pair| (pair[0] - pair[1]).abs() > 0.01), "các thanh lệch pha");
         let total = LOOP.as_millis() as f32;
-        for ix in 0..BARS {
-            let cycles = total / (HALF_MS[ix] * 2.);
+        for (ix, half) in HALF_MS.iter().enumerate() {
+            let cycles = total / (half * 2.);
             assert!((cycles - cycles.round()).abs() < 1e-3, "thanh {ix}: vòng lặp phải chứa số nguyên nhịp ({cycles})");
         }
     }
