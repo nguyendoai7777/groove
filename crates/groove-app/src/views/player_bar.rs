@@ -48,6 +48,7 @@ use crate::icons::GrooveIcon;
 use crate::player::{self, Player, PlayerEvent};
 use crate::route::Route;
 use crate::views::cover_image::{self, CoverImage, CoverKind};
+use crate::views::island::{self, Island};
 use crate::views::marquee::Marquee;
 use crate::views::seek_bar::{SLIDER_SCALE, SeekBar};
 use play_morph::PlayMorph;
@@ -147,6 +148,10 @@ pub struct PlayerBar {
     /// Phát ripple khi nhấn Space / Enter lên nút Play (chuột thì ripple tự bắt).
     play_ripple: RippleTrigger,
     cover_play_ripple: RippleTrigger,
+    /// Phần `cached` (cpu): bìa, cụm điều khiển + thanh tua, âm lượng.
+    cover_island: Entity<Island<PlayerBar>>,
+    center_island: Entity<Island<PlayerBar>>,
+    volume_island: Entity<Island<PlayerBar>>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -190,6 +195,9 @@ impl PlayerBar {
             cover_play_focus: cx.focus_handle(),
             play_ripple: RippleTrigger::default(),
             cover_play_ripple: RippleTrigger::default(),
+            cover_island: Island::new(PlayerBar::cover_part, cx),
+            center_island: Island::new(PlayerBar::center_part, cx),
+            volume_island: Island::new(PlayerBar::volume_part, cx),
             _subscriptions: subscriptions,
         };
         bar.refresh_external(cx);
@@ -323,24 +331,10 @@ impl PlayerBar {
     }
 }
 
-impl Render for PlayerBar {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let colors = cx.theme().colors().clone();
-        let playing = self.player.read(cx).is_playing();
-        self.morph.set_playing(playing, Instant::now(), cx.reduce_motion());
-        let enabled = self.is_enabled(cx);
-        let (volume, muted) = (self.prefs)(cx);
-        let (artist, title) = match self.player.read(cx).current_song() {
-            Some(song) => (
-                song.display_artist().unwrap_or(t!("player.bar.unknown_artist")).to_owned(),
-                song.display_title().to_owned(),
-            ),
-            None => (t!("player.bar.unknown_artist").to_owned(), t!("player.bar.no_song").to_owned()),
-        };
-        let player = self.player.clone();
-
-        // Bấm bìa hoặc chữ sang Now Playing. Nút Play phủ trên bìa khi rê chuột.
-        let cover = div()
+impl PlayerBar {
+    /// Bìa 90 px + nút Play phủ khi rê (`Island`, nhúng `cached`). Bấm bìa sang Now Playing.
+    fn cover_part(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        div()
             .id("player-cover")
             .group("player-cover")
             .relative()
@@ -371,51 +365,51 @@ impl Render for PlayerBar {
                         window,
                         cx,
                     )),
-            );
+            )
+            .into_any_element()
+    }
 
-        let text = div()
-            .id("player-text")
-            .flex_1()
-            .min_w_0()
-            .flex()
-            .flex_col()
-            .justify_center()
-            .gap_1()
-            .cursor_pointer()
-            .on_click(|_, _, cx| app::navigate(Route::NowPlaying, cx))
-            .child(div().truncate().text_sm().text_color(colors.muted).child(artist))
-            .child(div().child(Marquee::new("player-title", title)));
-
-        let left = div().w(relative(0.3)).min_w_0().flex().items_center().gap_3().child(cover).child(text);
-
-        let center = div()
-            .flex_1()
-            .min_w_0()
-            .max_w(px(640.))
+    /// Giữa: năm nút điều khiển, dưới là thanh tua (`Island`, nhúng `cached`).
+    fn center_part(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        let enabled = self.is_enabled(cx);
+        div()
+            .size_full()
             .flex()
             .flex_col()
             .justify_center()
             .child(div().mb_1().child(self.controls(enabled, window, cx)))
-            .child(self.seek.clone());
+            .child(self.seek.clone())
+            .into_any_element()
+    }
 
+    /// Phải: nút tắt tiếng, thanh âm lượng (`Island`, nhúng `cached`).
+    fn volume_part(&mut self, _: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        let enabled = self.is_enabled(cx);
+        let (volume, muted) = (self.prefs)(cx);
+        let player = self.player.clone();
         let volume_icon = volume_icon(volume, muted);
         let mute_label = if muted { t!("player.bar.unmute") } else { t!("player.bar.mute") };
-        let right = div()
-            .w(relative(0.3))
-            .min_w_0()
+        div()
+            .size_full()
             .flex()
             .items_center()
             .justify_end()
             .gap_3()
             .pr_3()
-            .child(div().occlude().child({
-                let player = player.clone();
-                web_icon_button("player-mute", volume_icon, ICON_BOX, ICON_GLYPH, false, cx)
-                    .accessibility_label(mute_label)
-                    .disabled(!enabled)
-                    .on_click(move |_: &ClickEvent, _, cx| player.update(cx, |p, cx| p.toggle_mute(cx)))
-                    .with_tooltip(("player-mute", 0usize), mute_label)
-            }))
+            // Tên chọn theo trạng thái: test thấy phần `cached` đã dựng lại khi có bài.
+            .child(
+                div()
+                    .occlude()
+                    .debug_selector(move || if enabled { "player-mute" } else { "player-mute-off" }.to_owned())
+                    .child({
+                        let player = player.clone();
+                        web_icon_button("player-mute", volume_icon, ICON_BOX, ICON_GLYPH, false, cx)
+                            .accessibility_label(mute_label)
+                            .disabled(!enabled)
+                            .on_click(move |_: &ClickEvent, _, cx| player.update(cx, |p, cx| p.toggle_mute(cx)))
+                            .with_tooltip(("player-mute", 0usize), mute_label)
+                    }),
+            )
             .child(
                 div()
                     .id("player-volume")
@@ -442,15 +436,50 @@ impl Render for PlayerBar {
                             .scale(SLIDER_SCALE)
                             .accessibility_label(t!("player.bar.volume"))
                             .disabled(!enabled)
-                            .on_change({
-                                let player = player.clone();
-                                move |value: &f32, _, cx| {
-                                    let volume = value.round().clamp(0., 100.) as u8;
-                                    player.update(cx, |p, cx| p.set_volume(volume, cx));
-                                }
+                            .on_change(move |value: &f32, _, cx| {
+                                let volume = value.round().clamp(0., 100.) as u8;
+                                player.update(cx, |p, cx| p.set_volume(volume, cx));
                             }),
                     ),
-            );
+            )
+            .into_any_element()
+    }
+}
+
+/// cpu (03/11/2026): tên bài chạy ([`Marquee`]) vẽ lại view này mỗi nhịp màn hình, nên bìa, cụm điều khiển, âm lượng là
+/// phần `cached` (`views::island`, dựng lại khi view này `notify` — nó nghe `Player`); mỗi khung chỉ còn dựng chữ bên trái.
+impl Render for PlayerBar {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let colors = cx.theme().colors().clone();
+        let playing = self.player.read(cx).is_playing();
+        self.morph.set_playing(playing, Instant::now(), cx.reduce_motion());
+        let enabled = self.is_enabled(cx);
+        let (artist, title) = match self.player.read(cx).current_song() {
+            Some(song) => (
+                song.display_artist().unwrap_or(t!("player.bar.unknown_artist")).to_owned(),
+                song.display_title().to_owned(),
+            ),
+            None => (t!("player.bar.unknown_artist").to_owned(), t!("player.bar.no_song").to_owned()),
+        };
+
+        // Bấm chữ sang Now Playing.
+        let text = div()
+            .id("player-text")
+            .flex_1()
+            .min_w_0()
+            .flex()
+            .flex_col()
+            .justify_center()
+            .gap_1()
+            .cursor_pointer()
+            .on_click(|_, _, cx| app::navigate(Route::NowPlaying, cx))
+            .child(div().truncate().text_sm().text_color(colors.muted).child(artist))
+            .child(div().child(Marquee::new("player-title", title)));
+
+        let cover = island::cached(&self.cover_island, |s| s.size(px(COVER_SIZE)).flex_none());
+        let left = div().w(relative(0.3)).min_w_0().flex().items_center().gap_3().child(cover).child(text);
+        let center = island::cached(&self.center_island, |s| s.flex_1().min_w_0().max_w(px(640.)).h_full());
+        let right = island::cached(&self.volume_island, |s| s.w(relative(0.3)).min_w_0().h_full());
 
         let bar = div()
             .id("player-bar-view")
@@ -649,6 +678,28 @@ mod tests {
         rig.until(cx, "song loaded", |p| p.current_song().is_some() && p.duration_sec() > 0.);
         cx.update(|window, cx| window.draw(cx).clear(cx));
         assert!(bar.read_with(cx, |bar, cx| bar.is_enabled(cx)));
+    }
+
+    /// cpu — bìa, cụm điều khiển, âm lượng là phần `cached`: vẽ lúc chưa có bài (tắt), nạp bài xong thì tự dựng lại (nghe
+    /// `Player` qua thanh phát), không cần chuột rê hay làm mới cả cửa sổ.
+    #[gpui::test]
+    fn cached_controls_follow_the_player_without_a_refresh(cx: &mut TestAppContext) {
+        let rig = rig(cx);
+        let (_bar, cx) = open_bar(cx);
+        assert!(cx.debug_bounds("player-mute-off").is_some(), "chưa có bài: tắt");
+        let path = fixtures::write_sample(rig.dir.path(), "a", AudioKind::Wav).unwrap();
+        rig.player.update(cx, |p, cx| p.play_paths(vec![path], cx));
+        rig.until(cx, "song loaded", |p| p.current_song().is_some() && p.duration_sec() > 0.);
+        rig.player.update(cx, |p, cx| p.pause(cx));
+        cx.run_until_parked();
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        assert!(cx.debug_bounds("player-mute").is_some(), "phần âm lượng đã dựng lại theo bài vừa nạp");
+        let at = cx.debug_bounds("player-shuffle").expect("nút shuffle đã vẽ").center();
+        cx.simulate_click(at, Modifiers::none());
+        assert!(rig.player.read_with(cx, |p, _| p.queue().shuffle()), "nút không còn ở trạng thái tắt cũ");
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.simulate_click(at, Modifiers::none());
+        assert!(!rig.player.read_with(cx, |p, _| p.queue().shuffle()));
     }
 
     /// Bốn nút điều khiển chạy thật: Next, Prev đổi bài, Shuffle, Repeat đổi chế độ và tắt lẫn nhau (bảng 1.4).

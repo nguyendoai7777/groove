@@ -10,9 +10,11 @@
 //! giờ 33 ms còn chờ thêm tới một nhịp vsync: đo ở desktop ẩn chữ chỉ đổi chỗ 19–20 lần / s, trông lờ đờ. Vẽ thẳng bằng
 //! `ShapedLine::paint` thì glyph đặt theo 1/4 px, mỗi nhịp màn hình một lần (đo ~57–62 lần / s mỗi dòng).
 //!
-//! ui-audit (02/11/2026): chạy liên tục là vẽ lại CẢ cửa sổ mỗi nhịp màn hình (GPUI không vẽ lại từng phần). Đo ở desktop
-//! ẩn, bản release: ~40 % một nhân lúc tên chạy, ~1 % lúc đứng yên. Nên tên chỉ chạy khi cửa sổ đang active (đang được nhìn,
-//! có focus); cửa sổ nền, thu nhỏ thì dừng tại chỗ như khi rê chuột, active lại chạy tiếp từ đó.
+//! ui-audit (02/11/2026): tên chỉ chạy khi cửa sổ đang active (đang được nhìn, có focus); cửa sổ nền, thu nhỏ thì dừng tại
+//! chỗ như khi rê chuột, active lại chạy tiếp từ đó.
+//!
+//! cpu (03/11/2026): mỗi khung từng dựng lại CẢ cửa sổ (~45 % một nhân, desktop ẩn, release). Giờ phần chạy là view riêng
+//! [`MarqueeView`] và view chủ giữ phần nặng `cached` (`views::island`): ~8 %, phần lớn là GPUI phát lại cảnh + DirectX.
 //!
 //! Kiểu chữ (cỡ, đậm, màu) do phần tử cha đặt.
 
@@ -22,8 +24,8 @@ use std::time::{Duration, Instant};
 use materiant::gpui_kit as gpui;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    App, ContentMask, ElementId, IntoElement, ParentElement, RenderOnce, SharedString, Styled, TextAlign, Window,
-    canvas, div, point, px, transparent_black,
+    App, AppContext, ContentMask, Context, ElementId, IntoElement, ParentElement, Render, RenderOnce, SharedString,
+    Styled, TextAlign, Window, canvas, div, point, px, transparent_black,
 };
 
 /// Một vòng chạy hết (đặc tả: 12 s).
@@ -73,13 +75,29 @@ impl Clock {
     }
 }
 
+/// Phần chạy là một entity riêng (cpu, 03/11/2026): khung hình của nó chỉ `notify` chính nó, view chủ chỉ bẩn theo đường tổ
+/// tiên, nên các phần `cached` của chủ (`views::island`) không dựng lại. Bản trước giữ trạng thái bằng `use_keyed_state`: GPUI
+/// `notify` view chủ mỗi lần trạng thái đó `notify`, và `request_animation_frame` lúc dựng cũng `notify` thẳng view chủ.
 #[derive(Default)]
-struct State {
+pub struct MarqueeView {
+    id: Option<ElementId>,
     box_width: f32,
     text_width: f32,
     hovered: bool,
     text: SharedString,
     clock: Clock,
+}
+
+impl MarqueeView {
+    /// Chủ gọi mỗi lần vẽ, không `notify`: view con nhúng thường vẽ ngay sau chủ trong cùng khung.
+    fn set(&mut self, id: ElementId, text: SharedString) {
+        if self.text != text {
+            // Bài mới chạy lại từ đầu dòng.
+            self.text = text;
+            self.clock.reset();
+        }
+        self.id = Some(id);
+    }
 }
 
 #[derive(IntoElement)]
@@ -96,34 +114,33 @@ impl Marquee {
 
 impl RenderOnce for Marquee {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
-        let state = window.use_keyed_state(self.id.clone(), cx, |_, _| State::default());
+        // Trạng thái khoá chỉ giữ tay cầm của view chạy; tay cầm không bao giờ `notify` nên view chủ không bị kéo theo.
+        let view =
+            window.use_keyed_state(self.id.clone(), cx, |_, cx| cx.new(|_| MarqueeView::default())).read(cx).clone();
+        view.update(cx, |v, _| v.set(self.id, self.text));
+        view
+    }
+}
+
+impl Render for MarqueeView {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let now = cx.background_executor().now();
-        let reduce_motion = cx.reduce_motion();
-        let window_active = window.is_window_active();
-        let (animate, running) = state.update(cx, |s, _| {
-            if s.text != self.text {
-                // Bài mới chạy lại từ đầu dòng.
-                s.text = self.text.clone();
-                s.clock.reset();
-            }
-            let animate = overflows(s.text_width, s.box_width) && !reduce_motion;
-            let running = animate && !s.hovered && window_active;
-            if running {
-                s.clock.run(now);
-            } else if animate {
-                s.clock.pause(now);
-            } else {
-                s.clock.reset();
-            }
-            (animate, running)
-        });
+        let animate = overflows(self.text_width, self.box_width) && !cx.reduce_motion();
+        let running = animate && !self.hovered && window.is_window_active();
         if running {
-            // Khung kế theo nhịp màn hình; xin lúc dựng (view đang dựng là view chứa dòng chữ).
+            self.clock.run(now);
+            // Khung kế theo nhịp màn hình; xin lúc dựng: chỉ view này và đường tổ tiên vẽ lại.
             window.request_animation_frame();
+        } else if animate {
+            self.clock.pause(now);
+        } else {
+            self.clock.reset();
         }
 
+        let state = cx.entity();
+        let text = self.text.clone();
         let measure = {
-            let (state, text) = (state.clone(), self.text.clone());
+            let (state, text) = (state.clone(), text.clone());
             canvas(
                 move |bounds, window, cx| {
                     let style = window.text_style();
@@ -153,7 +170,7 @@ impl RenderOnce for Marquee {
 
         // Đang chạy: canvas vẽ hai bản chữ; dòng tĩnh bên dưới chỉ giữ chiều cao, chữ trong suốt.
         let painter = animate.then(|| {
-            let (state, text) = (state.clone(), self.text.clone());
+            let (state, text) = (state.clone(), text.clone());
             canvas(
                 move |_, window, _| {
                     // Kiểu chữ lấy ở `prepaint`, như phần đo: cùng cỡ, đậm, màu với dòng tĩnh.
@@ -185,21 +202,19 @@ impl RenderOnce for Marquee {
         });
 
         div()
-            .id(self.id)
+            .id(self.id.clone().unwrap_or_else(|| ElementId::from("marquee")))
             .relative()
             .w_full()
             .min_w_0()
             .overflow_hidden()
-            .on_hover(move |hovered: &bool, _, cx| {
-                state.update(cx, |s, cx| {
-                    if s.hovered != *hovered {
-                        s.hovered = *hovered;
-                        cx.notify();
-                    }
-                });
-            })
+            .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
+                if this.hovered != *hovered {
+                    this.hovered = *hovered;
+                    cx.notify();
+                }
+            }))
             .child(measure)
-            .child(div().truncate().when(animate, |d| d.text_color(transparent_black())).child(self.text))
+            .child(div().truncate().when(animate, |d| d.text_color(transparent_black())).child(text))
             .children(painter)
     }
 }

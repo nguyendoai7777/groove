@@ -3,6 +3,7 @@ pub mod card_menu;
 pub mod category_card;
 pub mod command_palette;
 pub mod cover_image;
+pub mod island;
 pub mod library_page;
 pub mod lyrics_dialog;
 pub mod lyrics_panel;

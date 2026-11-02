@@ -25,8 +25,8 @@ use groove_library::store::Library;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
     AnyElement, AnyWindowHandle, App, Context, Entity, FontWeight, Hsla, Image, ImageFormat, IntoElement,
-    ParentElement, Pixels, Render, SharedString, Styled, Subscription, Task, Window, div, linear_color_stop,
-    linear_gradient, px, relative,
+    ParentElement, Pixels, Render, SharedString, StyleRefinement, Styled, Subscription, Task, Window, div,
+    linear_color_stop, linear_gradient, px, relative,
 };
 use materiant::theme::ActiveTheme;
 use materiant::virtual_grid::LruImageCache;
@@ -295,6 +295,13 @@ fn column(spec: (f32, f32, f32)) -> materiant::gpui_kit::Div {
     div().w(relative(spec.0)).min_w(px(spec.1)).max_w(px(spec.2)).flex_none().h_full().min_h_0()
 }
 
+/// Khung `cached` lấp đầy chỗ chủ dành.
+fn full() -> StyleRefinement {
+    StyleRefinement::default().size_full()
+}
+
+/// cpu (03/11/2026): tên bài chạy vẽ lại view này mỗi nhịp màn hình (Shell nhúng nó thường), nên ba khung (dòng thời gian,
+/// lời bài, hàng đợi) nhúng `cached`: chúng tự nghe `Player` và `notify`, không cần chủ dựng lại.
 impl Render for NowPlaying {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let c = cx.theme().colors().clone();
@@ -327,9 +334,9 @@ impl Render for NowPlaying {
                     .child(Marquee::new("now-playing-title", title)),
             )
             .child(div().flex_none().truncate().text_color(c.muted).child(artist))
-            .child(self.timeline_box.clone());
+            .child(div().w_full().flex_1().min_h_0().mt_4().child(self.timeline_box.clone().cached(full())));
 
-        let right = column(RIGHT_COLUMN).child(self.queue_panel.clone());
+        let right = column(RIGHT_COLUMN).child(self.queue_panel.clone().cached(full()));
 
         div()
             .id("now-playing")
@@ -344,7 +351,7 @@ impl Render for NowPlaying {
                     .gap_4()
                     .p_4()
                     .child(left)
-                    .child(div().flex_1().min_w_0().h_full().child(self.lyrics_panel.clone()))
+                    .child(div().flex_1().min_w_0().h_full().child(self.lyrics_panel.clone().cached(full())))
                     .child(right),
             )
             .children(self.lyrics_dialog.clone())

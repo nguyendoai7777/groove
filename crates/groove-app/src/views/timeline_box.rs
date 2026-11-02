@@ -165,10 +165,8 @@ impl Render for TimelineBox {
 
         div()
             .id("timeline-box")
-            .w_full()
-            .flex_1()
-            .min_h_0()
-            .mt_4()
+            // Now Playing nhúng `cached` trong khung `flex_1` + `mt_4` (cpu): gốc lấp đúng khung chủ đưa.
+            .size_full()
             .flex()
             .flex_col()
             .overflow_hidden()

@@ -26,7 +26,8 @@ use std::time::{Duration, Instant};
 use materiant::gpui_kit as gpui;
 use materiant::gpui_kit::base::animation::cubic_bezier;
 use materiant::gpui_kit::{
-    App, Bounds, Global, Hsla, IntoElement, Pixels, Styled, Window, canvas, fill, point, px, size,
+    App, AppContext, Bounds, Context, ElementId, Global, Hsla, IntoElement, Pixels, Render, Styled, Window, canvas,
+    fill, point, px, size,
 };
 use materiant::theme::ActiveTheme;
 
@@ -91,13 +92,14 @@ impl Global for Phase {}
 
 #[derive(IntoElement)]
 pub struct PlayingBars {
+    id: ElementId,
     active: bool,
     size: Pixels,
 }
 
 impl PlayingBars {
     pub fn new(active: bool) -> PlayingBars {
-        PlayingBars { active, size: px(14.) }
+        PlayingBars { id: ElementId::from("playing-bars"), active, size: px(14.) }
     }
 
     /// Cạnh khung vuông (mặc định 14 px như bản web).
@@ -120,15 +122,37 @@ pub fn bar_bounds(bounds: Bounds<Pixels>, scale: [f32; BARS]) -> [Bounds<Pixels>
     })
 }
 
+/// Bốn thanh là entity riêng (cpu, 03/11/2026), như `marquee::MarqueeView`: mỗi khung chỉ `notify` view này; view chủ
+/// (danh sách, hàng đợi) chỉ bẩn theo đường tổ tiên, không `notify` (không kéo các phần `cached` nghe chủ dựng lại).
+pub struct BarsView {
+    active: bool,
+    size: Pixels,
+}
+
 impl gpui::RenderOnce for PlayingBars {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let view = window
+            .use_keyed_state(self.id, cx, |_, cx| cx.new(|_| BarsView { active: false, size: px(14.) }))
+            .read(cx)
+            .clone();
+        // Không `notify`: view con nhúng thường vẽ ngay sau chủ trong cùng khung.
+        view.update(cx, |v, _| {
+            v.active = self.active;
+            v.size = self.size;
+        });
+        view
+    }
+}
+
+impl Render for BarsView {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let color: Hsla = cx.theme().colors().primary;
         let now = cx.background_executor().now();
-        // Như chữ chạy: mỗi khung là vẽ lại cả cửa sổ, nên chỉ chạy khi cửa sổ active; cửa sổ nền đứng ở khung đang có.
+        // Như chữ chạy: chỉ chạy khi cửa sổ active; cửa sổ nền, thu nhỏ đứng ở khung đang có.
         let running = self.active && !cx.reduce_motion() && window.is_window_active();
         cx.default_global::<Phase>().set_active(running, now);
         if running {
-            // Xin ở lúc dựng (view đang dựng là view chứa thanh), như `with_animation`.
+            // Xin ở lúc dựng: chỉ view này và đường tổ tiên vẽ lại.
             window.request_animation_frame();
         }
         canvas(

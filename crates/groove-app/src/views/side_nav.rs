@@ -57,8 +57,17 @@ pub fn nav_icon(route: Route) -> GrooveIcon {
     }
 }
 
+/// Bề rộng cột trái đang nội suy (300 ms) về đích theo `collapsed`. Shell tính để đặt cỡ cho phần cột trái `cached` (cpu):
+/// view `cached` bố cục theo cỡ chủ đưa, không đo nội dung.
+pub fn animated_width(collapsed: bool, window: &mut Window, cx: &mut App) -> f32 {
+    let target = if collapsed { COLLAPSED_WIDTH } else { EXPANDED_WIDTH };
+    transition("side-nav-width", target, Transition::new(WIDTH_TRANSITION), window, cx)
+}
+
 #[derive(IntoElement)]
 pub struct SideNav {
+    /// Bề rộng chủ đã tính ([`animated_width`]); `None` thì tự nội suy.
+    width: Option<f32>,
     collapsed: bool,
     active: Route,
     on_select: Handler<Route>,
@@ -76,6 +85,7 @@ impl SideNav {
         on_settings: impl Fn(&mut Window, &mut App) + 'static,
     ) -> SideNav {
         SideNav {
+            width: None,
             collapsed,
             active,
             on_select: Rc::new(on_select),
@@ -85,10 +95,20 @@ impl SideNav {
     }
 }
 
+impl SideNav {
+    /// Bề rộng do chủ nội suy ([`animated_width`]).
+    pub fn width(mut self, width: f32) -> SideNav {
+        self.width = Some(width);
+        self
+    }
+}
+
 impl RenderOnce for SideNav {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
-        let target = if self.collapsed { COLLAPSED_WIDTH } else { EXPANDED_WIDTH };
-        let width = transition("side-nav-width", target, Transition::new(WIDTH_TRANSITION), window, cx);
+        let width = match self.width {
+            Some(width) => width,
+            None => animated_width(self.collapsed, window, cx),
+        };
         let wide = width > LABEL_THRESHOLD;
         let c = cx.theme().colors().clone();
 

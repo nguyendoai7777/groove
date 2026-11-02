@@ -27,8 +27,9 @@ use groove_library::metadata_ops::MetadataOps;
 use groove_library::store::Library;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    self, AnyView, App, AppContext, Bounds, Context, DisplayId, Entity, EventEmitter, FontWeight, Global, IntoElement,
-    Render, SharedString, Styled, Window, WindowBounds, WindowDecorations, WindowOptions, div, px, size,
+    self, AnyElement, AnyView, App, AppContext, Bounds, Context, DisplayId, Entity, EventEmitter, FontWeight, Global,
+    IntoElement, Render, SharedString, StyleRefinement, Styled, Window, WindowBounds, WindowDecorations, WindowOptions,
+    div, px, size,
 };
 use materiant::style::StyledExt;
 use materiant::theme::{ActiveTheme, MateriantTheme, ThemeMode, set_theme};
@@ -38,8 +39,9 @@ use crate::dev::{self, DevArgs};
 use crate::icons;
 use crate::route::{History, Route};
 use crate::views::app_bar::{self, AppBar};
+use crate::views::island::{self, Island};
 use crate::views::library_page;
-use crate::views::side_nav::SideNav;
+use crate::views::side_nav::{self, SideNav};
 
 /// Cỡ mặc định của cửa sổ (đặc tả 1.1).
 const WINDOW_SIZE: (f32, f32) = (800., 600.);
@@ -289,11 +291,19 @@ fn content_slot(route: Route) -> Slot {
 }
 
 /// Nội dung cửa sổ.
+///
+/// cpu (03/11/2026): cột trái, thanh trên, trang thư viện nhúng `cached` (`views::island`); thanh phát và Now Playing nhúng
+/// thường vì chứa chữ chạy / thanh nhảy — chúng tự giữ phần nặng của mình `cached`. Khung hình của hoạt ảnh nhờ vậy chỉ dựng
+/// lại đường từ gốc tới hoạt ảnh.
 pub struct Shell {
     history: History,
     slots: Slots,
     title_override: Option<SharedString>,
     window_title: SharedString,
+    nav: Entity<Island<Shell>>,
+    bar: Entity<Island<Shell>>,
+    /// Bề rộng cột trái của khung đang vẽ (đang nội suy khi thu / mở).
+    nav_width: f32,
 }
 
 impl EventEmitter<ShellEvent> for Shell {}
@@ -308,6 +318,9 @@ impl Shell {
             slots: Slots::default(),
             title_override: None,
             window_title: SharedString::default(),
+            nav: Island::new(Shell::nav_part, cx),
+            bar: Island::new(Shell::bar_part, cx),
+            nav_width: side_nav::EXPANDED_WIDTH,
         }
     }
 
@@ -384,6 +397,40 @@ impl Shell {
     }
 }
 
+impl Shell {
+    /// Phần cột trái (`Island`): dựng lại khi Shell `notify` (đổi màn, cài đặt) hay đổi bề rộng.
+    fn nav_part(&mut self, _: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        let shell = cx.entity();
+        SideNav::new(
+            settings(cx).side_nav_collapsed,
+            self.route().nav_section(),
+            {
+                let shell = shell.clone();
+                move |target, _, cx| shell.update(cx, |this, cx| this.navigate(target, cx))
+            },
+            |_, cx| Shell::toggle_side_nav(cx),
+            move |_, cx| shell.update(cx, |_, cx| cx.emit(ShellEvent::OpenSettings)),
+        )
+        .width(self.nav_width)
+        .into_any_element()
+    }
+
+    /// Phần thanh trên (`Island`). Phóng to / khôi phục đổi cỡ cửa sổ, GPUI làm mới cả cửa sổ.
+    fn bar_part(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        let shell = cx.entity();
+        AppBar::new(
+            self.can_back(),
+            window.is_maximized(),
+            {
+                let shell = shell.clone();
+                move |_, cx| shell.update(cx, |this, cx| this.back(cx))
+            },
+            move |_, cx| shell.update(cx, |_, cx| cx.emit(ShellEvent::OpenSearch)),
+        )
+        .into_any_element()
+    }
+}
+
 impl Render for Shell {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let title = self.title();
@@ -393,39 +440,21 @@ impl Render for Shell {
         }
 
         let route = self.route();
-        let shell = cx.entity();
         let c = cx.theme().colors().clone();
-        let collapsed = settings(cx).side_nav_collapsed;
+        // Bề rộng nội suy ở đây (không trong cột trái): view `cached` cần chủ đưa cỡ.
+        self.nav_width = side_nav::animated_width(settings(cx).side_nav_collapsed, window, cx);
+        let nav = island::cached(&self.nav, |s| s.w(px(self.nav_width)).h_full().flex_none());
+        let bar = island::cached(&self.bar, |s| s.w_full().h(px(app_bar::HEIGHT)).flex_none());
 
-        let nav = SideNav::new(
-            collapsed,
-            route.nav_section(),
-            {
-                let shell = shell.clone();
-                move |target, _, cx| shell.update(cx, |this, cx| this.navigate(target, cx))
-            },
-            |_, cx| Shell::toggle_side_nav(cx),
-            {
-                let shell = shell.clone();
-                move |_, cx| shell.update(cx, |_, cx| cx.emit(ShellEvent::OpenSettings))
-            },
-        );
-        let bar = AppBar::new(
-            self.can_back(),
-            window.is_maximized(),
-            {
-                let shell = shell.clone();
-                move |_, cx| shell.update(cx, |this, cx| this.back(cx))
-            },
-            {
-                let shell = shell.clone();
-                move |_, cx| shell.update(cx, |_, cx| cx.emit(ShellEvent::OpenSearch))
-            },
-        );
-
-        let content = match self.slots.get(content_slot(route)) {
-            Some(view) => view.clone().into_any_element(),
-            None => Shell::placeholder(route, cx).into_any_element(),
+        let content = match (content_slot(route), self.slots.get(content_slot(route))) {
+            // Trang thư viện không có hoạt ảnh lặp ngoài thanh nhảy của bài đang phát: nhúng `cached`, khung của chữ chạy
+            // ở thanh phát không dựng lại lưới / danh sách.
+            (Slot::Library, Some(view)) => {
+                view.clone().cached(StyleRefinement::default().size_full()).into_any_element()
+            }
+            // Now Playing có tên bài chạy: nhúng thường, phần nặng bên trong tự `cached`.
+            (_, Some(view)) => view.clone().into_any_element(),
+            (_, None) => Shell::placeholder(route, cx).into_any_element(),
         };
         let player = self.slots.get(Slot::PlayerBar).map(|view| view.clone().into_any_element());
 
@@ -741,5 +770,76 @@ mod tests {
         cx.update(|_, cx| update_settings(cx, |s| s.theme = ThemeChoice::Light));
         assert_eq!(cx.update(|_, cx| cx.theme().mode()), ThemeMode::Light);
         assert!(!cx.update(|_, cx| cx.theme().is_dark()));
+    }
+
+    /// cpu — hoạt ảnh lặp ở thanh phát không dựng lại trang thư viện (nhúng `cached`); trang vẫn vẽ dữ liệu mới khi nó
+    /// `notify`, cột trái vẫn theo màn mới khi Shell đổi màn.
+    #[gpui::test]
+    fn animation_frames_reuse_the_cached_page_but_data_changes_still_show(cx: &mut TestAppContext) {
+        use std::cell::Cell;
+        use std::time::Duration;
+
+        use crate::views::playing_bars::PlayingBars;
+
+        struct Page {
+            value: u32,
+            renders: Rc<Cell<usize>>,
+            shown: Rc<Cell<u32>>,
+        }
+        impl Render for Page {
+            fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+                self.renders.set(self.renders.get() + 1);
+                self.shown.set(self.value);
+                div().size_full().child(self.value.to_string())
+            }
+        }
+        struct Bar;
+        impl Render for Bar {
+            fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+                div().size_full().child(PlayingBars::new(true))
+            }
+        }
+
+        let (shell, _, cx) = open(cx, Settings::default());
+        let (renders, shown) = (Rc::new(Cell::new(0)), Rc::new(Cell::new(0)));
+        let page = cx.new(|_| Page { value: 1, renders: renders.clone(), shown: shown.clone() });
+        let bar = cx.new(|_| Bar);
+        shell.update(cx, |s, cx| {
+            s.set_slot(Slot::Library, page.clone(), cx);
+            s.set_slot(Slot::PlayerBar, bar, cx);
+        });
+        cx.update(|window, _| window.activate_window());
+        let frames = |n: usize, cx: &mut VisualTestContext| {
+            for _ in 0..n {
+                cx.executor().advance_clock(Duration::from_millis(16));
+                let delivered = cx.update(|window, cx| {
+                    let delivered = window.simulate_next_frame(cx);
+                    window.draw(cx).clear(cx);
+                    delivered
+                });
+                assert!(delivered > 0, "thanh nhảy phải xin khung kế");
+                cx.run_until_parked();
+            }
+        };
+        frames(2, cx);
+        let before = renders.get();
+        assert!(before >= 1 && shown.get() == 1);
+        frames(20, cx);
+        assert_eq!(renders.get(), before, "khung của hoạt ảnh không dựng lại trang");
+
+        page.update(cx, |p, cx| {
+            p.value = 2;
+            cx.notify();
+        });
+        frames(1, cx);
+        assert_eq!(shown.get(), 2, "trang `cached` vẫn vẽ dữ liệu mới khi nó `notify`");
+        assert_eq!(renders.get(), before + 1);
+
+        // Cột trái (phần `cached` của Shell) theo màn mới: vạch chỉ báo trượt về hàng Playlists.
+        shell.update(cx, |s, cx| s.navigate(Route::Playlists, cx));
+        cx.executor().advance_clock(Duration::from_millis(600));
+        frames(3, cx);
+        let ink = cx.debug_bounds("side-nav-ink").expect("vạch đã vẽ");
+        assert_eq!(ink.origin.y, px(crate::views::side_nav::HEADER_HEIGHT + 2. * crate::views::side_nav::ITEM_HEIGHT));
     }
 }

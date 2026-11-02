@@ -14,13 +14,15 @@
 #   pwsh tools/measure-hidden.ps1 -Exe target/debug/groove.exe -Seed target/debug/examples/seed_data.exe
 #
 # In: số cửa sổ, RAM (working set, private) và CPU trung bình từ mốc trước (% của một nhân) ở mỗi mốc, dòng log WARN / ERROR,
-# `foreground_unchanged`. `-Seed <exe>` chạy `<exe> <thư mục dữ liệu tạm>` trước khi mở app.
+# `foreground_unchanged`. `-Seed <exe>` chạy `<exe> <thư mục dữ liệu tạm> [-Songs]` trước khi mở app; `-Songs <n>` thêm n bài vào
+# thư viện tạm (đo với thư viện có bài).
 param(
     [Parameter(Mandatory)][string]$Exe,
     [int]$Seconds = 15,
     [string]$Keys = "",
     [string]$Shot = "",
     [string]$Seed = "",
+    [int]$Songs = 0,
     # Mở cửa sổ ở trạng thái active (bỏ `--background`): cửa sổ vẫn nằm trên desktop ẩn, không giành focus của desktop đang dùng.
     [switch]$Active
 )
@@ -81,7 +83,7 @@ if ($bytes.IndexOf("GROOVE_DATA_DIR", [StringComparison]::Ordinal) -lt 0) {
     throw "$exe does not honour GROOVE_DATA_DIR and would open the real library. Build with debug assertions."
 }
 Remove-Variable bytes
-if ($Seed) { & (Resolve-Path $Seed).Path $data | Out-Host; if ($LASTEXITCODE) { throw "seed failed: $LASTEXITCODE" } }
+if ($Seed) { & (Resolve-Path $Seed).Path $data $Songs | Out-Host; if ($LASTEXITCODE) { throw "seed failed: $LASTEXITCODE" } }
 
 $name = "groove-hidden-" + $PID
 $desktop = [HiddenDesktop]::CreateDesktopW($name, [IntPtr]::Zero, [IntPtr]::Zero, 0, 0x10000000, [IntPtr]::Zero)
