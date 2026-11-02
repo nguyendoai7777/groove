@@ -30,8 +30,6 @@ use lofty::prelude::*;
 use lofty::probe::Probe;
 use lofty::tag::{Tag, TagType};
 
-/// Đuôi tệp nhạc: liên kết định dạng và quét thư viện dùng chung (S22, đặc tả 5.6).
-pub const AUDIO_EXTENSIONS: &[&str] = &["mp3", "flac", "wav", "m4a", "m4r", "ogg"];
 
 /// Khung của app: mọi chế độ ghi đều giữ, inspector không gắn nhãn rác (N2).
 pub const APP_FRAMES: &[&str] = &[TIMELINE];
@@ -241,13 +239,6 @@ pub struct RawFrame {
     pub value: String,
     /// `false` là khung chế độ clean sẽ bỏ: UI tô vàng, đếm khung rác.
     pub known: bool,
-}
-
-/// Đường dẫn có phải đuôi nhạc không, không phân biệt hoa thường (S22).
-pub fn is_audio_path(path: &Path) -> bool {
-    path.extension()
-        .and_then(|e| e.to_str())
-        .is_some_and(|e| AUDIO_EXTENSIONS.iter().any(|known| e.eq_ignore_ascii_case(known)))
 }
 
 /// Có phải bản tạm khi ghi thẻ không; watcher dùng để bỏ qua.
@@ -1891,12 +1882,7 @@ mod tests {
     // --- C10: đường dẫn, nhận định dạng ---
 
     #[test]
-    fn audio_and_temp_paths() {
-        assert!(is_audio_path(Path::new("BÀI.MP3")), "S22: không phân biệt hoa thường");
-        for ext in AUDIO_EXTENSIONS {
-            assert!(is_audio_path(Path::new(&format!("a.{ext}"))));
-        }
-        assert!(!is_audio_path(Path::new("a.mp3.groove-tmp")));
+    fn temp_paths() {
         assert!(is_temp_path(&temp_path_for(Path::new("dir/a.mp3"))));
         assert_eq!(temp_path_for(Path::new("dir/a.mp3")), Path::new("dir/a.mp3.groove-tmp"));
         assert!(!is_temp_path(Path::new("a.mp3")));
