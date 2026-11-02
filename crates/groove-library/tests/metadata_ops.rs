@@ -12,9 +12,8 @@ use groove_library::covers::{CoverStore, cover_hash};
 use groove_library::db::migrate::CoverRecord;
 use groove_library::db::queries;
 use groove_library::fixtures::{AudioKind, TINY_PNG, write_sample};
-use groove_library::metadata_ops::{
-    FileNameError, GroupEdit, MetadataError, MetadataOps, TrackRow, apply_scanned_track,
-};
+use groove_library::indexer::{TrackRow, apply_scanned_track};
+use groove_library::metadata_ops::{FileNameError, GroupEdit, MetadataError, MetadataOps};
 use groove_library::store::{Library, LibraryConfig};
 use groove_library::tags::{self, CoverEdit, FileStamp, MetadataEdit, TagError, TagFields, WriteMode};
 use tempfile::TempDir;
@@ -51,7 +50,7 @@ impl Env {
 
     /// Đưa tệp vào thư viện đúng đường của app.
     fn index(&self, path: &Path) -> i64 {
-        let row = TrackRow::from_scanned(path, tags::read_track(path).unwrap(), None);
+        let row = TrackRow::from_scanned(path.to_owned(), tags::read_track(path).unwrap(), None);
         self.library.writer().transaction(move |conn| Ok(apply_scanned_track(conn, &row)?.id)).wait().unwrap()
     }
 
@@ -490,16 +489,24 @@ fn apply_scanned_track_writes_every_field_and_seeds_a_new_album_cover() {
     tags::write_tags(&path, &edit(fields), WriteMode::Merge).unwrap();
     let hash = cover_hash(TINY_PNG);
     let store = CoverStore::new(env.dir.path().join("covers"));
-    let slot = store.save(TINY_PNG).unwrap().into();
-    let row = TrackRow::from_scanned(&path, tags::read_track(&path).unwrap(), Some(slot));
-    let scanned_duration = row.duration_ms;
+    let record = store.save(TINY_PNG).unwrap();
+    let row = TrackRow::from_scanned(path.clone(), tags::read_track(&path).unwrap(), Some(hash.clone()));
+    let scanned_duration = row.duration_sec;
 
-    let id = env.library.writer().transaction(move |conn| Ok(apply_scanned_track(conn, &row)?.id)).wait().unwrap();
+    let id = env
+        .library
+        .writer()
+        .transaction(move |conn| {
+            queries::upsert_cover(conn, &record)?;
+            Ok(apply_scanned_track(conn, &row)?.id)
+        })
+        .wait()
+        .unwrap();
 
     let song = env.library.song(TrackRef::Library(id)).wait().unwrap().unwrap();
     assert_eq!(song.album.as_deref(), Some("Album"));
     assert_eq!((song.track_no, song.disc_no), (Some(3), Some(2)));
-    assert_eq!(song.duration_sec, scanned_duration as f64 / 1000.0);
+    assert_eq!(song.duration_sec, scanned_duration);
     assert_eq!(song.cover_hash.as_deref(), Some(hash.as_str()));
     assert_eq!(env.text(id).lyrics.as_deref(), Some("From file"));
     assert_eq!(env.album_cover(song.album_id.unwrap()).0.as_deref(), Some(hash.as_str()));

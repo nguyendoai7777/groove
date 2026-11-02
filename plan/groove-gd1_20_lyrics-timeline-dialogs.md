@@ -11,6 +11,16 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `views/{lyrics_dialog,timeline_dialog}.rs`, `i18n/*/song_dialogs.toml` |
 
+## 0. Bàn giao từ groove-gd1_18 (02/11/2026)
+
+<!-- handoff: groove-gd1_18 -->
+
+- **Đã có sẵn để dùng**: `metadata_ops::MetadataOps`: `read(track)` nạp `fields.lyrics`, `fields.timeline` (từ tệp, tệp không có thì DB); `save_lyrics(track, text)`, `save_timeline(track, text)`. Gọi trên UI rồi `await`. API: `plan/groove-gd1_18_metadata-ops.md` mục 9.
+- **Quy ước**: chuỗi rỗng là xoá cả tệp và DB. Timeline lưu văn bản nguyên gốc.
+- **Lỗi (S5)**: `await` phải toast khi `Err`, không chỉ log; ghi tệp lỗi thì DB giữ bản cũ, nên đừng đóng dialog làm mất chữ đang gõ. Câu riêng theo biến thể trong `song_dialogs.toml`.
+- **Làm mới**: nghe `Progress` kind `MetadataBulk`, `done == total`; không có `Synced`.
+- **Soát lại khi làm**: `cargo test -p groove-library --test metadata_ops`.
+
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 20. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 1. Làm gì

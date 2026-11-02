@@ -20,12 +20,10 @@ use rusqlite::{Connection, params};
 use crate::actor::{LibraryError, LibraryEvent, LibraryResult, MovedSong, Progress, ProgressKind, Reply, Worker};
 use crate::covers::{CoverStore, cover_hash};
 use crate::db::migrate::CoverRecord;
-use crate::db::queries::{self, QueryError, SongText, SongUpsert, UpsertOutcome};
-use crate::db::schema;
+use crate::db::queries::{self, QueryError, SongText};
+use crate::indexer::{TrackRow, apply_scanned_track};
 use crate::store::Library;
-use crate::tags::{
-    self, CoverArt, CoverEdit, FileStamp, MetadataEdit, RawFrame, ScannedTrack, TagError, TagFields, WriteMode,
-};
+use crate::tags::{self, CoverArt, CoverEdit, FileStamp, MetadataEdit, RawFrame, TagError, TagFields, WriteMode};
 
 /// Trần tên tệp của hệ tệp là 255 byte, chừa chỗ cho đuôi bản tạm để lần ghi sau không hỏng.
 const MAX_NAME_BYTES: usize = 255 - tags::TEMP_SUFFIX.len();
@@ -170,109 +168,13 @@ pub struct BulkReport {
 }
 
 /// Bìa đã qua `CoverStore`. `record = None`: bảng `covers` đã có dòng và đủ tệp nên khỏi giải mã lại.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CoverSlot {
-    pub hash: String,
-    pub record: Option<CoverRecord>,
-}
-
-impl From<CoverRecord> for CoverSlot {
-    fn from(record: CoverRecord) -> CoverSlot {
-        CoverSlot { hash: record.hash.clone(), record: Some(record) }
-    }
-}
-
-/// Một tệp đã đọc, sẵn sàng vào DB.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TrackRow {
-    pub path: PathBuf,
-    /// `None`: lấy thư mục cha của tệp, chưa có thì tạo.
-    pub folder_id: Option<i64>,
-    pub fields: TagFields,
-    pub duration_ms: u64,
-    pub stamp: FileStamp,
-    pub cover: Option<CoverSlot>,
-}
-
-impl TrackRow {
-    /// Bỏ byte bìa của `scanned`: truyền `cover` đã qua `CoverStore` thay vào.
-    pub fn from_scanned(path: impl Into<PathBuf>, scanned: ScannedTrack, cover: Option<CoverSlot>) -> TrackRow {
-        TrackRow {
-            path: path.into(),
-            folder_id: None,
-            fields: scanned.fields,
-            duration_ms: scanned.duration_ms,
-            stamp: scanned.stamp,
-            cover,
-        }
-    }
+struct CoverSlot {
+    hash: String,
+    record: Option<CoverRecord>,
 }
 
 fn non_empty(value: &Option<String>) -> Option<&str> {
     value.as_deref().map(str::trim).filter(|text| !text.is_empty())
-}
-
-fn parse_number(value: &Option<String>) -> Option<u32> {
-    non_empty(value)?.split('/').next()?.trim().parse().ok()
-}
-
-/// Đường ghi duy nhất từ một tệp đã đọc vào DB (S7), cho import, watcher, rescan, sửa thẻ. Gọi trong transaction, tệp
-/// đã đọc xong ở ngoài (N7). Đủ mọi trường, gồm lyrics, thời lượng, dấu tệp. Tệp không có lyrics, timeline thì giữ DB (N2).
-/// Bìa chỉ gieo cho nhóm chưa có bìa (S8). Gọi xong mà có thể còn album rỗng: caller gọi `delete_empty_albums` sau lô.
-pub fn apply_scanned_track(conn: &Connection, row: &TrackRow) -> LibraryResult<UpsertOutcome> {
-    let folder_id = match row.folder_id {
-        Some(id) => id,
-        None => {
-            let parent = row.path.parent().ok_or_else(|| anyhow::anyhow!("{} has no folder", row.path.display()))?;
-            let name = parent.file_name().unwrap_or(parent.as_os_str()).to_string_lossy();
-            queries::get_or_create_folder(conn, &name, parent)?
-        }
-    };
-    let fields = &row.fields;
-    let album_artist = non_empty(&fields.album_artist);
-    let album_id = match non_empty(&fields.album) {
-        Some(name) => {
-            let group_key = schema::album_group_key(album_artist, folder_id);
-            let artist = album_artist.or(non_empty(&fields.artist));
-            Some(queries::get_or_create_album(conn, name, &group_key, artist)?)
-        }
-        None => None,
-    };
-    if let Some(record) = row.cover.as_ref().and_then(|slot| slot.record.as_ref()) {
-        queries::upsert_cover(conn, record)?;
-    }
-    let cover_hash = row.cover.as_ref().map(|slot| slot.hash.clone());
-    let outcome = queries::upsert_song(
-        conn,
-        &SongUpsert {
-            path: row.path.clone(),
-            folder_id,
-            album_id,
-            title: fields.title.clone(),
-            artist: fields.artist.clone(),
-            album_artist: fields.album_artist.clone(),
-            duration_sec: row.duration_ms as f64 / 1000.0,
-            track_no: parse_number(&fields.track_no),
-            disc_no: parse_number(&fields.disc_no),
-            lyrics: fields.lyrics.clone(),
-            timeline: fields.timeline.clone(),
-            cover_hash: cover_hash.clone(),
-            file_mtime: Some(row.stamp.mtime_ms),
-            file_size: Some(row.stamp.size as i64),
-            tags_read_at: Some(queries::now_ms()),
-        },
-    )?;
-    if let Some(hash) = &cover_hash {
-        if let Some(album) = album_id {
-            conn.prepare_cached(
-                "UPDATE albums SET cover_hash = ?2 WHERE id = ?1 AND cover_hash IS NULL AND cover_is_custom = 0",
-            )?
-            .execute(params![album, hash])?;
-        }
-        conn.prepare_cached("UPDATE folders SET cover_hash = ?2 WHERE id = ?1 AND cover_hash IS NULL")?
-            .execute(params![folder_id, hash])?;
-    }
-    Ok(outcome)
 }
 
 /// Bài cuối rời album (ví dụ Fix grouping đổi `group_key`) thì album bị dọn: bìa người dùng chọn đi theo sang album mới.
@@ -531,8 +433,9 @@ impl OpsState {
         })?;
         let cover = self.cover_slot(scanned.cover.as_ref()).map_err(MetadataError::DatabaseAfterWrite)?;
         let fields = scanned.fields.clone();
-        let mut row = TrackRow::from_scanned(path.clone(), scanned, cover);
-        row.folder_id = song.and_then(|song| song.folder_id);
+        let read_stamp = scanned.stamp;
+        let (hash, record) = cover.map_or((None, None), |slot| (Some(slot.hash), slot.record));
+        let mut row = TrackRow::from_scanned(path.clone(), scanned, hash);
 
         let rename_error = match &target {
             Some(target) => rename_file(&path, target).err().map(|source| (target.clone(), source)),
@@ -543,14 +446,14 @@ impl OpsState {
             _ => path.clone(),
         };
         // Đổi tên không đổi thời gian sửa, nhưng hệ tệp mạng có thể làm tròn.
-        let stamp = FileStamp::of(&final_path).unwrap_or(row.stamp);
-        row.stamp = stamp;
+        let stamp = FileStamp::of(&final_path).unwrap_or(read_stamp);
+        (row.mtime_ms, row.size) = (stamp.mtime_ms, stamp.size);
         row.path = final_path.clone();
 
         let committed = match id {
             Some(id) => {
                 let old_album = song.and_then(|song| song.album_id);
-                Some(self.commit(id, old_album, row, clear))
+                Some(self.commit(id, old_album, row, record, clear))
             }
             None => None,
         };
@@ -602,7 +505,7 @@ impl OpsState {
             return Ok(Some(CoverSlot { hash, record: None }));
         }
         match self.covers.save(&art.data) {
-            Ok(record) => Ok(Some(record.into())),
+            Ok(record) => Ok(Some(CoverSlot { hash: record.hash.clone(), record: Some(record) })),
             Err(e) => {
                 // Mất bìa, bài vẫn đúng.
                 log::warn!("cannot store cover: {e}");
@@ -612,11 +515,21 @@ impl OpsState {
     }
 
     /// Một bài một transaction: lỗi của bài này không kéo bài khác, báo cáo lô đúng từng bài.
-    fn commit(&self, id: i64, old_album: Option<i64>, row: TrackRow, clear: (bool, bool)) -> LibraryResult<Song> {
+    fn commit(
+        &self,
+        id: i64,
+        old_album: Option<i64>,
+        row: TrackRow,
+        cover: Option<CoverRecord>,
+        clear: (bool, bool),
+    ) -> LibraryResult<Song> {
         self.library
             .writer()
             .transaction(move |conn| {
                 queries::move_song(conn, id, &row.path, None)?;
+                if let Some(record) = &cover {
+                    queries::upsert_cover(conn, record)?;
+                }
                 apply_scanned_track(conn, &row)?;
                 // `upsert_song` giữ DB khi tệp rỗng, nên xoá thật phải nói rõ.
                 if clear.0 {
@@ -781,7 +694,6 @@ mod tests {
     use super::*;
     use crate::fixtures::{AudioKind, write_sample};
     use crate::store::LibraryConfig;
-    use std::sync::Arc;
 
     #[test]
     fn rejects_every_name_that_could_leave_the_folder_or_break_the_file() {
@@ -845,15 +757,7 @@ mod tests {
         let library = Library::open(config, sink).unwrap();
         let path = write_sample(dir.path(), "a", AudioKind::Mp3).unwrap();
         let row = TrackRow::from_scanned(path.clone(), tags::read_track(&path).unwrap(), None);
-        let row = Arc::new(row);
-        let id = library
-            .writer()
-            .transaction({
-                let row = Arc::clone(&row);
-                move |conn| Ok(apply_scanned_track(conn, &row)?.id)
-            })
-            .wait()
-            .unwrap();
+        let id = library.writer().transaction(move |conn| Ok(apply_scanned_track(conn, &row)?.id)).wait().unwrap();
         let state = OpsState { library: library.clone(), covers: CoverStore::new(dir.path().join("covers")) };
 
         let fields = TagFields { title: Some("New".into()), ..TagFields::default() };
