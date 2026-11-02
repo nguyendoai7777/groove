@@ -16,7 +16,7 @@
 <!-- handoff: groove-gd1_13 -->
 
 - **Đã có sẵn để dùng**: `crate::player::player(cx) -> Entity<Player>`. Đọc `.read(cx)`, thao tác `.update(cx, |p, cx| p.next(cx))`, nghe `cx.observe` (mọi đổi trạng thái, 4 lần mỗi giây khi phát) và `cx.subscribe` (`PlayerEvent`). Danh sách API: mục 9 của `plan/groove-gd1_13_player-controller.md`.
-- **Test view**: `player::install` dùng thiết bị và tệp thật. Test dùng `Player::spawn(PlayerDeps { library, output: Box::new(FakeOutput), .. }, cx)` với `app::update_settings` đã có, và `cx.executor().allow_parking()` vì engine, thư viện đánh thức từ luồng khác.
+- **Test view**: `player::install` dùng thiết bị và tệp thật. Test dùng `player::install_for_test(PlayerDeps { library, output: Box::new(FakeOutput::new(48_000, 2)), options, session_file }, cx)` rồi `player::player(cx)` như thường, kèm `cx.executor().allow_parking()` vì engine, thư viện đánh thức từ luồng khác; cài đặt của nó là bản cục bộ.
 - **Lyrics, timeline bài đang phát**: `lyrics()`, `timeline()` đã parse theo thời lượng thật; lưu xong gọi `refresh_current(cx)` để nạp lại. Tệp ngoài lấy từ thẻ.
 
 ## 0. Bàn giao từ groove-gd1_18 (02/11/2026)

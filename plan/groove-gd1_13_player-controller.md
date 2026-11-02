@@ -85,7 +85,7 @@ Phủ bằng `#[gpui::test]` trong `player.rs` (`[opus-unit]`), case `C1`…`C21
 
 **API đã khoá** (`crate::player`):
 
-- Lấy: `player(cx) -> Entity<Player>`, `install(cx)`, `Player::spawn(PlayerDeps, cx)`, `MAX_CONSECUTIVE_ERRORS`.
+- Lấy: `player(cx) -> Entity<Player>`, `install(cx)`, `Player::spawn(PlayerDeps, cx)`, `install_for_test` (chỉ test), `MAX_CONSECUTIVE_ERRORS`.
 - Đọc: `queue()`, `current_track()`, `current_song()`, `is_playing()`, `position_sec()`, `duration_sec()`, `lyrics()`, `timeline()`, `external_cover()`.
 - Hàng đợi: `play_list(track, list, cx)`, `play_track(track, cx)`, `append(tracks, cx)`, `play_paths(paths, cx)`, `next`, `prev`, `play_random`, `toggle_shuffle`, `toggle_repeat`, `clear`.
 - Điều khiển: `toggle_play`, `play`, `pause`, `seek(sec, cx)`, `seek_by(delta, cx)`, `set_volume(u8, cx)`, `adjust_volume(i16, cx)`, `toggle_mute`, `update_eq(cx, |eq| ..)`, `apply_settings`, `refresh_current`.

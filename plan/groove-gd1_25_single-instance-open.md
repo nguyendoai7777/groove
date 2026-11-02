@@ -16,7 +16,7 @@
 <!-- handoff: groove-gd1_13 -->
 
 - **Đã có sẵn để dùng**: `crate::player::player(cx) -> Entity<Player>`. Đọc `.read(cx)`, thao tác `.update(cx, |p, cx| p.next(cx))`, nghe `cx.observe` (mọi đổi trạng thái, 4 lần mỗi giây khi phát) và `cx.subscribe` (`PlayerEvent`). Danh sách API: mục 9 của `plan/groove-gd1_13_player-controller.md`.
-- **Test view**: `player::install` dùng thiết bị và tệp thật. Test dùng `Player::spawn(PlayerDeps { library, output: Box::new(FakeOutput), .. }, cx)` với `app::update_settings` đã có, và `cx.executor().allow_parking()` vì engine, thư viện đánh thức từ luồng khác.
+- **Test view**: `player::install` dùng thiết bị và tệp thật. Test dùng `player::install_for_test(PlayerDeps { library, output: Box::new(FakeOutput::new(48_000, 2)), options, session_file }, cx)` rồi `player::player(cx)` như thường, kèm `cx.executor().allow_parking()` vì engine, thư viện đánh thức từ luồng khác; cài đặt của nó là bản cục bộ.
 - **Mở tệp**: `play_paths(Vec<PathBuf>, cx)`: tệp đầu phát, tệp sau vào hàng đợi, tự đổi sang `TrackRef::Library` nếu có trong thư viện. Gọi trước khi phiên đọc xong thì tự chờ và thắng bài của phiên (đặc tả 5.6), không cần hẹn giờ. Lọc đuôi (S22) là việc của bên gọi, player không lọc. Trùng bài đang phát thì chỉ tiếp tục (N6 đã đúng theo đường dẫn).
 - **Thứ tự**: `player::install` ở `app::run` sau `library_page::install`; lời gọi của task này đặt sau nó.
 

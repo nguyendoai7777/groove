@@ -907,6 +907,15 @@ pub fn player(cx: &App) -> Entity<Player> {
     cx.global::<PlayerHandle>().0.clone()
 }
 
+/// Cho test của view: player với `FakeOutput`, thư viện tạm, cài đặt cục bộ (`app::settings` cần `Shell`), đặt làm global.
+#[cfg(test)]
+pub fn install_for_test(deps: PlayerDeps, cx: &mut App) -> Entity<Player> {
+    let settings = SettingsSource::Local(Box::default());
+    let player = Player::spawn_with(deps, settings, cx).expect("start audio thread");
+    cx.set_global(PlayerHandle(player.clone()));
+    player
+}
+
 /// Dựng player thật: đầu ra mặc định, thư viện của app, `session.json`. Gọi một lần trong `app::run`, sau khi có thư viện.
 pub fn install(cx: &mut App) {
     let session_file = paths::session_file().map_err(|err| log::warn!("session path: {err}")).ok();
