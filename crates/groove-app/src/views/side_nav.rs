@@ -129,8 +129,7 @@ impl RenderOnce for SideNav {
 
         let settings = nav_button(
             "side-nav-settings",
-            GrooveIcon::Settings,
-            t!("shell.nav.settings"),
+            (GrooveIcon::Settings, t!("shell.nav.settings")),
             wide,
             false,
             self.on_settings.clone(),
@@ -188,8 +187,7 @@ impl NavInk {
 /// Một hàng cao 42 px toàn bề ngang, vạch trái 3 px: icon + chữ khi rộng, chỉ icon + tooltip khi thu.
 fn nav_button(
     id: &'static str,
-    icon: GrooveIcon,
-    label: &'static str,
+    (icon, label): (GrooveIcon, &'static str),
     wide: bool,
     active: bool,
     on_click: Handler<()>,
@@ -267,8 +265,7 @@ fn nav_item(
     let id: &'static str = ["side-nav-0", "side-nav-1", "side-nav-2"][ix];
     nav_button(
         id,
-        nav_icon(route),
-        route.title(),
+        (nav_icon(route), route.title()),
         wide,
         active,
         Rc::new(move |(), window, cx| on_select(route, window, cx)),
@@ -305,7 +302,9 @@ mod tests {
         }
     }
 
-    fn open(cx: &mut TestAppContext) -> (Rc<RefCell<Vec<Route>>>, Rc<RefCell<usize>>, &mut VisualTestContext) {
+    type Opened<'a> = (Rc<RefCell<Vec<Route>>>, Rc<RefCell<usize>>, &'a mut VisualTestContext);
+
+    fn open(cx: &mut TestAppContext) -> Opened<'_> {
         groove_core::i18n::set_language(groove_core::i18n::Language::En);
         cx.update(materiant::init);
         let picked = Rc::new(RefCell::new(Vec::new()));
