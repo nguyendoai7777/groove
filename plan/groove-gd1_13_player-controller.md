@@ -13,6 +13,23 @@
 
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 13. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
+## 0. Bàn giao từ groove-gd1_11 (02/11/2026)
+
+<!-- handoff: groove-gd1_11 -->
+
+- **Đã có sẵn để dùng**: `groove_audio::dsp::EqParams`; `EqParams::from(&settings.eq)` lấy `effective_gains()`, đã có bass boost, đừng cộng lần nữa.
+- **Việc của task này**: gửi `SetEq` lúc mở app (cả khi phẳng) và mỗi khi EQ đổi. Đổi gain tự trượt 10 ms trong DSP, gửi liên tục khi kéo thanh trượt được.
+- **Cần biết**: preamp tự động làm cả bài nhỏ đi khi tăng dải, đúng S23; chi tiết ở `plan/groove-gd1_11_audio-dsp.md` mục 9.
+
+## 0. Bàn giao từ groove-gd1_02 (02/11/2026)
+
+<!-- handoff: groove-gd1_02 -->
+
+- **Đã có sẵn để dùng**: `session::{Session, SAVE_INTERVAL}`, `settings::JsonSaver` cho `session_sync`: `JsonSaver::spawn(paths::session_file()?, debounce)`, `.save(&session)` không chạm đĩa, `.flush()` khi thoát (chặn).
+- **Khôi phục**: `Session::load()` lúc mở app, `retain_tracks` để bỏ bài không còn trong thư viện (N5); mất bài hiện tại thì `current = None`, hàng đợi vẫn còn, task này quyết phát gì tiếp. Không tự phát (đặc tả 1.4).
+- **Âm lượng, EQ**: `Settings::{volume, is_muted}`, `EqSettings::effective_gains()` là mức đưa vào DSP, đã cộng bass boost và kẹp ±10 dB.
+- **`Song::external(path)`** cho tệp ngoài thư viện; hiển thị qua `display_title`, `display_artist`.
+
 ## 1. Làm gì
 - Làm đúng hành vi ở mục 1 và dữ liệu ở mục 2 của đặc tả cho phạm vi "File đụng tới".
 - Sửa dứt điểm các lỗi N5, N6, N8 theo mục 3 của đặc tả, mỗi lỗi có test tái hiện.

@@ -13,6 +13,14 @@
 
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 12. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
+## 0. Bàn giao từ groove-gd1_02 (02/11/2026)
+
+<!-- handoff: groove-gd1_02 -->
+
+- **Đã có sẵn để dùng**: `groove_core::model::{TrackRef, RepeatMode}`, không khai lại trong `queue.rs`. `TrackRef` băm và so sánh theo đường dẫn chuẩn hoá, dùng được làm khoá `HashSet` (N6).
+- **Khớp với phiên**: `session::Session { current, position_sec, original, history, queue, shuffle, repeat }` là dạng lưu; `Session::sanitize` đã giữ bất biến mỗi bài một lần và shuffle, repeat không cùng bật. Hàng đợi của task này nên dựng được từ các trường đó và ngược lại.
+- **Chi tiết**: `plan/groove-gd1_02_settings-session.md` mục 9.
+
 ## 1. Làm gì
 - Làm đúng hành vi ở mục 1 và dữ liệu ở mục 2 của đặc tả cho phạm vi "File đụng tới".
 - Sửa dứt điểm các lỗi S4, S20 theo mục 3 của đặc tả, mỗi lỗi có test tái hiện.
