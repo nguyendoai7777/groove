@@ -177,7 +177,8 @@ pub fn apply_batch(indexer: &Indexer, batch: ChangeBatch) -> IndexJob<SyncOutcom
 }
 
 enum Command {
-    RefreshRoots,
+    /// `Sender`: báo khi đã đọc lại và gắn xong.
+    RefreshRoots(Option<Sender<()>>),
     Stop,
 }
 
@@ -203,7 +204,15 @@ impl LibraryWatcher {
 
     /// Gốc vừa đổi (import, bỏ gốc): đọc lại danh sách. Import đã tự so nên ở đây không so lại.
     pub fn refresh_roots(&self) {
-        let _ = self.commands.send(Command::RefreshRoots);
+        let _ = self.commands.send(Command::RefreshRoots(None));
+    }
+
+    /// Như [`Self::refresh_roots`], chờ tới khi gắn xong. Để test biết chắc từ lúc này watcher đã nghe, không dùng ở UI thread.
+    #[doc(hidden)]
+    pub fn refresh_roots_blocking(&self) {
+        let (done, finished) = unbounded();
+        let _ = self.commands.send(Command::RefreshRoots(Some(done)));
+        let _ = finished.recv();
     }
 
     /// Chờ luồng thoát. Khi thoát app, gọi trước `Library::shutdown`.
@@ -251,9 +260,12 @@ fn run(indexer: Indexer, options: WatcherOptions, inbox: Receiver<Command>) {
     loop {
         select! {
             recv(inbox) -> command => match command {
-                Ok(Command::RefreshRoots) => {
+                Ok(Command::RefreshRoots(done)) => {
                     if let Ok(roots) = indexer.library().watched_roots().wait() {
                         sync_roots(&mut debouncer, &mut attached, &mut waiting, roots);
+                    }
+                    if let Some(done) = done {
+                        let _ = done.send(());
                     }
                 }
                 Ok(Command::Stop) | Err(_) => return,

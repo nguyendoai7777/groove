@@ -444,7 +444,7 @@ mod tests {
     fn play_tone(rig: &Rig, cx: &mut VisualTestContext) -> f32 {
         let track = TrackRef::from_path(write_tone(rig.dir.path()));
         cx.update(|_, cx| player::player(cx).update(cx, |p, cx| p.play_track(track, cx)));
-        let mut frame = |cx: &mut VisualTestContext| {
+        let frame = |cx: &mut VisualTestContext| {
             let loudness = loudness_until(rig, cx, "khung có tiếng", |l| l > SOUND);
             std::thread::sleep(Duration::from_millis(10));
             loudness

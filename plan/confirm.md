@@ -181,6 +181,7 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_24] Bước tua có trần 3600 giây — không trần — chỉ để ô không nhận số vô lý; `Settings::sanitize` vẫn chỉ chặn dưới.
 - [groove-gd1_24] Không sửa `library_ctl.rs`: danh sách gốc đọc lại theo `LibraryCtlEvent::Notice`, bỏ gốc thì gỡ khỏi danh sách ngay — thêm sự kiện "gốc đổi" vào `LibraryCtl` — task 17 đã xong, ngoài danh sách tệp, và không cần.
 - [groove-gd1_24] Vượt trần 900 dòng code (khoảng 1.060 kể cả chú thích), sáu tệp — tách task — một lát dọc chạy được; tách ra thì mỗi mảnh vẫn dính `dialog.rs`.
+- [flaky-audio] `set_language` chạy theo từng luồng khi bật feature `test-support` của `groove-core` (dev-dep của `groove-app`), thêm một dòng `Cargo.toml` mỗi crate — thêm API đặt ngôn ngữ riêng cho test, sửa từng test — một chỗ sửa mọi test, bản phát hành vẫn dùng atomic toàn tiến trình.
 - [groove-gd1_27] Mở lại theo hình học, id màn chỉ để ưu tiên — coi id không thấy là màn đã mất như đặc tả 5.7 — `DisplayId` trên Windows là `HMONITOR`, đổi sau khởi động lại nên cửa sổ sẽ về giữa màn sau mỗi lần bật máy; hệ quả: rút màn mà màn khác chiếm đúng toạ độ đó thì cửa sổ mở ở đó thay vì giữa màn chính.
 - [groove-gd1_27] `restore` thêm trước `open_window`, đăng ký lưu bằng `observe_new::<Shell>` — lời gọi sau `open_window` rồi dời cửa sổ — GPUI không có lệnh dời, và luật chỉ cho một lời gọi trong `app.rs`.
 - [groove-gd1_27] `--display` thắng và không lưu vị trí — vẫn lưu — chạy thử không được đổi vị trí của người dùng.

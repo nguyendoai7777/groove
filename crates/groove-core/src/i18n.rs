@@ -6,6 +6,7 @@
 
 use std::collections::HashMap;
 use std::sync::LazyLock;
+#[cfg(not(any(test, feature = "test-support")))]
 use std::sync::atomic::{AtomicU8, Ordering};
 
 use serde::{Deserialize, Serialize};
@@ -54,16 +55,41 @@ static EN_TEXT: LazyLock<HashMap<String, String>> = LazyLock::new(|| parse(EN));
 const LANG_UNSET: u8 = 0;
 const LANG_VI: u8 = 1;
 const LANG_EN: u8 = 2;
+
+#[cfg(any(test, feature = "test-support"))]
+std::thread_local! {
+    // Mỗi test một luồng: test đặt ngôn ngữ không làm đổi chữ của test đang chạy song song.
+    static CURRENT: std::cell::Cell<u8> = const { std::cell::Cell::new(LANG_UNSET) };
+}
+#[cfg(not(any(test, feature = "test-support")))]
 static CURRENT: AtomicU8 = AtomicU8::new(LANG_UNSET);
 
-/// Đổi ngôn ngữ cho toàn tiến trình; view tự vẽ lại ở lần `cx.notify()` kế tiếp.
+#[cfg(any(test, feature = "test-support"))]
+fn store_current(value: u8) {
+    CURRENT.set(value);
+}
+#[cfg(not(any(test, feature = "test-support")))]
+fn store_current(value: u8) {
+    CURRENT.store(value, Ordering::Relaxed);
+}
+
+#[cfg(any(test, feature = "test-support"))]
+fn load_current() -> u8 {
+    CURRENT.get()
+}
+#[cfg(not(any(test, feature = "test-support")))]
+fn load_current() -> u8 {
+    CURRENT.load(Ordering::Relaxed)
+}
+
+/// Đổi ngôn ngữ cho toàn tiến trình (bật feature `test-support` thì chỉ luồng gọi); view tự vẽ lại ở lần `cx.notify()` kế tiếp.
 pub fn set_language(lang: Language) {
-    CURRENT.store(if lang == Language::Vi { LANG_VI } else { LANG_EN }, Ordering::Relaxed);
+    store_current(if lang == Language::Vi { LANG_VI } else { LANG_EN });
 }
 
 /// Ngôn ngữ đang dùng; chưa ai đặt thì theo OS.
 pub fn language() -> Language {
-    match CURRENT.load(Ordering::Relaxed) {
+    match load_current() {
         LANG_VI => Language::Vi,
         LANG_EN => Language::En,
         _ => {
