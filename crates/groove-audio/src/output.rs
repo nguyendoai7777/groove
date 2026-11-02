@@ -372,6 +372,13 @@ impl FakeOutput {
         lock(&self.state).renderer.is_some()
     }
 
+    /// Số frame đang nằm trong ring, chưa ai kéo. Test chờ theo số này thay vì ngủ rồi đoán decoder đã đẩy xong.
+    pub fn buffered_frames(&self) -> usize {
+        let state = lock(&self.state);
+        let channels = usize::from(state.config.channels.max(1));
+        state.renderer.as_ref().map_or(0, |renderer| renderer.consumer.occupied_len() / channels)
+    }
+
     /// Số lần mở stream thành công.
     pub fn open_count(&self) -> usize {
         lock(&self.state).opens
@@ -494,6 +501,18 @@ mod tests {
         let out = render(&mut renderer, 20);
         assert_eq!(&out[20..], &[0.0; 20]);
         assert_eq!(counters.popped.load(Ordering::Acquire), 20);
+    }
+
+    /// Thiếu dữ liệu thì fade lại từ 0: không mất frame nào, chỉ các frame ngay sau đó nhỏ hơn.
+    #[test]
+    fn underrun_fades_back_in_without_losing_frames() {
+        let (mut producer, mut renderer, counters, _) = setup(1000);
+        render(&mut renderer, 1100);
+        producer.push_slice(&vec![0.5; 200]);
+        let out = render(&mut renderer, 100);
+        assert_eq!(out.iter().filter(|s| **s > 0.0).count(), 200, "every frame played");
+        assert_eq!(counters.popped.load(Ordering::Acquire), 2200);
+        assert!(out[198] < 0.5 * 101.0 / FADE_FRAMES as f32, "still fading: {}", out[198]);
     }
 
     #[test]

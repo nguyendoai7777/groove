@@ -170,6 +170,7 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_21] Nút Metadata mở `MetadataDialog` (task 19), Sửa / Thêm lời và Timeline mở `TextDialog` (task 20) thay cho sửa tại chỗ ở đặc tả 1.5 — sửa tại chỗ — theo bàn giao task 20.
 - [groove-gd1_21] Tiêu đề cửa sổ bỏ phần `- <nghệ sĩ>` khi bài không có nghệ sĩ — hiện "Unknown artist" — tiêu đề gọn, không bịa chữ.
 - [groove-gd1_21] Phím mũi tên trong hàng đợi chỉ dời con trỏ, Enter / bấm mới phát — phát ngay khi dời — tránh đổi bài theo từng lần nhấn.
+- [flaky-audio] `set_language` chạy theo từng luồng khi bật feature `test-support` của `groove-core` (dev-dep của `groove-app`), thêm một dòng `Cargo.toml` mỗi crate — thêm API đặt ngôn ngữ riêng cho test, sửa từng test — một chỗ sửa mọi test, bản phát hành vẫn dùng atomic toàn tiến trình.
 - [groove-gd1_27] Mở lại theo hình học, id màn chỉ để ưu tiên — coi id không thấy là màn đã mất như đặc tả 5.7 — `DisplayId` trên Windows là `HMONITOR`, đổi sau khởi động lại nên cửa sổ sẽ về giữa màn sau mỗi lần bật máy; hệ quả: rút màn mà màn khác chiếm đúng toạ độ đó thì cửa sổ mở ở đó thay vì giữa màn chính.
 - [groove-gd1_27] `restore` thêm trước `open_window`, đăng ký lưu bằng `observe_new::<Shell>` — lời gọi sau `open_window` rồi dời cửa sổ — GPUI không có lệnh dời, và luật chỉ cho một lời gọi trong `app.rs`.
 - [groove-gd1_27] `--display` thắng và không lưu vị trí — vẫn lưu — chạy thử không được đổi vị trí của người dùng.

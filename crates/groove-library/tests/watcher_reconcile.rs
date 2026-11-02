@@ -744,8 +744,7 @@ fn refresh_roots_starts_watching_an_imported_folder() {
     let watcher = LibraryWatcher::start_with(fx.indexer.clone(), options()).unwrap();
     write(&fx.music, "a", "A");
     fx.indexer.import(&fx.music).wait().unwrap();
-    watcher.refresh_roots();
-    std::thread::sleep(Duration::from_millis(300));
+    watcher.refresh_roots_blocking();
     let b = write(&fx.music, "b", "B");
     wait_until("the new file", || matches!(fx.library.track_for_path(b.clone()).wait().unwrap(), TrackRef::Library(_)));
     drop(watcher);

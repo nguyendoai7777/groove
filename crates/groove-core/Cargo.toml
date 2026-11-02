@@ -19,5 +19,9 @@ toml = { version = "1", default-features = false, features = ["parse", "serde"] 
 [dev-dependencies]
 tempfile.workspace = true
 
+[features]
+# Ngôn ngữ theo từng luồng, chỉ để test song song. Bản phát hành không bật.
+test-support = []
+
 [lints]
 workspace = true
