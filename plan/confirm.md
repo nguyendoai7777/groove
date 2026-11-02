@@ -213,3 +213,10 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd2_01] Không làm mục chuột phải "Phát bằng Groove X" cho thư mục, không verb "Thêm vào hàng đợi" — làm luôn — `open_paths::resolve` chỉ nhận tệp nhạc, app chưa có cờ dòng lệnh xếp hàng; ghi mục 8.
 - [groove-gd2_01] Mục Settings "Trình phát mặc định" nằm ở tab Cài đặt chung, giữa bước tua và EQ; bản không qua bộ cài thì khoá nút và nói lý do — ẩn hẳn mục — người dùng bản dev vẫn hiểu vì sao không đặt được.
 - [groove-gd2_01] Version info của exe sinh `.rc` trong `OUT_DIR` từ `Cargo.toml`, bỏ `assets/app/groove.rc` — giữ `.rc` tĩnh — phiên bản không lệch khi `tag.sh` nâng.
+
+## ui-player-bar
+
+- [ui-player-bar] Nút Play giữa thanh vùng bấm tròn 48 px, icon 36 px — 60 px như `toggle-play.vue` — thanh Rust cao 90 px, khung 60 px đẩy hàng tua xuống sát đáy; phần nhìn thấy (icon 36 px) vẫn đúng cỡ web.
+- [ui-player-bar] Nút Play không nền, không đổi màu khi rê (đúng web), chỉ thêm vòng focus khi Tab tới — nền cyan tròn của bản Rust cũ — chủ dự án muốn khớp web.
+- [ui-player-bar] Nút tròn dùng `IconButton::rounded_full()` sẵn có của materiant (hover, nhấn, ripple đều theo bo góc), không thêm API ở materiant — thêm tuỳ chọn mới — đã có, thêm nữa là trùng.
+- [ui-player-bar] Giữ cỡ, màu icon nút phụ như cũ (Shuffle / Repeat bật màu nhấn, không xanh lá `green-500` của web; hộp 32 px thay 36 px) — đổi theo web — ngoài phạm vi việc (chỉ vùng hover tròn và nút Play).

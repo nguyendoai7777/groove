@@ -9,30 +9,34 @@
 //! cảnh báo (đã tự sang bài kế) hoặc lỗi (đã bỏ cuộc sau [`player::MAX_CONSECUTIVE_ERRORS`] lần), `OutputFailed` là lỗi kèm
 //! cách gỡ.
 //!
-//! Nút Play đổi icon tức thì (đặc tả cho phép thay cho hiệu ứng biến hình 250 ms). Số giờ không nhấp nháy mỗi giây: tốn khung
-//! hình liên tục (đặc tả mục 4).
+//! Nút Play / Pause (giữa thanh và phủ trên bìa) chép `toggle-play.vue` của bản web: không nền, icon màu chữ biến hình giữa
+//! tam giác và hai vạch trong 250 ms ([`play_morph`]). Các nút icon khác tròn (`rounded_full`) như `rounded-full` của web.
+//! Số giờ không nhấp nháy mỗi giây: tốn khung hình liên tục (đặc tả mục 4).
 //!
 //! ```ignore
 //! player_bar::install(window_handle, cx);   // trong `app::run`, sau `player::install`
 //! ```
 
+mod play_morph;
+
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use groove_audio::engine::AudioErrorKind;
 use groove_core::model::RepeatMode;
 use groove_core::t;
 use groove_library::covers::{CoverSize, CoverStore};
-use materiant::button::{IconButton, Size};
+use materiant::button::IconButton;
 use materiant::gpui_kit::base::Disableable;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    AnyElement, AnyWindowHandle, App, ClickEvent, Context, Entity, FontWeight, Image, ImageFormat, ImageSource,
-    IntoElement, ObjectFit, ParentElement, Render, ScrollEvent, Styled, Subscription, Window, black, div, img, px,
-    relative,
+    AnyElement, AnyWindowHandle, App, ClickEvent, Context, Entity, FocusHandle, FontWeight, Image, ImageFormat,
+    ImageSource, IntoElement, ObjectFit, ParentElement, Render, ScrollEvent, Styled, Subscription, Window, black, div,
+    img, px, relative,
 };
 use materiant::overlay::tooltip::TooltipExt;
 use materiant::slider::Slider;
+use materiant::style::{ActiveTokens, ring_overlay};
 use materiant::theme::ActiveTheme;
 use materiant::toast::{Toast, ToastKind, ToastSpec};
 use materiant::virtual_grid::LruImageCache;
@@ -44,12 +48,18 @@ use crate::route::Route;
 use crate::views::cover_image::{CoverImage, CoverKind};
 use crate::views::marquee::Marquee;
 use crate::views::seek_bar::SeekBar;
+use play_morph::PlayMorph;
 
 /// Cạnh bìa = chiều cao thanh (`app::PLAYER_BAR_HEIGHT`).
 const COVER_SIZE: f32 = 90.;
 /// Số bìa giữ giải mã sẵn: chỉ bìa của bài đang phát.
 const COVER_CACHE: usize = 4;
 const VOLUME_WIDTH: f32 = 110.;
+/// Nút Play giữa thanh: icon 36 px (`--size: 36px` của web), vùng bấm tròn 48 px (web 60 px, thanh Rust thấp hơn).
+const PLAY_ICON: f32 = 36.;
+const PLAY_BOX: f32 = 48.;
+/// Nút Play phủ trên bìa: icon 32 px (cỡ mặc định của `toggle-play.vue`).
+const COVER_PLAY_ICON: f32 = 32.;
 /// Toast lỗi thiết bị ở lại lâu hơn mặc định: người dùng cần thời gian đọc cách gỡ.
 const OUTPUT_TOAST: Duration = Duration::from_secs(8);
 
@@ -110,6 +120,10 @@ pub struct PlayerBar {
     prefs: PrefsFn,
     /// Bìa của tệp ngoài, dựng một lần mỗi lần đổi bài: băm cả ảnh mỗi lần vẽ (4 lần / giây) là phí.
     external: Option<Arc<Image>>,
+    /// Hình icon Play / Pause đang chuyển (chung cho nút giữa thanh và nút trên bìa).
+    morph: PlayMorph,
+    play_focus: FocusHandle,
+    cover_play_focus: FocusHandle,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -140,7 +154,19 @@ impl PlayerBar {
                 PlayerEvent::DeviceChanged => {}
             }),
         ];
-        let mut bar = PlayerBar { player, seek, covers, cache, prefs, external: None, _subscriptions: subscriptions };
+        let morph = PlayMorph::new(player.read(cx).is_playing());
+        let mut bar = PlayerBar {
+            player,
+            seek,
+            covers,
+            cache,
+            prefs,
+            external: None,
+            morph,
+            play_focus: cx.focus_handle(),
+            cover_play_focus: cx.focus_handle(),
+            _subscriptions: subscriptions,
+        };
         bar.refresh_external(cx);
         bar
     }
@@ -172,11 +198,46 @@ impl PlayerBar {
         CoverImage::new(path, CoverKind::Album, None, &self.cache).into_any_element()
     }
 
-    fn controls(&self, enabled: bool, cx: &App) -> impl IntoElement {
+    /// Nút Play / Pause như `toggle-play.vue`: không nền, không đổi màu khi rê; icon màu chữ biến hình theo [`PlayMorph`].
+    fn play_button(
+        &self,
+        id: &'static str,
+        icon: f32,
+        enabled: bool,
+        focus: &FocusHandle,
+        window: &Window,
+        cx: &App,
+    ) -> AnyElement {
+        let label = if self.player.read(cx).is_playing() { t!("player.bar.pause") } else { t!("player.bar.play") };
+        let player = self.player.clone();
+        let ink = cx.theme().colors().text;
+        let ring = (focus.is_focused(window) && window.last_input_was_keyboard())
+            .then(|| ring_overlay(cx.focus_ring_color(), px(PLAY_BOX / 2.)));
+        div()
+            .occlude()
+            .debug_selector(move || id.to_owned())
+            .child(
+                materiant::gpui_kit::base::Button::new(id)
+                    .track_focus(focus)
+                    .disabled(!enabled)
+                    .accessibility_label(label)
+                    .relative()
+                    .size(px(PLAY_BOX))
+                    .rounded_full()
+                    .when(enabled, |b| b.cursor_pointer())
+                    .on_click(move |_: &ClickEvent, _, cx| player.update(cx, |p, cx| p.toggle_play(cx)))
+                    .child(self.morph.icon(px(icon), ink))
+                    .children(ring)
+                    .with_tooltip((id, 0usize), label),
+            )
+            .into_any_element()
+    }
+
+    fn controls(&self, enabled: bool, window: &Window, cx: &App) -> impl IntoElement {
         let c = cx.theme().colors().clone();
-        let (playing, shuffle, repeat) = {
+        let (shuffle, repeat) = {
             let player = self.player.read(cx);
-            (player.is_playing(), player.queue().shuffle(), player.queue().repeat())
+            (player.queue().shuffle(), player.queue().repeat())
         };
         let player = self.player.clone();
         let button = {
@@ -184,6 +245,7 @@ impl PlayerBar {
             move |id: &'static str, icon: GrooveIcon, label: &'static str, on: bool, action: PlayerAction| {
                 let player = player.clone();
                 let button = IconButton::new(id, icon)
+                    .rounded_full()
                     .accessibility_label(label)
                     .disabled(!enabled)
                     .on_click(move |_: &ClickEvent, _, cx| player.update(cx, action));
@@ -192,11 +254,6 @@ impl PlayerBar {
             }
         };
 
-        let (play_icon, play_label) = if playing {
-            (GrooveIcon::Pause, t!("player.bar.pause"))
-        } else {
-            (GrooveIcon::Play, t!("player.bar.play"))
-        };
         let (repeat_icon, repeat_label) = match repeat {
             RepeatMode::Off => (GrooveIcon::Loop, t!("player.bar.repeat_off")),
             RepeatMode::One => (GrooveIcon::LoopBadge, t!("player.bar.repeat_one")),
@@ -215,29 +272,17 @@ impl PlayerBar {
                 Player::toggle_shuffle,
             ))
             .child(button("player-prev", GrooveIcon::Prev, t!("player.bar.prev"), false, Player::prev))
-            .child(
-                div().occlude().child(
-                    IconButton::new("player-play", play_icon)
-                        .filled()
-                        .rounded_full()
-                        .size(Size::Lg)
-                        .accessibility_label(play_label)
-                        .disabled(!enabled)
-                        .on_click({
-                            let player = player.clone();
-                            move |_: &ClickEvent, _, cx| player.update(cx, |p, cx| p.toggle_play(cx))
-                        })
-                        .with_tooltip(("player-play", 0usize), play_label),
-                ),
-            )
+            .child(self.play_button("player-play", PLAY_ICON, enabled, &self.play_focus, window, cx))
             .child(button("player-next", GrooveIcon::Next, t!("player.bar.next"), false, Player::next))
             .child(button("player-repeat", repeat_icon, repeat_label, repeat == RepeatMode::One, Player::toggle_repeat))
     }
 }
 
 impl Render for PlayerBar {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let colors = cx.theme().colors().clone();
+        let playing = self.player.read(cx).is_playing();
+        self.morph.set_playing(playing, Instant::now(), cx.reduce_motion());
         let enabled = self.is_enabled(cx);
         let (volume, muted) = (self.prefs)(cx);
         let (artist, title) = match self.player.read(cx).current_song() {
@@ -271,20 +316,14 @@ impl Render for PlayerBar {
                     .bg(black().opacity(0.4))
                     .invisible()
                     .group_hover("player-cover", |style| style.visible())
-                    .child(div().occlude().child({
-                        let player = player.clone();
-                        let (icon, label) = if player.read(cx).is_playing() {
-                            (GrooveIcon::Pause, t!("player.bar.pause"))
-                        } else {
-                            (GrooveIcon::Play, t!("player.bar.play"))
-                        };
-                        IconButton::new("player-cover-play", icon)
-                            .filled()
-                            .rounded_full()
-                            .size(Size::Lg)
-                            .accessibility_label(label)
-                            .on_click(move |_: &ClickEvent, _, cx| player.update(cx, |p, cx| p.toggle_play(cx)))
-                    })),
+                    .child(self.play_button(
+                        "player-cover-play",
+                        COVER_PLAY_ICON,
+                        true,
+                        &self.cover_play_focus,
+                        window,
+                        cx,
+                    )),
             );
 
         let text = div()
@@ -309,7 +348,7 @@ impl Render for PlayerBar {
             .flex()
             .flex_col()
             .justify_center()
-            .child(self.controls(enabled, cx))
+            .child(self.controls(enabled, window, cx))
             .child(self.seek.clone());
 
         let volume_icon = volume_icon(volume, muted);
@@ -325,6 +364,7 @@ impl Render for PlayerBar {
             .child(div().occlude().child({
                 let player = player.clone();
                 IconButton::new("player-mute", volume_icon)
+                    .rounded_full()
                     .accessibility_label(mute_label)
                     .disabled(!enabled)
                     .on_click(move |_: &ClickEvent, _, cx| player.update(cx, |p, cx| p.toggle_mute(cx)))
@@ -367,6 +407,7 @@ impl Render for PlayerBar {
             .child(
                 div().occlude().child(
                     IconButton::new("player-settings", GrooveIcon::Settings)
+                        .rounded_full()
                         .accessibility_label(t!("player.bar.settings"))
                         .disabled(!enabled)
                         .on_click(|_: &ClickEvent, _, cx| app::open_settings(cx))
@@ -609,6 +650,40 @@ mod tests {
             assert_eq!(p.queue().repeat(), RepeatMode::One);
             assert!(!p.queue().shuffle(), "bật repeat tắt shuffle");
         });
+    }
+
+    /// Nút Play kiểu web: bấm đổi phát / dừng, icon chạy hiệu ứng 250 ms rồi đứng ở hình mới (0 vạch pause, 1 tam giác).
+    #[gpui::test]
+    fn play_button_toggles_and_morphs(cx: &mut TestAppContext) {
+        let rig = rig(cx);
+        let (bar, cx) = open_bar(cx);
+        let path = fixtures::write_sample(rig.dir.path(), "a", AudioKind::Wav).unwrap();
+        rig.player.update(cx, |p, cx| p.play_paths(vec![path], cx));
+        rig.until(cx, "song loaded", |p| p.current_song().is_some() && p.duration_sec() > 0.);
+        rig.player.update(cx, |p, cx| p.pause(cx));
+        cx.update(|window, cx| {
+            window.refresh();
+            window.draw(cx).clear(cx);
+        });
+        let settled = |cx: &mut VisualTestContext| {
+            bar.read_with(cx, |bar, _| bar.morph.shape(Instant::now() + play_morph::DURATION))
+        };
+        assert_eq!(settled(cx), 1., "đang dừng: tam giác");
+
+        let at = cx.debug_bounds("player-play").expect("có nút play").center();
+        cx.simulate_mouse_move(at, None, Modifiers::none());
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.simulate_click(at, Modifiers::none());
+        rig.until(cx, "playing", |p| p.is_playing());
+        cx.update(|window, cx| {
+            window.refresh();
+            window.draw(cx).clear(cx);
+        });
+        assert_eq!(settled(cx), 0., "đang phát: hai vạch");
+        assert!(
+            bar.read_with(cx, |bar, _| bar.morph.is_animating(Instant::now())),
+            "vừa bấm thì đang chuyển hình, không nhảy"
+        );
     }
 
     /// S20: kéo trên thanh chỉ đổi xem trước, `Player::seek` đúng một lần khi thả chuột.
