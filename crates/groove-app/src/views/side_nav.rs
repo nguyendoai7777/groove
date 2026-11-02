@@ -244,6 +244,7 @@ fn nav_button(
                     .min_w_0()
                     .truncate()
                     .text_sm()
+                    .line_height(px(20.))
                     .text_color(ink.label)
                     .when(active, |t| t.font_weight(FontWeight::SEMIBOLD))
                     .when(!active, |t| t.group_hover(group.clone(), move |s| s.text_color(ink.hover)))
