@@ -45,6 +45,8 @@ objc2-foundation = "0.3"
 embed-resource = "3"
 
 [dev-dependencies]
+# Test: `set_language` chỉ có hiệu lực trên luồng gọi, các test chạy song song không giẫm ngôn ngữ của nhau.
+groove-core = { workspace = true, features = ["test-support"] }
 tempfile.workspace = true
 # Test view trong App ảo: `test-support` bật thẳng trên gpui-pre, cùng crate với GPUI của materiant.
 gpui = { package = "gpui-pre", version = "=0.3.10", features = ["test-support"] }

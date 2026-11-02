@@ -1147,7 +1147,17 @@ mod tests {
         let path = rig.wav("a");
         rig.update(cx, |p, cx| p.play_track(ext(&path), cx));
         rig.until(cx, "started", |p| p.wants_playback && loaded(p));
-        rig.until(cx, "stopped", |p| !p.wants_playback && !p.is_playing());
+        // Kéo hết phần đã có mỗi vòng: `until` chỉ kéo 10 ms mỗi vòng, máy bận mỗi vòng lâu hơn thế nhiều nên một giây tiếng vượt hạn.
+        let deadline = Instant::now() + TIMEOUT;
+        loop {
+            cx.run_until_parked();
+            if rig.read(cx, |p| !p.wants_playback && !p.is_playing()) {
+                break;
+            }
+            assert!(Instant::now() < deadline, "timed out: stopped");
+            let _ = rig.fake.pull(rig.fake.buffered_frames());
+            std::thread::sleep(Duration::from_millis(1));
+        }
         assert_eq!(rig.read(cx, |p| p.current_track().cloned()), Some(ext(&path)));
     }
 

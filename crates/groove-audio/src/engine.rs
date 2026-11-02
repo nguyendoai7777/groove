@@ -884,9 +884,13 @@ mod tests {
                     return event;
                 }
                 assert!(Instant::now() < deadline, "no event in time");
-                match self.fake.pull(480) {
-                    Some(samples) => audio.extend(samples.chunks(2).map(|f| f[0]).filter(|s| *s != 0.0)),
-                    None => std::thread::sleep(Duration::from_millis(1)),
+                // Chỉ kéo phần đã có: kéo quá thì thành thiếu dữ liệu, callback fade lại và làm méo các frame sau, kể cả đuôi bài.
+                match self.fake.buffered_frames().min(480) {
+                    0 => std::thread::sleep(Duration::from_millis(1)),
+                    frames => {
+                        let samples = self.fake.pull(frames).unwrap_or_default();
+                        audio.extend(samples.chunks(2).map(|f| f[0]).filter(|s| *s != 0.0));
+                    }
                 }
             }
         }
@@ -976,6 +980,7 @@ mod tests {
         let deadline = Instant::now() + TIMEOUT;
         while left.len() < 3000 {
             assert!(Instant::now() < deadline);
+            rig.wait_buffered(480);
             let samples = rig.fake.pull(480).unwrap();
             left.extend(samples.chunks(2).map(|f| f[0]).filter(|s| *s != 0.0));
             std::thread::sleep(Duration::from_millis(1));

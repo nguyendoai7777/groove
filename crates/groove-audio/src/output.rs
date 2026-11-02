@@ -503,6 +503,18 @@ mod tests {
         assert_eq!(counters.popped.load(Ordering::Acquire), 20);
     }
 
+    /// Thiếu dữ liệu thì fade lại từ 0: không mất frame nào, chỉ các frame ngay sau đó nhỏ hơn.
+    #[test]
+    fn underrun_fades_back_in_without_losing_frames() {
+        let (mut producer, mut renderer, counters, _) = setup(1000);
+        render(&mut renderer, 1100);
+        producer.push_slice(&vec![0.5; 200]);
+        let out = render(&mut renderer, 100);
+        assert_eq!(out.iter().filter(|s| **s > 0.0).count(), 200, "every frame played");
+        assert_eq!(counters.popped.load(Ordering::Acquire), 2200);
+        assert!(out[198] < 0.5 * 101.0 / FADE_FRAMES as f32, "still fading: {}", out[198]);
+    }
+
     #[test]
     fn mute_and_volume_ramp_without_a_step() {
         let (mut producer, mut renderer, _, controls) = setup(2000);
