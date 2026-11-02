@@ -216,4 +216,6 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 
 ## groove-ui-card
 
-- [groove-ui-card] Thẻ lưới: đệm 12 px, viền 2 px, thẻ `rounded_xl`, bìa tự bo `rounded_lg` và cắt góc, chữ cách bìa 12 px, dòng phụ cách 4 px — giữ bố cục cũ viền sát bìa — đúng `p-3 rounded-xl border-2` và `mt-3`, `mt-1` của `music-card.vue`; nền thẻ 40 
+- [groove-ui-card] Thẻ lưới: đệm 12 px, viền 2 px, thẻ rounded_xl, bìa tự bo rounded_lg và cắt góc, chữ cách bìa 12 px, dòng phụ cách 4 px — giữ bố cục cũ viền sát bìa — đúng p-3 rounded-xl border-2 và mt-3, mt-1 của music-card.vue; nền thẻ 40%, hover 60% theo bg-theme-bg-card.
+- [groove-ui-card] Viền hover vẫn 2 px, màu accent theo bìa (không có thì cyan) — mảnh hơn 2 px — web cũng border-2 và item.accentColor; ảnh mẫu cyan vì thẻ đó không có accent.
+- [groove-ui-card] Không làm chuyển 300 ms, phóng bìa 1,05, quầng bóng, làm mờ nền (backdrop-blur) — GPUI div không có — giữ nhịp bằng đổi tức thì.
