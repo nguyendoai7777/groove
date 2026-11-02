@@ -11,6 +11,18 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `app/player.rs`, `app/session_sync.rs` (N5, N6, N8) |
 
+## 0. Bàn giao từ groove-gd1_10 (02/11/2026)
+
+<!-- handoff: groove-gd1_10 -->
+
+- **Đã có sẵn để dùng**: `groove_audio::engine::{AudioEngine, AudioEvents, AudioCmd, AudioEvent, AudioErrorKind, EngineOptions}`; `AudioEngine::spawn(output::default_output(), EngineOptions::default())`. Chi tiết: `plan/groove-gd1_10_audio-engine.md` mục 9.
+- **Cách nối**: `next_generation()` cho mỗi Load; nhận sự kiện bằng `events.next().await`, đã lọc `generation` cũ, không cần lọc lại. `is_playing()` là nguồn duy nhất của trạng thái phát; sau `Ended`, `Error` nó là `false`.
+- **N5**: `Error { kind: Output }` là lỗi thiết bị, không phải lỗi tệp: không tự sang bài, kẻo chạy hết hàng đợi. Các `kind` khác mới tính vào 3 lỗi liên tiếp.
+- **Tua sau `Ended`**: Seek không tự phát, gửi thêm `Play` (repeat one).
+- **EQ**: `SetEq(EqParams::from(&settings))`, xem bàn giao của groove-gd1_11.
+- **Test**: `output::FakeOutput` tự kéo mẫu bằng `pull`, không ra loa; đặt `stall_timeout` thật lớn khi test tự kéo.
+- **Soát lại khi làm**: `Loaded.duration_sec` là 0 khi tệp không khai độ dài.
+
 ## 0. Bàn giao từ groove-gd1_05 (02/11/2026)
 
 <!-- handoff: groove-gd1_05 -->
