@@ -266,6 +266,9 @@ impl CoverPane {
     }
 }
 
+/// Bo góc trong của khung bìa: `rounded-lg` (8) trừ viền 2.
+const INNER_RADIUS: f32 = 6.;
+
 impl Render for CoverPane {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let c = cx.theme().colors().clone();
@@ -296,7 +299,10 @@ impl Render for CoverPane {
                 move |style, _, _, _| style.border_color(accent)
             });
         let frame = match self.shown.clone() {
-            Some(image) => frame.child(img(ImageSource::from(image)).size_full().object_fit(ObjectFit::Cover)),
+            // Ảnh nằm trong viền 2 px của khung bo 8 px: tự bo 6 px, GPUI không cắt con theo góc bo của cha.
+            Some(image) => frame.child(
+                img(ImageSource::from(image)).size_full().rounded(px(INNER_RADIUS)).object_fit(ObjectFit::Cover),
+            ),
             None => frame.child(
                 div()
                     .size_full()

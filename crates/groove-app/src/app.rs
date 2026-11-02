@@ -27,8 +27,8 @@ use groove_library::metadata_ops::MetadataOps;
 use groove_library::store::Library;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    self, AnyView, App, AppContext, Bounds, Context, DisplayId, Entity, EventEmitter, Global, IntoElement, Render,
-    SharedString, Styled, Window, WindowBounds, WindowDecorations, WindowOptions, div, px, size,
+    self, AnyView, App, AppContext, Bounds, Context, DisplayId, Entity, EventEmitter, FontWeight, Global, IntoElement,
+    Render, SharedString, Styled, Window, WindowBounds, WindowDecorations, WindowOptions, div, px, size,
 };
 use materiant::style::StyledExt;
 use materiant::theme::{ActiveTheme, MateriantTheme, ThemeMode, set_theme};
@@ -151,9 +151,19 @@ fn theme_mode(choice: ThemeChoice) -> ThemeMode {
 }
 
 /// Màu nhấn là primary mặc định của materiant (deeppink, như fastcast — G-4); view đọc `cx.theme().colors().primary`, không
-/// ghim mã màu.
+/// ghim mã màu. Chữ một độ đậm (G-6): nhãn và tiêu đề của mọi component materiant về normal ngay ở theme, view không phải
+/// truyền `*_weight(NORMAL)` từng chỗ.
 fn apply_theme(choice: ThemeChoice, cx: &mut App) {
-    set_theme(&MateriantTheme { mode: Some(theme_mode(choice)), ..Default::default() }, cx);
+    set_theme(&groove_theme(choice), cx);
+}
+
+fn groove_theme(choice: ThemeChoice) -> MateriantTheme {
+    MateriantTheme {
+        mode: Some(theme_mode(choice)),
+        label_weight: Some(FontWeight::NORMAL.0),
+        title_weight: Some(FontWeight::NORMAL.0),
+        ..Default::default()
+    }
 }
 
 /// Đặt cài đặt toàn app, áp theme, và theo dõi để áp lại theme / ngôn ngữ khi chúng đổi.
@@ -608,6 +618,17 @@ mod tests {
         for choice in [ThemeChoice::Light, ThemeChoice::Dark, ThemeChoice::System] {
             assert_eq!(serde_json::to_string(&choice).unwrap(), serde_json::to_string(&theme_mode(choice)).unwrap());
         }
+    }
+
+    /// G-6: cài cài đặt là áp theme có nhãn / tiêu đề component độ đậm normal (hộp thoại, tab, nhãn ô nhập, nhãn nhóm menu).
+    #[gpui::test]
+    fn theme_sets_every_component_weight_to_normal(cx: &mut TestAppContext) {
+        cx.update(|cx| {
+            materiant::init(cx);
+            install_settings_for_test(Settings::default(), cx);
+            assert_eq!(cx.theme().label_weight(), FontWeight::NORMAL);
+            assert_eq!(cx.theme().title_weight(), FontWeight::NORMAL);
+        });
     }
 
     /// C2 — mở app về trang cuối đã lưu.

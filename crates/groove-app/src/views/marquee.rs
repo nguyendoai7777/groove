@@ -10,6 +10,10 @@
 //! giờ 33 ms còn chờ thêm tới một nhịp vsync: đo ở desktop ẩn chữ chỉ đổi chỗ 19–20 lần / s, trông lờ đờ. Vẽ thẳng bằng
 //! `ShapedLine::paint` thì glyph đặt theo 1/4 px, mỗi nhịp màn hình một lần (đo ~57–62 lần / s mỗi dòng).
 //!
+//! ui-audit (02/11/2026): chạy liên tục là vẽ lại CẢ cửa sổ mỗi nhịp màn hình (GPUI không vẽ lại từng phần). Đo ở desktop
+//! ẩn, bản release: ~40 % một nhân lúc tên chạy, ~1 % lúc đứng yên. Nên tên chỉ chạy khi cửa sổ đang active (đang được nhìn,
+//! có focus); cửa sổ nền, thu nhỏ thì dừng tại chỗ như khi rê chuột, active lại chạy tiếp từ đó.
+//!
 //! Kiểu chữ (cỡ, đậm, màu) do phần tử cha đặt.
 
 use std::time::{Duration, Instant};
@@ -95,6 +99,7 @@ impl RenderOnce for Marquee {
         let state = window.use_keyed_state(self.id.clone(), cx, |_, _| State::default());
         let now = cx.background_executor().now();
         let reduce_motion = cx.reduce_motion();
+        let window_active = window.is_window_active();
         let (animate, running) = state.update(cx, |s, _| {
             if s.text != self.text {
                 // Bài mới chạy lại từ đầu dòng.
@@ -102,7 +107,7 @@ impl RenderOnce for Marquee {
                 s.clock.reset();
             }
             let animate = overflows(s.text_width, s.box_width) && !reduce_motion;
-            let running = animate && !s.hovered;
+            let running = animate && !s.hovered && window_active;
             if running {
                 s.clock.run(now);
             } else if animate {
@@ -112,6 +117,10 @@ impl RenderOnce for Marquee {
             }
             (animate, running)
         });
+        if running {
+            // Khung kế theo nhịp màn hình; xin lúc dựng (view đang dựng là view chứa dòng chữ).
+            window.request_animation_frame();
+        }
 
         let measure = {
             let (state, text) = (state.clone(), self.text.clone());
@@ -127,11 +136,13 @@ impl RenderOnce for Marquee {
                         (s.box_width - box_width).abs() > 0.5 || (s.text_width - text_width).abs() > 0.5
                     };
                     if changed {
-                        state.update(cx, |s, cx| {
+                        state.update(cx, |s, _| {
                             s.box_width = box_width;
                             s.text_width = text_width;
-                            cx.notify();
                         });
+                        // `notify` giữa lúc vẽ không xin khung mới: bài vừa khôi phục (chưa phát, chuột không động) thì tên cứ
+                        // đứng yên cắt `…` tới lần vẽ lại kế (ui-audit đo ở desktop ẩn). Xin thẳng khung kế cho view này.
+                        window.request_animation_frame();
                     }
                 },
                 |_, _, _, _| {},
@@ -145,9 +156,6 @@ impl RenderOnce for Marquee {
             let (state, text) = (state.clone(), self.text.clone());
             canvas(
                 move |_, window, _| {
-                    if running {
-                        window.request_animation_frame();
-                    }
                     // Kiểu chữ lấy ở `prepaint`, như phần đo: cùng cỡ, đậm, màu với dòng tĩnh.
                     let style = window.text_style();
                     let size = style.font_size.to_pixels(window.rem_size());

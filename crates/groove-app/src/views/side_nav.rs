@@ -14,6 +14,7 @@ use std::time::Duration;
 
 use groove_core::t;
 use materiant::button::IconButton;
+use materiant::effect::ripple::{RippleConfig, RippleExt};
 use materiant::gpui_kit::base::Button;
 use materiant::gpui_kit::base::motion::{Transition, transition};
 // `#[derive(IntoElement)]` trỏ crate `gpui`; bản không test chỉ có `materiant::gpui_kit`.
@@ -217,7 +218,7 @@ fn nav_button(
 ) -> AnyElement {
     let ink = NavInk::resolve(active, cx);
     let focus = window.use_keyed_state(ElementId::from((id, 1u32)), cx, |_, cx| cx.focus_handle()).read(cx).clone();
-    let ring = focus.is_focused(window) && window.last_input_was_keyboard();
+    let ring = materiant::style::focus_visible(&focus, window, cx);
     let group = SharedString::from(format!("{id}-group"));
     let glyph = svg()
         .path(icon.path())
@@ -244,6 +245,8 @@ fn nav_button(
         .when(active, |d| d.bg(ink.active_bg))
         .when(!active, |d| d.hover(move |s| s.bg(ink.hover_bg).border_color(ink.hover_bar)))
         .on_click(move |_: &ClickEvent, window, cx| on_click((), window, cx))
+        // Ripple như mọi mục bấm được (hàng không bo góc, lớp phủ kín hàng).
+        .child(div().id(ElementId::from((id, 2u32))).absolute().inset_0().ripple(RippleConfig::default()))
         .child(glyph)
         .when(ring, |d| {
             d.child(

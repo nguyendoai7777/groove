@@ -27,7 +27,7 @@ use materiant::gpui_kit as gpui;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
     Animation, AnimationExt, AnyElement, App, BoxShadow, ClickEvent, Entity, Hsla, IntoElement, ParentElement,
-    RenderOnce, SharedString, Styled, Window, div, point, px, relative,
+    RenderOnce, SharedString, Styled, Window, div, point, px,
 };
 use materiant::menu::ContextMenuExt;
 use materiant::overlay::tooltip::TooltipExt;
@@ -35,7 +35,7 @@ use materiant::theme::{ActiveTheme, Neutral};
 use materiant::virtual_grid::LruImageCache;
 
 use crate::icons::GrooveIcon;
-use crate::views::cover_image::{CoverImage, CoverKind, parse_color};
+use crate::views::cover_image::{self, CoverImage, CoverKind, parse_color};
 
 /// Chiều cao cố định của dòng tên và dòng phụ: thẻ cao đúng `COVER + TEXT_BLOCK`, lưới tính được cao ô.
 const TITLE_HEIGHT: f32 = 20.;
@@ -226,6 +226,8 @@ impl RenderOnce for CategoryCard {
         let overlay = div()
             .absolute()
             .inset_0()
+            // Bo đúng góc của bìa: GPUI không cắt con theo bo góc của khung.
+            .rounded(cover_image::RADIUS)
             .flex()
             .items_center()
             .justify_center()
@@ -238,17 +240,12 @@ impl RenderOnce for CategoryCard {
             animated(overlay, SharedString::from(format!("{group}-overlay-{}", state.seq)), state, FADE, |el, p| {
                 if p <= 0. { el.invisible() } else { el.opacity(p) }
             });
-        // Bìa phóng 1,05 trong khung đã cắt góc: ảnh lớn hơn khung và lệch đều bốn phía.
-        let cover = animated(
-            div().absolute().child(cover),
-            SharedString::from(format!("{group}-cover-{}", state.seq)),
-            state,
-            ZOOM,
-            move |el, p| {
-                let scale = if has_image { 1. + (ZOOM_SCALE - 1.) * p } else { 1. };
-                el.size(relative(scale)).left(relative((1. - scale) / 2.)).top(relative((1. - scale) / 2.))
-            },
-        );
+        // Bìa phóng 1,05: ảnh vẽ lớn hơn khung quanh tâm và bị cắt ngay lúc vẽ theo khung bo góc (`CoverImage::zoom`).
+        // Trước đây phóng cả phần tử: `overflow_hidden` chỉ cắt chữ nhật nên bốn góc ảnh lòi ra vuông.
+        let cover =
+            animated(cover, SharedString::from(format!("{group}-cover-{}", state.seq)), state, ZOOM, move |el, p| {
+                el.zoom(if has_image { 1. + (ZOOM_SCALE - 1.) * p } else { 1. })
+            });
 
         let card = div()
             .id((tag, id as usize))
@@ -275,7 +272,7 @@ impl RenderOnce for CategoryCard {
             .cursor_pointer()
             .debug_selector(move || format!("card-{tag}-{id}"))
             .on_click(move |_: &ClickEvent, window, cx| on_open(reference, window, cx))
-            .child(div().relative().w_full().aspect_square().rounded_lg().overflow_hidden().child(cover).child(overlay))
+            .child(div().relative().w_full().aspect_square().child(cover).child(overlay))
             .child(
                 div()
                     .flex_none()

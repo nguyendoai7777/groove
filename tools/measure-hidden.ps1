@@ -9,12 +9,20 @@
 #   $env:CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS = "true"; cargo build --release -p groove-app
 #   pwsh tools/measure-hidden.ps1 -Exe target/release/groove.exe -Keys "g p wait@500 ctrl-k wait@500"
 #
-# In: số cửa sổ, RAM (working set, private) ở mỗi mốc, dòng log WARN / ERROR, `foreground_unchanged`.
+#   # Dữ liệu tạm có sẵn một bài tên dài đang mở (không phát) để thanh phát không khoá, tên chạy ngang:
+#   cargo build -p groove-library --example seed_data
+#   pwsh tools/measure-hidden.ps1 -Exe target/debug/groove.exe -Seed target/debug/examples/seed_data.exe
+#
+# In: số cửa sổ, RAM (working set, private) và CPU trung bình từ mốc trước (% của một nhân) ở mỗi mốc, dòng log WARN / ERROR,
+# `foreground_unchanged`. `-Seed <exe>` chạy `<exe> <thư mục dữ liệu tạm>` trước khi mở app.
 param(
     [Parameter(Mandatory)][string]$Exe,
     [int]$Seconds = 15,
     [string]$Keys = "",
-    [string]$Shot = ""
+    [string]$Shot = "",
+    [string]$Seed = "",
+    # Mở cửa sổ ở trạng thái active (bỏ `--background`): cửa sổ vẫn nằm trên desktop ẩn, không giành focus của desktop đang dùng.
+    [switch]$Active
 )
 $ErrorActionPreference = "Stop"
 
@@ -73,6 +81,7 @@ if ($bytes.IndexOf("GROOVE_DATA_DIR", [StringComparison]::Ordinal) -lt 0) {
     throw "$exe does not honour GROOVE_DATA_DIR and would open the real library. Build with debug assertions."
 }
 Remove-Variable bytes
+if ($Seed) { & (Resolve-Path $Seed).Path $data | Out-Host; if ($LASTEXITCODE) { throw "seed failed: $LASTEXITCODE" } }
 
 $name = "groove-hidden-" + $PID
 $desktop = [HiddenDesktop]::CreateDesktopW($name, [IntPtr]::Zero, [IntPtr]::Zero, 0, 0x10000000, [IntPtr]::Zero)
@@ -86,7 +95,7 @@ $si = New-Object HiddenDesktop+STARTUPINFO
 $si.cb = [Runtime.InteropServices.Marshal]::SizeOf($si)
 $si.lpDesktop = "WinSta0\$name"
 $pi = New-Object HiddenDesktop+PROCESS_INFORMATION
-$line = "`"$exe`" --background"
+$line = if ($Active) { "`"$exe`"" } else { "`"$exe`" --background" }
 if ($Keys) { $line += " --keys `"$Keys`"" }
 $cmd = New-Object Text.StringBuilder $line
 # CREATE_NO_WINDOW: bản debug là ứng dụng console, không để console hiện ở desktop đang dùng.
@@ -95,14 +104,19 @@ if (-not [HiddenDesktop]::CreateProcessW($exe, $cmd, [IntPtr]::Zero, [IntPtr]::Z
     throw "CreateProcess failed: $([Runtime.InteropServices.Marshal]::GetLastWin32Error())"
 }
 $proc = Get-Process -Id $pi.dwProcessId
+$script:cpuMark = [TimeSpan]::Zero
+$script:wallMark = [Diagnostics.Stopwatch]::StartNew()
 
 function Measure-Now([string]$label) {
     $proc.Refresh()
     if ($proc.HasExited) { "${label}: exited with code $($proc.ExitCode)"; return }
     $win = [HiddenDesktop]::Windows($desktop, $proc.Id)
     $title = if ($win.Count) { [HiddenDesktop]::Title($win[0]) } else { "" }
-    "{0}: working_set={1:N1} MB private={2:N1} MB peak_ws={3:N1} MB threads={4} windows={5} title='{6}'" -f $label,
-        ($proc.WorkingSet64 / 1MB), ($proc.PrivateMemorySize64 / 1MB), ($proc.PeakWorkingSet64 / 1MB), $proc.Threads.Count, $win.Count, $title
+    $cpuNow = $proc.TotalProcessorTime
+    $cpu = 100 * ($cpuNow - $script:cpuMark).TotalMilliseconds / [Math]::Max(1, $script:wallMark.ElapsedMilliseconds)
+    $script:cpuMark = $cpuNow; $script:wallMark.Restart()
+    "{0}: working_set={1:N1} MB private={2:N1} MB peak_ws={3:N1} MB cpu={7:N1}% threads={4} windows={5} title='{6}'" -f $label,
+        ($proc.WorkingSet64 / 1MB), ($proc.PrivateMemorySize64 / 1MB), ($proc.PeakWorkingSet64 / 1MB), $proc.Threads.Count, $win.Count, $title, $cpu
 }
 
 try {
