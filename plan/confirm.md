@@ -128,3 +128,11 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_14] Marquee đứng ở đầu dòng khi rê chuột, chạy lại từ đầu khi rời — tạm dừng giữ nguyên chỗ — `with_animation` của GPUI không tạm dừng giữa chừng.
 - [groove-gd1_14] Không bài thì chặn cả nút Settings của thanh phát — chừa riêng Settings — đặc tả 1.3 "không bấm được"; Settings còn ở cột trái.
 - [groove-gd1_14] Âm lượng, tắt tiếng đọc từ `app::settings` — thêm hàm đọc vào `Player` — `player.rs` thuộc task 13 đã ✅; ghi mục 8.
+
+## groove-gd1_16
+
+- [groove-gd1_16] Bấm dòng tách chuột với phím bằng `window.last_input_was_keyboard()`; nhấp đúp từ chuột không làm gì thêm — phát ở `on_activate` — lần nhấp đầu đã phát, lần hai sẽ đảo thành dừng.
+- [groove-gd1_16] Đầu danh sách là khối cao cố định đứng ngoài danh sách, thu / mở tức thì, chỉ thu khi sau khi thu còn cuộn > 15 px — nội suy như bản cũ (`transition` 300 ms) — danh sách ngắn thu xong bị clamp về đỉnh rồi mở lại gây nhấp nháy; nội suy thêm sau được (đặc tả cho phép nhảy ngay).
+- [groove-gd1_16] Playlist không hiện dòng phụ, chỉ "n bài" — hiện cả hai như dòng phụ của thẻ — tránh nói số bài hai lần.
+- [groove-gd1_16] Cột nghệ sĩ ẩn khi cửa sổ < 768 px — theo bề ngang vùng nội dung — đặc tả không nêu ngưỡng, `md` của bản cũ là theo viewport.
+- [groove-gd1_16] Bìa đầu danh sách dùng bản 256 px cho cả hai cỡ — bản 512 px — không đảm bảo tệp lớn tồn tại; nhoè nhẹ ở màn DPI cao.
