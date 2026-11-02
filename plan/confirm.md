@@ -131,3 +131,11 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_16] Playlist không hiện dòng phụ, chỉ "n bài" — hiện cả hai như dòng phụ của thẻ — tránh nói số bài hai lần.
 - [groove-gd1_16] Cột nghệ sĩ ẩn khi cửa sổ < 768 px — theo bề ngang vùng nội dung — đặc tả không nêu ngưỡng, `md` của bản cũ là theo viewport.
 - [groove-gd1_16] Bìa đầu danh sách dùng bản 256 px cho cả hai cỡ — bản 512 px — không đảm bảo tệp lớn tồn tại; nhoè nhẹ ở màn DPI cao.
+
+## groove-gd1_19
+
+- [groove-gd1_19] Áp cho nhóm chỉ gửi trường đã đổi so với lúc mở — gửi đủ sáu trường như bản cũ — `GroupEdit` ghi đè mọi bài trong nhóm, gửi trường không đụng sẽ xoá thể loại / năm riêng của bài khác.
+- [groove-gd1_19] Nhãn chế độ `merge` là "Gộp vào thẻ hiện có" — "Chỉ sửa trường đã đổi" — form gửi mọi trường theo đặc tả, nên nhãn cũ sai nghĩa.
+- [groove-gd1_19] Ctrl+V chỉ dán ảnh khi chuột đang trên ô bìa và clipboard có ảnh / tệp ảnh — luôn chặn Ctrl+V trong dialog — để ô nhập vẫn dán chữ được.
+- [groove-gd1_19] Bài `not_started` của báo cáo lô chỉ hiện số lượng — kèm tên — `BulkReport.not_started` chỉ có id, tra tên cần DB đang đóng.
+- [groove-gd1_19] Nền dialog bấm không đóng, Esc bị chặn khi đang lưu — theo mặc định của materiant — tránh mất bản sửa dài.
