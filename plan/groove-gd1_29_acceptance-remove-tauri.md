@@ -11,6 +11,16 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | Bảng so bản cũ, số đo RAM, gỡ `src/`, `src-tauri/`, Node; viết `groove/CLAUDE.md`, `groove/ROADMAP.md` |
 
+## 0. Bàn giao từ groove-gd1_27 (02/11/2026)
+
+<!-- handoff: groove-gd1_27 -->
+
+- **Đã có sẵn để dùng**: `window_state::restore`; `packaging/*`; `crates/groove-app/build.rs` nhúng icon. Icon đã chép khỏi `src-tauri`, gỡ thư mục đó không ảnh hưởng gói.
+- **Đã chạy**: dựng bản cài Windows thật và `pwsh packaging/windows/installer-e2e.ps1 -Setup <setup.exe>`. Script ghi HKCU rồi dọn, máy đã cài Groove X thì từ chối.
+- **Chưa chạy**: `build-macos.sh`, `build-deb.sh`, cửa sổ thật: bốn mục `[groove-gd1_27 · owner-qa]` ở `plan/_backlog.md`, kèm mục macOS của task 25.
+- **Bẫy đã gặp**: `GROOVE_DATA_DIR` còn trong exe release do `instance.rs:112` đọc tên biến; `dev_tag` bỏ qua nên hành vi đúng, muốn sạch chuỗi thì bọc `cfg!`.
+- **Soát lại khi làm**: đo RAM bản release; task này không thêm luồng. `.deb` Maintainer đang là địa chỉ giữ chỗ.
+
 ## 0. Bàn giao từ groove-gd1_23 (02/11/2026)
 
 <!-- handoff: groove-gd1_23 -->
