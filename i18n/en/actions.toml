@@ -1,1 +1,64 @@
 # Vùng actions: khoá viết không tiền tố, tra bằng t!("actions.<khoá>").
+
+unavailable = "The library is not ready yet."
+
+[import]
+done = "Added {added} songs, {missing} files no longer found."
+partial = "Added {added} songs, {failed} items could not be read."
+offline = "This folder is empty or not connected, the library is unchanged."
+unreadable = "The selected folder cannot be read."
+failed = "Could not import the folder."
+
+[rescan]
+done = "Read {read} songs again, {missing} files missing, {failed} failed."
+failed = "Could not read the tags again."
+
+[play]
+empty = "This list has no songs yet."
+failed = "Could not read the list of songs."
+
+[remove]
+failed = "Could not remove this from the library."
+
+[cover]
+filter = "Images"
+failed = "This image cannot be used as a cover."
+
+[card]
+play_all = "Play all"
+set_cover = "Change cover"
+delete_playlist = "Delete playlist"
+remove_from_library = "Remove from library"
+
+[confirm]
+title = "Are you sure?"
+cancel = "Cancel"
+album = "Remove album \"{name}\" from the library. Files on disk stay, and these songs will not return on the next scan. The songs also leave every playlist."
+folder = "Remove folder \"{name}\" and its subfolders from the library. Files on disk stay, and it will not return on the next scan. The songs also leave every playlist."
+playlist = "Delete playlist \"{name}\". The songs stay in the library."
+
+[playlist]
+title = "Create a new playlist"
+name_label = "Name"
+name_placeholder = "My playlist"
+color_area = "Saturation and brightness"
+color_hue = "Hue"
+color_hex = "Color code"
+cancel = "Cancel"
+create = "Create"
+empty_name = "Give the playlist a name."
+duplicate = "A playlist with this name already exists."
+create_failed = "Could not create the playlist."
+added = "Added to the playlist."
+already_in = "This song is already in the playlist."
+add_failed = "Could not add to the playlist."
+remove_failed = "Could not remove from the playlist."
+
+[song]
+add_to_playlist = "Add to playlist"
+new_playlist = "New playlist"
+edit_timeline = "Edit timeline"
+edit_lyrics = "Edit lyrics"
+edit_metadata = "Edit metadata"
+edit_unavailable = "This editor is not in the running build yet."
+remove_from_playlist = "Remove from playlist"

@@ -62,5 +62,3 @@ hint = "Tệp thư viện không đọc được. Thông tin chi tiết nằm tr
 title = "Thư viện chưa sẵn sàng"
 hint = "Groove X không khởi động được tiến trình đọc thư viện. Hãy mở lại ứng dụng."
 
-[category_pending]
-title = "Danh sách bài chưa được dựng"

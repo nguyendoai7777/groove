@@ -30,6 +30,10 @@ serde_json.workspace = true
 # Media session. Linux đi `zbus` thuần Rust, không `libdbus` (đặc tả 5.4).
 souvlaki = { version = "0.9", default-features = false, features = ["use_zbus"] }
 unicode-normalization.workspace = true
+# Hộp chọn thư mục, tệp ảnh (groove-gd1_17).
+rfd = "0.17"
+# `Connection` trong transaction của `library_ctl`.
+rusqlite = { version = "0.41", features = ["bundled", "functions"] }
 
 [target.'cfg(windows)'.dependencies]
 # Taskbar, DACL của pipe, focus phiên chính (đặc tả 5.3, 5.5).
