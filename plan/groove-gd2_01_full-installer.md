@@ -99,9 +99,9 @@ cài thật, chọn trong Default apps, nhấp đúp; `.deb` trên Ubuntu có m�
   (`git rev-parse --git-common-dir`), để chạy được từ worktree.
 - **Đã chạy (Windows, cây đã gộp `master`)**: `cargo build`; `cargo clippy --all-targets -- -D warnings` (Rust 1.99.1);
   `cargo test --workspace --no-fail-fast` xanh lần đầu, 709 test (3 + 1 ignored); `cargo fmt --all --check`;
-  `cargo deny check licenses`. Bản cài dựng từ worktree (`build-installer.ps1`, 7,2 MB) chạy `installer-e2e.ps1` xanh 77 mục (lần
+  `cargo deny check licenses`. Bản cài dựng từ worktree (`build-installer.ps1`, 7,2 MB) chạy `installer-e2e.ps1` xanh 76 mục (lần
   đầu đỏ một mục do script e2e hỏi tên app sai cách, đã sửa script; lần đó cũng thấy bước dọn của e2e chạy lại bộ gỡ thừa, đã
-  sửa). Sau khi gộp: `pwsh ./build.ps1 -Project groove` ở repo gốc + `installer-e2e.ps1` trên bản đó (kết quả ở dòng dưới).
+  sửa). Sau khi gộp (`389c7ba`): `pwsh ./build.ps1 -Project groove` ở repo gốc ra `release/groove/groove-x-0.2.0-setup.exe` 7,2 MB; `installer-e2e.ps1` trên bản đó xanh 76 mục, chạy hai lần liền (lần hai qua được bước từ chối máy đã cài, tức lần một dọn sạch); soát tay sau đó: không còn khoá gỡ, `ClientsMediaGroove X`, giá trị `RegisteredApplications`, ProgID `GrooveX*`, `Applicationsgroove.exe`, lối tắt.
 - **Đã chạy (Linux, Docker `ubuntu:24.04`, gói cài bằng `init.sh groove`)**: `build-deb.sh --draft` ra
   `groove-x_0.2.0_amd64-draft.deb` 13 MB (bản `-draft` vì container không có `pwsh` + `cargo-about`); `apt install` gói;
   `desktop-file-validate` sạch; `mimeinfo.cache` có `groove.desktop` cho 10 MIME; 7 icon hicolor đúng cỡ; exe link động
