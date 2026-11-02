@@ -2,7 +2,7 @@
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Trạng thái | ☐ |
+| Trạng thái | ✅ (02/11/2026) |
 | Repo | groove |
 | Model | opus |
 | Cỡ | ~550 dòng |
@@ -29,3 +29,26 @@
 
 ## 2. Không làm trong task này
 - Không thêm tính năng ngoài đặc tả; không sửa bản Tauri + Vue (G-1).
+
+## 8. Nợ chuyển task khác
+
+- groove-gd1_14: `views/seek_bar` vẽ, rê và tua đều qua `timeline::{segments_to_bar, x_to_time, time_to_x}` với cùng một `Vec<BarSegment>`, khe 2 px; `segment: None` thì không hiện nhãn. Phần "chỉ tua khi thả" của S20 nằm ở view này, không có trong core. Nhãn dùng `timeline::format_time`.
+- groove-gd1_17: S2 đã có ở `Queue::play_list` (trùng bài vẫn thay hàng đợi, trả `Resume`); Play all chỉ cần luôn truyền danh sách.
+- groove-gd1_20: `timeline::parse` để xem trước; lưu văn bản nguyên gốc, không lưu `Segment`.
+- groove-gd1_21: `timeline::active_index`, `Queue::{visible, current_index, visible_len}` cho hộp đoạn và bảng hàng đợi.
+- groove-gd1_22: `/queue` gọi `Queue::append`, `play_random` gọi `Queue::play_random`, "Tìm" trong bảng lệnh (S21) gọi `Queue::play_track`.
+- groove-gd1_25: mở nhiều tệp gọi `Queue::append` (N6).
+
+## 9. Bàn giao thực tế
+
+- `core/queue.rs` 380 dòng ngoài test, 40 test; `core/timeline.rs` 180 dòng ngoài test, 22 test. Không thêm phụ thuộc, không có chữ giao diện. `cargo build`, `cargo clippy --all-targets -- -D warnings`, `cargo test` theo `-p groove-core`: xanh, 120 test (trước đó 58); `cargo deny check licenses` xanh. Không build crate khác theo yêu cầu của lượt này.
+- **API đã khoá, queue**: `Queue::{new, with_seed, from_session, write_to, current, original, history, queue, shuffle, repeat, visible, current_index, visible_len, play_list, play_track, append, next_track, prev_track, track_ended, play_random, toggle_shuffle, set_shuffle, toggle_repeat, set_repeat, retain_tracks, clear}`; `QueueOutcome::{Play(TrackRef), Resume, Replay, SeekToStart, Stop, Nothing}`. Tên `next_track`, `prev_track` vì clippy cấm `next` trùng `Iterator`.
+- **API đã khoá, timeline**: `Segment { start, end, title }`, `parse(text, duration_sec)`, `parse_time`, `format_time`, `active_index`, `BarSegment { x, width, start, end, segment }` với `fill(time)`, `segments_to_bar(segments, duration_sec, width, gap)`, `x_to_time(bar, x)`, `time_to_x(bar, time)`.
+- **Lỗi có test tái hiện**: S4: `s4_*`, `next_under_shuffle_plays_exactly_the_order_shown`; S20: `s20_*`; kèm N5, N6, N8, S2 ở mức hàng đợi (`n5_*`, `n6_*`, `n8_*`, `s2_*`). Mỗi dòng bảng 1.4 có test; `invariants_hold_under_any_sequence_of_actions` chạy 15 000 thao tác ngẫu nhiên, giữ mỗi bài một lần và shuffle, repeat không cùng bật.
+- **Opus chọn 02/11/2026** (ghi `plan/confirm.md`): thứ tự khi tắt shuffle; bật shuffle giữ bài đang chờ ngoài original; `append` không đụng original; repeat khi original rỗng vòng qua các bài đã nghe; dòng timeline bốn phần trở lên bị bỏ qua. Chọn nhỏ: `play_random` không chọn lại bài đang phát (bản cũ có thể, thành ra không làm gì); `from_session` không xáo lại; không có bài mà bật shuffle vẫn đi cùng một đường, không chỉ đổi cờ; `fill` của khúc rỗng là 0.
+- Không chạy thật: task này không có UI, không có đường chạy riêng.
+- Soi: bảo mật, Pro không áp. UX: `next_track` không còn phụ thuộc original nên tệp ngoài không kẹt ở cuối hàng đợi (N6). RAM, hiệu năng: `append` ban đầu so từng cặp, mỗi lần so lại chuẩn hoá đường dẫn; đã đổi sang tập hợp ngay trong task, chưa đo vì không có số trước, sau nào ở thực tế.
+
+## 10. Đề xuất cải tiến
+
+Không có.
