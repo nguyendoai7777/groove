@@ -13,6 +13,12 @@
 
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 27. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
+## 0. Bàn giao từ groove-gd1_02 (02/11/2026)
+
+<!-- handoff: groove-gd1_02 -->
+
+- **Đã có sẵn để dùng**: `Settings::window: Option<WindowPlacement { x, y, width, height, maximized, display_id }>`; `display_id` là `u64::from(DisplayId)`. Task này chỉ đọc ghi trường đó, không sửa `settings.rs`.
+
 ## 1. Làm gì
 - Làm đúng hành vi ở mục 1 và dữ liệu ở mục 2 của đặc tả cho phạm vi "File đụng tới".
 - Chỉ sửa tệp mình sở hữu; thiếu API từ task khác thì ghi mục 8, không sửa tệp của làn khác.

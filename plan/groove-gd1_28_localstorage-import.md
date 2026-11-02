@@ -13,6 +13,12 @@
 
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 28. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
+## 0. Bàn giao từ groove-gd1_02 (02/11/2026)
+
+<!-- handoff: groove-gd1_02 -->
+
+- **Đã có sẵn để dùng**: `Settings::{volume, custom_keybindings, eq}`, `EqSettings::{gains, bass_boost, preset, custom_gains}`, `Settings::save`. Ánh xạ tên preset cũ (`Bass Strong`…) sang `EqPreset` thuộc task này; `load_from` kẹp về khoảng hợp lệ.
+
 ## 1. Làm gì
 - Làm đúng hành vi ở mục 1 và dữ liệu ở mục 2 của đặc tả cho phạm vi "File đụng tới".
 - Chỉ sửa tệp mình sở hữu; thiếu API từ task khác thì ghi mục 8, không sửa tệp của làn khác.

@@ -11,6 +11,14 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `audio/{engine,decoder,output}.rs` |
 
+## 0. Bàn giao từ groove-gd1_11 (02/11/2026)
+
+<!-- handoff: groove-gd1_11 -->
+
+- **Đã có sẵn để dùng**: `crate::dsp::{EqParams, Equalizer}`. `AudioCmd::SetEq(EqParams)` dùng đúng kiểu này. `Equalizer::new(sample_rate, channels)`, `set_params(&EqParams)`, `process(&mut [f32])` xen kẽ, không cấp phát, gọi ở luồng decoder trước khi vào ring.
+- **Phải gọi**: `reset()` khi tua và đổi bài; `set_format(rate, channels)` khi định dạng đổi. Áp sau khi đổi tần số mẫu bằng `rubato` thì truyền tần số sau đổi.
+- **Vẫn ở task này**: âm lượng đường cong `v²` (S23) ở callback.
+
 ## 0. Bàn giao từ groove-gd1_01 (02/11/2026)
 
 <!-- handoff: groove-gd1_01 -->
