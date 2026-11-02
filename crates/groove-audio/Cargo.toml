@@ -17,9 +17,8 @@ rubato = "5"
 symphonia = { version = "0.6", default-features = false, features = ["mp3", "aac", "alac", "isomp4", "flac", "wav", "pcm", "ogg", "vorbis"] }
 thiserror.workspace = true
 
-# Xuất âm. Linux: cpal đi qua ALSA nên link động `libasound.so` (LGPL-2.1), đang CHỜ chủ dự án quyết (đặc tả 5.1, D-2).
-# Vì vậy ở Linux cpal là tuỳ chọn, tắt mặc định, chỉ bật khi thử: `--features groove-audio/linux-alsa`.
-# Windows, macOS luôn có cpal và không link gì LGPL. Chủ dự án chấp nhận thì đổi về một dòng, ghi vào `docs/decisions.md`.
+# Xuất âm. Linux: cpal đi qua ALSA nên link động `libasound.so` (LGPL-2.1), chủ dự án đã chấp nhận (G-2): chỉ link động,
+# không kèm vào bản cài, không dùng link tĩnh hay feature kèm mã thư viện.
 [target.'cfg(not(target_os = "linux"))'.dependencies]
 cpal = "0.18"
 
@@ -27,6 +26,7 @@ cpal = "0.18"
 cpal = { version = "0.18", optional = true }
 
 [features]
+default = ["linux-alsa"]
 linux-alsa = ["dep:cpal"]
 
 [lints]
