@@ -120,6 +120,8 @@ màn không có thì thoát, không rơi về màn mặc định. Xem ảnh xong
 
 ## Bẫy
 
+- **Bản Tauri để đối soát — không xoá**: `src-tauri/target/x86_64-pc-windows-msvc/release/groovex.exe` (exe tự chứa giao diện) và
+  `release/groovex_0.1.0_*` (setup, msi, portable). Dọn `target` không đụng hai chỗ này (`clean.sh` đã bỏ qua).
 - **Worktree** cố định (D-18): `<gốc>/.claude/worktrees/groove-w<N>`, build ở `groove/target/w<N>`, xong task giữ cả hai. `materiant = { path = "../materiant" }` nhờ lối nối
   `.claude/worktrees/materiant` đã có. `CARGO_TARGET_DIR` riêng từng worktree (`groove/target/w<N>`), không xoá.
 - **AppData ảo hoá MSIX**: exe chạy từ app Claude trên Windows ghi vào `LocalCache` của gói. Không thấy DB cũ ở đó không có
