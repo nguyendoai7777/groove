@@ -129,3 +129,11 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_25] Không giành được endpoint trong 2 giây thì vẫn mở app, không có một phiên — thoát im lặng — tiến trình lạ giữ tên pipe không được làm người dùng không mở nổi app. Phiên chính treo quá 3 giây thì phiên sau thoát, không mở phiên hai giành DB.
 - [groove-gd1_25] Tên không phải Unicode không chuyển qua IPC được, bỏ khi gửi — mã hoá riêng — đặc tả chốt dòng JSON; hiếm gặp.
 - [groove-gd1_25] Bản debug dùng endpoint riêng (`-dev`, có `GROOVE_DATA_DIR` thì theo băm thư mục) — chung một tên — chạy thử không được đánh thức phiên thật của chủ dự án. Mã Windows, Unix đặt trong `mod sys` của `instance.rs`, không ở `app/platform` — task này chỉ sở hữu tệp của mình, `platform/mod.rs` không được sửa.
+
+## groove-gd1_16
+
+- [groove-gd1_16] Bấm dòng tách chuột với phím bằng `window.last_input_was_keyboard()`; nhấp đúp từ chuột không làm gì thêm — phát ở `on_activate` — lần nhấp đầu đã phát, lần hai sẽ đảo thành dừng.
+- [groove-gd1_16] Đầu danh sách là khối cao cố định đứng ngoài danh sách, thu / mở tức thì, chỉ thu khi sau khi thu còn cuộn > 15 px — nội suy như bản cũ (`transition` 300 ms) — danh sách ngắn thu xong bị clamp về đỉnh rồi mở lại gây nhấp nháy; nội suy thêm sau được (đặc tả cho phép nhảy ngay).
+- [groove-gd1_16] Playlist không hiện dòng phụ, chỉ "n bài" — hiện cả hai như dòng phụ của thẻ — tránh nói số bài hai lần.
+- [groove-gd1_16] Cột nghệ sĩ ẩn khi cửa sổ < 768 px — theo bề ngang vùng nội dung — đặc tả không nêu ngưỡng, `md` của bản cũ là theo viewport.
+- [groove-gd1_16] Bìa đầu danh sách dùng bản 256 px cho cả hai cỡ — bản 512 px — không đảm bảo tệp lớn tồn tại; nhoè nhẹ ở màn DPI cao.

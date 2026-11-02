@@ -2,7 +2,7 @@
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Trạng thái | ☐ |
+| Trạng thái | ✅ (02/11/2026) |
 | Repo | groove |
 | Model | sonnet |
 | Cỡ | ~700 dòng |
@@ -46,3 +46,31 @@
 
 ## 2. Không làm trong task này
 - Không thêm tính năng ngoài đặc tả; không sửa bản Tauri + Vue (G-1).
+
+## 8. Nợ / việc cho task khác
+
+- **Task 17**: gắn `SongList` vào `LibraryPage::render` (thay chữ giữ chỗ `category_pending`, `library_page.rs` không thuộc task 16), nghe `SongListEvent`, vẽ menu bài (`song_menu.rs`), xoá khỏi playlist, toast "đã thêm". Task 16 không sửa `library_page.rs`, `app.rs`, `player.rs`.
+- Không có chỗ nào phải quyết định nghiệp vụ ngoài mục 9.
+
+## 9. Bàn giao thực tế (02/11/2026)
+
+**API cho task 17** (`views/song_list.rs`):
+
+- `SongList::new(reference: CategoryRef, cx: &mut Context<SongList>) -> SongList`, dùng `app::try_library` + `CoverStore::default_location`; gắn bằng `cx.new(|cx| SongList::new(reference, cx))`. Cần `player::install` và `app::set_library` chạy trước. Test dùng `SongList::with_deps(library, covers, reference, cx)`.
+- `set_reference(reference, cx)` đổi category trong cùng view (đặt lại cuộn, đầu danh sách mở); `reference()`; `focus(window, cx)` cho ↑ ↓ Enter.
+- `SongListEvent` (`cx.subscribe(&list, ..)`): `ContextMenu { reference, song: Box<Song>, position }` (chuột phải; dòng đó đã thành dòng chọn), `CategoryGone(reference)` (mục không còn: nên `app::go_back`).
+- Nút Play all của đầu danh sách do view tự làm (`player.play_list(bài đầu, cả danh sách)`; rỗng thì toast `song_list.empty_play.message`, nút còn bị khoá khi rỗng). Bấm dòng: bài đang chọn thì `toggle_play`, bài khác thì `play_list(bài, cả danh sách)`; Enter giống; ↑ ↓ chỉ di con trỏ.
+- `views/song_row.rs`: `SongRow`, `RowPlay`, `header_row`, `display_title`, `display_artist`, `format_duration`, `show_artist`; dùng được cho view khác (hàng đợi task 14 / 21 nếu cần).
+- i18n `song_list.*` đủ vi + en (loại, nhãn đầu, cột, đang tải, rỗng, lỗi, mục biến mất, toast rỗng).
+
+**Opus (Sonnet) chọn 02/11/2026**: (1) bấm dòng dùng `on_select` của `VirtualList` kèm `window.last_input_was_keyboard()` để tách chuột với ↑ ↓; nhấp đúp (`on_activate`) bỏ qua khi từ chuột, tránh đảo phát / dừng hai lần. (2) Đầu danh sách là khối đứng ngoài `VirtualList` có cao cố định, thu / mở tức thì (không nội suy); thu chỉ khi sau khi thu vị trí cuộn còn > 15 px (danh sách ngắn không thu, tránh nhấp nháy). (3) Playlist không hiện dòng phụ (chỉ "n bài"), album là nghệ sĩ, thư mục là đường dẫn. (4) Bìa đầu danh sách dùng bản 256 px cho cả hai cỡ (bản 512 px không chắc có tệp). (5) Cột nghệ sĩ ẩn khi cửa sổ < 768 px (breakpoint `md` của bản cũ, tính theo cửa sổ, không theo vùng nội dung). Ghi vào `plan/confirm.md`.
+
+**Case** (`cargo test -p groove-app song_`, 20 test, xanh, chạy 3 lần liên tiếp không flake): C1 nạp theo thứ tự tên tệp + đầu danh sách (`loads_songs_in_filename_order`); C2 bấm dòng phát với cả danh sách; C3 ↓ không phát, Enter phát; C4 Play all, rỗng không đổi hàng đợi; C5 chuột phải phát `ContextMenu`; C6 3000 bài chỉ dựng < 40 dòng; C7 thu / mở đầu danh sách theo cuộn; C8 nạp lại khi thư viện đổi, `CategoryGone` khi mục biến mất; thêm test thuần cho hai ngưỡng, tiêu đề / nghệ sĩ / thời lượng, khoá i18n. Dùng thư viện tạm + `FakeOutput`, không phát tiếng, không mở DB thật.
+
+**Soát**: `cargo build`, `cargo clippy --all-targets -- -D warnings`, `cargo test` (xanh trừ một lần `player::tests::volume_and_mute_reach_the_engine` đỏ khi máy tải nặng ở lần chạy đầu, hai lần sau xanh; test của task 13, không đụng tới), `cargo deny check licenses` xanh. Không thêm phụ thuộc.
+
+**Dùng lại của task 14**: `PlayingBars` và `GrooveIcon::Pause` (đã có trên `master` lúc gộp).
+
+**Chờ kiểm tay**: `[owner-qa]` nhìn danh sách thật (ghi ở `plan/_backlog.md`); máy dev chỉ một màn nên không mở cửa sổ.
+
+**Soi cải tiến**: bảo mật không áp (chỉ đọc; đường dẫn bìa đi qua `cover_path` đã lọc hex). RAM: bìa đầu danh sách cache 4 ô, dòng chỉ dựng trong khung, player báo 4 lần mỗi giây nhưng view chỉ vẽ lại khi bài hoặc trạng thái phát đổi. UX: dùng hết bằng bàn phím (Tab vào danh sách, ↑ ↓ PageUp PageDown Home End Enter); chuột phải chưa có phím tương đương (menu phím Menu / Shift+F10 là việc của task 17, ghi ở bàn giao). Pro: không áp.
