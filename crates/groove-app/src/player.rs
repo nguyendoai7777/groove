@@ -246,7 +246,7 @@ impl Player {
     /// sẵn từ đây thay vì đọc lại.
     pub fn loaded_text(&self, track: &TrackRef) -> Option<(Option<&str>, Option<&str>)> {
         (self.text_loaded && self.song.as_ref().is_some_and(|song| &song.track == track))
-            .then(|| (self.lyrics.as_deref(), self.timeline_text.as_deref()))
+            .then_some((self.lyrics.as_deref(), self.timeline_text.as_deref()))
     }
 
     /// Đã parse theo thời lượng thật, đổi khi engine báo `Loaded`.

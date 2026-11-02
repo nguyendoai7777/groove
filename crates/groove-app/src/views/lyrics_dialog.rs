@@ -448,7 +448,10 @@ mod tests {
         rig.until(cx, "a is loaded", |cx| rig.player.read_with(cx, |p, _| p.loaded_text(&playing).is_some()));
 
         open(&dialog, &other, cx);
-        assert!(dialog.read_with(cx, |d, _| d.is_open() && d.is_busy()), "chưa biết chữ cũ thì khoá, để Lưu không đè lời");
+        assert!(
+            dialog.read_with(cx, |d, _| d.is_open() && d.is_busy()),
+            "chưa biết chữ cũ thì khoá, để Lưu không đè lời"
+        );
         ready(&rig, &dialog, cx);
         assert_eq!(dialog.read_with(cx, |d, cx| d.text(cx)).as_str(), "from db");
     }

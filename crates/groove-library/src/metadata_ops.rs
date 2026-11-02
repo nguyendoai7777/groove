@@ -776,14 +776,12 @@ mod tests {
         let path = write_sample(dir.path(), "a", AudioKind::Mp3).unwrap();
         let row = TrackRow::from_scanned(path.clone(), tags::read_track(&path).unwrap(), None);
         let id = library.writer().transaction(move |conn| Ok(apply_scanned_track(conn, &row)?.id)).wait().unwrap();
-        ops.save_lyrics(TrackRef::Library(id), "line 1
-line 2".into()).wait().unwrap();
+        ops.save_lyrics(TrackRef::Library(id), "line 1\nline 2".into()).wait().unwrap();
         ops.save_timeline(TrackRef::Library(id), "0:00 Intro".into()).wait().unwrap();
 
         fs::remove_file(&path).unwrap();
         let text = ops.read_text(TrackRef::Library(id)).wait().unwrap();
-        assert_eq!(text.lyrics.as_deref(), Some("line 1
-line 2"));
+        assert_eq!(text.lyrics.as_deref(), Some("line 1\nline 2"));
         assert_eq!(text.timeline.as_deref(), Some("0:00 Intro"));
         assert!(matches!(ops.read_text(TrackRef::Library(id + 1)).wait(), Err(MetadataError::SongNotFound(_))));
 
