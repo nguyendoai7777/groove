@@ -1,8 +1,13 @@
 //! groove-gd1_03: cột điều hướng trái (đặc tả 1.1).
 //!
-//! Rộng 230 px, thu còn 56 px; đầu cột cao 36 px kéo được cửa sổ, có tên app + nút thu; ba mục cao 42 px với vạch trái 3 px
-//! khi active; Settings ở đáy. Nền là tầng alpha của cửa sổ mờ (`translucent_surface`), phần nội dung bên phải đục.
-//! Bề rộng nội suy 300 ms, OS bật giảm chuyển động thì nhảy (`transition` của gpui-base tự xử lý).
+//! Rộng 230 px, thu còn 56 px; đầu cột cao 36 px kéo được cửa sổ, có tên app + nút tròn thu / mở; ba mục cao 42 px, vạch trái
+//! 3 px của mục đang chọn trượt lên xuống khi đổi mục (`materiant::tabs::InkBar`, cùng nhịp với tab dọc); Settings ở đáy.
+//! Nền là tầng alpha của cửa sổ mờ (`translucent_surface`), phần nội dung bên phải đục. Bề rộng nội suy 300 ms, OS bật giảm
+//! chuyển động thì nhảy (`transition` của gpui-base tự xử lý).
+//!
+//! chrome-nav (02/11/2026): nút thu là nút tròn 28 px icon khung có vách (khác hẳn nút lùi `<` của thanh trên — trước đây hai
+//! nút `<` đứng sát nhau trông như trùng); thu lại thì nút đứng giữa đầu cột, vẫn thấy và bấm được. Mỗi hàng vẫn là một nút
+//! riêng: Tab đi qua từng hàng, Enter / Space chọn, vòng focus khi đi bằng phím.
 
 use std::rc::Rc;
 use std::time::Duration;
@@ -20,6 +25,7 @@ use materiant::gpui_kit::{
 };
 use materiant::overlay::tooltip::TooltipExt;
 use materiant::style::ActiveTokens;
+use materiant::tabs::InkBar;
 use materiant::theme::color::hex;
 use materiant::theme::{ActiveTheme, Neutral};
 use materiant::window::{DragRegionExt, translucent_surface};
@@ -32,6 +38,8 @@ pub const COLLAPSED_WIDTH: f32 = 56.;
 pub const HEADER_HEIGHT: f32 = 36.;
 pub const ITEM_HEIGHT: f32 = 42.;
 const ACTIVE_BAR: f32 = 3.;
+/// Nút thu / mở: tròn 28 px, icon 16 px.
+const TOGGLE_SIZE: f32 = 28.;
 const ICON_SIZE: f32 = 16.;
 const WIDTH_TRANSITION: Duration = Duration::from_millis(300);
 /// Quá ngưỡng này (đang nội suy) mới vẽ chữ; thấp hơn chỉ còn icon, tránh chữ bị cắt giữa chừng.
@@ -86,15 +94,18 @@ impl RenderOnce for SideNav {
         let toggle_label = if self.collapsed { t!("shell.side_nav.expand") } else { t!("shell.side_nav.collapse") };
         let toggle = {
             let on_toggle = self.on_toggle.clone();
-            div().occlude().child(
+            div().flex_none().occlude().child(
                 IconButton::new(
                     "side-nav-toggle",
-                    if self.collapsed { GrooveIcon::AngleRight } else { GrooveIcon::AngleLeft },
+                    if self.collapsed { GrooveIcon::SidebarExpand } else { GrooveIcon::SidebarCollapse },
                 )
+                .base()
                 .accessibility_label(toggle_label)
                 .on_click(move |_: &ClickEvent, window, cx| on_toggle((), window, cx))
-                .rounded_none()
-                .h(px(HEADER_HEIGHT)),
+                .rounded_full()
+                .w(px(TOGGLE_SIZE))
+                .h(px(TOGGLE_SIZE))
+                .icon_size(px(ICON_SIZE)),
             )
         }
         .with_tooltip("side-nav-toggle-tip", toggle_label);
@@ -107,12 +118,12 @@ impl RenderOnce for SideNav {
             .items_center()
             .overflow_hidden()
             .when(wide, |d| {
-                d.justify_between().pl_3().child(
+                d.justify_between().pl_3().pr(px(6.)).gap_2().child(
                     div()
                         .flex_1()
                         .min_w_0()
                         .truncate()
-                        .font_weight(FontWeight::SEMIBOLD)
+                        .font_weight(FontWeight::NORMAL)
                         .text_color(c.text)
                         .child(t!("common.app_name")),
                 )
@@ -126,6 +137,15 @@ impl RenderOnce for SideNav {
             .enumerate()
             .map(|(ix, &route)| nav_item(ix, route, route == self.active, wide, self.on_select.clone(), window, cx))
             .collect();
+        // Vạch của mục đang chọn: một phần tử trượt giữa các hàng (hàng cao đều nên khỏi đo).
+        let ink = Route::NAV.iter().position(|&route| route == self.active).map(|ix| {
+            InkBar::new("side-nav-ink", ix as f32 * ITEM_HEIGHT, ITEM_HEIGHT)
+                .vertical()
+                .thickness(ACTIVE_BAR)
+                .color(c.primary)
+                .build(window, cx)
+                .debug_selector(|| "side-nav-ink".into())
+        });
 
         let settings = nav_button(
             "side-nav-settings",
@@ -147,13 +167,13 @@ impl RenderOnce for SideNav {
             .overflow_hidden()
             .bg(translucent_surface(cx))
             .child(header)
-            .child(div().flex_1().flex().flex_col().overflow_hidden().children(items))
+            .child(div().relative().flex_1().flex().flex_col().overflow_hidden().children(items).children(ink))
             .child(div().flex_none().border_t_1().border_color(c.border.opacity(0.3)).child(settings))
     }
 }
 
-/// Màu một hàng theo bản web (`side-nav.vue`): đang chọn = icon accent-light + chữ trắng đậm; còn lại = muted, hover sáng
-/// lên text-secondary, nền và vạch trái nhạt.
+/// Màu một hàng theo bản web (`side-nav.vue`): đang chọn = icon accent-light + chữ trắng (độ đậm normal, G-6); còn lại =
+/// muted, hover sáng lên text-secondary, nền và vạch trái nhạt.
 #[derive(Clone, Copy)]
 struct NavInk {
     icon: Hsla,
@@ -176,7 +196,8 @@ impl NavInk {
             icon: if active { accent } else { c.muted },
             label: if active { c.text } else { c.muted },
             hover: secondary,
-            bar: if active { accent } else { transparent_black() },
+            // Mục đang chọn không tô viền: vạch trượt [`InkBar`] đứng đè đúng chỗ đó.
+            bar: transparent_black(),
             hover_bar: c.border.opacity(0.7),
             active_bg: c.layer(Neutral::N200),
             hover_bg: c.layer(Neutral::N100),
@@ -278,7 +299,7 @@ fn nav_item(
 mod tests {
     use std::cell::RefCell;
 
-    use ::gpui::{Context, Render, TestAppContext, VisualTestContext};
+    use ::gpui::{AppContext as _, Context, Render, TestAppContext, VisualTestContext};
     use materiant::gpui_kit::base::Root;
     use materiant::gpui_kit::{KeyDownEvent, KeyUpEvent, Keystroke, point, size};
 
@@ -350,6 +371,58 @@ mod tests {
         press(cx, "shift-tab");
         press(cx, "enter");
         assert_eq!(picked.borrow().last(), Some(&Route::Playlists), "Shift+Tab quay lại mục trước");
+    }
+
+    struct Moving {
+        active: Route,
+    }
+
+    impl Render for Moving {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            SideNav::new(false, self.active, |_, _, _| {}, |_, _| {}, |_, _| {})
+        }
+    }
+
+    /// Đổi mục thì vạch trái trượt từ hàng cũ qua giữa rồi dừng đúng hàng mới; lần vẽ đầu đứng ngay ở hàng đang chọn.
+    #[::gpui::test]
+    fn ink_slides_to_the_new_row(cx: &mut TestAppContext) {
+        groove_core::i18n::set_language(groove_core::i18n::Language::En);
+        cx.update(materiant::init);
+        let view = cx.new(|_| Moving { active: Route::NowPlaying });
+        let window = cx.add_window({
+            let view = view.clone();
+            move |window, cx| Root::new(view, window, cx)
+        });
+        let cx = VisualTestContext::from_window(window.into(), cx).into_mut();
+        cx.simulate_resize(size(px(400.), px(400.)));
+        let frame = |cx: &mut VisualTestContext| {
+            cx.update(|window, cx| {
+                window.refresh();
+                window.draw(cx).clear(cx);
+            })
+        };
+        frame(cx);
+        let ink = |cx: &mut VisualTestContext| cx.debug_bounds("side-nav-ink").expect("vạch đã vẽ");
+        let first = ink(cx);
+        assert_eq!(first.origin.y, px(HEADER_HEIGHT + ITEM_HEIGHT));
+        assert_eq!((first.size.width, first.size.height), (px(ACTIVE_BAR), px(ITEM_HEIGHT)));
+
+        view.update(cx, |v, cx| {
+            v.active = Route::Playlists;
+            cx.notify();
+        });
+        frame(cx);
+        cx.executor().advance_clock(Duration::from_millis(120));
+        frame(cx);
+        let mid = ink(cx).origin.y;
+        assert!(
+            mid > px(HEADER_HEIGHT + ITEM_HEIGHT) && mid < px(HEADER_HEIGHT + 2. * ITEM_HEIGHT),
+            "đang trượt: {mid:?}"
+        );
+        cx.executor().advance_clock(Duration::from_millis(400));
+        frame(cx);
+        frame(cx);
+        assert_eq!(ink(cx).origin.y, px(HEADER_HEIGHT + 2. * ITEM_HEIGHT));
     }
 
     /// Đi bằng bàn phím thì hàng đang focus có vòng focus.
