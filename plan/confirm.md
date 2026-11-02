@@ -105,3 +105,10 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_08] Import xoá thật dòng đã xác nhận mất — đợi `missing_since` — 1.11 yêu cầu xoá, `missing_since` thuộc task 09; đã chặn đủ các lỗi đọc.
 - [groove-gd1_08] Giữ dòng nằm sau liên kết thư mục không đi theo — xoá như tệp mất — bản cũ có theo liên kết, DB cũ có thể chứa bài ở đó.
 - [groove-gd1_08] Đọc theo lô, chờ đủ lô rồi ghi — luồng đọc liên tục có bộ đệm sắp xếp — đơn giản, RAM có trần; tệp cloud chậm giữ cả lô.
+- [groove-gd1_09] Bài có `missing_since` ẩn khỏi mọi danh sách, kể cả playlist, về thì hiện đúng chỗ — hiện dòng xám trong playlist — `Song` thuộc `groove-core` không có cờ mất, phát bài chết chỉ ra lỗi.
+- [groove-gd1_09] `SyncReport.removed` gồm cả bài vừa đánh dấu mất — thêm trường riêng — `actor.rs` ngoài phạm vi; với hàng đợi thì đều không phát được.
+- [groove-gd1_09] Đổi tên vào tên của dòng đang mất thì xoá dòng đó, mất chỗ trong playlist của nó — từ chối đổi tên — tệp không còn trên đĩa, đường dẫn là danh tính của dòng; `metadata_ops` đã coi tên đó là trống.
+- [groove-gd1_09] Hai bản sao giống hệt đổi cả tên thì không ghép — ghép đại — gán nhầm playlist khó phát hiện hơn là một dòng mất.
+- [groove-gd1_09] Dọn sau 30 ngày chỉ khi gốc quét được và tệp vẫn `NotFound` lúc đó — dọn theo mốc thời gian — ổ tháo lâu không được mất playlist.
+- [groove-gd1_09] Import đúng chỗ đang bị `excluded_paths` che thì gỡ che, import gốc cha thì không — luôn tôn trọng — chọn thẳng là ý muốn rõ ràng.
+- [groove-gd1_09] `excluded_paths` có thêm cột `path_key` ngoài `path` của đặc tả — chỉ `path` — so đường dẫn kiểu M2.

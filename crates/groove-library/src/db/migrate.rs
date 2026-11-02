@@ -146,6 +146,11 @@ fn open_existing(target: &Path) -> Result<(Connection, OpenOutcome)> {
         schema::create_schema(&tx)?;
         tx.commit()?;
         outcome = OpenOutcome::Created;
+    } else if found < SCHEMA_VERSION {
+        let tx = conn.transaction()?;
+        schema::upgrade_schema(&tx, found)?;
+        tx.commit()?;
+        log::info!("library schema upgraded from {found} to {SCHEMA_VERSION}");
     }
     schema::apply_pragmas(&conn)?;
     Ok((conn, outcome))
@@ -492,6 +497,69 @@ mod tests {
     fn decodes_data_uri_and_bare_base64() {
         assert_eq!(decode_thumbnail("data:image/png;base64,AQID").unwrap(), [1, 2, 3]);
         assert_eq!(decode_thumbnail(" AQID\n").unwrap(), [1, 2, 3]);
+    }
+
+    #[test]
+    fn version_1_upgrades_and_keeps_every_row() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("library.db");
+        {
+            let conn = Connection::open(&path).unwrap();
+            schema::create_schema_v1_for_tests(&conn).unwrap();
+            conn.execute_batch(
+                "INSERT INTO folders (id, name, path) VALUES (1, 'M', '/m');
+                 INSERT INTO songs (id, folder_id, file_path, path_key, filename, duration)
+                     VALUES (7, 1, '/m/a.mp3', '/m/a.mp3', 'a.mp3', 10);
+                 INSERT INTO playlists (id, name, color) VALUES (1, 'P', '#fff');
+                 INSERT INTO playlist_songs VALUES (1, 7, 0, 0);",
+            )
+            .unwrap();
+        }
+        let (conn, outcome) = open_existing(&path).unwrap();
+        assert_eq!(outcome, OpenOutcome::Existing);
+        assert_eq!(schema::user_version(&conn).unwrap(), SCHEMA_VERSION);
+        let missing: Option<i64> = conn.query_row("SELECT missing_since FROM songs", [], |row| row.get(0)).unwrap();
+        assert_eq!(missing, None);
+        let members: i64 = conn.query_row("SELECT COUNT(*) FROM playlist_songs", [], |row| row.get(0)).unwrap();
+        assert_eq!(members, 1);
+        assert!(has_table(&conn, "excluded_paths").unwrap());
+        drop(conn);
+        // Mở lại không nâng lần hai.
+        open_existing(&path).unwrap();
+    }
+
+    #[test]
+    fn a_failed_upgrade_leaves_version_1_intact() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("library.db");
+        {
+            let conn = Connection::open(&path).unwrap();
+            schema::create_schema_v1_for_tests(&conn).unwrap();
+            // Bước sau của nâng cấp sẽ đụng bảng này.
+            conn.execute_batch("CREATE TABLE excluded_paths (x);").unwrap();
+        }
+        assert!(open_existing(&path).is_err());
+        let conn = Connection::open(&path).unwrap();
+        assert_eq!(schema::user_version(&conn).unwrap(), 1);
+        assert!(!has_column(&conn, "songs", "missing_since").unwrap());
+    }
+
+    #[test]
+    fn upgraded_and_fresh_schemas_are_the_same() {
+        let dump = |conn: &Connection| -> Vec<(String, String)> {
+            let mut stmt = conn
+                .prepare(
+                    "SELECT name, COALESCE(sql, '') FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY name",
+                )
+                .unwrap();
+            stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?))).unwrap().map(|row| row.unwrap()).collect()
+        };
+        let fresh = Connection::open_in_memory().unwrap();
+        schema::create_schema(&fresh).unwrap();
+        let upgraded = Connection::open_in_memory().unwrap();
+        schema::create_schema_v1_for_tests(&upgraded).unwrap();
+        schema::upgrade_schema(&upgraded, 1).unwrap();
+        assert_eq!(dump(&fresh), dump(&upgraded));
     }
 
     #[test]

@@ -1,4 +1,4 @@
-//! groove-gd1_04: schema user_version = 1.
+//! groove-gd1_04: schema; groove-gd1_09 nâng user_version = 2.
 //!
 //! Đặc tả 2.2. Schema không phụ thuộc hàm SQL tự đăng ký, nên tool khác mở được DB. Khoá dẫn xuất (`path_key`,
 //! `search_key`, `group_key`) chỉ tính ở đây để migration, indexer và truy vấn dùng cùng một công thức.
@@ -8,12 +8,12 @@ use rusqlite::Connection;
 use unicode_normalization::UnicodeNormalization;
 use unicode_normalization::char::is_combining_mark;
 
-pub const SCHEMA_VERSION: i32 = 1;
+pub const SCHEMA_VERSION: i32 = 2;
 
 /// `group_key` của album không có bài nào. `AUTOINCREMENT` bắt đầu từ 1 nên không trùng thư mục thật.
 pub const NO_FOLDER_ID: i64 = 0;
 
-const CREATE_TABLES: &str = "
+const CREATE_TABLES_V1: &str = "
 CREATE TABLE folders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -78,10 +78,36 @@ CREATE INDEX idx_songs_cover_hash ON songs(cover_hash);
 CREATE INDEX idx_playlist_songs_song_id ON playlist_songs(song_id);
 ";
 
+/// N1: bài xác nhận mất chỉ bị đánh dấu, giữ `id` nên giữ playlist. N9: chỗ người dùng đã bỏ khỏi thư viện.
+const UPGRADE_V2: &str = "
+ALTER TABLE songs ADD COLUMN missing_since INTEGER;
+CREATE INDEX idx_songs_missing_since ON songs(missing_since) WHERE missing_since IS NOT NULL;
+CREATE TABLE excluded_paths (
+    path_key TEXT PRIMARY KEY,
+    path TEXT NOT NULL
+);
+";
+
 /// Tạo mọi bảng và đặt `user_version`. Gọi trong transaction để không bao giờ có DB dở dang: `user_version` cũng rollback.
+/// DB mới đi qua đúng các bước nâng cấp, nên không thể lệch với DB đã nâng.
 pub fn create_schema(conn: &Connection) -> rusqlite::Result<()> {
-    conn.execute_batch(CREATE_TABLES)?;
+    conn.execute_batch(CREATE_TABLES_V1)?;
+    upgrade_schema(conn, 1)
+}
+
+/// Từ `from` lên `SCHEMA_VERSION`. Gọi trong transaction: lỗi ở bước nào thì tệp vẫn nguyên ở bản cũ.
+pub fn upgrade_schema(conn: &Connection, from: i32) -> rusqlite::Result<()> {
+    if from < 2 {
+        conn.execute_batch(UPGRADE_V2)?;
+    }
     conn.pragma_update(None, "user_version", SCHEMA_VERSION)
+}
+
+/// Mẫu DB bản 1, cho test nâng cấp.
+#[cfg(test)]
+pub(crate) fn create_schema_v1_for_tests(conn: &Connection) -> rusqlite::Result<()> {
+    conn.execute_batch(CREATE_TABLES_V1)?;
+    conn.pragma_update(None, "user_version", 1)
 }
 
 /// Theo kết nối, mọi kết nối mới đều phải gọi (trừ `journal_mode`, lưu trong tệp).

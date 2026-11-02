@@ -1,9 +1,10 @@
-//! groove-gd1_08: import, rescan.
+//! groove-gd1_08: import, rescan. groove-gd1_09: đánh dấu mất thay cho xoá, ghép đổi tên.
 //!
 //! Mỗi việc một luồng nền: quét, đọc thẻ và giải bìa ngoài transaction, rồi mới gửi từng lô `BATCH_ROWS` dòng cho
 //! `LibraryActor` và chờ commit (N7). Gọi `Indexer` từ luồng UI chỉ tạo luồng, không chạm đĩa.
 //!
-//! Một dòng chỉ bị xoá khi hệ tệp trả lời chắc chắn "không có": đọc lỗi không phải là đã xoá (N1).
+//! Một dòng chỉ bị đánh dấu mất khi hệ tệp trả lời chắc chắn "không có": đọc lỗi không phải là đã xoá (N1). Xoá dòng thật chỉ ở
+//! `reconcile`, sau thời gian chờ hoặc khi người dùng xác nhận.
 
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
@@ -15,14 +16,16 @@ use std::task::{Context, Poll};
 use std::{fs, io, thread};
 
 use futures::channel::oneshot;
-use groove_core::paths;
 use rusqlite::{Connection, params};
 
-use crate::actor::{BATCH_ROWS, LibraryError, LibraryEvent, LibraryResult, Progress, ProgressKind, SyncReport};
+use crate::actor::{
+    BATCH_ROWS, LibraryError, LibraryEvent, LibraryResult, MovedSong, Progress, ProgressKind, SyncReport,
+};
 use crate::covers::{CoverStore, cover_hash};
 use crate::db::migrate::CoverRecord;
 use crate::db::queries::{self, SongUpsert, UpsertOutcome};
 use crate::db::schema;
+use crate::reconcile::{self, NewTrack, RenameTarget, SyncOutcome, SyncPlan, Untagged};
 use crate::scanner::{self, ScanOutcome};
 use crate::store::Library;
 use crate::tags::{self, CoverArt, FileStamp, ScannedTrack, TagError};
@@ -81,7 +84,12 @@ pub struct ImportReport {
     pub tally: IndexTally,
     /// `(mtime, size)` khớp DB nên không đọc lại (S26).
     pub unchanged: usize,
-    pub removed: Vec<i64>,
+    /// Bài vừa xác nhận mất. Dòng và playlist còn nguyên, chờ tệp quay lại (N1).
+    pub marked_missing: Vec<i64>,
+    /// Bài đổi tên, chuyển chỗ ngoài app, giữ `id` (N4).
+    pub moved: Vec<MovedSong>,
+    /// Bài đang đánh dấu mất mà tệp đã quay lại.
+    pub restored: Vec<i64>,
     /// Thư mục con không đọc được; dòng dưới đó được giữ, UI nên báo (N1).
     pub failed_dirs: Vec<PathBuf>,
     /// Gốc quét ra 0 tệp trong khi DB còn dòng dưới nó: coi là offline, không xoá gì (N1).
@@ -200,8 +208,8 @@ fn seed_group_covers(conn: &Connection, folder_id: i64, album_id: Option<i64>, h
     Ok(())
 }
 
-/// Xoá thư mục không còn bài như `lib.rs:280`; chỉ import, vì chỉ import mới xoá dòng.
-fn delete_empty_folders(conn: &Connection) -> queries::Result<usize> {
+/// Xoá thư mục không còn bài như `lib.rs:280`. Dòng đánh dấu mất vẫn tính là còn: tệp quay lại thì về đúng thư mục.
+pub(crate) fn delete_empty_folders(conn: &Connection) -> queries::Result<usize> {
     let sql = "DELETE FROM folders WHERE NOT EXISTS (SELECT 1 FROM songs WHERE songs.folder_id = folders.id)";
     Ok(conn.prepare_cached(sql)?.execute([])?)
 }
@@ -305,20 +313,25 @@ fn read_chunk(chunk: &[PathBuf], covers: &CoverPipeline<'_>) -> Vec<ReadOutcome>
 }
 
 /// `song_file_states` không có `tags_read_at`, nên import tự lấy dấu vết: dòng chưa đọc thẻ luôn phải đọc, mtime của nó còn là giây.
-struct KnownRow {
-    id: i64,
-    path: PathBuf,
-    path_key: String,
-    mtime: Option<i64>,
-    size: Option<i64>,
-    tags_read: bool,
+pub(crate) struct KnownRow {
+    pub(crate) id: i64,
+    pub(crate) path: PathBuf,
+    pub(crate) path_key: String,
+    pub(crate) mtime: Option<i64>,
+    pub(crate) size: Option<i64>,
+    pub(crate) tags_read: bool,
+    pub(crate) missing_since: Option<i64>,
+    pub(crate) title: Option<String>,
+    pub(crate) duration_sec: f64,
 }
 
-fn known_rows(library: &Library) -> LibraryResult<Vec<KnownRow>> {
+pub(crate) fn known_rows(library: &Library) -> LibraryResult<Vec<KnownRow>> {
     library
         .read(|conn| {
             let mut stmt = conn.prepare_cached(
-                "SELECT id, file_path, path_key, file_mtime, file_size, tags_read_at NOT NULL FROM songs",
+                "SELECT id, file_path, path_key, file_mtime, file_size, tags_read_at NOT NULL, missing_since, title,
+                        duration
+                 FROM songs",
             )?;
             let rows = stmt.query_map([], |row| {
                 Ok(KnownRow {
@@ -328,6 +341,9 @@ fn known_rows(library: &Library) -> LibraryResult<Vec<KnownRow>> {
                     mtime: row.get(3)?,
                     size: row.get(4)?,
                     tags_read: row.get(5)?,
+                    missing_since: row.get(6)?,
+                    title: row.get(7)?,
+                    duration_sec: row.get(8)?,
                 })
             })?;
             Ok(rows.collect::<rusqlite::Result<_>>()?)
@@ -336,7 +352,7 @@ fn known_rows(library: &Library) -> LibraryResult<Vec<KnownRow>> {
 }
 
 /// Bài nằm trong gốc, không thấy lúc quét, chỗ chứa đã được xem hết, và hệ tệp nói chắc chắn là không có.
-fn plan_removals(
+pub(crate) fn plan_removals(
     under_root: &[&KnownRow],
     scan: &ScanOutcome,
     scanned: &HashSet<String>,
@@ -350,7 +366,7 @@ fn plan_removals(
         .collect()
 }
 
-fn probe_path(path: &Path) -> io::Result<()> {
+pub(crate) fn probe_path(path: &Path) -> io::Result<()> {
     fs::symlink_metadata(path).map(|_| ())
 }
 
@@ -372,7 +388,8 @@ impl Indexer {
         Ok(Indexer::new(library, CoverStore::default_location()?))
     }
 
-    /// Đặc tả 1.11: quét đệ quy, xoá dòng đã mất thật, đọc thẻ tệp mới hoặc đổi, ghi gốc theo dõi, dọn album và thư mục rỗng.
+    /// Đặc tả 1.11: quét đệ quy, đọc thẻ tệp mới hoặc đổi, ghép bài đổi tên, đánh dấu dòng đã mất thật, ghi gốc theo dõi, dọn
+    /// album và thư mục rỗng. Chọn lại đúng chỗ đang bị `excluded_paths` che thì gỡ dòng che.
     /// Tiến độ qua `LibraryEvent::Progress`, xong phát `Synced`.
     pub fn import(&self, root: impl Into<PathBuf>) -> IndexJob<ImportReport> {
         let root = root.into();
@@ -402,7 +419,7 @@ impl Indexer {
         })
     }
 
-    fn spawn<T, F>(&self, job: F) -> IndexJob<T>
+    pub(crate) fn spawn<T, F>(&self, job: F) -> IndexJob<T>
     where
         T: Send + 'static,
         F: FnOnce(&Indexer) -> Result<T, IndexError> + Send + 'static,
@@ -435,72 +452,198 @@ impl Indexer {
         };
         let result = self.import_steps(&root, &scan, &mut report);
         // Lô đã commit vẫn là thật dù lô sau lỗi: UI phải nạp lại.
-        if result.is_ok() || report.tally.read() > 0 || !report.removed.is_empty() {
-            self.emit_synced(&report.tally, report.removed.clone());
+        if result.is_ok() || report.tally.read() > 0 || !report.marked_missing.is_empty() || !report.moved.is_empty() {
+            let sync = SyncOutcome {
+                tally: report.tally.clone(),
+                moved: report.moved.clone(),
+                restored: report.restored.clone(),
+                marked_missing: report.marked_missing.clone(),
+                ..SyncOutcome::default()
+            };
+            self.emit_outcome(&sync);
         }
         result?;
         Ok(report)
     }
 
     fn import_steps(&self, root: &Path, scan: &ScanOutcome, report: &mut ImportReport) -> LibraryResult<()> {
+        let root_owned = root.to_owned();
+        let excluded = self
+            .library
+            .writer()
+            .transaction(move |conn| {
+                queries::remove_exclusions_covering(conn, &root_owned)?;
+                Ok(queries::excluded_keys(conn)?)
+            })
+            .wait()?;
         let rows = known_rows(&self.library)?;
-        let root_key = paths::normalize_path(root);
-        let under_root: Vec<&KnownRow> = rows.iter().filter(|row| paths::is_under(&row.path_key, &root_key)).collect();
-
-        report.root_offline = scan.files.is_empty() && !under_root.is_empty();
-        let removals = if report.root_offline {
-            Vec::new()
-        } else {
-            let scanned: HashSet<String> =
-                scan.files.iter().map(|file| schema::path_key(&file.path.to_string_lossy())).collect();
-            plan_removals(&under_root, scan, &scanned, probe_path)
-        };
-
-        let known: HashMap<&str, &KnownRow> = rows.iter().map(|row| (row.path_key.as_str(), row)).collect();
-        let mut to_read = Vec::new();
-        for file in &scan.files {
-            let unchanged = known.get(schema::path_key(&file.path.to_string_lossy()).as_str()).is_some_and(|row| {
-                row.tags_read
-                    && row.mtime == Some(file.stamp.mtime_ms)
-                    && row.size == i64::try_from(file.stamp.size).ok()
-            });
-            if unchanged {
-                report.unchanged += 1;
-            } else {
-                to_read.push(file.path.clone());
-            }
-        }
-        drop(known);
-        drop(under_root);
+        let mut changes = reconcile::Changes::default();
+        report.root_offline = reconcile::collect_root(&rows, &excluded, root, scan, &mut changes, probe_path);
+        let plan = reconcile::plan(&rows, &excluded, changes, Untagged::Read, probe_path);
         drop(rows);
 
-        for chunk in removals.chunks(BATCH_ROWS) {
-            let chunk = chunk.to_vec();
-            let removed = self
+        let mut sync = SyncOutcome::default();
+        let applied = self.apply_plan(plan, Some(ProgressKind::Import), &mut sync);
+        report.tally = sync.tally;
+        report.unchanged = sync.unchanged;
+        report.marked_missing = sync.marked_missing;
+        report.moved = sync.moved;
+        report.restored = sync.restored;
+        applied?;
+
+        let root = root.to_owned();
+        self.library.writer().transaction(move |conn| Ok(queries::add_watched_root(conn, &root).map(drop)?)).wait()
+    }
+
+    /// Thứ tự giữ dữ liệu: ghép đổi tên trước, rồi mới đánh dấu những gì còn lại là mất. Lỗi giữa chừng thì `out` giữ phần đã
+    /// commit, phần chưa làm vẫn nguyên.
+    pub(crate) fn apply_plan(
+        &self,
+        plan: SyncPlan,
+        kind: Option<ProgressKind>,
+        out: &mut SyncOutcome,
+    ) -> LibraryResult<()> {
+        let SyncPlan { fresh, changed, restored, baselines, respelled, vanished, targets, hints, unchanged } = plan;
+        out.unchanged += unchanged;
+
+        if !restored.is_empty() || !baselines.is_empty() || !respelled.is_empty() {
+            let back = self
                 .library
                 .writer()
                 .transaction(move |conn| {
-                    let mut removed = Vec::with_capacity(chunk.len());
-                    for id in chunk {
-                        if queries::delete_song(conn, id)? {
-                            removed.push(id);
+                    let mut back = Vec::with_capacity(restored.len());
+                    for id in restored {
+                        if queries::clear_song_missing(conn, id)? {
+                            back.push(id);
                         }
                     }
-                    Ok(removed)
+                    for (id, mtime, size) in baselines {
+                        queries::set_song_file_state(conn, id, Some(mtime), Some(size))?;
+                    }
+                    for (id, path) in respelled {
+                        queries::move_song(conn, id, &path, None)?;
+                    }
+                    Ok(back)
                 })
                 .wait()?;
-            report.removed.extend(removed);
+            out.restored.extend(back);
         }
 
+        let mut steps = ProgressSteps { kind, done: 0, total: fresh.len() + changed.len() };
         let covers = CoverPipeline::load(&self.covers, &self.library)?;
-        let mut steps = ProgressSteps::new(ProgressKind::Import, to_read.len());
-        self.index_files(&to_read, &covers, &mut steps, &mut report.tally)?;
+        let (candidates, mut rest) = reconcile::split_rename_candidates(fresh, &targets, &hints);
+        self.link_renames(&candidates, &targets, &hints, &covers, &mut steps, out)?;
+        rest.extend(changed);
+        self.index_files(&rest, &covers, &mut steps, &mut out.tally)?;
 
-        let root = root.to_owned();
+        let moved: HashSet<i64> = out.moved.iter().map(|moved| moved.id).collect();
+        let vanished: Vec<i64> = vanished.into_iter().filter(|id| !moved.contains(id)).collect();
+        for chunk in vanished.chunks(BATCH_ROWS) {
+            let chunk = chunk.to_vec();
+            let marked = self
+                .library
+                .writer()
+                .transaction(move |conn| {
+                    let now = queries::now_ms();
+                    let mut marked = Vec::with_capacity(chunk.len());
+                    for id in chunk {
+                        if queries::mark_song_missing(conn, id, now)? {
+                            marked.push(id);
+                        }
+                    }
+                    Ok(marked)
+                })
+                .wait()?;
+            out.marked_missing.extend(marked);
+        }
+        self.tidy_groups()
+    }
+
+    /// N4: tệp mới có thể là bài cũ đổi chỗ, đọc thẻ xong mới biết. Ghi cùng transaction với `apply_row`, nên bài chuyển sang
+    /// thư mục khác cũng được gán lại album (S1).
+    fn link_renames(
+        &self,
+        candidates: &[PathBuf],
+        targets: &[RenameTarget],
+        hints: &HashMap<String, i64>,
+        covers: &CoverPipeline<'_>,
+        steps: &mut ProgressSteps,
+        out: &mut SyncOutcome,
+    ) -> LibraryResult<()> {
+        let mut rows: Vec<TrackRow> = Vec::with_capacity(candidates.len());
+        let mut records = Vec::new();
+        for chunk in candidates.chunks(BATCH_ROWS) {
+            for (path, outcome) in chunk.iter().zip(read_chunk(chunk, covers)) {
+                match outcome {
+                    ReadOutcome::Ready(row, record) => {
+                        rows.push(*row);
+                        records.extend(record);
+                    }
+                    ReadOutcome::Missing => out.tally.missing.push(path.clone()),
+                    ReadOutcome::Failed => out.tally.failed.push(path.clone()),
+                }
+            }
+        }
+        let tracks: Vec<NewTrack> = rows.iter().map(NewTrack::from_row).collect();
+        let pairs = reconcile::match_renames(targets, &tracks, hints);
+        let origin: Arc<HashMap<i64, PathBuf>> =
+            Arc::new(targets.iter().map(|target| (target.id, target.path.clone())).collect());
+
+        let mut records = Some(records);
+        let mut failed_reads = candidates.len() - rows.len();
+        let mut rows = rows.into_iter().enumerate().peekable();
+        while rows.peek().is_some() {
+            let batch: Vec<(Option<i64>, TrackRow)> =
+                rows.by_ref().take(BATCH_ROWS).map(|(index, row)| (pairs.get(&index).copied(), row)).collect();
+            let done = batch.len() + std::mem::take(&mut failed_reads);
+            let records = records.take().unwrap_or_default();
+            let origin = Arc::clone(&origin);
+            let (added, moved) = self
+                .library
+                .writer()
+                .transaction(move |conn| {
+                    for record in &records {
+                        queries::upsert_cover(conn, record)?;
+                    }
+                    let mut folders = HashMap::new();
+                    let (mut added, mut moved) = (0, Vec::new());
+                    for (target, row) in &batch {
+                        let linked = match target {
+                            // Đích vừa có dòng khác: cập nhật dòng đó, dòng cũ sẽ bị đánh dấu mất.
+                            Some(id) => match queries::move_song(conn, *id, &row.path, None) {
+                                Ok(()) => Some(*id),
+                                Err(queries::QueryError::PathConflict(_)) => None,
+                                Err(err) => return Err(err.into()),
+                            },
+                            None => None,
+                        };
+                        let outcome = apply_row(conn, row, &mut folders)?;
+                        match linked {
+                            Some(id) => moved.push(MovedSong {
+                                id,
+                                from: origin.get(&id).cloned().unwrap_or_default(),
+                                to: row.path.clone(),
+                            }),
+                            None if outcome.inserted => added += 1,
+                            None => {}
+                        }
+                    }
+                    Ok((added, moved))
+                })
+                .wait()?;
+            out.tally.added += added;
+            out.moved.extend(moved);
+            if let Some(progress) = steps.advance(done) {
+                self.library.writer().emit(LibraryEvent::Progress(progress));
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn tidy_groups(&self) -> LibraryResult<()> {
         self.library
             .writer()
-            .transaction(move |conn| {
-                queries::add_watched_root(conn, &root)?;
+            .transaction(|conn| {
                 queries::delete_empty_albums(conn)?;
                 delete_empty_folders(conn)?;
                 Ok(())
@@ -628,6 +771,21 @@ impl Indexer {
         Ok(())
     }
 
+    pub(crate) fn library(&self) -> &Library {
+        &self.library
+    }
+
+    /// `Moved` trước để hàng đợi, trang đang mở đúng đường dẫn rồi mới nạp lại. `removed` gồm cả bài vừa đánh dấu mất: với
+    /// người nghe, bài đó không còn phát được (N5). Tệp quay lại tính là cập nhật.
+    pub(crate) fn emit_outcome(&self, sync: &SyncOutcome) {
+        if !sync.moved.is_empty() {
+            self.library.writer().emit(LibraryEvent::Moved(sync.moved.clone()));
+        }
+        let mut tally = sync.tally.clone();
+        tally.updated += sync.restored.len();
+        self.emit_synced(&tally, sync.marked_missing.iter().chain(&sync.purged).copied().collect());
+    }
+
     fn emit_synced(&self, tally: &IndexTally, removed: Vec<i64>) {
         let report = SyncReport { added: tally.added, updated: tally.updated, removed };
         self.library.writer().emit(LibraryEvent::Synced(report));
@@ -668,6 +826,9 @@ mod tests {
             mtime: None,
             size: None,
             tags_read: true,
+            missing_since: None,
+            title: None,
+            duration_sec: 0.0,
         }
     }
 
