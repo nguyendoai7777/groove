@@ -224,3 +224,7 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-ui-card] Thẻ lưới: đệm 12 px, viền 2 px, thẻ rounded_xl, bìa tự bo rounded_lg và cắt góc, chữ cách bìa 12 px, dòng phụ cách 4 px — giữ bố cục cũ viền sát bìa — đúng p-3 rounded-xl border-2 và mt-3, mt-1 của music-card.vue; nền thẻ 40%, hover 60% theo bg-theme-bg-card.
 - [groove-ui-card] Viền hover vẫn 2 px, màu accent theo bìa (không có thì cyan) — mảnh hơn 2 px — web cũng border-2 và item.accentColor; ảnh mẫu cyan vì thẻ đó không có accent.
 - [groove-ui-card] Không làm chuyển 300 ms, phóng bìa 1,05, quầng bóng, làm mờ nền (backdrop-blur) — GPUI div không có — giữ nhịp bằng đổi tức thì.
+
+- [groove-ui-card-2] Hoạt ảnh hover bằng `with_animation` (thẻ, lớp phủ 300 ms, phóng bìa 1,05 trong 500 ms, đường `cubic-bezier(0.4,0,0.2,1)`), trạng thái rê giữ bằng `window.use_keyed_state` + `on_hover` thay `group_hover` — chỉ giữ `group_hover` — để chạy được hoạt ảnh; chỉ dựng hoạt ảnh sau lần rê đầu, đứng yên thì vẽ tĩnh.
+- [groove-ui-card-2] Quầng bóng accent 25% nhưng blur 12 px — 20 px như web — ô `VirtualGrid` cắt mọi thứ ngoài ô (`virtual_grid.rs` dòng `overflow_hidden`, đệm 6 px), blur 20 để lộ khung chữ nhật bị cắt; muốn đúng 20 thì materiant cần tuỳ chọn không cắt ô.
+- [groove-ui-card-2] Không làm đổi màu tên sang trắng khi rê (150 ms) và `backdrop-blur` của lớp phủ — GPUI không có làm mờ nền; chữ tên đã gần trắng ở nền tối.
