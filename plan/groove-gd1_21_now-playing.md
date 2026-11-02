@@ -2,7 +2,7 @@
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Trạng thái | ☐ |
+| Trạng thái | ✅ (02/11/2026) |
 | Repo | groove |
 | Model | sonnet |
 | Cỡ | ~800 dòng |
@@ -40,3 +40,16 @@
 
 ## 2. Không làm trong task này
 - Không thêm tính năng ngoài đặc tả; không sửa bản Tauri + Vue (G-1).
+## 8. Thiếu từ làn khác / cần Opus xem
+- Không có chỗ nào phải quyết định nghiệp vụ. Không thiếu API của làn khác.
+- `ShellHandle` riêng của `app.rs` nên `NowPlaying::new` nhận `route` + hàm đặt tiêu đề (`app::set_title_override`) làm tham số để test không cần `Shell`.
+
+## 9. Bàn giao thực tế (02/11/2026)
+- **Đã làm**: `views/{now_playing,timeline_box,lyrics_panel,queue_panel}.rs`, `i18n/{vi,en}/now_playing.toml`; `app::{metadata_ops, try_metadata_ops}` (global `MetadataOpsHandle`, dựng lười, đặt trong `set_library`) + một lời gọi `now_playing::install(handle, cx)` trong `run`.
+- **Gộp `metadata_ops` với task 17**: chữ ký `app::metadata_ops(cx: &App) -> MetadataOps` như đã quyết; nếu 17 cũng thêm thì giữ một bản (bản này có thêm `try_metadata_ops`, `set_library` đặt global).
+- **Bố cục**: cột trái 25 % (180-300), giữa còn lại, phải 32 % (240-340); quầng cao 450 px độ đục 0,3; khung dùng nền bán trong suốt thay `backdrop-blur`.
+- **Hàng đợi**: tra tên bằng `Library::songs_for_tracks` ở luồng nền, nhớ theo id (shuffle không tra lại); bài đã xoá khỏi thư viện hiện "Bài không rõ". Dòng đã phát opacity 0,25 (rê 0,5); đổi bài cuộn vào giữa trừ khi vừa bấm trong bảng.
+- **Quyết định đã chốt**: xem 5 dòng `[groove-gd1_21]` ở `plan/confirm.md`.
+- **Case**: C1 hàng đợi đủ bài + bài hiện tại, C2 ba nút mở đúng hộp, C3 timeline hiện đoạn, C4 bấm dòng hàng đợi phát bài đó, C5 tiêu đề cửa sổ chỉ đặt khi ở màn này, hàm thuần (lyric_lines, row_state, build_rows, take_center, progress_label, window_title) đều có test: `[sonnet-test]` xanh; `cargo test -p groove-app views::` 103 pass.
+- **Chờ kiểm tay**: `[owner-qa]` nhìn màn thật, ghi ở `plan/_backlog.md`.
+- **Soi 4 lăng kính**: bảo mật — không đường dẫn từ ngoài, truy vấn accent tham số hoá; UX — dùng hết bằng bàn phím (VirtualList), vi/en đủ; RAM — cache bìa 4 ảnh, chỉ bìa đang phát, hàng đợi không giữ ảnh; Pro — không áp.
