@@ -24,10 +24,13 @@ use crate::player::{self, Player};
 
 /// Khe giữa hai khúc.
 pub const GAP: f32 = 2.;
+/// Tỉ lệ cỡ của thanh tua và thanh âm lượng so với mặc định của materiant (4 / 6 px): mảnh hơn để nhìn thanh thoát, hai
+/// thanh cùng một kiểu. Thanh âm lượng truyền số này vào `Slider::scale`.
+pub const SLIDER_SCALE: f32 = 0.85;
 /// Bề dày thanh lúc nghỉ / khi rê vào thanh / khúc đang rê.
-pub const REST: f32 = 4.;
-pub const HOT: f32 = 6.;
-pub const ACTIVE: f32 = 8.;
+pub const REST: f32 = 4. * SLIDER_SCALE;
+pub const HOT: f32 = 6. * SLIDER_SCALE;
+pub const ACTIVE: f32 = 8. * SLIDER_SCALE;
 /// Vùng bấm cao hơn thanh để dễ trúng.
 pub const HIT_HEIGHT: f32 = 16.;
 /// Bề ngang chừa cho mỗi nhãn giờ.
@@ -355,6 +358,11 @@ mod tests {
         let bar = timeline::segments_to_bar(&segments, 100., 400., GAP);
         assert_eq!(segment_label(&segments, &bar[0]), None, "khúc ẩn danh phía trước");
         assert_eq!(segment_at(&[], 3.), None);
+    }
+
+    #[test]
+    fn rails_are_thinner_than_the_materiant_default() {
+        assert!((REST - 3.4).abs() < 1e-5 && (HOT - 5.1).abs() < 1e-5 && (ACTIVE - 6.8).abs() < 1e-5);
     }
 
     #[test]

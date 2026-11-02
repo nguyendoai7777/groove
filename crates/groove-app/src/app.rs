@@ -12,7 +12,7 @@
 //!   và nghe [`ShellEvent::RouteChanged`].
 //! - **Điều hướng**: [`navigate`], [`go_back`], [`current_route`]. Từ view: `app::navigate(Route::Category(..), cx)`.
 //! - **Sự kiện**: `app::shell(cx).subscribe(..)` nhận [`ShellEvent`]: `OpenSearch` (bảng lệnh, task 23), `OpenSettings`
-//!   (hộp Settings, task 24), `RouteChanged`. Lệnh ở `commands.rs` gọi [`open_search`], [`open_settings`].
+//!   (hộp Settings, task 24), `RouteChanged`. Lệnh ở `commands.rs` gọi [`open_search`]; Settings mở từ nút ở side nav.
 //! - **Cài đặt**: [`settings`] đọc, [`update_settings`] sửa + lưu debounce + áp theme / ngôn ngữ nếu đổi. Một `JsonSaver`
 //!   duy nhất cho cả app, đừng tạo cái thứ hai.
 //! - **Tiêu đề cửa sổ**: [`set_title_override`] (Now Playing đặt `<bài> - <nghệ sĩ> | Groove X`, `None` để về tên trang).
@@ -534,10 +534,6 @@ pub fn install_slot(slot: Slot, view: impl Into<AnyView>, cx: &mut App) {
 
 pub fn open_search(cx: &mut App) {
     shell(cx).update(cx, |_, cx| cx.emit(ShellEvent::OpenSearch));
-}
-
-pub fn open_settings(cx: &mut App) {
-    shell(cx).update(cx, |_, cx| cx.emit(ShellEvent::OpenSettings));
 }
 
 pub fn set_title_override(title: Option<SharedString>, cx: &mut App) {
