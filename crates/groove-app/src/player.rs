@@ -115,6 +115,8 @@ pub struct Player {
     song: Option<Song>,
     lyrics: Option<String>,
     timeline_text: Option<String>,
+    /// `lyrics`, `timeline_text` đã là của bài đang chọn (nạp xong), không phải trống vì còn đang nạp.
+    text_loaded: bool,
     timeline: Vec<Segment>,
     /// Bìa đọc từ thẻ, chỉ cho tệp ngoài (N6); bài thư viện dùng `cover_hash`.
     external_cover: Option<CoverArt>,
@@ -180,6 +182,7 @@ impl Player {
                 song: None,
                 lyrics: None,
                 timeline_text: None,
+                text_loaded: false,
                 timeline: Vec::new(),
                 external_cover: None,
                 loaded_duration_sec: 0.0,
@@ -237,6 +240,13 @@ impl Player {
 
     pub fn lyrics(&self) -> Option<&str> {
         self.lyrics.as_deref()
+    }
+
+    /// Lyrics, timeline thô của `track` khi nó là bài đang chọn và chữ đã nạp xong; `None` khi chưa biết. Hộp sửa chữ điền
+    /// sẵn từ đây thay vì đọc lại.
+    pub fn loaded_text(&self, track: &TrackRef) -> Option<(Option<&str>, Option<&str>)> {
+        (self.text_loaded && self.song.as_ref().is_some_and(|song| &song.track == track))
+            .then(|| (self.lyrics.as_deref(), self.timeline_text.as_deref()))
     }
 
     /// Đã parse theo thời lượng thật, đổi khi engine báo `Loaded`.
@@ -563,12 +573,14 @@ impl Player {
         self.text_task = None;
         self.lyrics = None;
         self.timeline_text = None;
+        self.text_loaded = false;
         self.timeline.clear();
         self.external_cover = None;
     }
 
     /// Lyrics, timeline của bài đang chọn (S16). Tệp ngoài đọc từ thẻ ở nền, kèm bìa (N6).
     fn load_text(&mut self, cx: &mut Context<Self>) {
+        self.text_loaded = false;
         let Some(song) = &self.song else { return };
         match (&song.track, &self.library) {
             (TrackRef::Library(id), Some(library)) => {
@@ -613,6 +625,7 @@ impl Player {
     fn set_text(&mut self, lyrics: Option<String>, timeline: Option<String>) {
         self.lyrics = lyrics;
         self.timeline_text = timeline;
+        self.text_loaded = true;
         self.reparse_timeline();
     }
 

@@ -347,6 +347,20 @@ impl OpsState {
         })
     }
 
+    fn read_text(&self, track: TrackRef) -> MetadataResult<SongText> {
+        let id = match track {
+            TrackRef::Library(id) => id,
+            TrackRef::External(path) => match self.resolve(&TrackRef::External(path.clone()))? {
+                Some(Song { track: TrackRef::Library(id), .. }) => id,
+                _ => {
+                    let fields = tags::read_track(&path)?.fields;
+                    return Ok(SongText { lyrics: fields.lyrics, timeline: fields.timeline });
+                }
+            },
+        };
+        self.library.song_text(id).wait()?.ok_or(MetadataError::SongNotFound(id))
+    }
+
     fn save(
         &self,
         track: TrackRef,
@@ -658,6 +672,13 @@ impl MetadataOps {
         self.submit(move |state| state.read(track))
     }
 
+    /// Lyrics, timeline cho hộp sửa chữ. Bài thư viện lấy từ DB, không mở tệp: tệp có thể là bản OneDrive chỉ trên mạng, mở
+    /// ra là phải tải cả bài về trước (đo ở máy chủ dự án: 765 / 1769 tệp). DB khớp thẻ trong tệp nhờ indexer, watcher và
+    /// lần lưu của app (N2: tệp không có thì giữ DB), đúng chữ panel Now Playing đang hiện. Tệp ngoài thư viện đọc thẻ.
+    pub fn read_text(&self, track: TrackRef) -> OpsReply<SongText> {
+        self.submit(move |state| state.read_text(track))
+    }
+
     /// `new_filename` là tên đủ kèm đuôi, giữ nguyên đuôi cũ; `None` là không đổi tên. Lỗi nào cũng để tệp và DB khớp nhau,
     /// xem `MetadataError`. Chỉ gieo bìa cho nhóm chưa có bìa; đổi bìa nhóm thì dùng `save_bulk`.
     pub fn save(
@@ -742,6 +763,35 @@ mod tests {
         let free = dir.path().join("free.mp3");
         assert!(rename_no_clobber(&missing, &free).is_err());
         assert!(!free.exists());
+    }
+
+    /// Bài thư viện: chữ lấy từ DB, tệp không cần mở (đã xoá vẫn đọc được). Tệp ngoài thư viện: đọc thẻ.
+    #[test]
+    fn read_text_takes_library_songs_from_the_database_without_opening_the_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = LibraryConfig { target: dir.path().join("db").join("library.db"), legacy: None };
+        let sink = Box::new(|_: &[u8]| -> anyhow::Result<CoverRecord> { anyhow::bail!("unused") });
+        let library = Library::open(config, sink).unwrap();
+        let ops = MetadataOps::new(library.clone(), CoverStore::new(dir.path().join("covers"))).unwrap();
+        let path = write_sample(dir.path(), "a", AudioKind::Mp3).unwrap();
+        let row = TrackRow::from_scanned(path.clone(), tags::read_track(&path).unwrap(), None);
+        let id = library.writer().transaction(move |conn| Ok(apply_scanned_track(conn, &row)?.id)).wait().unwrap();
+        ops.save_lyrics(TrackRef::Library(id), "line 1
+line 2".into()).wait().unwrap();
+        ops.save_timeline(TrackRef::Library(id), "0:00 Intro".into()).wait().unwrap();
+
+        fs::remove_file(&path).unwrap();
+        let text = ops.read_text(TrackRef::Library(id)).wait().unwrap();
+        assert_eq!(text.lyrics.as_deref(), Some("line 1
+line 2"));
+        assert_eq!(text.timeline.as_deref(), Some("0:00 Intro"));
+        assert!(matches!(ops.read_text(TrackRef::Library(id + 1)).wait(), Err(MetadataError::SongNotFound(_))));
+
+        let outside = tempfile::tempdir().unwrap();
+        let external = write_sample(outside.path(), "b", AudioKind::Mp3).unwrap();
+        ops.save_lyrics(TrackRef::External(external.clone()), "outside".into()).wait().unwrap();
+        let text = ops.read_text(TrackRef::External(external)).wait().unwrap();
+        assert_eq!(text.lyrics.as_deref(), Some("outside"));
     }
 
     fn fail_rename(_: &Path, _: &Path) -> io::Result<()> {
