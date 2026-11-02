@@ -492,7 +492,7 @@ mod tests {
         let mut interleaved: Vec<f32> = left.iter().flat_map(|&s| [s, 0.0]).collect();
         stereo.process(&mut interleaved);
 
-        for (i, frame) in interleaved.chunks_exact(2).enumerate() {
+        for (i, frame) in interleaved.as_chunks::<2>().0.iter().enumerate() {
             assert_eq!(frame[0], mono_out[i], "frame {i}");
             assert_eq!(frame[1], 0.0, "frame {i}");
         }

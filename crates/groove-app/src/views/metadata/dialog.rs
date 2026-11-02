@@ -761,7 +761,7 @@ mod tests {
     use std::rc::Rc;
     use std::time::Duration;
 
-    use ::gpui::{AppContext as _, TestAppContext, VisualTestContext};
+    use ::gpui::{TestAppContext, VisualTestContext};
     use groove_audio::engine::EngineOptions;
     use groove_audio::output::FakeOutput;
     use groove_core::i18n::{Language, set_language};

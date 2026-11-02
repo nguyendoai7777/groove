@@ -246,6 +246,9 @@ fn forward_or_claim(endpoint: &Endpoint, message: &ForwardMessage, patience: Dur
 /// Luồng nhận kết nối, mỗi kết nối một luồng ngắn: client treo không chặn client sau.
 fn serve(claimed: Claimed, sink: UnboundedSender<OpenRequest>) -> io::Result<()> {
     thread::Builder::new().name("instance-accept".into()).spawn(move || {
+        // Giữ nguyên `Claimed` trong luồng: closure chỉ bắt `claimed.listener` thì khoá Unix bị nhả ngay khi `serve` trả
+        // về, phiên sau giành được khoá, xoá socket của phiên đang chạy rồi thành phiên chính thứ hai.
+        let claimed = claimed;
         for connection in claimed.listener.incoming() {
             match connection {
                 Ok(stream) => {
