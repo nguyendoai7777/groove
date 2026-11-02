@@ -84,6 +84,8 @@ pub fn run(dev: DevArgs) {
         crate::player::install(cx);
         // Task 22: phím tắt, cần player ở trên.
         crate::commands::install(cx);
+        // Task 14: thanh phát vào `Slot::PlayerBar`, cần player ở trên.
+        crate::views::player_bar::install(handle, cx);
         dev::replay(handle, dev.keys, cx);
     });
 }

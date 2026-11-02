@@ -75,6 +75,8 @@ groove_icons! {
     Prev => "prev",
     Next => "next",
     Play => "play",
+    /// groove-gd1_14: nút Phát khi đang phát.
+    Pause => "pause",
     VolumeMute => "volume-mute",
     VolumeMin => "volume-min",
     VolumeMedium => "volume-medium",

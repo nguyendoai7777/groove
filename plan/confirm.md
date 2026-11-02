@@ -124,3 +124,7 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_22] Space trên nút đến bằng Tab là bấm nút, đến bằng chuột là phát / dừng — luôn phát / dừng như bản cũ — giữ dùng được bằng bàn phím mà bấm Next xong Space không Next tiếp.
 - [groove-gd1_22] `/playall` phát lại danh sách hiện tại từ đầu, trống thì báo — phát cả thư viện — thư viện không có khái niệm tất cả bài; giữ như bản cũ.
 - [groove-gd1_22] `/theme` không đối số đổi qua lại sáng, tối; `/queue <tên>` thêm bài khớp đầu — bắt buộc đối số; thêm mọi bài khớp — ít bất ngờ nhất.
+- [groove-gd1_14] Nút Play đổi icon Play / Pause tức thì — biến hình hai đa giác 250 ms bằng `canvas` — đặc tả mục 4 cho phép khi không cần; thêm icon `Pause` vào `icons.rs`.
+- [groove-gd1_14] Marquee đứng ở đầu dòng khi rê chuột, chạy lại từ đầu khi rời — tạm dừng giữ nguyên chỗ — `with_animation` của GPUI không tạm dừng giữa chừng.
+- [groove-gd1_14] Không bài thì chặn cả nút Settings của thanh phát — chừa riêng Settings — đặc tả 1.3 "không bấm được"; Settings còn ở cột trái.
+- [groove-gd1_14] Âm lượng, tắt tiếng đọc từ `app::settings` — thêm hàm đọc vào `Player` — `player.rs` thuộc task 13 đã ✅; ghi mục 8.

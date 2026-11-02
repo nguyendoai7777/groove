@@ -1,1 +1,32 @@
 # Vùng player: khoá viết không tiền tố, tra bằng t!("player.<khoá>").
+
+[bar]
+no_song = "Chưa chọn bài hát"
+unknown_artist = "Không rõ nghệ sĩ"
+open_now_playing = "Mở màn Đang phát"
+shuffle = "Phát ngẫu nhiên"
+prev = "Bài trước"
+next = "Bài kế"
+play = "Phát"
+pause = "Tạm dừng"
+repeat_off = "Lặp lại: tắt"
+repeat_one = "Lặp lại một bài"
+mute = "Tắt tiếng"
+unmute = "Bật tiếng"
+volume = "Âm lượng"
+seek = "Tua"
+settings = "Cài đặt"
+
+[toast]
+unknown_track = "bài hát này"
+track_failed_title = "Không phát được bài hát"
+output_failed_title = "Không có thiết bị phát âm thanh"
+output_failed = "Không tìm thấy thiết bị ra tiếng. Hãy cắm loa hoặc tai nghe rồi bấm Phát để thử lại."
+gave_up = "Đã dừng sau nhiều lỗi liên tiếp."
+
+[toast.kind]
+not_found = "Không tìm thấy tệp của {title}. Tệp có thể đã bị xoá hoặc đổi tên."
+io = "Không đọc được tệp của {title}."
+unsupported = "Định dạng của {title} chưa được hỗ trợ."
+corrupt = "Tệp của {title} bị hỏng."
+output = "Không mở được thiết bị phát âm thanh cho {title}."
