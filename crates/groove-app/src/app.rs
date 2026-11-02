@@ -21,6 +21,7 @@ use std::time::Duration;
 
 use groove_core::settings::{JsonSaver, Settings, ThemeChoice};
 use groove_core::{paths, t};
+use groove_library::store::Library;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
     self, AnyView, App, AppContext, Bounds, Context, DisplayId, Entity, EventEmitter, Global, IntoElement, Render,
@@ -34,6 +35,7 @@ use crate::dev::{self, DevArgs};
 use crate::icons;
 use crate::route::{History, Route};
 use crate::views::app_bar::{self, AppBar};
+use crate::views::library_page;
 use crate::views::side_nav::SideNav;
 
 /// Cỡ mặc định của cửa sổ (đặc tả 1.1).
@@ -76,6 +78,8 @@ pub fn run(dev: DevArgs) {
             cx.activate(true);
         }
         // Task sau thêm đúng một lời gọi `install_slot(..)` / khởi tạo của mình ở đây.
+        // Task 15: mở thư viện chuẩn, đặt global `library(cx)`, dựng màn lưới vào `Slot::Library`.
+        library_page::install(cx);
         dev::replay(handle, dev.keys, cx);
     });
 }
@@ -422,6 +426,26 @@ pub fn go_back(cx: &mut App) {
 
 pub fn current_route(cx: &App) -> Route {
     shell(cx).read(cx).route()
+}
+
+/// `Global` giữ thư viện đang mở (groove-gd1_15 đặt trong `library_page::install`).
+struct LibraryHandle(Library);
+
+impl Global for LibraryHandle {}
+
+/// Đặt thư viện dùng chung. Gọi một lần lúc khởi động.
+pub fn set_library(library: Library, cx: &mut App) {
+    cx.set_global(LibraryHandle(library));
+}
+
+/// Thư viện dùng chung (sao chép rẻ, gửi được giữa luồng). Panic nếu chưa `set_library`; `try_library` cho chỗ có thể
+/// chạy trước lúc khởi động xong.
+pub fn library(cx: &App) -> &Library {
+    &cx.global::<LibraryHandle>().0
+}
+
+pub fn try_library(cx: &App) -> Option<&Library> {
+    cx.try_global::<LibraryHandle>().map(|handle| &handle.0)
 }
 
 pub fn install_slot(slot: Slot, view: impl Into<AnyView>, cx: &mut App) {

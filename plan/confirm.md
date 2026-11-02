@@ -67,3 +67,19 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_05] `LegacyFailed` để thư viện ở trạng thái lỗi, UI cho chọn thử lại hoặc bắt đầu trống — tự `open_fresh` — tạo `library.db` rồi thì không bao giờ chuyển DB cũ lại nữa.
 - [groove-gd1_05] Hạt giống `watched_roots` từ `folders` chỉ một lần sau chuyển đổi — mỗi lần đọc như bản cũ — để bỏ hết gốc không bị gốc quay lại (N9).
 - [groove-gd1_05] Chưa thêm `missing_since`, `excluded_paths` vào schema — thêm ngay — `schema.rs` thuộc task 04 đã đóng, đặc tả 2.2 không ghi; đẩy sang 09, 17, cần quyết cách nâng `user_version`.
+
+## groove-gd1_15
+
+- [groove-gd1_15] Đầu màn (tiêu đề, thẻ hành động, tab) đứng yên, chỉ lưới cuộn — cuộn cả trang như bản cũ — `VirtualGrid` không chứa phần đầu.
+- [groove-gd1_15] Trần 6 cột bằng `min_cell_width` tính theo bề ngang cửa sổ (ước theo cột trái thu), ô tối thiểu 130 px — cố định số cột theo breakpoint — `VirtualGrid` chỉ nhận bề ngang ô tối thiểu; cột trái mở thì ít cột hơn mức tối đa.
+- [groove-gd1_15] Bấm thẻ vào danh sách ngay, Enter / nhấp đúp cũng vào — nhấp chọn, nhấp đúp mới vào — đặc tả ghi "Bấm thẻ vào danh sách".
+- [groove-gd1_15] `Route::Category` vẽ chữ giữ chỗ tới khi `SongList` (16) có — chờ 16 — 16 không sở hữu `library_page.rs`; task 17 thay nhánh này.
+- [groove-gd1_15] `LibraryPageEvent` phát lên cho task 17 nghe, không nối nghiệp vụ nhập / quét lại / tạo / xoá / phát — gọi thẳng `Library` — nghiệp vụ và hộp thoại là của 17.
+
+## groove-gd1_15
+
+- [groove-gd1_15] Đầu màn (tiêu đề, thẻ hành động, tab) đứng yên, chỉ lưới cuộn — cuộn cả trang như bản cũ — `VirtualGrid` không chứa phần đầu.
+- [groove-gd1_15] Trần 6 cột bằng `min_cell_width` tính theo bề ngang cửa sổ (ước theo cột trái thu), ô tối thiểu 130 px — cố định số cột theo breakpoint — `VirtualGrid` chỉ nhận bề ngang ô tối thiểu; cột trái mở thì ít cột hơn mức tối đa.
+- [groove-gd1_15] Bấm thẻ vào danh sách ngay, Enter / nhấp đúp cũng vào — nhấp chọn, nhấp đúp mới vào — đặc tả ghi "Bấm thẻ vào danh sách".
+- [groove-gd1_15] `Route::Category` vẽ chữ giữ chỗ tới khi `SongList` (16) có — chờ 16 — 16 không sở hữu `library_page.rs`; task 17 thay nhánh này.
+- [groove-gd1_15] `LibraryPageEvent` phát lên cho task 17 nghe, không nối nghiệp vụ nhập / quét lại / tạo / xoá / phát — gọi thẳng `Library` — nghiệp vụ và hộp thoại là của 17.

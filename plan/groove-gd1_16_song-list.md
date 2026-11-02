@@ -11,6 +11,15 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `views/{song_list,song_row}.rs`, `i18n/*/song_list.toml` |
 
+## 0. Bàn giao từ groove-gd1_15 (02/11/2026)
+
+<!-- handoff: groove-gd1_15 -->
+
+- **Đã có sẵn để dùng**: `views/library_page.rs` (`LibraryPage`) đã ở `Slot::Library`; vào danh sách bằng `LibraryPageEvent::Open` → `app::navigate(Route::Category(ref))`. `app::library(cx)` trả `Library` dùng chung (`songs(CategoryRef)`, `category(CategoryRef)` cho đầu danh sách: bìa, accent, tên, `song_count`). Chi tiết: `plan/groove-gd1_15_library-grid.md` mục 9.
+- **Không gắn `SongList` vào slot ở task này**: nhánh `Route::Category(..)` trong `LibraryPage::render` đang là chữ giữ chỗ và là việc của task 17 thay bằng view `SongList` bạn xuất (task 15 không sửa được tệp của 16, 16 không sửa `library_page.rs`). Xuất `SongList::new(reference, cx)` (hoặc tương đương) thật gọn để một dòng là gắn được.
+- **Dùng lại**: `views::cover_image::{CoverImage, CoverKind, parse_color}`, `views::category_card::{accent_of, cover_path}` cho bìa 160 / 80 px và quầng accent ở đầu danh sách.
+- **Bẫy đã gặp**: `occlude()` làm `group_hover` tắt; test view với thư viện thật cần `cx.executor().allow_parking()`.
+
 ## 0. Bàn giao từ groove-gd1_03 (02/11/2026)
 
 <!-- handoff: groove-gd1_03 -->
