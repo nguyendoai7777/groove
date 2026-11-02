@@ -21,6 +21,8 @@ use std::time::Duration;
 
 use groove_core::settings::{JsonSaver, Settings, ThemeChoice};
 use groove_core::{paths, t};
+use groove_library::covers::CoverStore;
+use groove_library::metadata_ops::MetadataOps;
 use groove_library::store::Library;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
@@ -452,6 +454,28 @@ pub fn library(cx: &App) -> &Library {
 
 pub fn try_library(cx: &App) -> Option<&Library> {
     cx.try_global::<LibraryHandle>().map(|handle| &handle.0)
+}
+
+/// `Global` giữ `MetadataOps` dùng chung.
+struct MetadataOpsHandle(MetadataOps);
+
+impl Global for MetadataOpsHandle {}
+
+/// `MetadataOps` dùng chung của app (sao chép rẻ), dựng ở lần gọi đầu từ [`library`] và thư mục bìa chuẩn. Cần
+/// `set_library` đã chạy.
+pub fn metadata_ops(cx: &mut App) -> MetadataOps {
+    if let Some(handle) = cx.try_global::<MetadataOpsHandle>() {
+        return handle.0.clone();
+    }
+    let covers = CoverStore::default_location().expect("locate covers");
+    let ops = MetadataOps::new(library(cx).clone(), covers).expect("start metadata worker");
+    set_metadata_ops(ops.clone(), cx);
+    ops
+}
+
+/// Đặt `MetadataOps` dùng chung có sẵn (test trỏ thư mục tạm).
+pub fn set_metadata_ops(ops: MetadataOps, cx: &mut App) {
+    cx.set_global(MetadataOpsHandle(ops));
 }
 
 pub fn install_slot(slot: Slot, view: impl Into<AnyView>, cx: &mut App) {

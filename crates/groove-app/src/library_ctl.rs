@@ -8,7 +8,7 @@
 //! - [`ctl`] lấy entity; `import_path`, `rescan`, `remove_category`, `play_category`, `set_category_cover`,
 //!   `add_to_playlist`, `remove_from_playlist`, `forget_root`.
 //! - Hộp metadata (task 19): `open_metadata`, `open_category_metadata`; `LibraryCtl` giữ entity, `LibraryPage` vẽ.
-//! - Hộp timeline, lyrics (task 20): nghe [`LibraryCtlEvent::Edit`] và bỏ nhánh toast tạm trong [`connect`].
+//! - Hộp timeline, lyrics (task 20): `open_text_dialog`.
 //! - Settings (task 24): danh sách gốc lấy từ `Library::watched_roots`, bỏ gốc bằng `forget_root`.
 
 use std::path::{Path, PathBuf};
@@ -19,14 +19,13 @@ use std::thread;
 use futures::StreamExt;
 use futures::channel::oneshot;
 use futures::future::LocalBoxFuture;
-use groove_core::model::{CategoryRef, Song, TrackRef};
+use groove_core::model::{CategoryRef, TrackRef};
 use groove_core::{paths, t};
 use groove_library::actor::{LibraryError, LibraryEvent, OpenStatus, ProgressKind, SyncReport};
 use groove_library::covers::CoverStore;
 use groove_library::db::migrate::CoverRecord;
 use groove_library::db::queries::{self, CategorySummary};
 use groove_library::indexer::{ImportReport, IndexError, IndexTally, Indexer};
-use groove_library::metadata_ops::MetadataOps;
 use groove_library::store::Library;
 use groove_library::watcher::LibraryWatcher;
 use materiant::gpui_kit::{
@@ -39,8 +38,10 @@ use crate::player;
 use crate::route::Route;
 use crate::views::card_menu::ConfirmDelete;
 use crate::views::library_page::{LibraryPage, LibraryPageEvent};
+use crate::views::lyrics_dialog::TextDialog;
 use crate::views::metadata::dialog::{GroupScope, MetadataDialog, MetadataDialogEvent};
 use crate::views::playlist_dialog::PlaylistDialog;
+use crate::views::timeline_dialog;
 
 /// Đuôi ảnh chọn làm bìa.
 const COVER_EXTENSIONS: [&str; 4] = ["jpg", "jpeg", "png", "webp"];
@@ -82,8 +83,6 @@ pub enum SongEditKind {
 pub enum LibraryCtlEvent {
     /// Báo cho người dùng; `install` đổi thành toast.
     Notice { kind: ToastKind, message: String },
-    /// Mục sửa timeline, lyrics trong menu (task 20 mở hộp).
-    Edit { kind: SongEditKind, song: Box<Song> },
 }
 
 /// Kết quả của một lần bỏ album, thư mục (N9).
@@ -262,7 +261,9 @@ pub struct LibraryCtl {
     started: bool,
     playlist_dialog: Option<Entity<PlaylistDialog>>,
     confirm_delete: Option<Entity<ConfirmDelete>>,
-    metadata_ops: Option<MetadataOps>,
+    /// Hộp lyrics, timeline: dựng ở lần mở đầu, trang vẽ.
+    lyrics_dialog: Option<Entity<TextDialog>>,
+    timeline_dialog: Option<Entity<TextDialog>>,
     /// Hộp metadata đang mở; `Closed` thì bỏ.
     metadata_dialog: Option<Entity<MetadataDialog>>,
     _metadata_events: Option<Subscription>,
@@ -280,9 +281,6 @@ impl LibraryCtl {
         cx: &mut Context<Self>,
     ) -> LibraryCtl {
         let indexer = library.clone().zip(covers.clone()).map(|(library, covers)| Indexer::new(library, covers));
-        let metadata_ops = library.clone().zip(covers.clone()).and_then(|(library, covers)| {
-            MetadataOps::new(library, covers).map_err(|err| log::warn!("library ctl: metadata worker: {err}")).ok()
-        });
         let mut ctl = LibraryCtl {
             library,
             indexer,
@@ -297,7 +295,8 @@ impl LibraryCtl {
             started: false,
             playlist_dialog: None,
             confirm_delete: None,
-            metadata_ops,
+            lyrics_dialog: None,
+            timeline_dialog: None,
             metadata_dialog: None,
             _metadata_events: None,
             _events: None,
@@ -662,8 +661,38 @@ impl LibraryCtl {
         .detach();
     }
 
-    pub fn request_edit(&mut self, kind: SongEditKind, song: Song, cx: &mut Context<Self>) {
-        cx.emit(LibraryCtlEvent::Edit { kind, song: Box::new(song) });
+    /// Mở hộp lyrics hoặc timeline của `track`.
+    pub fn open_text_dialog(&mut self, kind: SongEditKind, track: TrackRef, cx: &mut Context<Self>) {
+        if self.library.is_none() {
+            return;
+        }
+        let existing = match kind {
+            SongEditKind::Lyrics => self.lyrics_dialog.clone(),
+            SongEditKind::Timeline => self.timeline_dialog.clone(),
+        };
+        let ops = app::metadata_ops(cx);
+        let this = cx.entity();
+        with_window(cx, move |window, cx| {
+            let dialog = existing.unwrap_or_else(|| {
+                let dialog = cx.new(|cx| match kind {
+                    SongEditKind::Lyrics => TextDialog::lyrics(ops, window, cx),
+                    SongEditKind::Timeline => timeline_dialog::timeline(ops, window, cx),
+                });
+                this.update(cx, |this, cx| this.adopt_text_dialog(kind, dialog.clone(), cx));
+                dialog
+            });
+            dialog.update(cx, |dialog, cx| dialog.open(track, window, cx));
+        });
+    }
+
+    fn adopt_text_dialog(&mut self, kind: SongEditKind, dialog: Entity<TextDialog>, cx: &mut Context<Self>) {
+        match kind {
+            SongEditKind::Lyrics => self.lyrics_dialog = Some(dialog.clone()),
+            SongEditKind::Timeline => self.timeline_dialog = Some(dialog.clone()),
+        }
+        if let Some(page) = self.page.as_ref().and_then(WeakEntity::upgrade) {
+            page.update(cx, |page, cx| page.add_overlay(dialog.into(), cx));
+        }
     }
 
     // ---- Metadata (task 19) ----
@@ -705,15 +734,16 @@ impl LibraryCtl {
     }
 
     fn show_metadata(&mut self, track: TrackRef, scope: Option<GroupScope>, cx: &mut Context<Self>) {
-        let Some(ops) = self.metadata_ops.clone() else {
-            self.notice(ToastKind::Danger, t!("actions.unavailable"), cx);
-            return;
-        };
         if self.metadata_dialog.is_some() {
             return;
         }
+        let ops = app::metadata_ops(cx);
         let this = cx.entity();
         with_window(cx, move |window, cx| {
+            // Hai lần mở sát nhau cùng chờ ở đây: lần sau không được thay mất hộp của lần trước.
+            if this.read(cx).metadata_dialog.is_some() {
+                return;
+            }
             let dialog = MetadataDialog::open(ops, track, scope, window, cx);
             this.update(cx, |this, cx| this.adopt_metadata(dialog, cx));
         });
@@ -834,11 +864,8 @@ pub fn connect(ctl: &Entity<LibraryCtl>, page: &Entity<LibraryPage>, cx: &mut Ap
     .detach();
 
     cx.subscribe(ctl, |_, event: &LibraryCtlEvent, cx| {
-        let spec = match event {
-            LibraryCtlEvent::Notice { kind, message } => ToastSpec::new(*kind, message.clone()),
-            // Tạm tới khi task 20 nối hộp sửa: mục menu vẫn phải trả lời người dùng.
-            LibraryCtlEvent::Edit { .. } => ToastSpec::new(ToastKind::Info, t!("actions.song.edit_unavailable")),
-        };
+        let LibraryCtlEvent::Notice { kind, message } = event;
+        let spec = ToastSpec::new(*kind, message.clone());
         with_window(cx, move |window, cx| {
             Toast::push(window, cx, spec);
         });
@@ -883,6 +910,7 @@ mod tests {
     use groove_audio::output::FakeOutput;
     use groove_library::fixtures::{self, AudioKind};
     use groove_library::indexer::IndexTally;
+    use groove_library::metadata_ops::MetadataOps;
     use groove_library::store::LibraryConfig;
     use materiant::gpui_kit::base::Root;
     use tempfile::TempDir;
@@ -1083,9 +1111,8 @@ mod tests {
         let log = notices.clone();
         cx.update(|cx| {
             cx.subscribe(&ctl, move |_, event: &LibraryCtlEvent, _| {
-                if let LibraryCtlEvent::Notice { kind, message } = event {
-                    log.borrow_mut().push((*kind, message.clone()));
-                }
+                let LibraryCtlEvent::Notice { kind, message } = event;
+                log.borrow_mut().push((*kind, message.clone()));
             })
             .detach();
         });
@@ -1399,7 +1426,32 @@ mod tests {
         let page = window.update(cx, |root, _, _| root.view().clone().downcast::<LibraryPage>().unwrap()).unwrap();
         ctl.update(cx, |ctl, _| ctl.page = Some(page.downgrade()));
         let folder = env.folder("A");
+        let ops = MetadataOps::new(env.library.clone(), env.covers.clone()).unwrap();
+        let library = env.library.clone();
+        cx.update(|cx| {
+            app::set_library(library, cx);
+            app::set_metadata_ops(ops, cx);
+        });
         let cx = VisualTestContext::from_window(window.into(), cx).into_mut();
+
+        // Lyrics, timeline: dựng một lần, trang vẽ làm con.
+        let first = env.library.songs(folder).wait().unwrap()[0].track.clone();
+        ctl.update(cx, |ctl, cx| ctl.open_text_dialog(SongEditKind::Lyrics, first.clone(), cx));
+        cx.run_until_parked();
+        let lyrics = ctl.read_with(cx, |c, _| c.lyrics_dialog.clone()).expect("đã dựng");
+        assert!(lyrics.read_with(cx, |d, _| d.is_open()));
+        lyrics.update_in(cx, |d, window, cx| d.close(window, cx));
+        ctl.update(cx, |ctl, cx| ctl.open_text_dialog(SongEditKind::Lyrics, first.clone(), cx));
+        cx.run_until_parked();
+        let again = ctl.read_with(cx, |c, _| c.lyrics_dialog.clone()).unwrap();
+        assert_eq!(again.entity_id(), lyrics.entity_id());
+        lyrics.update_in(cx, |d, window, cx| d.close(window, cx));
+        ctl.update(cx, |ctl, cx| ctl.open_text_dialog(SongEditKind::Timeline, first, cx));
+        cx.run_until_parked();
+        let timeline = ctl.read_with(cx, |c, _| c.timeline_dialog.clone()).expect("đã dựng");
+        assert!(timeline.read_with(cx, |d, _| d.is_open()));
+        timeline.update_in(cx, |d, window, cx| d.close(window, cx));
+        cx.run_until_parked();
 
         ctl.update(cx, |ctl, cx| ctl.open_category_metadata(folder, cx));
         for _ in 0..500 {
@@ -1418,8 +1470,7 @@ mod tests {
         assert!(dialog.read_with(cx, |d, _| d.is_open()));
 
         let track = env.library.songs(folder).wait().unwrap()[0].track.clone();
-        ctl.update(cx, |ctl, cx| ctl.open_metadata(track, folder, cx));
-        std::thread::sleep(Duration::from_millis(300));
+        ctl.update(cx, |ctl, cx| ctl.show_metadata(track, None, cx));
         cx.run_until_parked();
         let same = ctl.read_with(cx, |c, _| c.metadata_dialog.clone()).unwrap();
         assert_eq!(same.entity_id(), dialog.entity_id());
@@ -1572,7 +1623,6 @@ mod tests {
             "actions.song.edit_timeline",
             "actions.song.edit_lyrics",
             "actions.song.edit_metadata",
-            "actions.song.edit_unavailable",
             "actions.song.remove_from_playlist",
         ] {
             assert_ne!(t(key), key, "thiếu `{key}`");

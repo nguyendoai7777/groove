@@ -311,6 +311,12 @@ impl LibraryPage {
         cx.notify();
     }
 
+    /// Thêm một hộp thoại dựng muộn (lyrics, timeline).
+    pub fn add_overlay(&mut self, overlay: AnyView, cx: &mut Context<Self>) {
+        self.overlays.push(overlay);
+        cx.notify();
+    }
+
     pub fn set_metadata_dialog(&mut self, dialog: Option<Entity<MetadataDialog>>, cx: &mut Context<Self>) {
         self.metadata_dialog = dialog;
         cx.notify();

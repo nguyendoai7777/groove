@@ -146,3 +146,9 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_19] Ctrl+V chỉ dán ảnh khi chuột đang trên ô bìa và clipboard có ảnh / tệp ảnh — luôn chặn Ctrl+V trong dialog — để ô nhập vẫn dán chữ được.
 - [groove-gd1_19] Bài `not_started` của báo cáo lô chỉ hiện số lượng — kèm tên — `BulkReport.not_started` chỉ có id, tra tên cần DB đang đóng.
 - [groove-gd1_19] Nền dialog bấm không đóng, Esc bị chặn khi đang lưu — theo mặc định của materiant — tránh mất bản sửa dài.
+- [groove-gd1_17] Hộp chọn thư mục, ảnh dùng `rfd` 0.17 theo lời giao — `cx.prompt_for_paths` của GPUI — **đặc tả mục 5 ghi rõ không dùng `rfd`**; làm theo lời giao, cô lập ở `library_ctl::native_picker` nên đổi lại chỉ sửa một hàm và bỏ một dòng `Cargo.toml`. Chủ dự án chốt giữ hay đổi.
+- [groove-gd1_17] Không gọi `reconcile` riêng khi mở app — gọi như lời giao — `LibraryWatcher::start` đã tự so, gọi thêm là quét hai lần.
+- [groove-gd1_17] Bỏ album ghi từng tệp vào `excluded_paths`, nút đổi nhãn "Bỏ khỏi thư viện" — chỉ đổi nhãn, không loại trừ — đặc tả N9 cho cả hai cách; không loại trừ thì lần quét sau bài quay lại.
+- [groove-gd1_17] Bỏ thư mục kéo theo thư mục con — chỉ bỏ đúng thư mục đó — `excluded_paths` loại cả cây, để dòng con lại thì chúng còn hiện mà không còn được quét.
+- [groove-gd1_17] Tên playlist rỗng báo toast, trùng tên báo dưới ô — cùng một kiểu — đặc tả ghi toast cho tên rỗng, trùng tên cần giữ hộp mở để sửa.
+- [groove-gd1_17] Menu thẻ thêm "Phát tất cả" và "Sửa thông tin" cạnh "Đổi ảnh bìa" — chỉ đổi bìa và xoá — dùng được bằng chuột phải khi lớp phủ khó bấm.

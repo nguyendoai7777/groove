@@ -34,9 +34,9 @@ pub fn build(menu: Menu, reference: CategoryRef, song: &Song, cx: &App) -> Menu 
     ));
 
     let edit = |id: &'static str, label: &'static str, kind: SongEditKind| {
-        let (ctl, song) = (ctl.clone(), song.clone());
+        let (ctl, track) = (ctl.clone(), song.track.clone());
         MenuItem::new(id, label).on_select(move |_, cx| {
-            ctl.update(cx, |ctl, cx| ctl.request_edit(kind, song.clone(), cx));
+            ctl.update(cx, |ctl, cx| ctl.open_text_dialog(kind, track.clone(), cx));
         })
     };
     let metadata = {
