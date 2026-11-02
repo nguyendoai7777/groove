@@ -8,15 +8,17 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use groove_core::t;
-use materiant::button::{Button, IconButton};
+use materiant::button::IconButton;
 use materiant::gpui_kit::base::motion::{Transition, transition};
 // `#[derive(IntoElement)]` trỏ crate `gpui`; bản không test chỉ có `materiant::gpui_kit`.
 use materiant::gpui_kit as gpui;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    App, ClickEvent, FontWeight, IntoElement, ParentElement, RenderOnce, Styled, Window, div, px, transparent_black,
+    AnyElement, App, ClickEvent, FontWeight, Hsla, IntoElement, ParentElement, RenderOnce, Rgba, SharedString, Styled,
+    Window, div, px, svg, transparent_black,
 };
 use materiant::overlay::tooltip::TooltipExt;
+use materiant::theme::color::hex;
 use materiant::theme::{ActiveTheme, Neutral};
 use materiant::window::{DragRegionExt, translucent_surface};
 
@@ -28,6 +30,7 @@ pub const COLLAPSED_WIDTH: f32 = 56.;
 pub const HEADER_HEIGHT: f32 = 36.;
 pub const ITEM_HEIGHT: f32 = 42.;
 const ACTIVE_BAR: f32 = 3.;
+const ICON_SIZE: f32 = 16.;
 const WIDTH_TRANSITION: Duration = Duration::from_millis(300);
 /// Quá ngưỡng này (đang nội suy) mới vẽ chữ; thấp hơn chỉ còn icon, tránh chữ bị cắt giữa chừng.
 const LABEL_THRESHOLD: f32 = COLLAPSED_WIDTH + 64.;
@@ -118,7 +121,7 @@ impl RenderOnce for SideNav {
 
         let items = Route::NAV.iter().enumerate().map(|(ix, &route)| {
             let active = route == self.active;
-            nav_item(ix, route, active, wide, self.on_select.clone(), &c)
+            nav_item(ix, route, active, wide, self.on_select.clone(), cx)
         });
 
         let settings = nav_button(
@@ -128,10 +131,8 @@ impl RenderOnce for SideNav {
             wide,
             false,
             self.on_settings.clone(),
-            &c,
-        )
-        .border_l(px(ACTIVE_BAR))
-        .border_color(transparent_black());
+            cx,
+        );
 
         div()
             .id("side-nav")
@@ -148,7 +149,39 @@ impl RenderOnce for SideNav {
     }
 }
 
-/// Một nút cao 42 px toàn bề ngang: icon + chữ khi rộng, chỉ icon + tooltip khi thu.
+/// Màu một hàng theo bản web (`side-nav.vue`): đang chọn = icon accent-light + chữ trắng đậm; còn lại = muted, hover sáng
+/// lên text-secondary, nền và vạch trái nhạt.
+#[derive(Clone, Copy)]
+struct NavInk {
+    icon: Hsla,
+    label: Hsla,
+    hover: Hsla,
+    bar: Hsla,
+    hover_bar: Hsla,
+    active_bg: Hsla,
+    hover_bg: Hsla,
+}
+
+impl NavInk {
+    fn resolve(active: bool, cx: &App) -> NavInk {
+        let theme = cx.theme();
+        let c = theme.colors();
+        let dark = theme.is_dark();
+        let accent: Hsla = if dark { Rgba::from(hex(0x22d3ee)).into() } else { c.primary };
+        let secondary: Hsla = if dark { Rgba::from(hex(0xd4d4d8)).into() } else { c.text };
+        NavInk {
+            icon: if active { accent } else { c.muted },
+            label: if active { c.text } else { c.muted },
+            hover: secondary,
+            bar: if active { accent } else { transparent_black() },
+            hover_bar: c.border.opacity(0.7),
+            active_bg: c.layer(Neutral::N200),
+            hover_bg: c.layer(Neutral::N100),
+        }
+    }
+}
+
+/// Một hàng cao 42 px toàn bề ngang, vạch trái 3 px: icon + chữ khi rộng, chỉ icon + tooltip khi thu.
 fn nav_button(
     id: &'static str,
     icon: GrooveIcon,
@@ -156,47 +189,51 @@ fn nav_button(
     wide: bool,
     active: bool,
     on_click: Handler<()>,
-    c: &materiant::theme::ThemeColors,
-) -> materiant::gpui_kit::Div {
-    let ink = if active { c.primary_ink } else { c.muted };
-    let click = move |_: &ClickEvent, window: &mut Window, cx: &mut App| on_click((), window, cx);
-    let button = if wide {
-        Button::new(id, label)
-            .icon(icon)
-            .text()
-            .color(ink)
-            .on_click(click)
-            .w_full()
-            .h(px(ITEM_HEIGHT))
-            .rounded_none()
-            .justify_start()
-            .px_4()
-            .when(active, |b| b.font_weight(FontWeight::SEMIBOLD))
-            .into_any_element()
-    } else {
-        IconButton::new(id, icon)
-            .accessibility_label(label)
-            .color(ink)
-            .on_click(click)
-            .w_full()
-            .h(px(ITEM_HEIGHT))
-            .rounded_none()
-            .into_any_element()
-    };
-    let tipped = if wide { button } else { button.with_tooltip((id, 0usize), label).into_any_element() };
-    div().w_full().child(tipped)
+    cx: &App,
+) -> AnyElement {
+    let ink = NavInk::resolve(active, cx);
+    let group = SharedString::from(format!("{id}-group"));
+    let glyph = svg()
+        .path(icon.path())
+        .flex_none()
+        .size(px(ICON_SIZE))
+        .text_color(ink.icon)
+        .when(!active, |s| s.group_hover(group.clone(), move |s| s.text_color(ink.hover)));
+    let row = div()
+        .id(id)
+        .group(group.clone())
+        .w_full()
+        .h(px(ITEM_HEIGHT))
+        .flex_none()
+        .flex()
+        .items_center()
+        .cursor_pointer()
+        .border_l(px(ACTIVE_BAR))
+        .border_color(ink.bar)
+        .when(wide, |d| d.justify_start().gap(px(12.)).pl(px(13.)).pr_4())
+        .when(!wide, |d| d.justify_center())
+        .when(active, |d| d.bg(ink.active_bg))
+        .when(!active, |d| d.hover(move |s| s.bg(ink.hover_bg).border_color(ink.hover_bar)))
+        .on_click(move |_: &ClickEvent, window, cx| on_click((), window, cx))
+        .child(glyph)
+        .when(wide, |d| {
+            d.child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .truncate()
+                    .text_sm()
+                    .text_color(ink.label)
+                    .when(active, |t| t.font_weight(FontWeight::SEMIBOLD))
+                    .when(!active, |t| t.group_hover(group.clone(), move |s| s.text_color(ink.hover)))
+                    .child(label),
+            )
+        });
+    if wide { row.into_any_element() } else { row.with_tooltip((id, 0usize), label).into_any_element() }
 }
 
-fn nav_item(
-    ix: usize,
-    route: Route,
-    active: bool,
-    wide: bool,
-    on_select: Handler<Route>,
-    c: &materiant::theme::ThemeColors,
-) -> impl IntoElement {
+fn nav_item(ix: usize, route: Route, active: bool, wide: bool, on_select: Handler<Route>, cx: &App) -> AnyElement {
     let id: &'static str = ["side-nav-0", "side-nav-1", "side-nav-2"][ix];
-    let hover_bg = c.layer(Neutral::N100);
     nav_button(
         id,
         nav_icon(route),
@@ -204,10 +241,6 @@ fn nav_item(
         wide,
         active,
         Rc::new(move |(), window, cx| on_select(route, window, cx)),
-        c,
+        cx,
     )
-    .border_l(px(ACTIVE_BAR))
-    .border_color(if active { c.primary_ink } else { transparent_black() })
-    .when(active, |d| d.bg(c.layer(Neutral::N200)))
-    .when(!active, |d| d.hover(move |s| s.bg(hover_bg)))
 }

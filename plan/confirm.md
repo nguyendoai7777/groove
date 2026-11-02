@@ -213,3 +213,9 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd2_01] Không làm mục chuột phải "Phát bằng Groove X" cho thư mục, không verb "Thêm vào hàng đợi" — làm luôn — `open_paths::resolve` chỉ nhận tệp nhạc, app chưa có cờ dòng lệnh xếp hàng; ghi mục 8.
 - [groove-gd2_01] Mục Settings "Trình phát mặc định" nằm ở tab Cài đặt chung, giữa bước tua và EQ; bản không qua bộ cài thì khoá nút và nói lý do — ẩn hẳn mục — người dùng bản dev vẫn hiểu vì sao không đặt được.
 - [groove-gd2_01] Version info của exe sinh `.rc` trong `OUT_DIR` từ `Cargo.toml`, bỏ `assets/app/groove.rc` — giữ `.rc` tĩnh — phiên bản không lệch khi `tag.sh` nâng.
+
+- [groove-ui-nav] Side nav tự dựng hàng điều hướng ở groove, không dùng `materiant::tabs::Tabs::nav` — dùng Tabs.nav — Tabs.nav có vạch trượt 2 px, icon chỉ nhận `IconName` của materiant, một màu cho cả icon và chữ; bản web cần vạch 3 px đứng, icon accent-light + chữ trắng khi chọn, hover đổi riêng icon / chữ, kèm chế độ thu chỉ icon.
+- [groove-ui-nav] Màu hàng nav: icon + vạch `#22d3ee` (accent-light), chữ trắng đậm khi chọn; muted `#a1a1aa`, hover `#d4d4d8` — `primary_ink` của materiant — `primary_ink` ở theme tối là cyan pha trắng, lệch màu web; theme sáng vẫn dùng `primary`.
+- [groove-ui-nav] Thanh nhảy chạy một `with_animation` lặp 2 713 200 ms (bội chung nhỏ nhất của bốn chu kỳ 600 / 760 / 560 / 680 ms), mỗi thanh tính pha riêng — chu kỳ 1200 ms sin như cũ — web có bốn thời lượng không chung bội nhỏ, nhịp tổng hợp khớp thật; trần 30 khung/s.
+- [groove-ui-nav] Thanh nhảy tạm dừng đứng ở giữa hai đầu mút (scaleY 0.525 / 0.575 / 0.5 / 0.55) — giữ đúng khung đang chạy như web — GPUI không giữ pha qua lần vẽ lại, vẽ lại từ trạng thái chạy cần lưu thời điểm dừng ở từng nơi dùng; hình giữa nhịp trông giống khung đóng băng.
+- [groove-ui-nav] Bỏ `PlayingBars::color` và màu `primary_ink` ở ba nơi gọi — giữ tuỳ chỉnh màu — web luôn dùng `--deco-visualizer-color` mặc định cyan-400.

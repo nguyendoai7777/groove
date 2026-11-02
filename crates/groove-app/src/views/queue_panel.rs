@@ -278,7 +278,7 @@ impl Render for QueuePanel {
                     };
                     let index_cell = div().w(px(INDEX_WIDTH)).flex_none().flex().items_center().justify_center().child(
                         if is_current {
-                            PlayingBars::new(playing).size(px(14.)).color(c.primary_ink).into_any_element()
+                            PlayingBars::new(playing).size(px(14.)).into_any_element()
                         } else {
                             div().text_xs().text_color(c.muted).child((ix + 1).to_string()).into_any_element()
                         },
