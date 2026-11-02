@@ -1,1 +1,34 @@
 # Vùng song_list: khoá viết không tiền tố, tra bằng t!("song_list.<khoá>").
+
+[kind]
+album = "Album"
+folder = "Folder"
+playlist = "Playlist"
+
+[header]
+items = "{count} items"
+play_all = "Play all"
+
+[column]
+index = "#"
+title = "Title"
+duration = "Duration"
+artist = "Artist"
+
+[loading]
+title = "Loading songs..."
+
+[empty]
+title = "This category is empty"
+hint = "Scan a folder to add songs"
+
+[empty_play]
+message = "There is nothing to play yet"
+
+[error]
+title = "Could not read the song list"
+hint = "Try opening this category again in a moment"
+
+[gone]
+title = "This category no longer exists"
+hint = "The album, folder or playlist has been removed"
