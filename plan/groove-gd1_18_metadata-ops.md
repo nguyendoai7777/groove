@@ -11,6 +11,13 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `library/metadata_ops.rs` (N2, N3, S5, S7, S8) |
 
+## 0. Bàn giao từ groove-gd1_05 (02/11/2026)
+
+<!-- handoff: groove-gd1_05 -->
+
+- **Đã có sẵn để dùng**: `store::Library` (sao chép rẻ, gửi được giữa luồng); mọi hàm trả về ngay `actor::Reply<T>`, là `Future`, UI `await`. `Reply::wait` chặn, chỉ dùng ở luồng worker. Chi tiết API: `plan/groove-gd1_05_library-store.md` mục 9.
+- **Hàm cho task này**: `Library::song_text(id)`, `song_ids(CategoryRef)`; `queries::{set_song_lyrics, set_song_timeline, set_song_file_state, move_song, upsert_song}` qua `writer().transaction`. Ghi tệp xong mới gửi transaction, không ghi tệp trong closure (N7).
+- **Bẫy**: `upsert_song` giữ lyrics, timeline DB khi tệp rỗng, nên muốn xoá thật thì dùng `set_song_lyrics(.., None)`, `set_song_timeline(.., None)`.
 ## 0. Bàn giao từ groove-gd1_06 (02/11/2026)
 
 <!-- handoff: groove-gd1_06 -->

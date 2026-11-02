@@ -11,6 +11,13 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `views/command_palette.rs`, `i18n/*/palette.toml` |
 
+## 0. Bàn giao từ groove-gd1_05 (02/11/2026)
+
+<!-- handoff: groove-gd1_05 -->
+
+- **Đã có sẵn để dùng**: `store::Library` (sao chép rẻ, gửi được giữa luồng); mọi hàm trả về ngay `actor::Reply<T>`, là `Future`, UI `await`. `Reply::wait` chặn, chỉ dùng ở luồng worker. Chi tiết API: `plan/groove-gd1_05_library-store.md` mục 9.
+- **Tìm**: `Library::search(query, limit)` trả `SearchResults { seq, songs }`. Lượt cũ còn trong hàng ra `LibraryError::Superseded`, im lặng bỏ qua; kết quả có `seq` nhỏ hơn cái đang hiện cũng bỏ (S18). Truy vấn rỗng trả rỗng.
+
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 23. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 1. Làm gì
