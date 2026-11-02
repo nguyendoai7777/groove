@@ -47,9 +47,10 @@ use crate::views::timeline_dialog;
 pub const GLOW_HEIGHT: f32 = 450.;
 /// Độ đục của quầng (đặc tả 1.5).
 pub const GLOW_OPACITY: f32 = 0.3;
-/// Cột trái: 25 % trong 180-300 px. Cột phải: 32 % trong 240-340 px (đặc tả 1.5).
-pub const LEFT_COLUMN: (f32, f32, f32) = (0.25, 180., 300.);
-pub const RIGHT_COLUMN: (f32, f32, f32) = (0.32, 240., 340.);
+/// Cột trái: 25 % trong 150-300 px. Cột phải: 32 % trong 190-340 px. Đặc tả 1.5 ghi 180 / 240 px, nhưng ở cửa sổ 800 px mặc định
+/// cột lời giữa chỉ còn ~86 px, ba nút Metadata / Timeline / Lời bị cắt (thấy khi chạy thật, groove-gd1_29).
+pub const LEFT_COLUMN: (f32, f32, f32) = (0.25, 150., 300.);
+pub const RIGHT_COLUMN: (f32, f32, f32) = (0.32, 190., 340.);
 const COVER_CACHE: usize = 4;
 
 /// `<bài> - <nghệ sĩ> | Groove X`; bài không có nghệ sĩ thì bỏ phần `- <nghệ sĩ>`. Không có bài thì `None` (về tên trang).

@@ -143,6 +143,7 @@ impl Render for LyricsPanel {
                 row.child(
                     div()
                         .flex()
+                        .flex_wrap()
                         .items_center()
                         .gap_2()
                         .child(self.button(
@@ -162,7 +163,15 @@ impl Render for LyricsPanel {
             });
 
         let message = |text: &'static str| {
-            div().flex_1().flex().items_center().justify_center().px_6().text_center().text_color(c.muted).child(text)
+            div()
+                .flex_1()
+                .flex()
+                .items_center()
+                .justify_center()
+                .px_6()
+                .text_center()
+                .text_color(c.muted)
+                .child(div().w_full().child(text))
         };
         let content = match body {
             Body::NoSong => message(t!("now_playing.lyrics.no_song")).into_any_element(),

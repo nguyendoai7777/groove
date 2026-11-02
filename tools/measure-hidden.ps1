@@ -18,10 +18,10 @@ param(
 )
 $ErrorActionPreference = "Stop"
 
-Add-Type -ReferencedAssemblies System.Drawing -TypeDefinition @'
+Add-Type -AssemblyName System.Drawing
+Add-Type -TypeDefinition @'
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Text;
 public static class HiddenDesktop {
@@ -59,16 +59,6 @@ public static class HiddenDesktop {
         return found;
     }
     public static string Title(IntPtr h) { var s = new StringBuilder(256); GetWindowTextW(h, s, 256); return s.ToString(); }
-    public static void Capture(IntPtr h, string path) {
-        RECT r; GetWindowRect(h, out r);
-        using (var bmp = new Bitmap(Math.Max(1, r.R - r.L), Math.Max(1, r.B - r.T)))
-        using (var g = Graphics.FromImage(bmp)) {
-            var dc = g.GetHdc();
-            PrintWindow(h, dc, 2); // PW_RENDERFULLCONTENT
-            g.ReleaseHdc(dc);
-            bmp.Save(path);
-        }
-    }
 }
 '@
 
@@ -76,7 +66,14 @@ $exe = (Resolve-Path $Exe).Path
 $data = Join-Path ([IO.Path]::GetTempPath()) ("groove-hidden-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Force $data | Out-Null
 
-# Bản không có debug assertions bỏ qua GROOVE_DATA_DIR: soát bằng chính chuỗi cờ biên dịch thì khó, nên chạy thử rồi xem thư mục tạm có log không.
+# Bản phát hành thật bỏ qua GROOVE_DATA_DIR, trình biên dịch bỏ luôn chuỗi này khỏi exe: không có chuỗi là từ chối, trước khi chạy.
+$bytes = [Text.Encoding]::Latin1.GetString([IO.File]::ReadAllBytes($exe))
+if ($bytes.IndexOf("GROOVE_DATA_DIR", [StringComparison]::Ordinal) -lt 0) {
+    Remove-Item -Recurse -Force $data
+    throw "$exe does not honour GROOVE_DATA_DIR and would open the real library. Build with debug assertions."
+}
+Remove-Variable bytes
+
 $name = "groove-hidden-" + $PID
 $desktop = [HiddenDesktop]::CreateDesktopW($name, [IntPtr]::Zero, [IntPtr]::Zero, 0, 0x10000000, [IntPtr]::Zero)
 if ($desktop -eq [IntPtr]::Zero) { throw "CreateDesktop failed: $([Runtime.InteropServices.Marshal]::GetLastWin32Error())" }
@@ -116,7 +113,16 @@ try {
     }
     $win = [HiddenDesktop]::Windows($desktop, $proc.Id)
     if ($Shot -and $win.Count) {
-        [HiddenDesktop]::Capture($win[0], $Shot)
+        $rect = New-Object HiddenDesktop+RECT
+        [void][HiddenDesktop]::GetWindowRect($win[0], [ref]$rect)
+        $bitmap = New-Object Drawing.Bitmap ([Math]::Max(1, $rect.R - $rect.L)), ([Math]::Max(1, $rect.B - $rect.T))
+        $graphics = [Drawing.Graphics]::FromImage($bitmap)
+        $dc = $graphics.GetHdc()
+        [void][HiddenDesktop]::PrintWindow($win[0], $dc, 2) # PW_RENDERFULLCONTENT
+        $graphics.ReleaseHdc($dc)
+        $graphics.Dispose()
+        $bitmap.Save($Shot)
+        $bitmap.Dispose()
         "shot: $Shot"
     }
 } finally {
