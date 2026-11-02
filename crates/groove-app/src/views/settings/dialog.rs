@@ -15,12 +15,12 @@ use groove_core::t;
 use materiant::button::Button;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    AnyElement, AnyWindowHandle, App, ClickEvent, Context, Entity, IntoElement, ParentElement, Render, Styled, Window,
-    div, px,
+    AnyElement, AnyWindowHandle, App, ClickEvent, Context, Entity, FocusHandle, FontWeight, IntoElement, KeyDownEvent,
+    ParentElement, Render, Styled, Window, div, px,
 };
 use materiant::overlay::dialog::{Dialog, DialogHandle};
 use materiant::scroll::ScrollArea;
-use materiant::tabs::{TabItem, Tabs};
+use materiant::theme::ActiveTheme;
 
 use super::general::GeneralPanel;
 use super::keybindings::{Draft, KeybindingsPanel};
@@ -30,12 +30,12 @@ use crate::library_ctl;
 
 /// Bề ngang hộp (đặc tả 1.10).
 const DIALOG_WIDTH: f32 = 800.;
-/// Cao vùng nội dung (hộp 480 px trừ tiêu đề, hàng nút, lề).
-const BODY_HEIGHT: f32 = 340.;
+/// Cao vùng nội dung (đủ chỗ cho bảng EQ: thẻ bass, mười cột).
+const BODY_HEIGHT: f32 = 470.;
 /// Chừa cho tiêu đề, hàng nút, lề khi cửa sổ thấp hơn hộp.
 const CHROME_HEIGHT: f32 = 170.;
-/// Rộng cột tab.
-const TABS_WIDTH: f32 = 170.;
+/// Rộng cột tab (web: `w-40`, mục chọn có nền).
+const TABS_WIDTH: f32 = 160.;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SettingsTab {
@@ -80,6 +80,8 @@ pub struct SettingsDialog {
     general: Entity<GeneralPanel>,
     keys: Entity<KeybindingsPanel>,
     roots: Entity<RootsPanel>,
+    /// Điểm dừng Tab của từng mục ở cột tab (↑ ↓ dời và chọn).
+    tab_focus: [FocusHandle; 3],
     /// `Some` suốt lúc hộp mở và chưa qua OK / Huỷ.
     opened: Option<Snapshot>,
 }
@@ -92,6 +94,7 @@ impl SettingsDialog {
             general: cx.new(|cx| GeneralPanel::new(window, cx)),
             keys: cx.new(|cx| KeybindingsPanel::new(window, cx)),
             roots: cx.new(|_| RootsPanel::new()),
+            tab_focus: std::array::from_fn(|_| cx.focus_handle().tab_stop(true)),
             opened: None,
         }
     }
@@ -183,6 +186,44 @@ impl SettingsDialog {
         });
     }
 
+    /// Cột tab dọc: mục đang chọn có nền nhạt màu nhấn và chữ màu nhấn, mục khác sáng lên khi rê (như bản web). ↑ ↓ dời và chọn.
+    fn tab_list(&self, _window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let c = cx.theme().colors().clone();
+        let items = SettingsTab::ALL.into_iter().enumerate().map(|(ix, tab)| {
+            let selected = tab == self.tab;
+            let go = move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>, to: SettingsTab| {
+                this.select_tab(to, cx);
+                window.focus(&this.tab_focus[to.index()], cx);
+            };
+            div()
+                .id(("settings-tab", ix))
+                .track_focus(&self.tab_focus[ix])
+                .px_3()
+                .py_2()
+                .rounded_md()
+                .cursor_pointer()
+                .text_sm()
+                .font_weight(FontWeight::MEDIUM)
+                .when(selected, |d| d.bg(c.primary.opacity(0.15)).text_color(c.primary))
+                .when(!selected, |d| d.text_color(c.muted).hover(|s| s.bg(c.text.opacity(0.06)).text_color(c.text)))
+                .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| go(this, window, cx, tab)))
+                .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
+                    let last = SettingsTab::ALL.len() - 1;
+                    let to = match event.keystroke.key.as_str() {
+                        "up" => ix.saturating_sub(1),
+                        "down" => (ix + 1).min(last),
+                        "home" => 0,
+                        "end" => last,
+                        _ => return,
+                    };
+                    cx.stop_propagation();
+                    go(this, window, cx, SettingsTab::ALL[to]);
+                }))
+                .child(tab.label())
+        });
+        div().flex().flex_col().flex_none().gap_1().w(px(TABS_WIDTH)).children(items)
+    }
+
     fn body(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
         let height = BODY_HEIGHT.min((f32::from(window.viewport_size().height) - CHROME_HEIGHT).max(120.));
         let panel = match self.tab {
@@ -190,16 +231,7 @@ impl SettingsDialog {
             SettingsTab::Keybindings => self.keys.clone().into_any_element(),
             SettingsTab::Library => self.roots.clone().into_any_element(),
         };
-        let tabs = Tabs::new("settings-tabs")
-            .vertical()
-            .w(px(TABS_WIDTH))
-            .tabs(SettingsTab::ALL.map(|tab| TabItem::new(tab.label())))
-            .selected(self.tab.index())
-            .on_change(cx.listener(|this, ix: &usize, _, cx| {
-                if let Some(tab) = SettingsTab::ALL.get(*ix).copied() {
-                    this.select_tab(tab, cx);
-                }
-            }));
+        let tabs = self.tab_list(window, cx);
         div()
             .flex()
             .gap_4()

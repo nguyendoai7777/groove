@@ -8,6 +8,7 @@ use groove_core::t;
 use materiant::field::number::NumberField;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{Context, Entity, FontWeight, IntoElement, ParentElement, Render, Styled, Window, div, px};
+use materiant::theme::ActiveTheme;
 
 use super::default_player::{Backend, DefaultPlayerPanel};
 use super::eq_panel::EqPanel;
@@ -54,7 +55,7 @@ impl GeneralPanel {
                 })
         });
         let default_player = cx.new(|cx| DefaultPlayerPanel::new(Backend::SYSTEM, window, cx));
-        GeneralPanel { seek_step, volume_step, default_player, eq: cx.new(|_| EqPanel::new()) }
+        GeneralPanel { seek_step, volume_step, default_player, eq: cx.new(EqPanel::new) }
     }
 
     pub fn eq_panel(&self) -> &Entity<EqPanel> {
@@ -91,20 +92,27 @@ impl GeneralPanel {
 }
 
 impl Render for GeneralPanel {
-    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        div()
-            .flex()
-            .flex_col()
-            .gap_4()
-            .child(div().font_weight(FontWeight::SEMIBOLD).child(t!("settings.general.steps")))
-            .child(
-                div()
-                    .flex()
-                    .gap_4()
-                    .child(div().w(px(240.)).child(self.seek_step.clone()))
-                    .child(div().w(px(240.)).child(self.volume_step.clone())),
-            )
-            .child(self.default_player.clone())
-            .child(self.eq.clone())
+    /// Bảng EQ đứng đầu (ảnh mẫu của bản web mở tab ở Equalizer); bước tua, bước âm lượng, trình phát mặc định ở dưới, ngăn bằng
+    /// một đường kẻ như `border-t` của bản web.
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let border = cx.theme().colors().border.opacity(0.4);
+        div().flex().flex_col().gap_4().child(self.eq.clone()).child(
+            div()
+                .flex()
+                .flex_col()
+                .gap_4()
+                .pt_4()
+                .border_t_1()
+                .border_color(border)
+                .child(div().font_weight(FontWeight::SEMIBOLD).child(t!("settings.general.steps")))
+                .child(
+                    div()
+                        .flex()
+                        .gap_4()
+                        .child(div().w(px(240.)).child(self.seek_step.clone()))
+                        .child(div().w(px(240.)).child(self.volume_step.clone())),
+                )
+                .child(self.default_player.clone()),
+        )
     }
 }

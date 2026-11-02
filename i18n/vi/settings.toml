@@ -16,11 +16,10 @@ volume_step_hint = "Từ 1 đến 100. Dùng cho phím lên, xuống và bánh x
 
 [eq]
 title = "Equalizer"
-preset = "Mẫu cài sẵn"
+preset = "Mẫu cài sẵn:"
 bass_boost = "Tăng bass"
 gain_unit = "dB"
-band_label = "Dải {hz}"
-note = "Kéo là nghe thay đổi ngay. Huỷ sẽ trả về giá trị lúc mở hộp."
+bass_boost_hint = "Tăng riêng dải âm trầm sâu để nghe bass tốt nhất."
 
 [preset]
 custom = "Tuỳ chỉnh"
