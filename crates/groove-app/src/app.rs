@@ -51,6 +51,8 @@ const PLAYER_BAR_HEIGHT: f32 = 90.;
 const SAVE_DEBOUNCE: Duration = Duration::from_millis(400);
 
 pub fn run(dev: DevArgs) {
+    // groove-gd2_01: AppUserModelID trước cửa sổ đầu, để taskbar gom với lối tắt của bộ cài.
+    crate::platform::default_player::set_process_identity();
     // Chỗ đọc đĩa duy nhất của UI thread (N7): nạp cài đặt, đặt ngôn ngữ trước khi dựng bất cứ chữ nào.
     let settings = Settings::load();
     settings.apply_language();

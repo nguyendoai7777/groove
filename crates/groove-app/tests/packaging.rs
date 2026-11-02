@@ -1,4 +1,4 @@
-//! groove-gd1_27: khai báo đóng gói không được lệch mã. Mọi OS đều chạy được, kể cả phần của OS khác: chỉ đọc tệp.
+//! groove-gd1_27, gd2_01: khai báo đóng gói không được lệch mã. Mọi OS đều chạy được, kể cả phần của OS khác: chỉ đọc tệp.
 
 use std::fs;
 use std::path::PathBuf;
@@ -11,25 +11,85 @@ fn read(path: &str) -> String {
     fs::read_to_string(&full).unwrap_or_else(|err| panic!("{}: {err}", full.display())).replace("\r\n", "\n")
 }
 
-/// Mọi đuôi ghép lúc cài cũng phải được dọn lúc gỡ, và không thừa đuôi lạ.
+/// Đối số trong ngoặc kép của mọi dòng `!insertmacro <tên> "…" "…"`.
+fn macro_args<'a>(text: &'a str, name: &str) -> Vec<Vec<&'a str>> {
+    let call = format!("!insertmacro {name} ");
+    text.lines()
+        .filter_map(|line| line.trim().strip_prefix(call.as_str()))
+        .map(|args| args.split('"').skip(1).step_by(2).collect())
+        .collect()
+}
+
+/// Giá trị của `!define NAME "…"`.
+fn nsis_define<'a>(nsi: &'a str, name: &str) -> &'a str {
+    let prefix = format!("!define {name} \"");
+    nsi.lines()
+        .find_map(|line| line.trim().strip_prefix(prefix.as_str())?.strip_suffix('"'))
+        .unwrap_or_else(|| panic!("!define {name}"))
+}
+
+/// Mọi đuôi ghép lúc cài cũng phải được dọn lúc gỡ, và không thừa đuôi lạ; tên loại tệp là đuôi viết hoa.
 #[test]
 fn nsis_associates_and_forgets_exactly_the_audio_extensions() {
     let nsi = read("packaging/windows/groove.nsi");
-    for macro_name in ["AssociateExtension", "ForgetExtension"] {
-        let call = format!("!insertmacro {macro_name} \"");
-        let found: Vec<&str> =
-            nsi.lines().filter_map(|l| l.trim().strip_prefix(call.as_str())?.strip_suffix('"')).collect();
-        assert_eq!(found, AUDIO_EXTENSIONS, "{macro_name}");
+    let associate = macro_args(&nsi, "AssociateExtension");
+    let found: Vec<&str> = associate.iter().map(|args| args[0]).collect();
+    assert_eq!(found, AUDIO_EXTENSIONS, "AssociateExtension");
+    for args in &associate {
+        assert_eq!(args.len(), 2, "{args:?}");
+        assert_eq!(args[1], args[0].to_uppercase(), "tên loại tệp của .{}", args[0]);
+    }
+    let forget: Vec<&str> = macro_args(&nsi, "ForgetExtension").iter().map(|args| args[0]).collect();
+    assert_eq!(forget, AUDIO_EXTENSIONS, "ForgetExtension");
+    // Hai danh sách được gọi đúng một lần: lúc cài, lúc gỡ.
+    assert_eq!(nsi.matches("  !insertmacro AssociateAll\n").count(), 1);
+    assert_eq!(nsi.matches("  !insertmacro ForgetAll\n").count(), 1);
+}
+
+/// Đặc tả 5.6: hiện trong "Mở bằng" và Default apps, nhưng không bao giờ tự đặt mặc định.
+#[test]
+fn nsis_registers_with_default_apps_but_never_takes_the_default() {
+    let nsi = read("packaging/windows/groove.nsi");
+    assert!(nsi.contains(r#"\OpenWithProgids" "${PROG_PREFIX}${EXT}" """#));
+    assert!(nsi.contains(r#"WriteRegStr HKCU "${CAPABILITIES}\FileAssociations" ".${EXT}" "${PROG_PREFIX}${EXT}""#));
+    assert!(nsi.contains(r#"WriteRegStr HKCU "${REGISTERED_APPS}" "${APP_NAME}" "${CAPABILITIES}""#));
+    assert!(nsi.contains(r#"DeleteRegValue HKCU "${REGISTERED_APPS}" "${APP_NAME}""#), "gỡ thì bỏ đăng ký");
+    assert!(nsi.contains("SHChangeNotify(i 0x08000000"), "báo Explorer đọc lại liên kết");
+    // Ghi giá trị mặc định của `.mp3` hay `UserChoice` là cướp liên kết.
+    assert!(!nsi.contains(r#"${CLASSES}\.${EXT}" """#));
+    let code: Vec<&str> = nsi.lines().map(str::trim).filter(|line| !line.starts_with('#')).collect();
+    assert!(!code.iter().any(|line| line.contains("UserChoice")), "không đụng UserChoice");
+    assert!(!nsi.contains("HKLM"), "cài theo người dùng");
+    for line in nsi.lines().map(str::trim).filter(|line| line.starts_with("WriteReg") || line.starts_with("DeleteReg"))
+    {
+        assert!(line.contains(" HKCU "), "chỉ chạm HKCU: {line}");
     }
 }
 
+/// Lối tắt và tiến trình cùng AppUserModelID; trang Default apps trỏ đúng tên đã đăng ký.
 #[test]
-fn nsis_only_registers_open_with_never_the_default() {
+fn nsis_and_app_share_the_identity() {
     let nsi = read("packaging/windows/groove.nsi");
-    assert!(nsi.contains("\\OpenWithProgids\" \"${PROG_ID}\""));
-    // Ghi giá trị mặc định của `.mp3` là cướp liên kết, đặc tả 5.6 không cho.
-    assert!(!nsi.contains("${CLASSES}\\.${EXT}\" \"\""));
-    assert!(!nsi.contains("HKLM"), "cài theo người dùng");
+    let rust = read("crates/groove-app/src/platform/default_player.rs");
+    let aumid = nsis_define(&nsi, "AUMID");
+    assert!(rust.contains(&format!("APP_USER_MODEL_ID: &str = \"{aumid}\";")), "{aumid}");
+    let uri = nsis_define(&nsi, "DEFAULT_APPS_URI");
+    assert!(rust.contains(&format!("DEFAULT_APPS_URI: &str = \"{uri}\";")), "{uri}");
+    let name = nsis_define(&nsi, "APP_NAME");
+    assert!(rust.contains(&format!("REGISTERED_NAME: &str = \"{name}\";")), "{name}");
+    assert!(uri.ends_with(&format!("registeredAppUser={}", name.replace(' ', "%20"))));
+    // Lối tắt Start Menu và Desktop đều được gắn ID.
+    assert_eq!(nsi.matches("Call SetShortcutAumid").count(), 2);
+}
+
+/// Bản soát e2e kiểm đúng các đuôi đó.
+#[test]
+fn installer_e2e_checks_every_extension() {
+    let script = read("packaging/windows/installer-e2e.ps1");
+    let line = script.lines().find(|line| line.starts_with("$extensions = [ordered]@{")).expect("$extensions");
+    let found: Vec<&str> =
+        line.split(['{', ';']).skip(1).filter_map(|pair| Some(pair.split('=').next()?.trim())).collect();
+    assert_eq!(found, AUDIO_EXTENSIONS);
 }
 
 #[test]
@@ -40,6 +100,13 @@ fn info_plist_declares_every_extension_and_the_right_exe() {
     }
     assert!(plist.contains("<key>CFBundleExecutable</key>\n  <string>groove</string>"));
     assert!(plist.contains("<key>CFBundleTypeRole</key>"));
+    let id = plist
+        .split("<key>CFBundleIdentifier</key>\n  <string>")
+        .nth(1)
+        .and_then(|rest| rest.split('<').next())
+        .expect("CFBundleIdentifier");
+    let rust = read("crates/groove-app/src/platform/default_player.rs");
+    assert!(rust.contains(&format!("BUNDLE_ID: &str = \"{id}\";")), "{id}");
 }
 
 #[test]
@@ -60,6 +127,24 @@ fn desktop_entry_opens_many_files_and_covers_each_format() {
     }
     assert_eq!(AUDIO_EXTENSIONS.len(), 6, "đuôi mới thì thêm MIME ở đây và trong `.desktop`");
     assert!(mime.ends_with(';'), "chuẩn desktop entry đòi `;` cuối danh sách");
+    assert!(desktop.lines().any(|l| l == "Categories=AudioVideo;Audio;Player;"));
+    assert!(desktop.lines().any(|l| l == "Icon=groove"));
+}
+
+/// Icon hicolor đủ cỡ cho menu, "Mở bằng", thanh tác vụ.
+#[test]
+fn linux_icons_cover_the_usual_sizes() {
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packaging/linux/icons");
+    for size in [16u32, 24, 32, 48, 64, 128, 256] {
+        let path = dir.join(format!("{size}x{size}.png"));
+        let bytes = fs::read(&path).unwrap_or_else(|err| panic!("{}: {err}", path.display()));
+        assert_eq!(&bytes[..8], b"\x89PNG\r\n\x1a\n", "{}", path.display());
+        // IHDR: rộng, cao big-endian ở byte 16..24.
+        let width = u32::from_be_bytes(bytes[16..20].try_into().unwrap());
+        let height = u32::from_be_bytes(bytes[20..24].try_into().unwrap());
+        assert_eq!((width, height), (size, size), "{}", path.display());
+    }
+    assert!(read("packaging/linux/build-deb.sh").contains("packaging/linux/icons/*x*.png"));
 }
 
 /// G-2: khai phụ thuộc, không kèm, có trên trang giấy phép.

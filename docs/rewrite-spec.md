@@ -507,11 +507,25 @@ Giải mã `image` với `Limits`, thu về 32 × 32 `Triangle`, tính trung bì
 
 | OS | Khai báo | Nhận tệp |
 | --- | --- | --- |
-| Windows | Bộ cài NSIS ghi ProgID, `OpenWithProgids`; Windows không cho tự đặt mặc định, người dùng tự chọn | `argv` |
+| Windows | Bộ cài NSIS (HKCU): mỗi đuôi một ProgID `GrooveX.<đuôi>`, `OpenWithProgids`, `Capabilities` + `RegisteredApplications` (gd2_01); Windows không cho tự đặt mặc định, người dùng tự chọn | `argv` |
 | macOS | `CFBundleDocumentTypes` trong `Info.plist` | `App::on_open_urls` (`gpui-pre/src/app.rs:325`, `gpui-pre-macos/src/platform.rs:136`), đăng ký **trước** `run`, có thể tới trước khi có cửa sổ, nên xếp vào hàng chờ. Chưa xác minh GPUI có chuyển `application:openFiles:`, phải test |
 | Linux | `.desktop` `MimeType=…`, `Exec=groove %F`, cập nhật mime | `argv` |
 
 Mở app lần đầu: nhận hết rồi mới áp sau khi player sẵn sàng, không hẹn 800 ms; ưu tiên hơn khôi phục session.
+
+**Trình phát mặc định (gd2_01).** App chỉ đổi khi người dùng bấm, ở bộ cài hoặc Settings → Cài đặt chung → Trình phát mặc định
+(`platform/default_player.rs`):
+
+- Windows: không ghi `UserChoice`, không mẹo băm. Ô cuối của bộ cài và nút trong app mở
+  `ms-settings:defaultapps?registeredAppUser=Groove%20X`: Windows 11 vào thẳng trang của app; Windows 10 bỏ qua tham số và mở trang
+  Default apps chung, người dùng chọn Groove X ở ô Trình phát nhạc. Lối tắt Start Menu (và Desktop nếu chọn) mang AppUserModelID
+  `GrooveX.Player`, trùng với tiến trình đặt lúc mở. Trạng thái hỏi bằng `AssocQueryStringW(ASSOCSTR_EXECUTABLE, ".mp3")`.
+- Linux: `xdg-mime default groove.desktop <mọi MIME của tệp .desktop đã cài>` cho tài khoản hiện tại.
+- macOS: `LSSetDefaultRoleHandlerForContentType` cho UTI của từng đuôi, chỉ khi chạy từ `Groove X.app`.
+
+**Chưa ký mã** (dịch vụ trả phí, chủ dự án quyết): Windows SmartScreen báo "Windows protected your PC" lần đầu chạy bộ cài, bấm
+More info → Run anyway; macOS Gatekeeper chặn `.app` ký ad-hoc, chuột phải → Open (hoặc System Settings → Privacy & Security →
+Open Anyway). `.deb` không cần ký khi cài bằng `apt install ./groove-x_….deb`.
 
 ### 5.7 Vị trí cửa sổ
 

@@ -28,7 +28,9 @@ case "$arch" in
   *) echo "Kiến trúc không hỗ trợ: $arch" >&2; exit 2 ;;
 esac
 
-version="$(sed -n 's/^version = "\(.*\)"$/\1/p' "$repo/Cargo.toml" | head -1)"
+# `tr`: checkout từ Windows có thể là CRLF, `"$` không khớp.
+version="$(tr -d '\r' < "$repo/Cargo.toml" | sed -n 's/^version = "\(.*\)"$/\1/p' | head -1)"
+[ -n "$version" ] || { echo "Không đọc được version trong Cargo.toml" >&2; exit 1; }
 target_dir="${CARGO_TARGET_DIR:-$repo/target}"
 exe="$target_dir/$triple/release/groove"
 

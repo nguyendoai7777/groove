@@ -1,4 +1,4 @@
-//! groove-gd1_24: tab Cài đặt chung (đặc tả 1.10): bước tua, bước âm lượng, rồi bảng EQ.
+//! groove-gd1_24: tab Cài đặt chung (đặc tả 1.10): bước tua, bước âm lượng, trình phát mặc định (gd2_01), rồi bảng EQ.
 //!
 //! Hai bước áp ngay như EQ (người dùng thấy tác dụng ở phím tua, bánh xe ngay khi gõ); Huỷ do hộp trả về giá trị lúc mở.
 //! Ô trống hay ngoài khoảng chưa phải giá trị: bỏ qua, ô tự kẹp lại khi mất focus.
@@ -9,6 +9,7 @@ use materiant::field::number::NumberField;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{Context, Entity, FontWeight, IntoElement, ParentElement, Render, Styled, Window, div, px};
 
+use super::default_player::{Backend, DefaultPlayerPanel};
 use super::eq_panel::EqPanel;
 use crate::app;
 
@@ -20,6 +21,7 @@ pub const VOLUME_STEP_RANGE: std::ops::RangeInclusive<u8> = 1..=100;
 pub struct GeneralPanel {
     seek_step: Entity<NumberField>,
     volume_step: Entity<NumberField>,
+    default_player: Entity<DefaultPlayerPanel>,
     eq: Entity<EqPanel>,
 }
 
@@ -51,7 +53,8 @@ impl GeneralPanel {
                     }
                 })
         });
-        GeneralPanel { seek_step, volume_step, eq: cx.new(|_| EqPanel::new()) }
+        let default_player = cx.new(|cx| DefaultPlayerPanel::new(Backend::SYSTEM, window, cx));
+        GeneralPanel { seek_step, volume_step, default_player, eq: cx.new(|_| EqPanel::new()) }
     }
 
     pub fn eq_panel(&self) -> &Entity<EqPanel> {
@@ -65,6 +68,7 @@ impl GeneralPanel {
         self.volume_step.update(cx, |field, cx| field.set_value(volume, window, cx));
         let eq = settings.eq.clone();
         self.eq.update(cx, |panel, cx| panel.show(eq, cx));
+        self.default_player.update(cx, |panel, cx| panel.refresh(cx));
     }
 }
 
@@ -100,6 +104,7 @@ impl Render for GeneralPanel {
                     .child(div().w(px(240.)).child(self.seek_step.clone()))
                     .child(div().w(px(240.)).child(self.volume_step.clone())),
             )
+            .child(self.default_player.clone())
             .child(self.eq.clone())
     }
 }

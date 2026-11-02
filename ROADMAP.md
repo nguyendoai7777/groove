@@ -17,6 +17,28 @@ Còn lại trước khi đóng GĐ1:
 2. Gộp `claude/remove-tauri` (lệnh ở dòng `[owner-qa]` đầu tiên), đánh dấu task 29 ✅, rồi `close-phase`.
 3. macOS, Ubuntu: dựng gói, chạy test một phiên, media session (các dòng `[groove-gd1_25]`, `[groove-gd1_26]`, `[groove-gd1_27]`).
 
+## GĐ2 — bản cài hoàn chỉnh (02/11/2026)
+
+| Task | Trạng thái |
+| --- | --- |
+| `groove-gd2_01` `full-installer` | ✅ |
+
+### Bàn giao GĐ2
+
+<!-- handoff: groove-gd2_01 -->
+
+- **Đã có**: bộ cài Windows đăng ký Default apps (`Capabilities` ở `HKCUSoftwareClientsMediaGroove X`, ProgID `GrooveX.<đuôi>`),
+  lối tắt mang AppUserModelID `GrooveX.Player`; mục Settings "Trình phát mặc định" (`platform/default_player.rs`). Thêm đuôi mới
+  ⇒ sửa `AUDIO_EXTENSIONS`, hai danh sách trong `groove.nsi`, `$extensions` của `installer-e2e.ps1`, `MimeType` của `.desktop`,
+  `Info.plist`: `tests/packaging.rs` bắt lệch.
+- **Bẫy**: `installer-e2e.ps1` ghi HKCU thật rồi dọn và từ chối khi máy đã cài Groove X; đừng thử cài bằng tay trên máy dùng thật.
+  LangString rỗng của NSIS bị coi là chưa đặt (`/WX` đỏ). Dựng `.deb` từ checkout Windows phải bỏ CR (đã xử lý trong script).
+- **Chờ**: hai dòng `[groove-gd2_01 · owner-qa]` ở `plan/_backlog.md`; mục 8 của `plan/groove-gd2_01_full-installer.md`.
+
+## Sau GĐ2 (chưa lập task)
+
+- Mục chuột phải "Phát bằng Groove X" cho thư mục, verb "Thêm vào hàng đợi" (mục 8 của `groove-gd2_01`).
+
 ## Sau GĐ1 (chưa lập task)
 
 - Task 28 nếu chủ dự án muốn giữ EQ, phím tắt của bản Tauri.

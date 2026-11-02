@@ -204,3 +204,12 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_29] Đo RAM bằng desktop Win32 ẩn và exe release có debug assertions — ghi chưa đo — không hiện cửa sổ ở màn nào, không chạm dữ liệu thật; bản phát hành thật bỏ qua `GROOVE_DATA_DIR` nên không đo.
 - [groove-gd1_29] Gỡ thêm `public/`, `scripts/`, `.husky/`, `.vscode/extensions.json`, `.oxfmtrc.json`, `app.json`, `index.html`, `tsconfig*` cùng nhánh gỡ Tauri — chỉ gỡ `src/`, `src-tauri/`, `package.json` — đều chỉ phục vụ bản Vue / Tauri, không gì trong `crates/`, `packaging/`, `tools/`, script gốc tham chiếu tới.
 
+- [groove-gd2_01] Mỗi đuôi một ProgID `GrooveX.<đuôi>` (tên loại "Audio file (MP3)" / "Tệp nhạc (MP3)"), bỏ ProgID chung `GrooveX.AudioFile` của gd1_27 (cài đè tự dọn) — giữ một ProgID chung — Explorer, Default apps hiện đúng loại tệp như WMP, VLC.
+- [groove-gd2_01] `Capabilities` đặt ở `HKCU\Software\Clients\Media\Groove X` — `Software\GrooveX\Capabilities` — đúng chỗ của trình phát nhạc (WMP, VLC), cả hai đều được `RegisteredApplications` trỏ tới.
+- [groove-gd2_01] Một URI `ms-settings:defaultapps?registeredAppUser=Groove%20X` cho cả Windows 10 và 11 — Windows 10 gọi `IApplicationAssociationRegistrationUI` — Windows 11 vào thẳng trang của app; Windows 10 bỏ qua tham số, mở trang Default apps chung có ô Trình phát nhạc, ngắn hơn trang "theo app" của Windows 10.
+- [groove-gd2_01] Ô "Đặt Groove X làm trình phát mặc định" ở trang cuối bộ cài tích sẵn — để trống — chỉ mở trang hệ thống, người dùng vẫn tự chọn; đúng mục tiêu "dùng làm trình phát mặc định".
+- [groove-gd2_01] Lối tắt Desktop mặc định không tích (trang chọn thành phần), cài đè giữ lựa chọn cũ — tích sẵn như VLC — Start Menu đủ để tìm, Desktop là tuỳ chọn theo task.
+- [groove-gd2_01] Gỡ cài hỏi xoá thư viện + cài đặt (`%APPDATA%\Groove X`, `%LOCALAPPDATA%\Groove X`), mặc định No, gỡ im lặng thì giữ — không hỏi — đúng mục 1 của task; không đụng thư mục `com.mrdxd.groovex` của bản Tauri.
+- [groove-gd2_01] Không làm mục chuột phải "Phát bằng Groove X" cho thư mục, không verb "Thêm vào hàng đợi" — làm luôn — `open_paths::resolve` chỉ nhận tệp nhạc, app chưa có cờ dòng lệnh xếp hàng; ghi mục 8.
+- [groove-gd2_01] Mục Settings "Trình phát mặc định" nằm ở tab Cài đặt chung, giữa bước tua và EQ; bản không qua bộ cài thì khoá nút và nói lý do — ẩn hẳn mục — người dùng bản dev vẫn hiểu vì sao không đặt được.
+- [groove-gd2_01] Version info của exe sinh `.rc` trong `OUT_DIR` từ `Cargo.toml`, bỏ `assets/app/groove.rc` — giữ `.rc` tĩnh — phiên bản không lệch khi `tag.sh` nâng.
