@@ -21,6 +21,17 @@
 - **Bẫy đã gặp**: `occlude()` quanh nút trong lớp phủ thẻ làm `group_hover` tắt (nút biến mất dưới con trỏ); dùng `cx.stop_propagation()` trong `on_click`. Test view dùng thư viện thật ở thư mục tạm cần `cx.executor().allow_parking()` (luồng đọc đánh thức future từ thread khác), mẫu ở mục test của `library_page.rs`.
 - **Soát lại khi làm**: không mở DB người dùng khi chạy thử hay test, dùng `LibraryConfig` thư mục tạm.
 
+## 0. Bàn giao từ groove-gd1_08 (02/11/2026)
+
+<!-- handoff: groove-gd1_08 -->
+
+- **Đã có sẵn để dùng**: `groove_library::indexer::Indexer::standard(library)`, sao chép rẻ; `import(path)`, `rescan()`, `backfill_tags()` trả về ngay `IndexJob<T>`, `await` trên UI. Chọn thư mục ở UI, `LibraryCtl::import` chỉ nối vào đây. Chi tiết: `plan/groove-gd1_08_indexer-import.md` mục 9.
+- **Phải làm**: gọi `backfill_tags()` mỗi lần mở app sau khi thư viện mở xong; không có gì thì xong ngay (đặc tả 2.3 bước 5).
+- **Toast import**: `ImportReport.tally.added`, `removed.len()`. Nên báo thêm khi `root_offline` (gốc rỗng mà còn bài, không xoá gì), khi `failed_dirs` không rỗng, khi `tally.failed` không rỗng. `Err(IndexError::RootUnavailable)` là thư mục không đọc được.
+- **Toast rescan**: `tally.read()`, `tally.missing.len()`; `tally.failed` không phải là thiếu.
+- **Sự kiện**: `Progress { kind: Import | Rescan | TagBackfill, done, total }` mỗi lô, xong `Synced`. Nhận `Progress` là đã đọc được lô đó. Import toàn tệp không đổi có `total = 0`, không có `Progress`, chỉ có `Synced`.
+- **N9**: bỏ gốc đang chưa có `excluded_paths`; import lại vẫn thêm gốc qua `add_watched_root`.
+
 ## 0. Bàn giao từ groove-gd1_05 (02/11/2026)
 
 <!-- handoff: groove-gd1_05 -->

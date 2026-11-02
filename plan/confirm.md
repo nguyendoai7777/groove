@@ -40,6 +40,11 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_04] DB cũ hỏng trả lỗi cho caller, không tự tạo thư viện trống — tự tạo rồi im lặng — tạo rồi thì không bao giờ thử chuyển lại.
 - [groove-gd1_04] `search_key` giữ dấu câu theo S18 — bỏ như bản cũ — `AC/DC` không còn khớp `acdc`, đổi lại `-` không khớp tất cả.
 
+## groove-gd1_10
+
+- [groove-gd1_10] HE-AAC báo ngầm (18/1002 bài, 1,8%) vẫn phát, nhưng chỉ lõi LC, mất dải cao trên khoảng 11 kHz — đẩy vào `Error` như đặc tả 5.1, hoặc thêm bộ giải có SBR — thà nghe được còn hơn bỏ bài, và symphonia không báo SBR khi mở tệp.
+- [groove-gd1_10] Âm lượng `v²` áp ở callback nên cảm giác âm lượng khác bản cũ (S23) — giữ tuyến tính — đặc tả S23 yêu cầu.
+
 ## groove-gd1_12
 
 - [groove-gd1_12] Tắt shuffle: queue = phần sau bài hiện tại, rồi vòng về các bài phía trước chưa nghe, cuối cùng là bài ngoài original — xếp đúng thứ tự original từ đầu — Next vẫn ra bài kế như bảng 1.4, mà S4 không mất bài phía trước.
@@ -62,6 +67,15 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_07] Trần tệp vào 64 MiB, giải mã 192 MiB (RGB 8000 × 8000), cạnh 16 384 — trần thấp hơn để bớt RAM — bìa quá trần sẽ mất, đổi trần chỉ sửa một hằng.
 - [groove-gd1_07] Accent tính theo alpha như canvas cũ, JPEG phủ alpha lên nền đen — coi trong suốt là đen khi tính màu — logo nền trong suốt vẫn ra đúng màu logo.
 
+## groove-gd1_18
+
+- [groove-gd1_18] `save` thêm tham số tên mới — đổi `MetadataEdit` — `MetadataEdit` thuộc `tags`, không chứa tên tệp.
+- [groove-gd1_18] Lưu trong app phát `Progress` kind `MetadataBulk`, không phát `Synced` — thêm sự kiện mới — `actor.rs` đã khoá, `Synced` kéo theo toast (S5).
+- [groove-gd1_18] Cấm đổi đuôi tệp; cấm ký tự, tên dành riêng của Windows ở mọi OS — chỉ cấm theo OS đang chạy — thư viện có thể nằm trên ổ dùng chung, đổi đuôi làm bài rơi khỏi thư viện.
+- [groove-gd1_18] `Clean` lấy lyrics DB trước, DB trống mới lấy tệp — tệp trước — theo đặc tả N2; lyrics vừa sửa ngoài app mà watcher chưa kịp đọc có thể bị bản DB đè.
+- [groove-gd1_18] Áp bìa cho nhóm đánh dấu `cover_is_custom`, kể cả đè bìa custom cũ; bìa custom theo bài khi album bị dọn — giữ bìa custom cũ, để mất theo album — đây là lựa chọn rõ của người dùng.
+- [groove-gd1_18] `metadata_ops.rs` 691 dòng mã, vượt ước 600 — tách tệp — task chỉ sở hữu một tệp, `lib.rs` đã khoá.
+
 ## groove-gd1_05
 
 - [groove-gd1_05] `LegacyFailed` để thư viện ở trạng thái lỗi, UI cho chọn thử lại hoặc bắt đầu trống — tự `open_fresh` — tạo `library.db` rồi thì không bao giờ chuyển DB cũ lại nữa.
@@ -83,3 +97,11 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_15] Bấm thẻ vào danh sách ngay, Enter / nhấp đúp cũng vào — nhấp chọn, nhấp đúp mới vào — đặc tả ghi "Bấm thẻ vào danh sách".
 - [groove-gd1_15] `Route::Category` vẽ chữ giữ chỗ tới khi `SongList` (16) có — chờ 16 — 16 không sở hữu `library_page.rs`; task 17 thay nhánh này.
 - [groove-gd1_15] `LibraryPageEvent` phát lên cho task 17 nghe, không nối nghiệp vụ nhập / quét lại / tạo / xoá / phát — gọi thẳng `Library` — nghiệp vụ và hộp thoại là của 17.
+
+## groove-gd1_08
+
+- [groove-gd1_08] Import bỏ qua tệp `(mtime, size)` khớp và đã đọc thẻ — đọc thẻ mọi tệp như 1.11 — S26 không muốn kéo tệp OneDrive khi không đổi; đọc hết thì dùng `rescan`.
+- [groove-gd1_08] `file_mtime` mới tính bằng ms — giữ giây như DB cũ — khớp `FileStamp`, so chính xác hơn; dòng cũ đổi khi đọc lại thẻ, task 09 phải tính tới dòng `tags_read_at IS NULL`.
+- [groove-gd1_08] Import xoá thật dòng đã xác nhận mất — đợi `missing_since` — 1.11 yêu cầu xoá, `missing_since` thuộc task 09; đã chặn đủ các lỗi đọc.
+- [groove-gd1_08] Giữ dòng nằm sau liên kết thư mục không đi theo — xoá như tệp mất — bản cũ có theo liên kết, DB cũ có thể chứa bài ở đó.
+- [groove-gd1_08] Đọc theo lô, chờ đủ lô rồi ghi — luồng đọc liên tục có bộ đệm sắp xếp — đơn giản, RAM có trần; tệp cloud chậm giữ cả lô.

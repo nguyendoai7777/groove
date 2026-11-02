@@ -11,6 +11,18 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `views/metadata/{dialog,fields,cover_pane,raw_frames}.rs`, `i18n/*/metadata.toml` |
 
+## 0. Bàn giao từ groove-gd1_18 (02/11/2026)
+
+<!-- handoff: groove-gd1_18 -->
+
+- **Đã có sẵn để dùng**: `metadata_ops::MetadataOps`: `read(TrackRef)` cho dialog (đủ `fields`, `cover`, `raw_frames`, `filename`), `save(track, edit, mode, new_filename)`, `save_bulk(category, GroupEdit, mode)`. Gọi trên UI rồi `await`. API đủ: `plan/groove-gd1_18_metadata-ops.md` mục 9.
+- **Tên tệp**: truyền tên đủ kèm đuôi; `None` là không đổi tên. `validate_file_name(raw, current)` không chạm đĩa, gọi khi gõ để báo sớm. Tệp trùng tên chỉ biết lúc lưu: `MetadataError::TargetExists`.
+- **Áp cho nhóm**: lưu bài đang mở bằng `save`, rồi `save_bulk` với `GroupEdit` (sáu trường của đặc tả). `Clean` tự hạ ở lô. Đổi bìa nhóm chỉ qua đây; `save` một bài chỉ gieo khi nhóm chưa có bìa (S8).
+- **Báo kết quả lô**: `BulkReport { done, failed, not_started, group_cover_failed }`, nêu tên từng bài trong `failed`. Tiến độ: `LibraryEvent::Progress { kind: MetadataBulk, .. }`.
+- **Lỗi cần câu riêng trong `metadata.toml`**: từng biến thể `FileNameError`, `TargetExists`, `RenameFailed` (thẻ đã lưu, tên chưa đổi), `DatabaseAfterWrite` (thẻ đã lưu, thư viện sẽ cập nhật sau), cùng các `TagError` ở bàn giao 06. `error.file_written()` để biết thẻ đã ghi chưa.
+- **Làm mới**: `done == total` của `Progress` kind `MetadataBulk` là tín hiệu nạp lại danh sách. Sửa trong app không phát `Synced`, không toast "N bài cập nhật". Đổi tên phát thêm `Moved`.
+- **Soát lại khi làm**: `cargo test -p groove-library --test metadata_ops`.
+
 ## 0. Bàn giao từ groove-gd1_06 (02/11/2026)
 
 <!-- handoff: groove-gd1_06 -->
