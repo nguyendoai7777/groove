@@ -229,10 +229,12 @@ impl CommandPalette {
         palette
     }
 
+    #[cfg(test)]
     pub fn is_open(&self) -> bool {
         self.handle.is_open()
     }
 
+    #[cfg(test)]
     pub fn query(&self) -> &str {
         &self.query
     }

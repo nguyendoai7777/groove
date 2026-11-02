@@ -61,3 +61,6 @@ edit_timeline = "Edit timeline"
 edit_lyrics = "Edit lyrics"
 edit_metadata = "Edit metadata"
 remove_from_playlist = "Remove from playlist"
+
+[sync]
+changed = "Library changed: {added} added, {updated} updated, {removed} removed."

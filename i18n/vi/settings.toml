@@ -20,7 +20,6 @@ preset = "Mẫu cài sẵn"
 bass_boost = "Tăng bass"
 gain_unit = "dB"
 band_label = "Dải {hz}"
-curve_label = "Đường cong equalizer"
 note = "Kéo là nghe thay đổi ngay. Huỷ sẽ trả về giá trị lúc mở hộp."
 
 [preset]

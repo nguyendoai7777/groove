@@ -106,6 +106,7 @@ impl SeekBar {
         SeekBar { player, scrub: Scrub::default(), cursor_x: None, width: 0., _observe: observe }
     }
 
+    #[cfg(test)]
     /// Đang kéo (cho test).
     pub fn is_dragging(&self) -> bool {
         self.scrub.is_dragging()

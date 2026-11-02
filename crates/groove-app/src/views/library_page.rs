@@ -7,14 +7,14 @@
 //! - `Route::Category(..)`: danh sách bài của một category: `SongList` của task 16, tạo một lần, đổi mục bằng
 //!   `set_reference` (task 17 gắn).
 //!
-//! Dữ liệu từ `app::library(cx)` (`Library`, đọc nền, UI không chạm đĩa); nạp lại khi `Opened`, `Synced`,
+//! Dữ liệu từ `Library` đã đặt ở `app::set_library` (`Library`, đọc nền, UI không chạm đĩa); nạp lại khi `Opened`, `Synced`,
 //! `PlaylistsChanged`, `Moved`, khi sửa thẻ cả nhóm xong. Lưới là `VirtualGrid` với một `LruImageCache` cho bìa. Nghiệp vụ (nhập, quét lại, tạo / xoá
 //! playlist, phát) không nằm ở đây: view phát [`LibraryPageEvent`], `library_ctl` nghe (task 17).
 //!
 //! # Cho task sau
 //!
 //! - `views::library_page::install(cx)` gọi một lần trong `app::run` (đã nối): mở `Library` chuẩn, đặt global
-//!   `app::library(cx)`, tạo view, gắn vào `Slot::Library`, nối route và `Open` thành `app::navigate`.
+//!   `app::try_library(cx)`, tạo view, gắn vào `Slot::Library`, nối route và `Open` thành `app::navigate`.
 //! - `library_ctl::install` (gọi trong `install_with`) nghe `LibraryPageEvent` và báo ngược bằng `set_importing`,
 //!   `set_rescanning`.
 
@@ -207,7 +207,7 @@ impl LibraryPage {
             {
                 self.reload(cx)
             }
-            LibraryEvent::Progress(_) => {}
+            LibraryEvent::Progress(_) | LibraryEvent::ExternalChange(_) => {}
         }
     }
 
@@ -344,10 +344,8 @@ impl LibraryPage {
         let (library, covers) = (self.library.clone(), self.covers.clone());
         let list = cx.new(|cx| SongList::with_deps(library, covers, reference, cx));
         self._song_list_events = Some(cx.subscribe(&list, |_, _, event: &SongListEvent, cx| {
-            // Menu bài do `SongList` tự vẽ qua `song_menu`; ở đây chỉ còn điều hướng.
-            if let SongListEvent::CategoryGone(reference) = event {
-                cx.emit(LibraryPageEvent::CategoryGone(*reference));
-            }
+            let SongListEvent::CategoryGone(reference) = event;
+            cx.emit(LibraryPageEvent::CategoryGone(*reference));
         }));
         self.song_list = Some(list.clone());
         list
@@ -753,7 +751,7 @@ impl Render for LibraryPage {
     }
 }
 
-/// Mở `Library` chuẩn, đặt global `app::library(cx)`, tạo view và gắn vào `Slot::Library`. Gọi một lần trong `app::run`.
+/// Mở `Library` chuẩn, đặt global `app::try_library(cx)`, tạo view và gắn vào `Slot::Library`. Gọi một lần trong `app::run`.
 pub fn install(cx: &mut App) -> Entity<LibraryPage> {
     let library = Library::open_standard().map_err(|err| log::error!("cannot start the library: {err}")).ok();
     let covers = CoverStore::default_location().map_err(|err| log::warn!("cannot locate covers: {err}")).ok();
@@ -1266,14 +1264,14 @@ mod tests {
         page.read_with(cx, |p, _| assert_eq!((p.tab, p.selected), (Tab::Albums, None)));
     }
 
-    /// C11 — `app::library(cx)` lấy lại đúng thư viện đã đặt.
+    /// C11 — `app::try_library(cx)` lấy lại đúng thư viện đã đặt.
     #[::gpui::test]
     fn library_global_round_trips(cx: &mut TestAppContext) {
         let env = env(None);
         cx.update(|cx| {
             assert!(app::try_library(cx).is_none());
             app::set_library(env.library.clone(), cx);
-            assert!(matches!(app::library(cx).status(), OpenStatus::Opening | OpenStatus::Ready(_)));
+            assert!(matches!(app::try_library(cx).unwrap().status(), OpenStatus::Opening | OpenStatus::Ready(_)));
         });
     }
 }

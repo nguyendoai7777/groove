@@ -170,6 +170,7 @@ pub fn apply_batch(indexer: &Indexer, batch: ChangeBatch) -> IndexJob<SyncOutcom
         let applied = indexer.apply_plan(plan, None, &mut outcome);
         if outcome.changed_anything() {
             indexer.emit_outcome(&outcome);
+            indexer.emit_external_change(&outcome);
         }
         applied?;
         Ok(outcome)

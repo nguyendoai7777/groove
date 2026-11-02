@@ -49,10 +49,12 @@ impl RootsPanel {
         }
     }
 
+    #[cfg(test)]
     pub fn state(&self) -> &RootsState {
         &self.state
     }
 
+    #[cfg(test)]
     pub fn roots(&self) -> &[PathBuf] {
         match &self.state {
             RootsState::Ready(roots) => roots,

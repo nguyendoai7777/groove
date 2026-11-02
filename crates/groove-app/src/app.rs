@@ -31,7 +31,7 @@ use materiant::gpui_kit::{
     SharedString, Styled, Window, WindowBounds, WindowDecorations, WindowOptions, div, px, size,
 };
 use materiant::style::StyledExt;
-use materiant::theme::{ActiveTheme, MateriantTheme, ThemeMode, set_theme};
+use materiant::theme::{ActiveTheme, MateriantTheme, ThemeColor, ThemeMode, set_theme};
 use materiant::toast::ToastViewport;
 
 use crate::dev::{self, DevArgs};
@@ -77,8 +77,16 @@ pub fn run(dev: DevArgs) {
         let options = main_window_options(bounds, display_id, !dev.background);
         // Task 27: vị trí đã lưu, phải có trước khi mở cửa sổ.
         let options = crate::window_state::restore(options, cx);
-        let (handle, shell) =
-            gpui_kit::open_window(options, cx, |_, cx| cx.new(|cx| Shell::new(start, cx))).expect("open main window");
+        let opened = gpui_kit::open_window(options, cx, |_, cx| cx.new(|cx| Shell::new(start, cx)));
+        let (handle, shell) = match opened {
+            Ok(opened) => opened,
+            Err(err) => {
+                // Bản phát hành không có console: panic ở đây là tắt câm, log mới là chỗ đọc được lý do.
+                log::error!("cannot open the main window: {err:#}");
+                cx.quit();
+                return;
+            }
+        };
         cx.set_global(ShellHandle(shell));
         if !dev.background {
             cx.activate(true);
@@ -140,8 +148,11 @@ fn theme_mode(choice: ThemeChoice) -> ThemeMode {
     }
 }
 
+/// Màu nhấn cyan của Groove X (đặc tả 1.1): `#06b6d4` ở nền tối; nền sáng đậm hơn cho đủ tương phản với nền trắng.
+const ACCENT: ThemeColor = ThemeColor::pair(0x0e7490, 0x06b6d4);
+
 fn apply_theme(choice: ThemeChoice, cx: &mut App) {
-    set_theme(&MateriantTheme { mode: Some(theme_mode(choice)), ..Default::default() }, cx);
+    set_theme(&MateriantTheme { mode: Some(theme_mode(choice)), primary: Some(ACCENT), ..Default::default() }, cx);
 }
 
 /// Đặt cài đặt toàn app, áp theme, và theo dõi để áp lại theme / ngôn ngữ khi chúng đổi.
@@ -326,6 +337,7 @@ impl Shell {
         cx.notify();
     }
 
+    #[cfg(test)]
     pub fn slot(&self, slot: Slot) -> Option<&AnyView> {
         self.slots.get(slot)
     }
@@ -504,17 +516,7 @@ pub fn try_metadata_ops(cx: &App) -> Option<MetadataOps> {
     Some(handle.0.get_or_init(|| ops).clone())
 }
 
-/// Như [`try_metadata_ops`], panic nếu chưa `set_library`. Dùng ở chỗ chắc chắn đã khởi động xong.
-pub fn metadata_ops(cx: &App) -> MetadataOps {
-    try_metadata_ops(cx).expect("metadata ops need the library: call set_library first")
-}
-
-/// Thư viện dùng chung (sao chép rẻ, gửi được giữa luồng). Panic nếu chưa `set_library`; `try_library` cho chỗ có thể
-/// chạy trước lúc khởi động xong.
-pub fn library(cx: &App) -> &Library {
-    &cx.global::<LibraryHandle>().0
-}
-
+/// Thư viện dùng chung (sao chép rẻ, gửi được giữa luồng). `None` khi không khởi động được hoặc chưa `set_library`.
 pub fn try_library(cx: &App) -> Option<&Library> {
     cx.try_global::<LibraryHandle>().map(|handle| &handle.0)
 }
@@ -712,6 +714,12 @@ mod tests {
     fn settings_change_applies_theme(cx: &mut TestAppContext) {
         let (_, _, cx) = open(cx, Settings { theme: ThemeChoice::Dark, ..Settings::default() });
         assert!(cx.update(|_, cx| cx.theme().is_dark()));
+        let primary = cx.update(|_, cx| cx.theme().colors().primary);
+        assert_eq!(
+            primary,
+            materiant::gpui_kit::Hsla::from(ACCENT.resolve(true)),
+            "màu nhấn cyan, không phải mặc định"
+        );
         cx.update(|_, cx| update_settings(cx, |s| s.theme = ThemeChoice::Light));
         assert_eq!(cx.update(|_, cx| cx.theme().mode()), ThemeMode::Light);
         assert!(!cx.update(|_, cx| cx.theme().is_dark()));

@@ -122,6 +122,9 @@ pub enum LibraryEvent {
     Opened(OpenOutcome),
     OpenFailed(OpenFailure),
     Synced(SyncReport),
+    /// Đĩa đổi ngoài app (watcher, so khi mở app), đi sau `Synced` của cùng lô: để UI báo (đặc tả 1.11). Import, quét lại, thao
+    /// tác trong app không phát sự kiện này vì đã có toast riêng.
+    ExternalChange(SyncReport),
     Moved(Vec<MovedSong>),
     Progress(Progress),
     /// Tạo, xoá playlist hoặc đổi thành viên: lưới và danh sách đang mở nạp lại.

@@ -786,6 +786,18 @@ impl Indexer {
         self.emit_synced(&tally, sync.marked_missing.iter().chain(&sync.purged).copied().collect());
     }
 
+    /// Lô vừa áp đến từ thay đổi ngoài app. Không có gì để nói thì im; đổi tên tính là cập nhật.
+    pub(crate) fn emit_external_change(&self, sync: &SyncOutcome) {
+        let report = SyncReport {
+            added: sync.tally.added,
+            updated: sync.tally.updated + sync.restored.len() + sync.moved.len(),
+            removed: sync.marked_missing.iter().chain(&sync.purged).copied().collect(),
+        };
+        if report.added > 0 || report.updated > 0 || !report.removed.is_empty() {
+            self.library.writer().emit(LibraryEvent::ExternalChange(report));
+        }
+    }
+
     fn emit_synced(&self, tally: &IndexTally, removed: Vec<i64>) {
         let report = SyncReport { added: tally.added, updated: tally.updated, removed };
         self.library.writer().emit(LibraryEvent::Synced(report));

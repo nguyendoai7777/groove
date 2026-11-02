@@ -5,15 +5,14 @@
 //! chỉ dựng dòng trong khung nên 10 000 bài tốn như 100.
 //!
 //! Hành vi (đặc tả 1.2): bấm dòng bài đang phát thì đảo phát / dừng, bài khác thì phát với cả danh sách làm hàng đợi; Enter
-//! / nhấp đúp tương tự (nhấp đúp không đảo lần hai: lần nhấp đầu đã làm); chuột phải phát [`SongListEvent::ContextMenu`].
+//! / nhấp đúp tương tự (nhấp đúp không đảo lần hai: lần nhấp đầu đã làm); chuột phải mở menu bài (`song_menu`).
 //! Thư viện đổi (`Synced`, `PlaylistsChanged`, `Moved`, `Opened`) thì nạp lại. Mọi lần đọc chạy ở nền (UI không chạm đĩa).
 //!
 //! # Cho task sau
 //!
-//! - Gắn vào `Slot::Library` một dòng: `cx.new(|cx| SongList::new(reference, cx))`; đổi category thì
-//!   `set_reference(reference, cx)` (đặt lại cuộn, đầu danh sách mở).
-//! - Nghe [`SongListEvent`] bằng `cx.subscribe`: `ContextMenu` (task 17 vẽ menu bài), `CategoryGone` (mục đang xem biến mất:
-//!   `app::go_back`).
+//! - `LibraryPage` dựng view bằng `SongList::with_deps`; đổi category thì `set_reference(reference, cx)` (đặt lại cuộn, đầu
+//!   danh sách mở).
+//! - Nghe [`SongListEvent`] bằng `cx.subscribe`: `CategoryGone` (mục đang xem biến mất: `app::go_back`).
 //! - Nút Play all của đầu danh sách do view tự làm (player + toast khi rỗng).
 
 use std::sync::Arc;
@@ -29,8 +28,8 @@ use materiant::button::Button;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
     AnyElement, App, ClickEvent, Context, Entity, EventEmitter, FocusHandle, FontWeight, IntoElement, MouseMoveEvent,
-    ParentElement, Pixels, Point, Render, ScrollEvent, SharedString, Styled, Subscription, Task, Window, div,
-    linear_color_stop, linear_gradient, px,
+    ParentElement, Render, ScrollEvent, SharedString, Styled, Subscription, Task, Window, div, linear_color_stop,
+    linear_gradient, px,
 };
 use materiant::icon::Icon;
 use materiant::list::{VirtualList, VirtualListHandle};
@@ -63,12 +62,9 @@ const GLOW_OPACITY: f32 = 0.4;
 /// Bìa của đầu danh sách chỉ cần vài ô nhớ: bìa 256 px giải mã ≈ 256 KB mỗi cái.
 const COVER_CACHE_CAPACITY: usize = 4;
 
-/// Thứ view báo lên cho task 17 (menu bài) và cho nơi gắn view (điều hướng).
+/// Thứ view báo lên cho nơi gắn view (điều hướng).
 #[derive(Clone, Debug)]
 pub enum SongListEvent {
-    /// Chuột phải một dòng: mở menu bài tại `position` (toạ độ cửa sổ). `reference` cho biết đang ở playlist nào (để
-    /// có mục "xoá khỏi danh sách phát").
-    ContextMenu { reference: CategoryRef, song: Box<Song>, position: Point<Pixels> },
     /// Mục đang xem không còn trong thư viện (xoá, hoặc quét lại làm album biến mất).
     CategoryGone(CategoryRef),
 }
@@ -133,15 +129,7 @@ pub struct SongList {
 impl EventEmitter<SongListEvent> for SongList {}
 
 impl SongList {
-    /// Thư viện và thư mục bìa chuẩn của app. Cần `player::install` và `app::set_library` đã chạy.
-    pub fn new(reference: CategoryRef, cx: &mut Context<Self>) -> SongList {
-        let library = crate::app::try_library(cx).cloned();
-        let covers =
-            CoverStore::default_location().map_err(|err| log::warn!("song list: cannot locate covers: {err}")).ok();
-        SongList::with_deps(library, covers, reference, cx)
-    }
-
-    /// Như [`SongList::new`] nhưng thư viện và thư mục bìa do nơi gọi cấp (test trỏ thư mục tạm).
+    /// Thư viện và thư mục bìa do nơi gọi cấp (test trỏ thư mục tạm). Cần `player::install` đã chạy.
     pub fn with_deps(
         library: Option<Library>,
         covers: Option<CoverStore>,
@@ -174,6 +162,7 @@ impl SongList {
         list
     }
 
+    #[cfg(test)]
     pub fn reference(&self) -> CategoryRef {
         self.reference
     }
@@ -339,11 +328,12 @@ impl SongList {
         self.player.update(cx, |player, cx| player.play_list(first, tracks, cx));
     }
 
-    fn context_menu(&mut self, ix: usize, position: Point<Pixels>, cx: &mut Context<Self>) {
-        let Some(song) = self.songs.get(ix).cloned() else { return };
-        self.selected = Some(ix);
-        cx.emit(SongListEvent::ContextMenu { reference: self.reference, song: Box::new(song), position });
-        cx.notify();
+    /// Chuột phải một dòng: chọn dòng đó, menu bài (`song_menu`, lớp cha) đọc [`Self::menu_song`].
+    fn context_menu(&mut self, ix: usize, cx: &mut Context<Self>) {
+        if ix < self.songs.len() {
+            self.selected = Some(ix);
+            cx.notify();
+        }
     }
 }
 
@@ -481,8 +471,8 @@ impl SongList {
                 _ => RowPlay::Other,
             };
             let this = this.clone();
-            SongRow::new(song, ix + 1, play, artist).on_context(std::rc::Rc::new(move |position, _, cx| {
-                this.update(cx, |this, cx| this.context_menu(ix, position, cx)).ok();
+            SongRow::new(song, ix + 1, play, artist).on_context(std::rc::Rc::new(move |_, _, cx| {
+                this.update(cx, |this, cx| this.context_menu(ix, cx)).ok();
             }))
         })
         .track(&self.list)
@@ -765,7 +755,7 @@ mod tests {
         Box::leak(text.into_boxed_str())
     }
 
-    fn row_center(cx: &mut VisualTestContext, number: usize) -> Point<Pixels> {
+    fn row_center(cx: &mut VisualTestContext, number: usize) -> ::gpui::Point<::gpui::Pixels> {
         cx.debug_bounds(selector(format!("song-row-{number}")))
             .unwrap_or_else(|| panic!("dòng {number} chưa vẽ"))
             .center()
@@ -859,24 +849,20 @@ mod tests {
         p.read_with(cx, |p, _| assert_eq!(p.queue().current(), Some(&tracks[0]), "toast, không đổi hàng đợi"));
     }
 
-    /// C5 — chuột phải phát `ContextMenu` đúng bài, đúng category, đúng vị trí.
+    /// C5 — chuột phải chọn đúng bài cho menu bài.
     #[::gpui::test]
     fn right_click_reports_the_song(cx: &mut TestAppContext) {
         let env = env();
         let id = seed(&env, vec!["a".into(), "b".into()]);
-        let (view, events, cx) = open(cx, &env, album(id));
+        let (view, _, cx) = open(cx, &env, album(id));
         let at = row_center(cx, 2);
         cx.simulate_mouse_move(at, None, Modifiers::default());
         cx.simulate_mouse_down(at, MouseButton::Right, Modifiers::default());
         cx.simulate_mouse_up(at, MouseButton::Right, Modifiers::default());
-        let events = events.borrow();
-        let [SongListEvent::ContextMenu { reference, song, position }] = events.as_slice() else {
-            panic!("{events:?}");
-        };
-        assert_eq!(*reference, album(id));
-        assert_eq!(song.filename, "b.wav");
-        assert_eq!(*position, at);
-        view.read_with(cx, |v, _| assert_eq!(v.selected, Some(1)));
+        view.read_with(cx, |v, _| {
+            assert_eq!(v.selected, Some(1));
+            assert_eq!(v.menu_song().map(|song| song.filename.as_str()), Some("b.wav"));
+        });
     }
 
     /// C6 — nhiều bài mà chỉ dựng dòng trong khung.

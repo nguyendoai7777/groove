@@ -2,7 +2,7 @@
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Trạng thái | ☐ |
+| Trạng thái | ☐ — phần 1-5 đã gộp `master` 02/11/2026; còn lại: chủ dự án xem app thật rồi gộp nhánh `claude/remove-tauri` (dòng `[owner-qa]` đầu tiên của `plan/_backlog.md`). Quy ước không có trạng thái "chờ", không đánh ✅ khi chưa nhìn app thật |
 | Repo | groove |
 | Model | opus |
 | Cỡ | ~100 dòng |
@@ -56,3 +56,39 @@
 
 ## 2. Không làm trong task này
 - Không thêm tính năng ngoài đặc tả; không sửa bản Tauri + Vue (G-1).
+
+## 9. Bàn giao thực tế (02/11/2026)
+
+**Kết quả**: `#![allow(dead_code)]` đã gỡ; bảng so bản cũ `docs/parity.md` (mỗi dòng: test / chạy thật / chỉ đọc mã / chưa kiểm);
+RAM đo được (dưới); `CLAUDE.md`, `ROADMAP.md` viết lại; gỡ Tauri là một commit riêng trên nhánh `claude/remove-tauri`, chưa gộp,
+tag `tauri-final` đặt trên `master` trước khi gỡ.
+
+**Tính năng chưa nối phát hiện khi soát, đã nối**:
+
+- Thanh phát: Shuffle, Prev, Next, Repeat không có `on_click` (lint lộ `Player::toggle_shuffle`, `toggle_repeat` chết). Nối, test
+  `transport_buttons_drive_the_player` bấm thật từng nút.
+- Watcher không có toast tóm tắt (đặc tả 1.11): `library_ctl` bỏ qua `Synced`. Thêm `LibraryEvent::ExternalChange` chỉ phát từ
+  watcher và so khi mở app, toast Info; test `outside_changes_get_a_summary_toast`.
+- Hộp đoạn timeline: bấm dòng dùng bản sao riêng, hàm `jump_target` có test lại không nằm trên đường bấm. Đường bấm giờ gọi nó.
+- Now Playing: đổi bài không đóng hộp metadata (đặc tả 1.5). Thêm, phủ trong `buttons_open_dialogs_and_queue_lists_tracks`.
+- `SongListEvent::ContextMenu` phát mà không ai nghe (menu bài đã tự vẽ qua `song_menu`): bỏ sự kiện, giữ chọn dòng.
+
+**Lỗi sửa (D-11)**: `main.rs` dùng `args_os` (argv không Unicode không còn panic); `GROOVE_DATA_DIR` không còn chép DB Tauri thật
+(`paths::legacy_db`, test `override_keeps_the_real_legacy_db_out_of_reach`); `instance.rs` chỉ đọc `GROOVE_DATA_DIR` ở bản
+debug; `app::metadata_ops` panic khi không dựng được `MetadataOps` → toast; mở cửa sổ lỗi → log + thoát thay vì panic câm;
+màu nhấn là hồng mặc định của materiant → cyan bản cũ; chữ trống ở Now Playing tràn ra ngoài, cột lời ~86 px ở 800 px
+(thấy khi chạy thật). Mười một khoá i18n không dùng đã bỏ. Hai dòng nợ test chập chờn ở `_backlog.md` đã gỡ (sửa ở `f5f0fa3`).
+
+**Đã chạy** (cwd = worktree, `CARGO_TARGET_DIR=groove/target/gd1_29`): `cargo build`, `cargo clippy --all-targets -- -D warnings`,
+`cargo test --workspace --no-fail-fast` (699 passed, 0 failed, 4 ignored; gồm 3 test thêm ở task này), `cargo deny check licenses` — xanh.
+Cùng bộ lệnh trên nhánh `claude/remove-tauri`. App thật: `tools/measure-hidden.ps1` (mới) chạy exe trong desktop Win32 ẩn với phím
+`g p`, `ctrl-k`, `escape`, bấm nút Settings; tiêu đề đổi đúng, các ảnh chụp (My Music, Now Playing, bảng lệnh, Settings) đã xem
+rồi xoá, `foreground_unchanged=True`.
+
+**RAM** (`docs/parity.md`): release + debug assertions, thư viện trống: 59,5 MB working set / 66,4 MB private lúc nghỉ, 64 MB sau
+khi đi qua các màn; 48 luồng. Chưa đo: thư viện thật, đang phát, bản phát hành thật.
+
+**Chưa kiểm**: mọi thứ cần màn thật, loa, macOS, Ubuntu (`_backlog.md`); nền mờ; hộp chọn tệp của OS.
+
+**Quyết định tự chọn**: `plan/confirm.md` mục `groove-gd1_29`.
+

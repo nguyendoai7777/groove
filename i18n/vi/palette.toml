@@ -1,6 +1,5 @@
 # Vùng palette: khoá viết không tiền tố, tra bằng t!("palette.<khoá>").
 
-title = "Bảng lệnh"
 placeholder = "Gõ / để dùng lệnh phát nhạc, hoặc tìm bài hát, ca sĩ..."
 mode_search = "Tìm kiếm"
 mode_cli = "Chế độ lệnh"
@@ -34,7 +33,6 @@ prev = "Bài trước"
 volume = "Đặt âm lượng từ 0 đến 100"
 theme = "Đổi giao diện sáng, tối (dark, light, system)"
 help = "Hiện danh sách lệnh"
-tab = "chọn"
 
 [error]
 unknown = "Không có lệnh {name}. Gõ /help để xem danh sách lệnh."

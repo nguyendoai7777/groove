@@ -74,11 +74,7 @@ impl TimelineBox {
         TimelineBox { player, list: VirtualListHandle::new(), active, _observe: observe }
     }
 
-    /// Đoạn đang tô (cho test).
-    pub fn active(&self) -> Option<usize> {
-        self.active
-    }
-
+    #[cfg(test)]
     /// Bài hiện tại có timeline không.
     pub fn has_segments(&self, cx: &App) -> bool {
         !self.player.read(cx).timeline().is_empty()
@@ -92,7 +88,7 @@ struct Line {
 
 impl Render for TimelineBox {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let (lines, starts, position, duration, playing) = {
+        let (lines, position, duration, playing) = {
             let player = self.player.read(cx);
             let segments = player.timeline();
             let lines: Vec<Line> = segments
@@ -102,15 +98,13 @@ impl Render for TimelineBox {
                     title: segment.title.clone().into(),
                 })
                 .collect();
-            let starts: Vec<f64> = segments.iter().map(|segment| segment.start).collect();
-            (lines, starts, player.position_sec(), player.duration_sec(), player.is_playing())
+            (lines, player.position_sec(), player.duration_sec(), player.is_playing())
         };
         if lines.is_empty() {
             return div().into_any_element();
         }
         let c = cx.theme().colors().clone();
         let lines = Rc::new(lines);
-        let starts = Rc::new(starts);
         let count = lines.len();
 
         let header = div()
@@ -159,15 +153,12 @@ impl Render for TimelineBox {
         };
 
         let player = self.player.clone();
-        let jump = {
-            let starts = starts.clone();
-            move |ix: &usize, _: &mut Window, cx: &mut App| {
-                let Some(&start) = starts.get(*ix) else { return };
-                player.update(cx, |player, cx| {
-                    player.seek(start, cx);
-                    player.play(cx);
-                });
-            }
+        let jump = move |ix: &usize, _: &mut Window, cx: &mut App| {
+            let Some(start) = jump_target(player.read(cx).timeline(), *ix) else { return };
+            player.update(cx, |player, cx| {
+                player.seek(start, cx);
+                player.play(cx);
+            });
         };
 
         div()

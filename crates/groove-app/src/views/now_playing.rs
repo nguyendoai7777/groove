@@ -47,9 +47,10 @@ use crate::views::timeline_dialog;
 pub const GLOW_HEIGHT: f32 = 450.;
 /// Độ đục của quầng (đặc tả 1.5).
 pub const GLOW_OPACITY: f32 = 0.3;
-/// Cột trái: 25 % trong 180-300 px. Cột phải: 32 % trong 240-340 px (đặc tả 1.5).
-pub const LEFT_COLUMN: (f32, f32, f32) = (0.25, 180., 300.);
-pub const RIGHT_COLUMN: (f32, f32, f32) = (0.32, 240., 340.);
+/// Cột trái: 25 % trong 150-300 px. Cột phải: 32 % trong 190-340 px. Đặc tả 1.5 ghi 180 / 240 px, nhưng ở cửa sổ 800 px mặc định
+/// cột lời giữa chỉ còn ~86 px, ba nút Metadata / Timeline / Lời bị cắt (thấy khi chạy thật, groove-gd1_29).
+pub const LEFT_COLUMN: (f32, f32, f32) = (0.25, 150., 300.);
+pub const RIGHT_COLUMN: (f32, f32, f32) = (0.32, 190., 340.);
 const COVER_CACHE: usize = 4;
 
 /// `<bài> - <nghệ sĩ> | Groove X`; bài không có nghệ sĩ thì bỏ phần `- <nghệ sĩ>`. Không có bài thì `None` (về tên trang).
@@ -107,8 +108,9 @@ impl NowPlaying {
         let lyrics_dialog = ops.clone().map(|ops| cx.new(|cx| TextDialog::lyrics(ops, window, cx)));
         let timeline_dialog = ops.clone().map(|ops| cx.new(|cx| timeline_dialog::timeline(ops, window, cx)));
         let subscriptions = vec![
-            cx.subscribe_in(&player, window, |this, _, event: &PlayerEvent, _, cx| {
+            cx.subscribe_in(&player, window, |this, _, event: &PlayerEvent, window, cx| {
                 if matches!(event, PlayerEvent::TrackChanged) {
+                    this.close_stale_metadata(window, cx);
                     this.track_changed(cx);
                 }
             }),
@@ -140,33 +142,34 @@ impl NowPlaying {
         view
     }
 
+    #[cfg(test)]
     pub fn timeline_box(&self) -> &Entity<TimelineBox> {
         &self.timeline_box
     }
 
+    #[cfg(test)]
     pub fn lyrics_panel(&self) -> &Entity<LyricsPanel> {
         &self.lyrics_panel
     }
 
+    #[cfg(test)]
     pub fn queue_panel(&self) -> &Entity<QueuePanel> {
         &self.queue_panel
     }
 
+    #[cfg(test)]
     pub fn lyrics_dialog(&self) -> Option<&Entity<TextDialog>> {
         self.lyrics_dialog.as_ref()
     }
 
+    #[cfg(test)]
     pub fn timeline_dialog(&self) -> Option<&Entity<TextDialog>> {
         self.timeline_dialog.as_ref()
     }
 
+    #[cfg(test)]
     pub fn metadata_dialog(&self) -> Option<&Entity<MetadataDialog>> {
         self.metadata_dialog.as_ref()
-    }
-
-    /// Accent đang dùng cho quầng (cho test).
-    pub fn accent(&self) -> Option<Hsla> {
-        self.accent
     }
 
     /// Khung đổi màn: tiêu đề cửa sổ chỉ là của màn này khi đang ở đây (`Shell` đã xoá tiêu đề riêng khi rời màn).
@@ -181,6 +184,16 @@ impl NowPlaying {
         }
         let title = window_title(self.player.read(cx).current_song()).map(SharedString::from);
         (self.set_title)(title, cx);
+    }
+
+    /// Đổi bài thì đóng hộp metadata của bài cũ (đặc tả 1.5). `TrackChanged` cũng đến khi vừa lưu bài đang mở: khi đó giữ nguyên.
+    fn close_stale_metadata(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let current = self.player.read(cx).current_track().cloned();
+        if let Some(dialog) = self.metadata_dialog.clone()
+            && current.as_ref() != Some(dialog.read(cx).track())
+        {
+            dialog.update(cx, |dialog, cx| dialog.close(window, cx));
+        }
     }
 
     fn track_changed(&mut self, cx: &mut Context<Self>) {
@@ -528,6 +541,12 @@ mod view_tests {
         dialog.update_in(cx, |d, window, cx| d.close(window, cx));
         panel.update(cx, |_, cx| cx.emit(LyricsPanelEvent::Metadata));
         assert!(view.read_with(cx, |v, _| v.metadata_dialog().is_some()));
+
+        // Đổi bài: hộp metadata của bài cũ đóng (đặc tả 1.5).
+        rig.player.update(cx, |p, cx| p.next(cx));
+        rig.until(cx, "metadata closes on track change", |cx| {
+            view.read_with(cx, |v, cx| v.metadata_dialog().is_none_or(|d| !d.read(cx).is_open()))
+        });
     }
 
     /// C4 bấm một dòng hàng đợi phát bài đó.

@@ -172,6 +172,7 @@ impl CoverPane {
         self.hovered
     }
 
+    #[cfg(test)]
     pub fn problem(&self) -> Option<CoverProblem> {
         self.problem
     }

@@ -124,16 +124,19 @@ impl QueuePanel {
         panel
     }
 
+    #[cfg(test)]
     /// Số bài đang hiển thị (cho test).
     pub fn len(&self) -> usize {
         self.tracks.len()
     }
 
+    #[cfg(test)]
     /// Dòng đã dựng, `None` là chưa tra xong (cho test).
     pub fn rows(&self) -> &[Option<Row>] {
         &self.rows
     }
 
+    #[cfg(test)]
     pub fn current(&self) -> Option<usize> {
         self.current
     }
@@ -235,6 +238,7 @@ impl Render for QueuePanel {
         let header = div()
             .flex_none()
             .flex()
+            .flex_wrap()
             .items_baseline()
             .gap_2()
             .px_4()
@@ -252,7 +256,7 @@ impl Render for QueuePanel {
                 .px_6()
                 .text_center()
                 .text_color(c.muted)
-                .child(t!("now_playing.queue.empty"))
+                .child(div().w_full().child(t!("now_playing.queue.empty")))
                 .into_any_element()
         } else {
             let rows = self.rows.clone();

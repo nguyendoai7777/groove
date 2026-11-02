@@ -62,6 +62,7 @@ impl EqPanel {
         EqPanel { eq: EqSettings::default() }
     }
 
+    #[cfg(test)]
     pub fn eq(&self) -> &EqSettings {
         &self.eq
     }
