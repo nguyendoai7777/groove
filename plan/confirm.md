@@ -219,6 +219,11 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-ui-settings] Không dùng phông đơn cách cho nhãn dB — web dùng `font-mono` — app chưa khai phông đơn cách nào và máy mỗi OS một tên phông — nhãn dB dùng phông chung của app.
 - [groove-ui-settings] Bỏ dòng ghi chú dưới bảng EQ (khoá `settings.eq.note`) và khoá `band_label` — bản web không có, dòng đó chiếm chỗ của bảng — bỏ ở cả hai ngôn ngữ; thêm `settings.eq.bass_boost_hint` cho dòng mô tả của thẻ bass; ô chọn mẫu bỏ nhãn phía trên, `settings.eq.preset` thành tiền tố "Mẫu cài sẵn:" cạnh ô chọn. Nhãn thẻ bass giữ "Tăng bass" (bản web viết hoa từng chữ, D-13).
 
+- [groove-ui-nav] Side nav tự dựng hàng điều hướng ở groove, không dùng `materiant::tabs::Tabs::nav` — dùng Tabs.nav — Tabs.nav có vạch trượt 2 px, icon chỉ nhận `IconName` của materiant, một màu cho cả icon và chữ; bản web cần vạch 3 px đứng, icon accent-light + chữ trắng khi chọn, hover đổi riêng icon / chữ, kèm chế độ thu chỉ icon.
+- [groove-ui-nav] Màu hàng nav: icon + vạch `#22d3ee` (accent-light), chữ trắng đậm khi chọn; muted `#a1a1aa`, hover `#d4d4d8` — `primary_ink` của materiant — `primary_ink` ở theme tối là cyan pha trắng, lệch màu web; theme sáng vẫn dùng `primary`.
+- [groove-ui-nav] Thanh nhảy chạy một `with_animation` lặp 2 713 200 ms (bội chung nhỏ nhất của bốn chu kỳ 600 / 760 / 560 / 680 ms), mỗi thanh tính pha riêng — chu kỳ 1200 ms sin như cũ — web có bốn thời lượng không chung bội nhỏ, nhịp tổng hợp khớp thật; trần 30 khung/s.
+- [groove-ui-nav] Thanh nhảy tạm dừng đứng ở giữa hai đầu mút (scaleY 0.525 / 0.575 / 0.5 / 0.55) — giữ đúng khung đang chạy như web — GPUI không giữ pha qua lần vẽ lại, vẽ lại từ trạng thái chạy cần lưu thời điểm dừng ở từng nơi dùng; hình giữa nhịp trông giống khung đóng băng.
+- [groove-ui-nav] Bỏ `PlayingBars::color` và màu `primary_ink` ở ba nơi gọi — giữ tuỳ chỉnh màu — web luôn dùng `--deco-visualizer-color` mặc định cyan-400.
 ## groove-ui-card
 
 - [groove-ui-card] Thẻ lưới: đệm 12 px, viền 2 px, thẻ rounded_xl, bìa tự bo rounded_lg và cắt góc, chữ cách bìa 12 px, dòng phụ cách 4 px — giữ bố cục cũ viền sát bìa — đúng p-3 rounded-xl border-2 và mt-3, mt-1 của music-card.vue; nền thẻ 40%, hover 60% theo bg-theme-bg-card.
