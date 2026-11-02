@@ -2,7 +2,7 @@
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Trạng thái | 🔄 |
+| Trạng thái | ✅ (02/11/2026) |
 | Repo | groove |
 | Model | opus |
 | Cỡ | ~400 dòng |
@@ -30,3 +30,48 @@
 
 ## 2. Không làm trong task này
 - Không thêm tính năng ngoài đặc tả; không sửa bản Tauri + Vue (G-1).
+
+## 2b. Phân vai
+
+Toàn bộ `[opus]`. Kiểm tay `[owner-qa]`: ba mục `groove-gd1_25` ở `plan/_backlog.md`.
+
+## 6. Nghiệm thu
+
+| Case | Cho / Khi / Thì | Phủ |
+| --- | --- | --- |
+| C1 | Có phiên chính, phiên sau là tiến trình thật / gửi tệp tương đối / phiên sau thoát, tệp ghép với `cwd` của nó | `second_process_forwards_and_exits` |
+| C2 | 8 bên đua cùng lúc / thì đúng một phiên chính, 7 yêu cầu tới đủ | `racing_processes_elect_one_primary_and_lose_nothing` |
+| C3 | Rác, dòng quá 1 MiB, `.exe`, thiết bị Windows, NUL / thì bị bỏ, không focus, server vẫn phục vụ | `server_filters_input_and_survives_junk`, `oversized_and_junk_lines_are_rejected`, `resolve_refuses_devices_and_drive_relative_paths`, `nul_in_a_path_is_refused` |
+| C4 | Pipe đã có chủ / giành lần hai thì `AddrInUse`; DACL đúng một SID; so thư mục exe của server | `second_claim_is_refused`, `descriptor_grants_only_the_current_user`, `same_directory_ignores_case_and_file_name` |
+| C5 | N6: ba tệp ngoài, ba yêu cầu sát nhau / tệp đầu phát, hai tệp sau vào hàng đợi | `requests_close_together_become_one_queue` |
+| C6 | N6: tệp ngoài thứ hai mở khi tệp ngoài thứ nhất đang phát / thì phát | `second_external_open_later_takes_over` |
+| C7 | S22: `BÀI.MP3`, đủ sáu đuôi | `resolve_keeps_only_audio` |
+| C8 | S22: `argv` đứng trước yêu cầu của phiên khác, không hẹn giờ | `initial_paths_come_first` |
+| C9 | Mở lại không kèm tệp / chỉ focus | `empty_open_only_activates`, `empty_request_only_focuses` |
+| C10 | Unix: socket chết sau crash được dọn, 0600 trong 0700 | `stale_socket_is_cleaned_up`, `socket_is_private`: máy này chỉ biên dịch, chưa chạy |
+| C11 | Cửa sổ thu nhỏ thật lên trước, Finder, Wayland | `[owner-qa]` |
+
+## 8. Nợ chuyển task khác
+
+- Task 29: `main.rs` dùng `std::env::args()`, panic nếu `argv` không phải Unicode, nên phiên đầu mở tệp tên hỏng là sập. Task này không được sửa `main.rs`; đã ghi vào task 29.
+- Task 27: NSIS, `Info.plist`, `.desktop` (`%F`) của đặc tả 5.6. Đã ghi bàn giao.
+
+## 9. Bàn giao thực tế
+
+**Kiểm** (cwd worktree, `CARGO_TARGET_DIR` riêng): `cargo build`, `clippy --workspace --all-targets -D warnings`, `cargo deny check licenses` xanh. `cargo test -p groove-app` chạy lặp 8 lần xanh. Test của task: endpoint `for_test`, `FakeOutput`, không thư viện, không phiên: không ra loa, không chạm DB thật, không đụng liên kết định dạng, không mở cửa sổ.
+
+**Test chập chờn khi máy bận, không thuộc task này, chưa sửa**: `groove-audio engine::tests::idle_closes_stream_and_keeps_position` và `groove-app player::tests::volume_and_mute_reach_the_engine` mỗi cái đỏ một lần lúc các làn khác đang build, chạy lại thì xanh. Là test của task khác, làn này không được sửa tệp của chúng; nguyên nhân chưa điều tra, "do máy bận" mới là suy đoán.
+
+**Chưa kiểm**: chưa mở app thật: máy một màn, và kiểm thật phải giành focus, ra loa (`plan/_backlog.md`). Vì vậy `run_app`, `bring_to_front` với cửa sổ thật, `forward_to_primary` với endpoint thật chưa chạy lần nào, chỉ biên dịch. Mã Unix: `cargo check --all-targets` cho `x86_64-unknown-linux-gnu`, `aarch64-apple-darwin` xanh trên `instance.rs` qua crate tạm (cả app không biên dịch chéo được vì `wayland-backend`, `libsqlite3-sys`), chưa chạy. `open_paths.rs` trên Unix chưa biên dịch chéo.
+
+**API đã khoá**:
+
+- `instance::forward_to_primary() -> bool`, `instance::take_incoming()`, `ForwardMessage { paths, cwd }`.
+- `open_paths::run_app(application, on_ready)`, `open_paths::resolve(paths, cwd)`, `open_paths::positional_args(args)`, `OpenRequest { paths, activate }`.
+- `run_app` bọc `Application::run`: bơm yêu cầu cài sau toàn bộ closure của `app::run`, nên thứ tự các lời gọi trong closure không ảnh hưởng. Task khác vẫn thêm dòng vào closure như cũ.
+
+**Quyết định** (Opus chọn 02/11/2026): các dòng `groove-gd1_25` ở `plan/confirm.md`.
+
+**Đã sửa ngoài phạm vi**: `plan/_backlog.md` trên `master` còn dấu xung đột và dòng trùng, đã gỡ.
+
+**Soi cải tiến**: bảo mật: pipe một SID + instance đầu, phiên sau kiểm exe server trước khi lộ đường dẫn, Unix 0600 / 0700, dòng có trần 1 MiB, không log đường dẫn. UI/UX: focus ngay, phát sau 200 ms. RAM: thêm một luồng accept, luồng đọc ngắn, không phụ thuộc mới; chưa đo. Pro: không áp.
