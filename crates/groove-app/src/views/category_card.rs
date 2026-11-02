@@ -4,9 +4,9 @@
 //! "chưa rõ nghệ sĩ", thư mục là đường dẫn, playlist là số bài. Thẻ chỉ báo lên: mở danh sách, Play all, Delete — nghiệp
 //! vụ (phát, hộp xác nhận, xoá) là của task 17.
 //!
-//! Bản cũ phóng bìa 1,05 khi rê và có quầng bóng accent, chuyển 300 ms; GPUI `div` không có `scale`, bóng mờ, chuyển
-//! tiếp nên giữ viền accent 2 px bo `rounded_xl`, đệm 12 px, bìa tự bo `rounded_lg` và cắt góc (đặc tả mục 4). Số đo lấy
-//! từ `music-card.vue`: `p-3 rounded-xl border-2`, bìa `rounded-lg`, chữ `mt-3`, dòng phụ `mt-1`.
+//! Hover như `music-card.vue`: viền accent 2 px, nền thẻ 40% lên 60%, quầng bóng accent, lớp phủ hiện dần 300 ms, bìa phóng
+//! 1,05 trong 500 ms (`with_animation`, chỉ chạy lúc đổi trạng thái). Số đo: `p-3 rounded-xl border-2`, bìa `rounded-lg`, chữ
+//! `mt-3`, dòng phụ `mt-1`. Không làm được: `backdrop-blur` của lớp phủ.
 
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -21,8 +21,8 @@ use materiant::button::IconButton;
 use materiant::gpui_kit as gpui;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    Animation, AnimationExt, AnyElement, App, BoxShadow, ClickEvent, Entity, FontWeight, Hsla, IntoElement, ParentElement,
-    RenderOnce, SharedString, Styled, Window, div, point, px, relative,
+    Animation, AnimationExt, AnyElement, App, BoxShadow, ClickEvent, Entity, FontWeight, Hsla, IntoElement,
+    ParentElement, RenderOnce, SharedString, Styled, Window, div, point, px, relative,
 };
 use materiant::menu::ContextMenuExt;
 use materiant::overlay::tooltip::TooltipExt;
@@ -229,9 +229,10 @@ impl RenderOnce for CategoryCard {
             .child(action(("card-play", id), GrooveIcon::Play, t!("library.card.play_all"), false, on_play))
             .child(action(("card-delete", id), GrooveIcon::Delete, t!("library.card.delete"), true, on_delete));
 
-        let overlay = animated(overlay, SharedString::from(format!("{group}-overlay-{}", state.seq)), state, FADE, |el, p| {
-            if p <= 0. { el.invisible() } else { el.opacity(p) }
-        });
+        let overlay =
+            animated(overlay, SharedString::from(format!("{group}-overlay-{}", state.seq)), state, FADE, |el, p| {
+                if p <= 0. { el.invisible() } else { el.opacity(p) }
+            });
         // Bìa phóng 1,05 trong khung đã cắt góc: ảnh lớn hơn khung và lệch đều bốn phía.
         let cover = animated(
             div().absolute().child(cover),
