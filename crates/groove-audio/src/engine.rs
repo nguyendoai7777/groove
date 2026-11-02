@@ -335,14 +335,18 @@ impl Worker {
     fn run(mut self) {
         let mut wait = Duration::ZERO;
         loop {
-            match self.rx.recv_timeout(wait) {
-                Ok(message) => {
-                    if self.collect(message) {
-                        return;
+            // Còn việc thì không gọi `recv_timeout`, kể cả với 0: nó `snooze` (có `yield_now`) trước khi xét hạn giờ, máy bận là
+            // mỗi gói giải mã phải xếp hàng lại xin CPU, decoder tụt xuống dưới tốc độ phát.
+            if !wait.is_zero() {
+                match self.rx.recv_timeout(wait) {
+                    Ok(message) => {
+                        if self.collect(message) {
+                            return;
+                        }
                     }
+                    Err(RecvTimeoutError::Timeout) => {}
+                    Err(RecvTimeoutError::Disconnected) => return,
                 }
-                Err(RecvTimeoutError::Timeout) => {}
-                Err(RecvTimeoutError::Disconnected) => return,
             }
             while let Ok(message) = self.rx.try_recv() {
                 if self.collect(message) {
