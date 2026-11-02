@@ -1,1 +1,66 @@
 # Vùng library: khoá viết không tiền tố, tra bằng t!("library.<khoá>").
+
+[title]
+my_music = "Thư viện"
+playlists = "Danh sách phát"
+
+[tab]
+albums = "Album"
+folders = "Thư mục"
+
+[action.import]
+title = "Không thấy đủ nhạc?"
+hint = "Chỉ cho Groove X nơi có nhạc"
+
+[action.rescan]
+title = "Album hiển thị sai?"
+hint = "Đọc lại thẻ từ đĩa"
+running = "Đang đọc lại thẻ..."
+
+[action.create_playlist]
+title = "Tạo danh sách phát mới"
+hint = "Gom các bài yêu thích lại với nhau"
+
+[card]
+unknown_artist = "Chưa rõ nghệ sĩ"
+items = "{count} bài"
+play_all = "Phát tất cả"
+delete = "Xoá"
+
+[importing]
+title = "Đang nhập..."
+hint = "Đang quét thư mục"
+
+[empty.albums]
+title = "Chưa có album"
+hint = "Nhập thư mục có tệp nhạc kèm thông tin album để thấy chúng ở đây."
+
+[empty.folders]
+title = "Chưa nhập thư mục nào"
+hint = "Bấm thẻ phía trên để nhập thư mục chứa nhạc."
+
+[empty.playlists]
+title = "Chưa có danh sách phát"
+hint = "Tạo danh sách phát mới để gom các bài hát lại với nhau."
+
+# Mở thư viện thất bại. Chi tiết kỹ thuật chỉ ghi vào log, không hiện lỗi thô.
+[open_error.too_new]
+title = "Thư viện do bản Groove X mới hơn tạo ra"
+hint = "Hãy cập nhật ứng dụng. Groove X không mở và không ghi đè dữ liệu này."
+
+[open_error.legacy_failed]
+title = "Không chuyển được thư viện của bản cũ"
+hint = "Bạn có thể thử lại. Chọn bắt đầu mới thì Groove X dùng thư viện trống và không chuyển lại dữ liệu cũ nữa, tệp cũ vẫn được giữ nguyên."
+retry = "Thử lại"
+start_fresh = "Bắt đầu mới"
+
+[open_error.other]
+title = "Không mở được thư viện"
+hint = "Tệp thư viện không đọc được. Thông tin chi tiết nằm trong tệp log."
+
+[open_error.unavailable]
+title = "Thư viện chưa sẵn sàng"
+hint = "Groove X không khởi động được tiến trình đọc thư viện. Hãy mở lại ứng dụng."
+
+[category_pending]
+title = "Danh sách bài chưa được dựng"

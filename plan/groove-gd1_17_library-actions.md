@@ -11,6 +11,16 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `app/library_ctl.rs`, `views/{song_menu,playlist_dialog,card_menu}.rs`, `i18n/*/actions.toml` (N9, S2, S3) |
 
+## 0. Bàn giao từ groove-gd1_15 (02/11/2026)
+
+<!-- handoff: groove-gd1_15 -->
+
+- **Đã có sẵn để dùng**: màn lưới My Music / Playlists ở `views/library_page.rs` (`LibraryPage`, đã gắn vào `Slot::Library` trong `app::run` bằng `library_page::install(cx)`, hàm trả `Entity<LibraryPage>`); `views::{category_card,cover_image}`; global thư viện `app::{set_library, library, try_library}`. Chi tiết: `plan/groove-gd1_15_library-grid.md` mục 9.
+- **Nợ chuyển sang đây**: nhánh `Route::Category(..)` trong `LibraryPage::render` đang là chữ giữ chỗ; thay bằng `SongList` của task 16 (task 16 không sở hữu `library_page.rs`).
+- **Sự kiện view phát** (`LibraryPageEvent`, nghe bằng `cx.subscribe(&page, ..)`): `Open(CategoryRef)` (đã nối thành `app::navigate`), `PlayAll(CategoryRef)`, `Delete(CategoryRef)`, `Import`, `Rescan`, `CreatePlaylist`. Task này nghe `PlayAll` / `Delete` / `Import` / `Rescan` / `CreatePlaylist`, làm hộp thoại và nghiệp vụ, rồi báo ngược `set_importing(bool, cx)`, `set_rescanning(bool, cx)`; view tự nạp lại lưới khi nhận `LibraryEvent::{Synced, PlaylistsChanged}`. Tên lấy lại entity: `library_page::install` đã trả về; hoặc đăng ký nghe trong `install` bằng một lời gọi của task này ở `app::run`.
+- **Bẫy đã gặp**: `occlude()` quanh nút trong lớp phủ thẻ làm `group_hover` tắt (nút biến mất dưới con trỏ); dùng `cx.stop_propagation()` trong `on_click`. Test view dùng thư viện thật ở thư mục tạm cần `cx.executor().allow_parking()` (luồng đọc đánh thức future từ thread khác), mẫu ở mục test của `library_page.rs`.
+- **Soát lại khi làm**: không mở DB người dùng khi chạy thử hay test, dùng `LibraryConfig` thư mục tạm.
+
 ## 0. Bàn giao từ groove-gd1_08 (02/11/2026)
 
 <!-- handoff: groove-gd1_08 -->

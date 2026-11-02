@@ -480,7 +480,7 @@ Rủi ro theo OS:
 | --- | --- | --- |
 | Windows | WASAPI shared ép tần số thiết bị | `rubato` đổi về `default_output_config`; rút tai nghe: stream lỗi ⇒ dựng lại trên thiết bị mặc định, giữ vị trí |
 | macOS | CoreAudio đổi thiết bị khi đang phát | Như trên; test trên Intel và Apple Silicon |
-| Linux | `cpal` đi qua ALSA ⇒ `alsa-sys` link động `libasound.so` (**LGPL-2.1**) | **Phải hỏi chủ dự án** (luật LGPL ở `CLAUDE.md`, D-2; D-9 không thay luật này). `cargo deny` không thấy thư viện hệ thống này. Link động, không kèm vào bản cài. Trên Ubuntu chạy qua lớp ALSA của PipeWire; cần test |
+| Linux | `cpal` đi qua ALSA ⇒ `alsa-sys` link động `libasound.so` (**LGPL-2.1**) | Chủ dự án đã chấp nhận (G-2). `cargo deny` không thấy thư viện hệ thống này. Link động, không kèm vào bản cài. Trên Ubuntu chạy qua lớp ALSA của PipeWire; cần test |
 | Mọi OS | Symphonia chưa giải HE-AAC, không có Opus | Tệp `m4a` HE-AAC vào đường `Error` (N5). Cần soát tỉ lệ tệp này trong thư viện thật; `<audio>` của WebView2 phát được, nên có thể là chỗ hụt so với bản cũ |
 
 ### 5.2 Tách màu ảnh bìa
@@ -575,4 +575,4 @@ Làn UI:    00 → 03 → 14, 15, 16 → 17 → 21, 19, 20, 23, 24
 Làn OS:    25 → 27; 26
 ```
 
-Quyết định chủ dự án cần chốt, ghi `docs/decisions.md` trước task 10: chấp nhận `libasound` LGPL link động trên Linux (5.1). Việc cần chạy thật mới biết, nghiệm thu ở task tương ứng: Symphonia với HE-AAC trong thư viện thật, chữ trong cửa sổ Blurred, kéo cửa sổ acrylic trên Windows 10, `lofty` ghi `TIMELINE` vào M4A, thẻ `id3` đa giá trị.
+Việc cần chạy thật mới biết, nghiệm thu ở task tương ứng: Symphonia với HE-AAC trong thư viện thật, chữ trong cửa sổ Blurred, kéo cửa sổ acrylic trên Windows 10, `lofty` ghi `TIMELINE` vào M4A, thẻ `id3` đa giá trị.
