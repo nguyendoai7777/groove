@@ -314,6 +314,8 @@ impl Render for QueuePanel {
             };
             let (select, activate) = (this.clone(), this.clone());
             VirtualList::new("np-queue-rows", count, px(ROW_HEIGHT), render_row)
+                // Space là phím phát / dừng toàn cục: không để nó bật vòng focus quanh hàng đợi.
+                .focus_ring(false)
                 .selected(self.cursor.or(current))
                 .on_select(move |ix: &usize, _, cx| {
                     let ix = *ix;
