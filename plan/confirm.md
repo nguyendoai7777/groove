@@ -238,7 +238,7 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 
 ## ui-player-bar
 
-- [ui-player-bar] Nút Play giữa thanh vùng bấm tròn 48 px, icon 36 px — 60 px như `toggle-play.vue` — thanh Rust cao 90 px, khung 60 px đẩy hàng tua xuống sát đáy; phần nhìn thấy (icon 36 px) vẫn đúng cỡ web.
+- [ui-player-bar-2] Nút Play vùng bấm tròn 60 px, icon 36 px như `toggle-play.vue` (thay 48 px của lượt trước) — giữ 48 px — chụp thử thanh 90 px vẫn gọn: hàng nút 60 px + `mb-1` + hàng tua nằm trọn trong thanh.
 - [ui-player-bar] Nút Play không nền, không đổi màu khi rê (đúng web), chỉ thêm vòng focus khi Tab tới — nền cyan tròn của bản Rust cũ — chủ dự án muốn khớp web.
-- [ui-player-bar] Nút tròn dùng `IconButton::rounded_full()` sẵn có của materiant (hover, nhấn, ripple đều theo bo góc), không thêm API ở materiant — thêm tuỳ chọn mới — đã có, thêm nữa là trùng.
-- [ui-player-bar] Giữ cỡ, màu icon nút phụ như cũ (Shuffle / Repeat bật màu nhấn, không xanh lá `green-500` của web; hộp 32 px thay 36 px) — đổi theo web — ngoài phạm vi việc (chỉ vùng hover tròn và nút Play).
+- [ui-player-bar-2] Thêm ở materiant `.ink` / `.hover_ink` (Button, IconButton) và `IconButton::icon_size`, icon đổi màu theo group hover của nút — vẽ nút riêng ở groove — `icon-btn.vue` cần chữ phụ rê thành chữ chính, hộp 36 icon 28; materiant cũ cố định màu icon lúc nghỉ và cỡ icon 62,5 % hộp.
+- [ui-player-bar-2] Nút phụ: hộp 36 px icon 28 px (Settings 24 / 20), cách nhau 16 px (`gap-4`), bên phải 12 px (`gap-3`); tắt dùng `muted` rê thành `text` của theme, bật xanh `#22c55e` cả lúc rê; nền rê là màu chữ (bật: xanh) 9 % — overlay `currentColor` của Vuetify — màu muted của theme materiant (#a3a3a3 tối) lệch 1 bậc so với `#a1a1aa` của web, giữ theme để sáng / tối cùng đúng.
