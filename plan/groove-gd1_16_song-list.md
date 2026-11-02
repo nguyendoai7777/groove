@@ -11,6 +11,15 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `views/{song_list,song_row}.rs`, `i18n/*/song_list.toml` |
 
+## 0. Bàn giao từ groove-gd1_03 (02/11/2026)
+
+<!-- handoff: groove-gd1_03 -->
+
+- **Chỗ đặt**: danh sách bài của một category nằm trong `Slot::Library` cùng task 15 (đặc tả 1.2); task 15 sở hữu `library_page.rs` và là bên gắn `SongList` vào slot, task này chỉ cần xuất view `SongList` nhận `CategoryRef`. Điều hướng vào / ra: `app::navigate(Route::Category(..), cx)`, `app::go_back(cx)`.
+- **Chữ ký ở `app::`** (chi tiết `plan/groove-gd1_03_app-shell.md` mục 9): `Slot::{PlayerBar, Library, NowPlaying}`, `install_slot(slot, view, cx)`, `navigate(Route, cx)`, `current_route(cx)`, `settings(cx)`, `update_settings(cx, |s| …)`, `shell(cx)` phát `ShellEvent`.
+- **Icon sẵn**: `GrooveIcon::{Play, Artist, Song, Edit, LyricsBubble, Delete}`.
+- **Bẫy**: `#[derive(IntoElement)]` ở bản không test cần `use materiant::gpui_kit as gpui;`.
+
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 16. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 1. Làm gì
