@@ -29,3 +29,8 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_04] `position` playlist cũ theo tên tệp — theo thứ tự thêm — bản cũ hiện theo tên tệp, không lưu thứ tự thêm.
 - [groove-gd1_04] DB cũ hỏng trả lỗi cho caller, không tự tạo thư viện trống — tự tạo rồi im lặng — tạo rồi thì không bao giờ thử chuyển lại.
 - [groove-gd1_04] `search_key` giữ dấu câu theo S18 — bỏ như bản cũ — `AC/DC` không còn khớp `acdc`, đổi lại `-` không khớp tất cả.
+
+## groove-gd1_10
+
+- [groove-gd1_10] HE-AAC báo ngầm (18/1002 bài, 1,8%) vẫn phát, nhưng chỉ lõi LC, mất dải cao trên khoảng 11 kHz — đẩy vào `Error` như đặc tả 5.1, hoặc thêm bộ giải có SBR — thà nghe được còn hơn bỏ bài, và symphonia không báo SBR khi mở tệp.
+- [groove-gd1_10] Âm lượng `v²` áp ở callback nên cảm giác âm lượng khác bản cũ (S23) — giữ tuyến tính — đặc tả S23 yêu cầu.

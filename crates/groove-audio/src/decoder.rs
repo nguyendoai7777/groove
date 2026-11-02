@@ -1,7 +1,8 @@
 //! groove-gd1_10: symphonia đọc tệp thành `f32` xen kẽ, [`Converter`] đổi kênh và tần số mẫu về thiết bị.
 
 use std::fs::File;
-use std::path::Path;
+use std::io::{Read, Seek, SeekFrom};
+use std::path::{Path, PathBuf};
 
 use rubato::audioadapter_buffers::direct::InterleavedSlice;
 use rubato::{Fft, FixedSync, Indexing, Resampler};
@@ -9,7 +10,7 @@ use symphonia::core::codecs::audio::{AudioDecoder, AudioDecoderOptions};
 use symphonia::core::errors::{Error as SymphoniaError, SeekErrorKind};
 use symphonia::core::formats::probe::Hint;
 use symphonia::core::formats::{FormatOptions, FormatReader, SeekMode, SeekTo, TrackType};
-use symphonia::core::io::MediaSourceStream;
+use symphonia::core::io::{MediaSource, MediaSourceStream};
 use symphonia::core::meta::MetadataOptions;
 use symphonia::core::units::{Time, TimeBase, Timestamp};
 
@@ -57,6 +58,9 @@ pub struct TrackDecoder {
     track_id: u32,
     time_base: Option<TimeBase>,
     duration_sec: f64,
+    path: PathBuf,
+    /// Đã đọc tới cuối tệp. MP4 của symphonia 0.6 sau đó không đọc được nữa dù tua về (`no atom pending read`).
+    exhausted: bool,
     /// Sau khi tua, bỏ mọi frame trước mốc này.
     seek_target: Option<Timestamp>,
     finished: bool,
@@ -68,17 +72,21 @@ impl TrackDecoder {
             std::io::ErrorKind::NotFound => AudioErrorKind::NotFound,
             _ => AudioErrorKind::Io,
         })?;
-        let source = MediaSourceStream::new(Box::new(file), Default::default());
         let mut hint = Hint::new();
         if let Some(extension) = path.extension().and_then(|ext| ext.to_str()) {
             hint.with_extension(&extension.to_ascii_lowercase());
         }
-        let format = symphonia::default::get_probe()
-            .probe(&hint, source, FormatOptions::default(), MetadataOptions::default())
-            .map_err(|err| match classify(&err) {
-                AudioErrorKind::Io => AudioErrorKind::Io,
-                _ => AudioErrorKind::Unsupported,
-            })?;
+        let format = probe(&hint, Box::new(file)).or_else(|err| {
+            // Hai thẻ ID3 liền nhau làm probe thất bại (gặp thật trong thư viện): bỏ thẻ đầu tệp rồi thử lại.
+            let mut file = File::open(path).map_err(|_| AudioErrorKind::Io)?;
+            match id3_prefix_len(&mut file) {
+                0 => Err(err),
+                start => {
+                    let source = SkipPrefix::new(file, start).map_err(|_| AudioErrorKind::Io)?;
+                    probe(&hint, Box::new(source))
+                }
+            }
+        })?;
         let track = format.default_track(TrackType::Audio).ok_or(AudioErrorKind::Unsupported)?;
         let params = track.codec_params.as_ref().and_then(|p| p.audio()).ok_or(AudioErrorKind::Unsupported)?;
         let decoder = symphonia::default::get_codecs()
@@ -90,7 +98,18 @@ impl TrackDecoder {
             _ => 0.0,
         };
         let (track_id, time_base) = (track.id, track.time_base);
-        Ok(Self { format, decoder, track_id, time_base, duration_sec, seek_target: None, finished: false })
+        let path = path.to_path_buf();
+        Ok(Self {
+            format,
+            decoder,
+            track_id,
+            time_base,
+            duration_sec,
+            path,
+            exhausted: false,
+            seek_target: None,
+            finished: false,
+        })
     }
 
     /// Độ dài theo khai báo của tệp, 0 nếu tệp không khai.
@@ -100,6 +119,9 @@ impl TrackDecoder {
 
     /// Tua chính xác. Mốc ngoài tệp thì coi như đã đọc hết, không phải lỗi.
     pub fn seek(&mut self, sec: f64) -> Result<(), AudioErrorKind> {
+        if self.exhausted {
+            *self = Self::open(&self.path)?;
+        }
         self.finished = false;
         let time = Time::try_from_secs_f64(sec.max(0.0)).unwrap_or(Time::ZERO);
         let to = SeekTo::Time { time, track_id: Some(self.track_id) };
@@ -165,8 +187,74 @@ impl TrackDecoder {
             out.drain(..skip * spec.channels);
             return Ok(Some(spec));
         }
+        self.exhausted = self.exhausted || !self.finished;
         self.finished = true;
         Ok(None)
+    }
+}
+
+fn probe(hint: &Hint, source: Box<dyn MediaSource>) -> Result<Box<dyn FormatReader>, AudioErrorKind> {
+    let stream = MediaSourceStream::new(source, Default::default());
+    symphonia::default::get_probe().probe(hint, stream, FormatOptions::default(), MetadataOptions::default()).map_err(
+        |err| match classify(&err) {
+            AudioErrorKind::Io => AudioErrorKind::Io,
+            _ => AudioErrorKind::Unsupported,
+        },
+    )
+}
+
+/// Tổng độ dài các thẻ ID3v2 ở đầu tệp, 0 nếu không có.
+fn id3_prefix_len(file: &mut File) -> u64 {
+    let mut offset = 0;
+    let mut header = [0u8; 10];
+    while file.seek(SeekFrom::Start(offset)).is_ok()
+        && file.read_exact(&mut header).is_ok()
+        && header.starts_with(b"ID3")
+    {
+        let size = header[6..10].iter().fold(0u64, |acc, byte| (acc << 7) | u64::from(byte & 0x7F));
+        offset += 10 + size;
+    }
+    offset
+}
+
+/// Tệp nhìn như bắt đầu từ `start`.
+struct SkipPrefix {
+    file: File,
+    start: u64,
+    len: u64,
+}
+
+impl SkipPrefix {
+    fn new(mut file: File, start: u64) -> std::io::Result<Self> {
+        let len = file.seek(SeekFrom::End(0))?.saturating_sub(start);
+        file.seek(SeekFrom::Start(start))?;
+        Ok(Self { file, start, len })
+    }
+}
+
+impl Read for SkipPrefix {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.file.read(buf)
+    }
+}
+
+impl Seek for SkipPrefix {
+    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+        let pos = match pos {
+            SeekFrom::Start(at) => SeekFrom::Start(at + self.start),
+            other => other,
+        };
+        Ok(self.file.seek(pos)?.saturating_sub(self.start))
+    }
+}
+
+impl MediaSource for SkipPrefix {
+    fn is_seekable(&self) -> bool {
+        true
+    }
+
+    fn byte_len(&self) -> Option<u64> {
+        Some(self.len)
     }
 }
 
@@ -198,9 +286,9 @@ impl Converter {
                 .map_err(|_| AudioErrorKind::Unsupported)
             })
             .transpose()?;
-        let (resampled, delay_left) = resampler.as_ref().map_or((Vec::new(), 0), |r: &Fft<f32>| {
-            (vec![0.0; r.output_frames_max() * channels], r.output_delay())
-        });
+        let (resampled, delay_left) = resampler
+            .as_ref()
+            .map_or((Vec::new(), 0), |r: &Fft<f32>| (vec![0.0; r.output_frames_max() * channels], r.output_delay()));
         Ok(Self {
             source,
             target,
@@ -253,9 +341,8 @@ impl Converter {
     fn run_resampler(&mut self, out: &mut Vec<f32>, draining: bool) -> Result<(), AudioErrorKind> {
         let channels = usize::from(self.target.channels.max(1));
         let Some(resampler) = &mut self.resampler else { return Ok(()) };
-        let expected = (self.frames_in as f64 * f64::from(self.target.sample_rate)
-            / f64::from(self.source.sample_rate))
-        .round() as u64;
+        let expected = (self.frames_in as f64 * f64::from(self.target.sample_rate) / f64::from(self.source.sample_rate))
+            .round() as u64;
         loop {
             let available = (self.mixed.len() - self.input_start) / channels;
             let needed = resampler.input_frames_next();
@@ -405,6 +492,41 @@ mod tests {
         converter.finish(&mut out).unwrap();
         assert_eq!(out.len(), 48_000 * 2);
         assert!(out.iter().all(|s| s.abs() < 1e-4), "nothing from before the reset");
+    }
+
+    #[test]
+    fn leading_id3_tags_are_skipped_when_probe_fails() {
+        let mut data = Vec::new();
+        for version in [3u8, 4] {
+            data.extend_from_slice(b"ID3");
+            data.extend_from_slice(&[version, 0, 0, 0, 0, 0, 20]);
+            data.extend_from_slice(&[0xFF; 20]);
+        }
+        data.extend_from_slice(b"RIFF");
+        data.extend_from_slice(&(36u32 + 400).to_le_bytes());
+        data.extend_from_slice(b"WAVEfmt ");
+        data.extend_from_slice(&16u32.to_le_bytes());
+        data.extend_from_slice(&1u16.to_le_bytes());
+        data.extend_from_slice(&1u16.to_le_bytes());
+        data.extend_from_slice(&8000u32.to_le_bytes());
+        data.extend_from_slice(&16000u32.to_le_bytes());
+        data.extend_from_slice(&2u16.to_le_bytes());
+        data.extend_from_slice(&16u16.to_le_bytes());
+        data.extend_from_slice(b"data");
+        data.extend_from_slice(&400u32.to_le_bytes());
+        data.extend_from_slice(&[1u8; 400]);
+        let path = std::env::temp_dir().join(format!("groove-audio-id3-{}.wav", std::process::id()));
+        std::fs::write(&path, data).unwrap();
+        let mut file = File::open(&path).unwrap();
+        assert_eq!(id3_prefix_len(&mut file), 60);
+        let decoder = TrackDecoder::open(&path);
+        let frames = decoder.map(|mut d| {
+            let mut out = Vec::new();
+            d.next_frames(&mut out).map(|_| out.len())
+        });
+        drop(file);
+        std::fs::remove_file(&path).unwrap();
+        assert_eq!(frames, Ok(Ok(200)));
     }
 
     #[test]

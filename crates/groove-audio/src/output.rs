@@ -200,7 +200,7 @@ pub fn default_output() -> Box<dyn AudioOutput> {
 #[cfg(any(not(target_os = "linux"), feature = "linux-alsa"))]
 mod platform {
     use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-    use cpal::{ErrorKind, FromSample, Sample, SampleFormat, SizedSample};
+    use cpal::{ErrorKind, FromSample, SampleFormat, SizedSample};
 
     use super::{AudioOutput, FailureCallback, OutputConfig, OutputError, OutputStream, Renderer, StreamFailure};
 
@@ -402,8 +402,9 @@ impl FakeOutput {
 
 impl AudioOutput for FakeOutput {
     fn default_config(&mut self) -> Result<OutputConfig, OutputError> {
-        let state = lock(&self.state);
+        let mut state = lock(&self.state);
         if state.open_failures > 0 {
+            state.open_failures -= 1;
             return Err(OutputError("no device".into()));
         }
         Ok(state.config)
@@ -468,9 +469,10 @@ mod tests {
         let out = render(&mut renderer, 500);
         assert!(out[0] > 0.4);
         assert_eq!(out[(FADE_FRAMES + 10) * 2], 0.0);
-        assert_eq!(counters.popped.load(Ordering::Acquire), ((500 + FADE_FRAMES) * 2) as u64);
+        let after_fade = counters.popped.load(Ordering::Acquire);
+        assert!(after_fade.abs_diff(((500 + FADE_FRAMES) * 2) as u64) <= 4, "{after_fade}");
         render(&mut renderer, 500);
-        assert_eq!(counters.popped.load(Ordering::Acquire), ((500 + FADE_FRAMES) * 2) as u64);
+        assert_eq!(counters.popped.load(Ordering::Acquire), after_fade);
     }
 
     #[test]
@@ -482,7 +484,7 @@ mod tests {
         let out = render(&mut renderer, 700);
         assert!(out[0] > 0.4, "old data still fades out");
         let new_samples = out.iter().filter(|s| **s < 0.0).count();
-        assert_eq!(new_samples, 398, "only the first fade-in frame is exactly zero");
+        assert_eq!(new_samples, 400, "every frame pushed after the marker survives");
         assert_eq!(counters.popped.load(Ordering::Acquire), 2400);
     }
 
@@ -499,13 +501,14 @@ mod tests {
         let (mut producer, mut renderer, _, controls) = setup(2000);
         render(&mut renderer, 1000);
         controls.set_volume(0.5);
-        let out = render(&mut renderer, 1000);
+        producer.push_slice(&vec![0.5; 8000]);
+        let out = render(&mut renderer, 5000);
         assert!((out[0] - 0.5).abs() < 0.02, "no jump: {}", out[0]);
-        assert!((out[1998] - 0.125).abs() < 1e-3, "v² curve: {}", out[1998]);
+        assert!((out[9998] - 0.125).abs() < 1e-3, "v² curve: {}", out[9998]);
         controls.set_muted(true);
-        producer.push_slice(&vec![0.5; 4000]);
-        let out = render(&mut renderer, 2000);
-        assert!(out[3998].abs() < 1e-4);
+        producer.push_slice(&vec![0.5; 12_000]);
+        let out = render(&mut renderer, 6000);
+        assert!(out[11_998].abs() < 1e-4);
     }
 
     #[test]

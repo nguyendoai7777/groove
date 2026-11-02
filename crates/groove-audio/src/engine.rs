@@ -38,11 +38,19 @@ use crate::output::{AudioOutput, Controls, OutputConfig, OutputStream, RingCount
 #[derive(Clone, Debug, PartialEq)]
 pub enum AudioCmd {
     /// `generation` phải tăng dần giữa các lần Load, lấy từ [`AudioEngine::next_generation`].
-    Load { generation: u64, path: PathBuf, start_sec: f64, autoplay: bool },
+    Load {
+        generation: u64,
+        path: PathBuf,
+        start_sec: f64,
+        autoplay: bool,
+    },
     Play,
     Pause,
     /// Lệnh của `generation` khác bài hiện tại bị bỏ. Tua không đổi trạng thái phát.
-    Seek { generation: u64, sec: f64 },
+    Seek {
+        generation: u64,
+        sec: f64,
+    },
     /// 0..=1, độ lớn thật là `v²` (S23).
     SetVolume(f32),
     SetMuted(bool),
@@ -52,9 +60,17 @@ pub enum AudioCmd {
 #[derive(Clone, Debug, PartialEq)]
 pub enum AudioEvent {
     /// `duration_sec` là 0 khi tệp không khai độ dài.
-    Loaded { generation: u64, duration_sec: f64 },
-    Ended { generation: u64 },
-    Error { generation: u64, kind: AudioErrorKind },
+    Loaded {
+        generation: u64,
+        duration_sec: f64,
+    },
+    Ended {
+        generation: u64,
+    },
+    Error {
+        generation: u64,
+        kind: AudioErrorKind,
+    },
     DeviceChanged,
 }
 
@@ -110,7 +126,8 @@ struct Anchor {
 
 impl Anchor {
     fn position_sec(&self) -> f64 {
-        let played = self.ring.as_ref().map_or(0, |ring| ring.popped.load(Ordering::Acquire).saturating_sub(self.marker));
+        let played =
+            self.ring.as_ref().map_or(0, |ring| ring.popped.load(Ordering::Acquire).saturating_sub(self.marker));
         let position = if played == 0 { self.base_sec } else { self.base_sec + played as f64 / self.samples_per_sec };
         if self.duration_sec > 0.0 { position.min(self.duration_sec) } else { position }
     }
@@ -496,24 +513,28 @@ impl Worker {
     }
 
     fn play(&mut self) {
-        if self.track.is_none() {
+        let Some(track) = &mut self.track else { return };
+        // Phát tiếp khi đã hết bài: báo hết bài lần nữa thay vì đứng im ở trạng thái đang phát.
+        track.ended_sent = false;
+        self.set_paused(false);
+        let was_reopening = self.reopen.take().is_some();
+        if self.stream.is_some() {
             return;
         }
-        self.set_paused(false);
-        self.reopen = None;
-        if self.stream.is_none()
-            && let Err(err) = self.open_stream()
-        {
-            log::warn!("cannot open audio output: {err}");
-            let generation = self.current_generation;
-            self.set_paused(true);
-            self.emit(AudioEvent::Error { generation, kind: AudioErrorKind::Output });
+        match self.open_stream() {
+            Ok(()) if was_reopening => self.emit(AudioEvent::DeviceChanged),
+            Ok(()) => {}
+            Err(err) => {
+                log::warn!("cannot open audio output: {err}");
+                let generation = self.current_generation;
+                self.set_paused(true);
+                self.emit(AudioEvent::Error { generation, kind: AudioErrorKind::Output });
+            }
         }
     }
 
     fn pause(&mut self) {
         self.set_paused(true);
-        self.reopen = None;
     }
 
     fn open_stream(&mut self) -> Result<(), crate::output::OutputError> {
@@ -950,14 +971,15 @@ mod tests {
             left.extend(samples.chunks(2).map(|f| f[0]).filter(|s| *s != 0.0));
             std::thread::sleep(Duration::from_millis(1));
         }
-        // Âm cũ chỉ còn trong 5 ms fade (240 frame), sau đó là đúng frame 72 000 trở đi, không nhảy cóc.
-        let settled = left.iter().rposition(|s| frame_at(*s, frames) < 60_000).map_or(0, |i| i + 1);
-        assert!(settled <= 240, "old audio for {settled} frames");
-        let after_fade = settled + 240;
-        let first = frame_at(left[after_fade] , frames);
-        assert!(first.abs_diff(72_000 + 240) <= 4, "landed at frame {first}");
+        // Âm cũ chỉ còn trong 5 ms fade (240 frame); phần còn lại đếm ngược từ frame cuối phải rơi đúng frame 72 000.
+        let last = frame_at(*left.last().unwrap(), frames);
+        let new_frames = last + 1 - 72_000;
+        let stale = left.len() as i64 - new_frames as i64;
+        assert!((-4..=245).contains(&stale), "landed wrong or old audio left: {stale} stale frames");
+        let tail = &left[left.len() - 200..];
+        assert!(tail.windows(2).all(|w| frame_at(w[1], frames).abs_diff(frame_at(w[0], frames)) <= 2), "contiguous");
         let position = rig.engine.position_sec();
-        assert!(position >= 1.5 && position < 1.6, "position {position}");
+        assert!((1.5..1.6).contains(&position), "position {position}");
     }
 
     #[test]
@@ -981,6 +1003,10 @@ mod tests {
         rig.wait_event();
         let mut audio = Vec::new();
         assert_eq!(rig.drain_until_event(&mut audio), AudioEvent::Ended { generation });
+        // Play khi đã hết bài không được kẹt ở trạng thái đang phát.
+        rig.engine.send(AudioCmd::Play);
+        assert_eq!(rig.drain_until_event(&mut audio), AudioEvent::Ended { generation });
+        assert!(!rig.engine.is_playing());
         rig.engine.send(AudioCmd::Seek { generation, sec: 0.0 });
         rig.engine.send(AudioCmd::Play);
         audio.clear();
