@@ -13,6 +13,19 @@
 
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 13. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
+## 0. Bàn giao từ groove-gd1_12 (02/11/2026)
+
+<!-- handoff: groove-gd1_12 -->
+
+- **Đã có sẵn để dùng**: `groove_core::queue::{Queue, QueueOutcome}`. Mỗi thao tác đổi danh sách rồi trả `QueueOutcome`, controller đổi thành lệnh engine; hàng đợi không giữ trạng thái phát (N8).
+- **Bảng đổi sang engine**: `Play(track)` nạp và phát từ đầu; `Resume` chỉ tiếp tục nếu đang dừng; `Replay` tua 0 và phát; `SeekToStart` tua 0, giữ trạng thái phát; `Stop` là `pause + seek(0)` (N8); `Nothing` không làm gì.
+- **Sự kiện**: engine báo hết bài gọi `track_ended()`, không gọi `next_track()`: chỉ `track_ended` phân biệt repeat lặp một bài. Tên là `next_track`, `prev_track`, không phải `next`, `prev`.
+- **Phiên**: `Queue::from_session(&session)` lúc mở, không tự phát, không xáo lại; `write_to(&mut session)` không đụng `position_sec`, controller tự giữ vị trí.
+- **N5**: `retain_tracks(keep)` trả `true` khi mất bài đang phát; lúc đó `current() = None`, hàng đợi còn nguyên, `next_track()` vẫn chạy và không đẩy gì vào history. Tối đa 3 lỗi liên tiếp là việc của task này, `Queue` không đếm.
+- **Thời lượng**: `timeline::parse(text, duration_sec)` cần thời lượng để chốt đoạn cuối; đổi bài xong có thời lượng thật thì parse lại.
+- **Test**: `Queue::with_seed` cho kết quả lặp lại được; `Queue::new` lấy hạt giống từ OS.
+- **Chi tiết**: `plan/groove-gd1_12_queue-timeline.md` mục 8, 9.
+
 ## 0. Bàn giao từ groove-gd1_11 (02/11/2026)
 
 <!-- handoff: groove-gd1_11 -->
