@@ -48,6 +48,13 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_12] Repeat ở cuối khi original rỗng (toàn tệp ngoài): vòng qua history + bài hiện tại — xoá history, chỉ lặp bài hiện tại — bảng 1.4 không có ca này, bản cũ thoát sớm (N6), xoá thì mất bài đã nghe.
 - [groove-gd1_12] Dòng timeline bốn phần thời gian trở lên hoặc phần rỗng (`1:2:3:4 x`, `:30 x`) bị bỏ qua — coi là đoạn ở giây 0 hoặc giây 30 như bản cũ — đặc tả 1.6 ghi dòng khác bỏ qua.
 
+## groove-gd1_06
+
+- [groove-gd1_06] WAV ghi thẻ qua `id3` — `lofty` như đặc tả 5.8 — thẻ chung của `lofty` 0.25 không đặt được `TXXX:TIMELINE`, mà WAV dùng ID3v2.
+- [groove-gd1_06] FLAC, OGG, M4A ghi trên thẻ riêng từng định dạng — `TaggedFile` như bản cũ — `TaggedFile` làm rơi `TIMELINE` và mọi khoá lạ kể cả ở Merge.
+- [groove-gd1_06] M4A: `TIMELINE` ở `----:com.apple.iTunes:TIMELINE`, publisher ở `LABEL` — bỏ như bản cũ — lofty không có khoá `Publisher` cho MP4 và âm thầm bỏ.
+- [groove-gd1_06] `tags.rs` 957 dòng mã, vượt trần 900 — tách tệp — task chỉ sở hữu hai tệp, `lib.rs` đã khoá; dòng thừa chủ yếu là nhánh theo định dạng.
+
 ## groove-gd1_07
 
 - [groove-gd1_07] `hash` là SHA-256 byte ảnh gốc — băm điểm ảnh sau giải mã — tính được trước khi giải mã nên tránh giải mã lặp; cùng ảnh khác mã hoá sẽ thành hai bộ tệp, chấp nhận.
