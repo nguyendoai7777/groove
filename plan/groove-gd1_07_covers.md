@@ -11,6 +11,14 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `library/covers.rs` |
 
+## 0. Bàn giao từ groove-gd1_04 (02/11/2026)
+
+<!-- handoff: groove-gd1_04 -->
+
+- **Phải làm**: `impl db::migrate::CoverSink`: `store(&mut self, image: &[u8]) -> anyhow::Result<CoverRecord>`, ghi `<hash>_<256|512>.jpg`, trả `CoverRecord { hash, accent_color, width, height }`. Migration tự chèn dòng `covers` và gán `cover_hash`, sink không chạm DB.
+- `image` là byte ảnh gốc đã giải base64, có thể hỏng: trả `Err`. Migration bắt cả lỗi và panic, chỉ mất bìa dòng đó.
+- **Bảng đã có**: `covers(hash PK, accent_color NN, width, height)`, `cover_hash` ở `songs`, `albums`, `folders`, `albums.cover_is_custom`.
+- **Soát lại khi làm**: sink chạy trong transaction của migration nên đừng mở kết nối DB khác; `covers_dir()` có thể chưa tồn tại, tự tạo. Test mẫu: `crates/groove-library/tests/migrate_legacy.rs`.
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 07. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 1. Làm gì
