@@ -472,6 +472,8 @@ impl SongList {
         .track(&self.list)
         .padding_x(px(PAGE_PADDING))
         .track_focus(&self.focus)
+        // Space là phím phát / dừng toàn cục: không để nó bật vòng focus quanh cả bảng.
+        .focus_ring(false)
         .selected(self.selected)
         // Chọn bằng chuột là bấm dòng ⇒ phát; chọn bằng ↑ ↓ chỉ di con trỏ, không phát.
         .on_select(cx.listener(|this, ix: &usize, window, cx| {

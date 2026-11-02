@@ -1,4 +1,4 @@
-//! Groove X: trình phát nhạc GPUI + materiant. Đặc tả: `docs/rewrite-spec.md`.
+//! Groove X: trình phát nhạc GPUI + materiant. Đặc tả: `git show 1a2480f:docs/rewrite-spec.md`.
 //!
 //! Mọi `mod` khai sẵn ở groove-gd1_01, task sau không sửa tệp này; khởi tạo của app nằm ở `app::run`.
 

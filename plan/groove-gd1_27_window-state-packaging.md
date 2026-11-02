@@ -11,7 +11,7 @@
 | Phụ thuộc mới | Không (`embed-resource` đã khai ở task 01) |
 | File đụng tới | `app/window_state.rs`, `packaging/*`; ở repo gốc: `build.ps1`, `build.sh`, `init.*`, `start.*` (nhánh groove) |
 
-Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 27. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
+Đặc tả (đã làm xong, đọc qua lịch sử git): `git show 1a2480f:docs/rewrite-spec.md`, bảng mục 6 dòng 27. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 0. Bàn giao từ groove-gd1_25 (02/11/2026)
 

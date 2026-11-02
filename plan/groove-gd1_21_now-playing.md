@@ -31,7 +31,7 @@
 - **Bẫy**: `#[derive(IntoElement)]` cần `use materiant::gpui_kit as gpui;`, nhưng alias đó làm `use gpui::…` trong `mod tests` mơ hồ: ở tệp không derive thì bỏ alias. Test view dùng `player::install_for_test` với `library: None`, `FakeOutput`, `session_file: None`, `cx.executor().allow_parking()`; mẫu ở `views/player_bar.rs` mục `tests` (`rig`, `open_bar`).
 - **Soát lại khi làm**: `cargo test -p groove-app views::player_bar` còn xanh sau khi đụng `seek_bar.rs`.
 
-Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 21. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
+Đặc tả (đã làm xong, đọc qua lịch sử git): `git show 1a2480f:docs/rewrite-spec.md`, bảng mục 6 dòng 21. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 1. Làm gì
 - Làm đúng hành vi ở mục 1 và dữ liệu ở mục 2 của đặc tả cho phạm vi "File đụng tới".

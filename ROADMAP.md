@@ -1,7 +1,7 @@
 # groove — lộ trình
 
 Viết lại trình phát nhạc Groove X từ Tauri + Vue sang Rust + GPUI + materiant (G-1). Đặc tả, lỗi cần sửa, bảng task và làn
-song song: `docs/rewrite-spec.md`. Task: `plan/groove-gd1_*.md`, trạng thái ở từng tệp task.
+song song (đã làm xong, đọc qua lịch sử git): `git show 1a2480f:docs/rewrite-spec.md`. Task: `plan/groove-gd1_*.md`, trạng thái ở từng tệp task.
 
 ## GĐ1 — viết lại (02/11/2026)
 
@@ -9,7 +9,7 @@ song song: `docs/rewrite-spec.md`. Task: `plan/groove-gd1_*.md`, trạng thái �
 | --- | --- |
 | 01-27 | ✅, đã gộp `master` |
 | 28 `localstorage-import` (tuỳ chọn) | ☐ chưa làm: bản mới chạy với mặc định, `legacy_ls.rs` là tệp rỗng, phụ thuộc `rusty-leveldb` đã khai |
-| 29 `acceptance-remove-tauri` | ☐ (quy ước không có trạng thái "chờ") mã, bảng so bản cũ (`docs/parity.md`), số đo RAM đã gộp; gỡ Tauri nằm ở nhánh `claude/remove-tauri`, chờ chủ dự án xem app thật |
+| 29 `acceptance-remove-tauri` | ☐ (quy ước không có trạng thái "chờ") mã, bảng so bản cũ (`git show 1a2480f:docs/parity.md`), số đo RAM đã gộp; gỡ Tauri nằm ở nhánh `claude/remove-tauri`, chờ chủ dự án xem app thật |
 
 Còn lại trước khi đóng GĐ1:
 
@@ -43,4 +43,4 @@ Còn lại trước khi đóng GĐ1:
 
 - Task 28 nếu chủ dự án muốn giữ EQ, phím tắt của bản Tauri.
 - Giao diện xoá bài mất vĩnh viễn trước hạn 30 ngày (`reconcile::forget_missing` đã có, chưa có đường vào từ UI; `plan/confirm.md`).
-- Đo RAM với thư viện thật và khi đang phát (`docs/parity.md`, mục Số đo RAM).
+- Đo RAM với thư viện thật và khi đang phát (`CLAUDE.md` mục Bẫy, Số đo RAM).

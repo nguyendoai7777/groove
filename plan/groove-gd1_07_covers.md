@@ -19,7 +19,7 @@
 - `image` là byte ảnh gốc đã giải base64, có thể hỏng: trả `Err`. Migration bắt cả lỗi và panic, chỉ mất bìa dòng đó.
 - **Bảng đã có**: `covers(hash PK, accent_color NN, width, height)`, `cover_hash` ở `songs`, `albums`, `folders`, `albums.cover_is_custom`.
 - **Soát lại khi làm**: sink chạy trong transaction của migration nên đừng mở kết nối DB khác; `covers_dir()` có thể chưa tồn tại, tự tạo. Test mẫu: `crates/groove-library/tests/migrate_legacy.rs`.
-Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 07. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
+Đặc tả (đã làm xong, đọc qua lịch sử git): `git show 1a2480f:docs/rewrite-spec.md`, bảng mục 6 dòng 07. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 1. Làm gì
 - Làm đúng hành vi ở mục 1 và dữ liệu ở mục 2 của đặc tả cho phạm vi "File đụng tới".

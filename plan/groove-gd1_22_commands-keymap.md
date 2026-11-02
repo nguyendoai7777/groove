@@ -19,7 +19,7 @@
 - **Test view**: `player::install` dùng thiết bị và tệp thật. Test dùng `player::install_for_test(PlayerDeps { library, output: Box::new(FakeOutput::new(48_000, 2)), options, session_file }, cx)` rồi `player::player(cx)` như thường, kèm `cx.executor().allow_parking()` vì engine, thư viện đánh thức từ luồng khác; cài đặt của nó là bản cục bộ.
 - **Lệnh**: `toggle_play`, `next`, `prev`, `play_random`, `toggle_shuffle`, `toggle_repeat`, `toggle_mute`; `seek_by(±seek_step as f64, cx)`, `adjust_volume(±volume_step as i16, cx)`, step đọc từ `app::settings(cx)`.
 
-Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 22. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
+Đặc tả (đã làm xong, đọc qua lịch sử git): `git show 1a2480f:docs/rewrite-spec.md`, bảng mục 6 dòng 22. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 0. Bàn giao từ groove-gd1_02 (02/11/2026)
 

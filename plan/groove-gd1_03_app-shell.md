@@ -29,7 +29,7 @@
 - **Bẫy đã gặp**: `CARGO_TARGET_DIR` riêng từng worktree, build nguội khoảng 3 phút; `tools/run.ps1` từ chối khi máy chỉ một màn.
 - **Nợ chuyển sang đây**: `app/app.rs` đang là cửa sổ trống còn thanh tiêu đề OS, đổi sang không viền; `run(dev: DevArgs)` giữ `display_id`, `focus: !dev.background`, `dev::replay` để `tools/run.ps1` chạy được; chừa chỗ một lời gọi khởi tạo cho từng task sau. Vùng i18n `shell`.
 
-Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 03. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
+Đặc tả (đã làm xong, đọc qua lịch sử git): `git show 1a2480f:docs/rewrite-spec.md`, bảng mục 6 dòng 03. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 1. Làm gì
 - Làm đúng hành vi ở mục 1 và dữ liệu ở mục 2 của đặc tả cho phạm vi "File đụng tới".
