@@ -56,6 +56,8 @@ Task `opus`, làm trọn một mình. `[owner-qa]`: nút taskbar thật, phím m
 
 **Hạn chế đã biết**: đổi ngôn ngữ thì tooltip nút taskbar giữ chữ cũ tới lần nút đổi trạng thái kế tiếp: `app.rs` không cho quan sát `Settings` từ ngoài. Cỡ vượt ước lượng ~550 dòng: khoảng 1.300 dòng, gần nửa là test; không tách vì hai tệp đã là phạm vi của task. Ảnh logo được ghi vào `cache_dir` khi cần, cả lúc chạy test `--ignored` SMTC.
 
+**Test nhạy gặp lúc gộp**: `app::tests::window_title_follows_route_and_override` (race ngôn ngữ từ test của task 21), `refresh_roots_starts_watching_an_imported_folder` (nhạy giờ, CPU 100%). Đều ngoài tệp của task, mỗi cái đỏ một lần, ghi `plan/_backlog.md`, không sửa. Xung đột `app.rs`, `_backlog.md`, `confirm.md` khi gộp 21, 23: giữ cả hai phía.
+
 **Soi cải tiến**: bảo mật: `cover_hash` chỉ nhận hex, log không ghi đường dẫn, `OpenUri` bỏ qua. UI/UX: DPI theo `WM_DPICHANGED`, Explorer khởi động lại thì thêm lại nút, chạy quyền admin có mở lọc UIPI. RAM: thêm hai luồng nghỉ chờ, diff trước khi gửi nên không có việc theo nhịp 250 ms; chưa đo RAM vì không mở app. Pro: không áp.
 
 ## 10. Đề xuất cải tiến

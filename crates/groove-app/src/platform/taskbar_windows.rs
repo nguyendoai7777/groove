@@ -175,7 +175,26 @@ impl Drop for Icons {
     }
 }
 
-fn buttons(state: ButtonState, icons: &Icons) -> [THUMBBUTTON; 3] {
+/// Chữ tách khỏi `buttons`: ngôn ngữ là global của tiến trình, test không nên phụ thuộc.
+struct Tips {
+    previous: &'static str,
+    play: &'static str,
+    pause: &'static str,
+    next: &'static str,
+}
+
+impl Tips {
+    fn current() -> Tips {
+        Tips {
+            previous: t!("platform.previous"),
+            play: t!("platform.play"),
+            pause: t!("platform.pause"),
+            next: t!("platform.next"),
+        }
+    }
+}
+
+fn buttons(state: ButtonState, icons: &Icons, tips: &Tips) -> [THUMBBUTTON; 3] {
     let navigation = if state.has_track { THBF_ENABLED } else { THBF_DISABLED };
     let button = |id, icon, tip: &str, flags| THUMBBUTTON {
         dwMask: THB_ICON | THB_TOOLTIP | THB_FLAGS,
@@ -185,12 +204,11 @@ fn buttons(state: ButtonState, icons: &Icons) -> [THUMBBUTTON; 3] {
         szTip: wide_tip(tip),
         dwFlags: flags,
     };
-    let (toggle_icon, toggle_tip) =
-        if state.playing { (icons.pause, t!("platform.pause")) } else { (icons.play, t!("platform.play")) };
+    let (toggle_icon, toggle_tip) = if state.playing { (icons.pause, tips.pause) } else { (icons.play, tips.play) };
     [
-        button(ID_PREV, icons.prev, t!("platform.previous"), navigation),
+        button(ID_PREV, icons.prev, tips.previous, navigation),
         button(ID_TOGGLE, toggle_icon, toggle_tip, THBF_ENABLED),
-        button(ID_NEXT, icons.next, t!("platform.next"), navigation),
+        button(ID_NEXT, icons.next, tips.next, navigation),
     ]
 }
 
@@ -250,7 +268,7 @@ impl Worker {
         if self.list.is_null() {
             return;
         }
-        let buttons = buttons(self.state, &self.icons);
+        let buttons = buttons(self.state, &self.icons, &Tips::current());
         // SAFETY: `list` là `ITaskbarList3` đã `HrInit` của chính luồng này; `buttons` sống tới hết lời gọi.
         unsafe {
             let vtbl = &*(*self.list).vtbl;
@@ -556,28 +574,27 @@ mod tests {
 
     #[test]
     fn buttons_follow_track_and_playback() {
-        // Ngôn ngữ là global của tiến trình: test của crate này đều dùng `Vi`, đặt `En` làm đỏ test song song.
-        groove_core::i18n::set_language(groove_core::i18n::Language::Vi);
         let icons = Icons::load(96);
+        let tips = Tips { previous: "P", play: "Pl", pause: "Pa", next: "N" };
         let tip = |button: &THUMBBUTTON| {
             let end = button.szTip.iter().position(|&unit| unit == 0).unwrap();
             String::from_utf16(&button.szTip[..end]).unwrap()
         };
 
-        let empty = buttons(ButtonState::default(), &icons);
+        let empty = buttons(ButtonState::default(), &icons, &tips);
         assert_eq!(empty.map(|b| b.iId), [ID_PREV, ID_TOGGLE, ID_NEXT]);
         assert_eq!(empty.map(|b| b.dwFlags), [THBF_DISABLED, THBF_ENABLED, THBF_DISABLED]);
 
-        let paused = buttons(ButtonState { has_track: true, playing: false }, &icons);
+        let paused = buttons(ButtonState { has_track: true, playing: false }, &icons, &tips);
         assert_eq!(paused.map(|b| b.dwFlags), [THBF_ENABLED; 3]);
         assert_eq!(paused[1].hIcon, icons.play);
-        assert_eq!(tip(&paused[0]), "Bài trước");
-        assert_eq!(tip(&paused[1]), "Phát");
-        assert_eq!(tip(&paused[2]), "Bài sau");
+        assert_eq!(tip(&paused[0]), "P");
+        assert_eq!(tip(&paused[1]), "Pl");
+        assert_eq!(tip(&paused[2]), "N");
 
-        let playing = buttons(ButtonState { has_track: true, playing: true }, &icons);
+        let playing = buttons(ButtonState { has_track: true, playing: true }, &icons, &tips);
         assert_eq!(playing[1].hIcon, icons.pause);
-        assert_eq!(tip(&playing[1]), "Tạm dừng");
+        assert_eq!(tip(&playing[1]), "Pa");
     }
 
     #[test]
