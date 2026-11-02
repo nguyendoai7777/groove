@@ -282,6 +282,7 @@ impl Render for SettingsDialog {
         Dialog::new("settings-dialog", &self.handle)
             .max_width(px(DIALOG_WIDTH))
             .title(t!("settings.title"))
+            .title_weight(materiant::gpui_kit::FontWeight::NORMAL)
             .divided(true)
             .flush_body(true)
             .actions(actions)

@@ -247,7 +247,7 @@ impl Render for QueuePanel {
             .px_4()
             .pt_3()
             .pb_2()
-            .child(div().text_lg().font_weight(FontWeight::BOLD).child(t!("now_playing.queue.title")))
+            .child(div().text_lg().font_weight(FontWeight::NORMAL).child(t!("now_playing.queue.title")))
             .child(div().text_sm().text_color(c.muted).child(count_label(count)));
 
         let body: AnyElement = if count == 0 {

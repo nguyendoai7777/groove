@@ -420,7 +420,7 @@ impl SongList {
             .child(
                 div()
                     .truncate()
-                    .font_weight(FontWeight::EXTRA_BOLD)
+                    .font_weight(FontWeight::NORMAL)
                     .text_size(px(if collapsed { 20. } else { 36. }))
                     .text_color(c.text)
                     .child(title),

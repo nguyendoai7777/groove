@@ -324,7 +324,7 @@ impl Render for NowPlaying {
                     .mt_4()
                     .flex_none()
                     .text_xl()
-                    .font_weight(FontWeight::BOLD)
+                    .font_weight(FontWeight::NORMAL)
                     .child(Marquee::new("now-playing-title", title)),
             )
             .child(div().flex_none().truncate().text_color(c.muted).child(artist))

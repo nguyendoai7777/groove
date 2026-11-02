@@ -112,7 +112,7 @@ impl RenderOnce for SideNav {
                         .flex_1()
                         .min_w_0()
                         .truncate()
-                        .font_weight(FontWeight::SEMIBOLD)
+                        .font_weight(FontWeight::NORMAL)
                         .text_color(c.text)
                         .child(t!("common.app_name")),
                 )

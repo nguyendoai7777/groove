@@ -201,13 +201,16 @@ impl EqPanel {
     fn header(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let c = cx.theme().colors().clone();
         let selected = EqPreset::ALL.iter().position(|preset| *preset == self.eq.preset);
-        let select = Select::new("eq-preset").items(EqPreset::ALL.map(preset_label)).selected(selected).on_change(
-            cx.listener(|this, ix: &usize, _, cx| {
+        let select = Select::new("eq-preset")
+            .label_weight(materiant::gpui_kit::FontWeight::NORMAL)
+            .selected_weight(materiant::gpui_kit::FontWeight::NORMAL)
+            .items(EqPreset::ALL.map(preset_label))
+            .selected(selected)
+            .on_change(cx.listener(|this, ix: &usize, _, cx| {
                 if let Some(preset) = EqPreset::ALL.get(*ix).copied() {
                     this.apply(move |eq| eq.select_preset(preset), cx);
                 }
-            }),
-        );
+            }));
         div()
             .flex()
             .items_center()

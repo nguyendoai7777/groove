@@ -483,7 +483,7 @@ impl LibraryPage {
             .px(px(PAGE_PADDING))
             .pb_3()
             .text_size(px(28.))
-            .font_weight(FontWeight::LIGHT)
+            .font_weight(FontWeight::NORMAL)
             .text_color(c.text)
             .child(self.title())
     }
