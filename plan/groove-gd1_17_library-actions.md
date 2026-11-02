@@ -11,6 +11,27 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `app/library_ctl.rs`, `views/{song_menu,playlist_dialog,card_menu}.rs`, `i18n/*/actions.toml` (N9, S2, S3) |
 
+## 0. Bàn giao từ groove-gd1_19 (02/11/2026)
+
+<!-- handoff: groove-gd1_19 -->
+
+- **Đã có sẵn để dùng**: `views::metadata::dialog::MetadataDialog::open(ops: MetadataOps, track: TrackRef, scope: Option<GroupScope>, window, cx) -> Entity<MetadataDialog>`. Menu bài, menu thẻ, thanh phát mở nó cho mục "Sửa thông tin". Chi tiết: mục 9 của `plan/groove-gd1_19_metadata-dialog.md`.
+- **Cách gắn**: dialog của materiant là khai báo ⇒ chủ giữ `Option<Entity<MetadataDialog>>` trong view của mình, vẽ nó làm con (`div().children(dialog.clone())`), `cx.subscribe` hai sự kiện: `Saved(Box<SavedTrack>)` để nạp lại danh sách, `Closed` để gán `None`. Cửa sổ phải bọc `Root`.
+- **`MetadataOps`**: tạo một lần `MetadataOps::new(library, CoverStore)` (`Clone`), đặt vào global hoặc `LibraryCtl`; dialog không tự tạo.
+- **`GroupScope`**: truyền `Some(GroupScope { category, songs })` khi mở từ album / thư mục có nhiều bài (ô áp cho cả mục chỉ hiện khi `songs > 1`); mở từ dòng bài trong danh sách playlist thì truyền `None` (bìa playlist không có, task 19 chưa lọc).
+- **Sau khi lưu**: dialog tự gọi `refresh_current` của player; danh sách thì chủ nạp lại từ `Saved`. Lô nhóm phát `Progress { MetadataBulk }`, không phát `Synced`.
+- **Việc của task này**: `set_category_cover` của `LibraryCtl` vẫn thuộc task này; đổi bìa nhóm chỉ đi qua dialog của 19.
+
+## 0. Bàn giao từ groove-gd1_16 (02/11/2026)
+
+<!-- handoff: groove-gd1_16 -->
+
+- **Đã có sẵn để dùng**: `views::song_list::{SongList, SongListEvent}`: `cx.new(|cx| SongList::new(reference, cx))`, đổi mục bằng `set_reference(reference, cx)`. Chi tiết API: `plan/groove-gd1_16_song-list.md` mục 9.
+- **Phải nối**: trong `LibraryPage::render` thay nhánh `Route::Category(..)` (chữ giữ chỗ `category_pending`) bằng view `SongList`; tạo một lần, đổi mục bằng `set_reference`, gọi `focus` khi vào. Nghe `SongListEvent::CategoryGone` thì `app::go_back`.
+- **Menu bài**: `SongListEvent::ContextMenu { reference, song: Box<Song>, position }` đã chọn sẵn dòng; vẽ `song_menu.rs` tại `position`; `reference` là `CategoryRef::Playlist(_)` thì thêm "Xoá khỏi danh sách phát" (chữ đỏ). Danh sách chưa có phím mở menu bằng bàn phím (Menu / Shift+F10).
+- **Đã làm sẵn, đừng làm lại**: Play all của đầu danh sách (kèm toast khi rỗng), bấm dòng phát / đảo phát dừng, Enter, nạp lại khi `Synced` / `PlaylistsChanged` / `Moved`.
+- **Bẫy đã gặp**: `VirtualList::on_select` bắn cả khi ↑ ↓ lẫn khi bấm chuột; tách bằng `window.last_input_was_keyboard()`. Test view cần `cx.executor().allow_parking()` và `player::install_for_test`; dòng đã có `debug_selector` `song-row-<số thứ tự từ 1>`.
+
 ## 0. Bàn giao từ groove-gd1_09 (02/11/2026)
 
 <!-- handoff: groove-gd1_09 -->

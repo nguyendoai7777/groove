@@ -11,6 +11,15 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `views/{now_playing,timeline_box,lyrics_panel,queue_panel}.rs`, `i18n/*/now_playing.toml` |
 
+## 0. Bàn giao từ groove-gd1_20 (02/11/2026)
+
+<!-- handoff: groove-gd1_20 -->
+
+- **Đã có sẵn để dùng**: `views::lyrics_dialog::TextDialog` (một lõi cho lyrics và timeline). `cx.new(|cx| TextDialog::lyrics(ops.clone(), window, cx))` và `timeline_dialog::timeline(ops.clone(), window, cx)`; giữ hai `Entity` trong view, vẽ bằng `.child(entity)` (hộp tự trống khi đóng). Nút Edit / Add Lyrics gọi `entity.update(cx, |d, cx| d.open(track, window, cx))` với `TrackRef` bài đang phát; nút Timeline tương tự. Lưu xong hộp tự `refresh_current` và đóng, đổi bài tự đóng, lỗi tự toast: view không phải làm thêm.
+- **Cần `MetadataOps`**: app chưa giữ chung. Dựng một bản `MetadataOps::new(app::library().clone(), CoverStore::default_location()?)` (Clone được, mỗi bản một luồng) dùng cho cả hai hộp; chi tiết mục 8 của `plan/groove-gd1_20_lyrics-timeline-dialogs.md`.
+- **Bẫy**: ô timeline chưa mono (TextArea thiếu font). Kiểm tay còn nợ ở `_backlog.md`. Test view dùng `install_for_test` với thư viện thật trong thư mục tạm (mẫu `rig` ở `lyrics_dialog.rs`, mục `tests`).
+- **Soát lại khi làm**: `cargo test -p groove-app views::lyrics_dialog`.
+
 ## 0. Bàn giao từ groove-gd1_14 (02/11/2026)
 
 <!-- handoff: groove-gd1_14 -->
