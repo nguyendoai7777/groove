@@ -11,6 +11,15 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `app/library_ctl.rs`, `views/{song_menu,playlist_dialog,card_menu}.rs`, `i18n/*/actions.toml` (N9, S2, S3) |
 
+## 0. Bàn giao từ groove-gd1_05 (02/11/2026)
+
+<!-- handoff: groove-gd1_05 -->
+
+- **Đã có sẵn để dùng**: `store::Library` (sao chép rẻ, gửi được giữa luồng); mọi hàm trả về ngay `actor::Reply<T>`, là `Future`, UI `await`. `Reply::wait` chặn, chỉ dùng ở luồng worker. Chi tiết API: `plan/groove-gd1_05_library-store.md` mục 9.
+- **Playlist**: `Library::{create_playlist, delete_playlist, add_song_to_playlist, remove_song_from_playlist}`, tự phát `PlaylistsChanged`. Lỗi tên: `LibraryError::Query(QueryError::{EmptyName, DuplicatePlaylist})`, hiển thị bằng i18n, không in lỗi thô.
+- **Bìa tự chọn**: `queries::set_album_cover(.., custom = true)`, `set_folder_cover`, `upsert_cover`.
+- **N9 chưa đủ dữ liệu**: `queries::{delete_folder, delete_album, add_watched_root, remove_watched_root}` có sẵn nhưng schema chưa có `excluded_paths`, phải thêm cột hoặc chọn cách của đặc tả (bỏ gốc, đổi nhãn nút).
+
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 17. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 1. Làm gì

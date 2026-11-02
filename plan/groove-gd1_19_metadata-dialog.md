@@ -11,6 +11,13 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `views/metadata/{dialog,fields,cover_pane,raw_frames}.rs`, `i18n/*/metadata.toml` |
 
+## 0. Bàn giao từ groove-gd1_06 (02/11/2026)
+
+<!-- handoff: groove-gd1_06 -->
+
+- **Đổi so với bản cũ**: `RawFrame { id, description, value, known }` không còn `name`: nhãn khung tra theo `id` qua i18n vùng `metadata`, `description` là mô tả của `TXXX`. Số khung rác là số dòng `known == false`; `TXXX:TIMELINE` có `known == true`.
+- **Bìa**: dùng `CoverEdit { Keep, Remove, Set(Vec<u8>) }`, không còn `data:` URI.
+
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 19. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 1. Làm gì

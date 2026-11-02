@@ -1,1 +1,23 @@
 # Vùng shell: khoá viết không tiền tố, tra bằng t!("shell.<khoá>").
+
+[nav]
+my_music = "My Music"
+now_playing = "Now Playing"
+playlists = "Playlists"
+settings = "Settings"
+
+[side_nav]
+collapse = "Collapse sidebar"
+expand = "Expand sidebar"
+
+[app_bar]
+back = "Back"
+minimize = "Minimize"
+maximize = "Maximize"
+restore = "Restore"
+close = "Close"
+search_placeholder = "Search songs, commands..."
+
+# Placeholder for a screen that is not built yet; only visible while tasks are in progress.
+[slot]
+empty = "{page} is not built yet"

@@ -9,3 +9,8 @@ ngay, không vào đây). Có task thì trỏ tới tệp task, đừng chép l�
 - **[groove-gd1_01 · owner-qa] Mở cửa sổ ở màn DELL** — lý do: lúc làm task máy chỉ có một màn. Bước: có màn phụ, `cargo build -p groove-app`, `pwsh tools/run.ps1`. Mong đợi: cửa sổ ở màn phụ, `foreground_unchanged=True`.
 - **[groove-gd1_10 · owner-qa] Nghe thật engine âm thanh** — lý do: test tự động không phát ra loa, không đổi thiết bị trên máy dùng thật. Bước và mong đợi: `plan/groove-gd1_10_audio-engine.md` mục 9.
 - **[groove-gd1_10 · owner-qa] Linux có tiếng trên Ubuntu (G-2)** — lý do: `libasound` đã chấp nhận và bật mặc định nhưng chưa chạy thử, chưa coi Linux là đạt; từ Windows không kiểm được. Bước: máy Ubuntu, `libasound2-dev`, lệnh `audio_check play` ở mục 9 của task.
+
+- **[groove-gd1_01 · chờ quyết định] `libasound` LGPL link động trên Linux** — lý do: luật LGPL phải hỏi chủ dự án (đặc tả 5.1). Trước task 10. Chấp nhận thì ghi `docs/decisions.md`, bỏ feature `linux-alsa`.
+- **[groove-gd1_06 · owner-qa] Mở tệp đã ghi thẻ bằng Explorer và một player khác** — lý do: phải nhìn trên máy thật; thấy đúng album, bìa, ID3v2.3 hiện trong Explorer.
+
+- **[groove-gd1_03 · owner-qa] Nhìn khung cửa sổ thật (C10)** — lý do: máy dev chỉ một màn, `tools/run.ps1` từ chối. Bước: máy hai màn, `cargo build -p groove-app` rồi `pwsh tools/run.ps1 -Keys "wait@500 shot@shell"` (xoá thư mục `-Out` sau khi xem). Mong đợi: cột trái mờ lộ desktop (Windows; macOS còn là mục viết lại ở trên), nội dung và thanh phát đục, kéo được thanh trên, thu nhỏ / phóng to / đóng chạy, nút đóng hover đỏ, nút thu cột trái nội suy 300 ms, chữ khử răng cưa xám do nền Blurred (đặc tả mục 4, dòng cuối) chấp nhận được hay cần tuỳ chọn tắt mờ.

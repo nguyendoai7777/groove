@@ -11,6 +11,28 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `library/metadata_ops.rs` (N2, N3, S5, S7, S8) |
 
+## 0. Bàn giao từ groove-gd1_05 (02/11/2026)
+
+<!-- handoff: groove-gd1_05 -->
+
+- **Đã có sẵn để dùng**: `store::Library` (sao chép rẻ, gửi được giữa luồng); mọi hàm trả về ngay `actor::Reply<T>`, là `Future`, UI `await`. `Reply::wait` chặn, chỉ dùng ở luồng worker. Chi tiết API: `plan/groove-gd1_05_library-store.md` mục 9.
+- **Hàm cho task này**: `Library::song_text(id)`, `song_ids(CategoryRef)`; `queries::{set_song_lyrics, set_song_timeline, set_song_file_state, move_song, upsert_song}` qua `writer().transaction`. Ghi tệp xong mới gửi transaction, không ghi tệp trong closure (N7).
+- **Bẫy**: `upsert_song` giữ lyrics, timeline DB khi tệp rỗng, nên muốn xoá thật thì dùng `set_song_lyrics(.., None)`, `set_song_timeline(.., None)`.
+## 0. Bàn giao từ groove-gd1_06 (02/11/2026)
+
+<!-- handoff: groove-gd1_06 -->
+
+- **Đã có sẵn để dùng**: `tags::write_tags(path, &MetadataEdit, WriteMode) -> FileStamp` đã ghi qua `<tên>.groove-tmp`, đọc lại kiểm tra, thay tệp, xoá tạm khi lỗi; `read_track`, `read_raw_frames`. Chi tiết: mục 9 của `groove-gd1_06`.
+- **Quy ước sửa**: `None` không đụng, `Some("")` xoá. `CoverEdit::Keep` giữ bìa ở mọi chế độ. `TIMELINE` tự được giữ ở mọi chế độ.
+- **Còn lại ở task này (N2, N3)**:
+  - `Clean` không có lyrics trong phần sửa là mất lyrics: phải đọc từ DB (tệp ngoài thư viện: từ `read_track`) rồi truyền vào `fields.lyrics`.
+  - DB có timeline mà tệp không có: truyền `fields.timeline` để đẩy ngược vào tệp.
+  - Kiểm tra tên mới, đổi tên, cập nhật DB trong transaction chưa làm; `write_tags` chỉ thay nội dung, đường dẫn giữ nguyên.
+  - Lưu `FileStamp` trả về vào DB để watcher bỏ qua (S6).
+- **Lỗi cho người dùng**: `TagError` hiển thị bằng tiếng Anh để ghi log; toast tra theo biến thể qua i18n. `Replace` là tệp đang bị app khác giữ, `ReadOnly`, `CoverTooLarge`, `UnsupportedCover`, `Verify` nên có câu riêng.
+- **Bẫy**: bìa quá 16 MiB trên FLAC là `TagError::Write` (trần định dạng).
+- **Soát lại khi làm**: `cargo test -p groove-library tags`.
+
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 18. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
 ## 1. Làm gì
