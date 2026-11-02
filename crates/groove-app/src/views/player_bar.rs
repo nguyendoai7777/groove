@@ -31,9 +31,9 @@ use materiant::button::IconButton;
 use materiant::gpui_kit::base::Disableable;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    AnyElement, AnyWindowHandle, App, ClickEvent, Context, Entity, FocusHandle, FontWeight, Image, ImageFormat,
-    ImageSource, IntoElement, ObjectFit, ParentElement, Render, ScrollEvent, Styled, Subscription, Window, black, div,
-    img, px, relative,
+    AnyElement, AnyWindowHandle, App, ClickEvent, Context, Entity, FocusHandle, Image, ImageFormat, ImageSource,
+    IntoElement, ObjectFit, ParentElement, Render, ScrollEvent, Styled, Subscription, Window, black, div, img, px,
+    relative,
 };
 use materiant::overlay::tooltip::TooltipExt;
 use materiant::slider::Slider;
@@ -356,7 +356,7 @@ impl Render for PlayerBar {
             .cursor_pointer()
             .on_click(|_, _, cx| app::navigate(Route::NowPlaying, cx))
             .child(div().truncate().text_sm().text_color(colors.muted).child(artist))
-            .child(div().font_weight(FontWeight::SEMIBOLD).child(Marquee::new("player-title", title)));
+            .child(div().child(Marquee::new("player-title", title)));
 
         let left = div().w(relative(0.3)).min_w_0().flex().items_center().gap_3().child(cover).child(text);
 

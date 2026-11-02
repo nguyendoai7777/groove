@@ -13,8 +13,8 @@ use groove_library::store::Library;
 use materiant::button::{Button, Size};
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    AnyElement, App, ClickEvent, Context, Entity, FontWeight, IntoElement, ParentElement, Render, Styled, Subscription,
-    Window, div, px,
+    AnyElement, App, ClickEvent, Context, Entity, IntoElement, ParentElement, Render, Styled, Subscription, Window,
+    div, px,
 };
 use materiant::theme::ActiveTheme;
 
@@ -204,7 +204,7 @@ impl Render for RootsPanel {
             .flex()
             .flex_col()
             .gap_3()
-            .child(div().font_weight(FontWeight::SEMIBOLD).child(t!("settings.roots.title")))
+            .child(div().child(t!("settings.roots.title")))
             .child(div().text_size(px(12.)).text_color(muted).child(t!("settings.roots.hint")))
             .child(list)
             .child(

@@ -31,7 +31,7 @@ use materiant::gpui_kit::{
     SharedString, Styled, Window, WindowBounds, WindowDecorations, WindowOptions, div, px, size,
 };
 use materiant::style::StyledExt;
-use materiant::theme::{ActiveTheme, MateriantTheme, ThemeColor, ThemeMode, set_theme};
+use materiant::theme::{ActiveTheme, MateriantTheme, ThemeMode, set_theme};
 use materiant::toast::ToastViewport;
 
 use crate::dev::{self, DevArgs};
@@ -150,11 +150,10 @@ fn theme_mode(choice: ThemeChoice) -> ThemeMode {
     }
 }
 
-/// Màu nhấn cyan của Groove X (đặc tả 1.1): `#06b6d4` ở nền tối; nền sáng đậm hơn cho đủ tương phản với nền trắng.
-const ACCENT: ThemeColor = ThemeColor::pair(0x0e7490, 0x06b6d4);
-
+/// Màu nhấn là primary mặc định của materiant (deeppink, như fastcast — G-4); view đọc `cx.theme().colors().primary`, không
+/// ghim mã màu.
 fn apply_theme(choice: ThemeChoice, cx: &mut App) {
-    set_theme(&MateriantTheme { mode: Some(theme_mode(choice)), primary: Some(ACCENT), ..Default::default() }, cx);
+    set_theme(&MateriantTheme { mode: Some(theme_mode(choice)), ..Default::default() }, cx);
 }
 
 /// Đặt cài đặt toàn app, áp theme, và theo dõi để áp lại theme / ngôn ngữ khi chúng đổi.
@@ -719,8 +718,8 @@ mod tests {
         let primary = cx.update(|_, cx| cx.theme().colors().primary);
         assert_eq!(
             primary,
-            materiant::gpui_kit::Hsla::from(ACCENT.resolve(true)),
-            "màu nhấn cyan, không phải mặc định"
+            materiant::gpui_kit::Hsla::from(materiant::theme::palette::DEFAULT_SEEDS.primary.resolve(true)),
+            "màu nhấn là primary của materiant (G-4)"
         );
         cx.update(|_, cx| update_settings(cx, |s| s.theme = ThemeChoice::Light));
         assert_eq!(cx.update(|_, cx| cx.theme().mode()), ThemeMode::Light);

@@ -1,4 +1,4 @@
-//! groove-gd1_17: hộp tạo playlist: tên + màu, mặc định `#06b6d4` (đặc tả 1.2).
+//! groove-gd1_17: hộp tạo playlist: tên + màu, mặc định màu nhấn của theme (đặc tả 1.2; bản cũ `#06b6d4`, G-4).
 //!
 //! Tên rỗng thì toast; trùng tên báo ngay dưới ô bằng chữ i18n, không in lỗi SQL thô như bản cũ.
 
@@ -10,12 +10,12 @@ use materiant::button::Button;
 use materiant::color_picker::{ColorPicker, ColorPickerLabels, Rgb};
 use materiant::field::input::TextField;
 use materiant::gpui_kit::prelude::*;
-use materiant::gpui_kit::{ClickEvent, Context, Entity, IntoElement, Render, WeakEntity, Window, div};
+use materiant::gpui_kit::{App, ClickEvent, Context, Entity, IntoElement, Render, WeakEntity, Window, div};
 use materiant::overlay::dialog::{Dialog, DialogHandle};
+use materiant::theme::ActiveTheme;
 use materiant::toast::{Toast, ToastKind, ToastSpec};
 
 use crate::library_ctl::LibraryCtl;
-use crate::views::cover_image::DEFAULT_PLAYLIST_COLOR;
 
 /// Chữ cho lỗi tạo playlist; còn lại là lỗi người dùng không sửa được.
 pub fn create_error_text(err: &LibraryError) -> &'static str {
@@ -26,8 +26,11 @@ pub fn create_error_text(err: &LibraryError) -> &'static str {
     }
 }
 
-fn default_color() -> Rgb {
-    Rgb::parse_hex(DEFAULT_PLAYLIST_COLOR).unwrap_or_default()
+/// Màu mặc định của playlist mới: màu nhấn của theme lúc mở hộp (G-4).
+fn default_color(cx: &App) -> Rgb {
+    let rgba = cx.theme().colors().primary.to_rgb();
+    let channel = |v: f32| (v.clamp(0., 1.) * 255.).round() as u8;
+    Rgb::new(channel(rgba.r), channel(rgba.g), channel(rgba.b))
 }
 
 pub struct PlaylistDialog {
@@ -62,7 +65,7 @@ impl PlaylistDialog {
                 hue: t!("actions.playlist.color_hue").into(),
                 hex: t!("actions.playlist.color_hex").into(),
             };
-            ColorPicker::new("playlist-color", default_color(), window, cx).labels(labels, cx)
+            ColorPicker::new("playlist-color", default_color(cx), window, cx).labels(labels, cx)
         });
         PlaylistDialog { handle: DialogHandle::new(cx), library, ctl, name, color, add_song: None, busy: false }
     }
@@ -75,7 +78,7 @@ impl PlaylistDialog {
             name.clear(window, cx);
             name.set_error(None, cx);
         });
-        self.color.update(cx, |color, cx| color.set_value(default_color(), window, cx));
+        self.color.update(cx, |color, cx| color.set_value(default_color(cx), window, cx));
         self.handle.open(window, cx);
         cx.notify();
     }
@@ -149,6 +152,7 @@ impl Render for PlaylistDialog {
         div().child(
             Dialog::new("playlist-dialog", &self.handle)
                 .title(t!("actions.playlist.title"))
+                .divided(true)
                 .actions([
                     Button::new("playlist-cancel", t!("actions.playlist.cancel"))
                         .text()

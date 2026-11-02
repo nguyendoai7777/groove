@@ -7,7 +7,7 @@ use groove_core::settings::Settings;
 use groove_core::t;
 use materiant::field::number::NumberField;
 use materiant::gpui_kit::prelude::*;
-use materiant::gpui_kit::{Context, Entity, FontWeight, IntoElement, ParentElement, Render, Styled, Window, div, px};
+use materiant::gpui_kit::{Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div, px};
 use materiant::theme::ActiveTheme;
 
 use super::default_player::{Backend, DefaultPlayerPanel};
@@ -104,7 +104,7 @@ impl Render for GeneralPanel {
                 .pt_4()
                 .border_t_1()
                 .border_color(border)
-                .child(div().font_weight(FontWeight::SEMIBOLD).child(t!("settings.general.steps")))
+                .child(div().child(t!("settings.general.steps")))
                 .child(
                     div()
                         .flex()

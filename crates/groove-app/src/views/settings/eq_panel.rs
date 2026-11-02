@@ -14,7 +14,7 @@ use groove_core::settings::{EQ_BAND_COUNT, EQ_BANDS_HZ, EQ_GAIN_LIMIT_DB, EqPres
 use groove_core::t;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    Context, FocusHandle, FontWeight, IntoElement, KeyDownEvent, ParentElement, Render, Styled, Window, div, px,
+    Context, FocusHandle, IntoElement, KeyDownEvent, ParentElement, Render, Styled, Window, div, px,
 };
 use materiant::select::Select;
 use materiant::theme::ActiveTheme;
@@ -212,7 +212,7 @@ impl EqPanel {
             .flex()
             .items_center()
             .justify_between()
-            .child(div().text_sm().font_weight(FontWeight::MEDIUM).text_color(c.muted).child(t!("settings.eq.title")))
+            .child(div().text_sm().text_color(c.muted).child(t!("settings.eq.title")))
             .child(
                 div()
                     .flex()
@@ -249,7 +249,6 @@ impl EqPanel {
                             .items_center()
                             .gap_1p5()
                             .text_sm()
-                            .font_weight(FontWeight::SEMIBOLD)
                             .text_color(c.text)
                             .child(div().size(px(6.)).rounded_full().bg(c.primary))
                             .child(t!("settings.eq.bass_boost")),
@@ -263,16 +262,11 @@ impl EqPanel {
                     .items_center()
                     .gap_3()
                     .child(div().w(px(BASS_TRACK_WIDTH)).h(px(BASS_HIT_HEIGHT)).child(bass_canvas(view)))
-                    .child(
-                        div()
-                            .w(px(48.))
-                            .flex()
-                            .justify_end()
-                            .text_sm()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .text_color(c.primary)
-                            .child(format!("+{}{}", self.eq.bass_boost, t!("settings.eq.gain_unit"))),
-                    ),
+                    .child(div().w(px(48.)).flex().justify_end().text_sm().text_color(c.primary).child(format!(
+                        "+{}{}",
+                        self.eq.bass_boost,
+                        t!("settings.eq.gain_unit")
+                    ))),
             )
     }
 

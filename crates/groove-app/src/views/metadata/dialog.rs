@@ -58,6 +58,10 @@ enum Phase {
     Failed(String),
 }
 
+/// Đệm của nội dung cuộn trong hộp (như đệm header / footer của `Dialog::divided`).
+const BODY_PADDING_X: f32 = 24.;
+const BODY_PADDING_Y: f32 = 16.;
+
 const MODES: [WriteMode; 3] = [WriteMode::CleanKeepKnown, WriteMode::Clean, WriteMode::Merge];
 const TAB_COMMON: usize = 0;
 const TAB_DETAILS: usize = 1;
@@ -659,6 +663,7 @@ impl MetadataDialog {
             Phase::Ready => {}
         }
         let tabs = Tabs::new("metadata-tabs")
+            .font_weight(materiant::gpui_kit::FontWeight::NORMAL)
             .tab(TabItem::new(t!("metadata.tab.common")))
             .tab(TabItem::new(t!("metadata.tab.details")))
             .tab(TabItem::new(t!("metadata.tab.raw")))
@@ -709,7 +714,9 @@ impl Render for MetadataDialog {
         Dialog::new("metadata-dialog", &self.handle)
             .max_width(px(900.))
             .title(self.title())
-            .close_button(t!("metadata.close_label"))
+            .divided(true)
+            // D-16: vùng cuộn chạm mép hộp và hai đường kẻ, đệm nằm trong nội dung cuộn.
+            .flush_body(true)
             .close_on_escape(!self.saving)
             .close_on_backdrop(false)
             .actions([
@@ -734,6 +741,8 @@ impl Render for MetadataDialog {
                     .flex_col()
                     .flex_shrink(1.)
                     .min_h_0()
+                    .px(px(BODY_PADDING_X))
+                    .py(px(BODY_PADDING_Y))
                     .overflow_y_scroll()
                     // Ctrl+V trên ô bìa dán ảnh; ngoài ô, hoặc clipboard không có ảnh, thì ô nhập tự dán chữ.
                     .capture_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {

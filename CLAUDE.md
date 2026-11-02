@@ -54,7 +54,8 @@ Viết tắt trong task: `core`, `library`, `audio`, `app`, `views` = `crates/gr
 - **`libasound` (LGPL) đã chấp nhận, chỉ link động** (G-2): ở Linux `cpal` sau feature `groove-audio/linux-alsa`, bật mặc
   định; không link tĩnh, không kèm vào bản cài, gói `.deb` khai là phụ thuộc. Build Linux cần `libasound2-dev`.
 - Mã chỉ một OS ⇒ `#[cfg(target_os = …)]` trong `app/platform`, không rải khắp nơi.
-- **Màu nhấn**: cyan `#06b6d4` của bản cũ, đặt ở `app::apply_theme` (`ACCENT`), không dùng màu mặc định của materiant.
+- **Màu nhấn** theo theme materiant (deeppink, như fastcast — G-4): `app::apply_theme` không đặt `primary`; view lấy
+  `cx.theme().colors().primary` (chữ trên nền nhạt: `primary_ink`), không mã màu nhấn cứng. Playlist chưa có màu dùng màu nhấn.
 
 ## Lệnh
 

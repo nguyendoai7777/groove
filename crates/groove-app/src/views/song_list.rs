@@ -365,7 +365,7 @@ fn centered_message(icon: GrooveIcon, title: &'static str, hint: &'static str, c
         .px(px(PAGE_PADDING))
         .text_center()
         .child(Icon::new(icon).size(px(48.)).color(c.muted.opacity(0.6)))
-        .child(div().text_size(px(14.)).font_weight(FontWeight::SEMIBOLD).text_color(c.muted).child(title))
+        .child(div().text_size(px(14.)).text_color(c.muted).child(title))
         .child(div().max_w(px(420.)).text_size(px(12.)).text_color(c.muted.opacity(0.8)).child(hint))
         .into_any_element()
 }
@@ -387,11 +387,7 @@ impl SongList {
             .filter(|text| !text.is_empty());
         let side = if collapsed { COLLAPSED_COVER } else { EXPANDED_COVER };
 
-        let label = div()
-            .text_size(px(12.))
-            .font_weight(FontWeight::BOLD)
-            .text_color(c.primary_ink)
-            .child(kind_label(self.reference));
+        let label = div().text_size(px(12.)).text_color(c.primary_ink).child(kind_label(self.reference));
         let info = if collapsed {
             div()
                 .flex()
@@ -399,9 +395,7 @@ impl SongList {
                 .gap_2()
                 .text_size(px(12.))
                 .text_color(c.muted)
-                .child(
-                    div().font_weight(FontWeight::SEMIBOLD).text_color(c.primary_ink).child(kind_label(self.reference)),
-                )
+                .child(div().text_color(c.primary_ink).child(kind_label(self.reference)))
                 .child("•")
                 .when(count > 0, |row| row.child(count_text.clone()))
         } else {
@@ -476,6 +470,7 @@ impl SongList {
             }))
         })
         .track(&self.list)
+        .padding_x(px(PAGE_PADDING))
         .track_focus(&self.focus)
         .selected(self.selected)
         // Chọn bằng chuột là bấm dòng ⇒ phát; chọn bằng ↑ ↓ chỉ di con trỏ, không phát.
@@ -513,11 +508,12 @@ impl SongList {
             .min_h_0()
             .flex()
             .flex_col()
-            .px(px(PAGE_PADDING))
+            // D-16: khung cuộn chạm hai mép màn, lề `PAGE_PADDING` nằm trong danh sách (`padding_x`); dòng tiêu đề cột tự lùi
+            // cùng số đó để thẳng cột.
             // Cuộn bằng bánh xe hoặc kéo thanh cuộn: đọc lại vị trí sau khi danh sách đã xử lý (con chạy trước).
             .on_scroll(cx.listener(|this, _: &ScrollEvent, _, cx| this.sync_header(cx)))
             .on_mouse_move(cx.listener(|this, _: &MouseMoveEvent, _, cx| this.sync_header(cx)))
-            .child(header_row(artist, c))
+            .child(div().px(px(PAGE_PADDING)).child(header_row(artist, c)))
             .child(rows)
             .into_any_element()
     }

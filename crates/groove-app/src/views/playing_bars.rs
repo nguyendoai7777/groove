@@ -1,7 +1,7 @@
 //! groove-gd1_14: bốn thanh nhảy báo "đang phát" (đặc tả bảng "Hiệu ứng web không có ở GPUI", `playing-visualizer.vue`).
 //!
 //! Dựng lại đúng bản web: khung 14 x 14, bốn thanh rộng 2 (x = 1.5 / 4.5 / 7.5 / 10.5) cao 10 (y = 2..12), bo tròn hoàn
-//! toàn, màu `--deco-visualizer-color` (cyan-400 `#22d3ee`). Mỗi thanh co giãn theo `scaleY` quanh **đáy khung nhìn**
+//! toàn, màu nhấn của theme (bản web: `--deco-visualizer-color` cyan, đổi theo G-4). Mỗi thanh co giãn theo `scaleY` quanh **đáy khung nhìn**
 //! (`transform-origin: bottom` của SVG tính theo viewBox), nhảy qua lại (`alternate`, `ease-in-out`) với nhịp riêng:
 //!
 //! | thanh | nửa nhịp | trễ | scaleY |
@@ -25,7 +25,7 @@ use materiant::gpui_kit::{
     Animation, AnimationExt, App, Global, Hsla, IntoElement, ParentElement, Pixels, SharedString, Styled, Window, div,
     px,
 };
-use materiant::theme::color::hex;
+use materiant::theme::ActiveTheme;
 
 pub const BARS: usize = 4;
 /// Cạnh khung vuông của SVG gốc.
@@ -128,7 +128,7 @@ fn frame(size: Pixels, color: Hsla, scale: [f32; BARS]) -> gpui::Div {
 
 impl gpui::RenderOnce for PlayingBars {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
-        let color: Hsla = hex(0x22d3ee).into();
+        let color: Hsla = cx.theme().colors().primary;
         let size = self.size;
         let now = cx.background_executor().now();
         let phase = cx.default_global::<Phase>();
@@ -175,6 +175,7 @@ mod tests {
     fn renders_after_a_second(active: bool, cx: &mut TestAppContext) -> usize {
         let renders = Rc::new(Cell::new(0));
         let counter = renders.clone();
+        cx.update(materiant::init);
         let _window = cx.add_window(move |_, _| Probe { active, renders: counter });
         cx.run_until_parked();
         let first = renders.get();
@@ -234,6 +235,7 @@ mod tests {
     fn pausing_in_a_view_keeps_the_running_frame(cx: &mut TestAppContext) {
         let renders = Rc::new(Cell::new(0));
         let counter = renders.clone();
+        cx.update(materiant::init);
         let window = cx.add_window(move |_, _| Probe { active: true, renders: counter });
         let ms = |cx: &mut TestAppContext| {
             let now = cx.executor().now();
