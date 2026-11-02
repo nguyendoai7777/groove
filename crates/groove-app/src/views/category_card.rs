@@ -4,11 +4,13 @@
 //! "chưa rõ nghệ sĩ", thư mục là đường dẫn, playlist là số bài. Thẻ chỉ báo lên: mở danh sách, Play all, Delete — nghiệp
 //! vụ (phát, hộp xác nhận, xoá) là của task 17.
 //!
-//! Bản cũ phóng bìa 1,05 khi rê và có quầng bóng accent; GPUI `div` không có `scale` nên chỉ giữ viền accent 2 px
-//! (đặc tả mục 4, "Hiệu ứng web không có ở GPUI").
+//! Hover như `music-card.vue`: viền accent 2 px, nền thẻ 40% lên 60%, quầng bóng accent, lớp phủ hiện dần 300 ms, bìa phóng
+//! 1,05 trong 500 ms (`with_animation`, chỉ chạy lúc đổi trạng thái). Số đo: `p-3 rounded-xl border-2`, bìa `rounded-lg`, chữ
+//! `mt-3`, dòng phụ `mt-1`. Không làm được: `backdrop-blur` của lớp phủ.
 
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::time::Duration;
 
 use groove_core::model::CategoryRef;
 use groove_core::t;
@@ -19,12 +21,12 @@ use materiant::button::IconButton;
 use materiant::gpui_kit as gpui;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    App, ClickEvent, Entity, FontWeight, Hsla, IntoElement, ParentElement, RenderOnce, SharedString, Styled, Window,
-    div, px, transparent_black,
+    Animation, AnimationExt, AnyElement, App, BoxShadow, ClickEvent, Entity, FontWeight, Hsla, IntoElement,
+    ParentElement, RenderOnce, SharedString, Styled, Window, div, point, px, relative,
 };
 use materiant::menu::ContextMenuExt;
 use materiant::overlay::tooltip::TooltipExt;
-use materiant::theme::ActiveTheme;
+use materiant::theme::{ActiveTheme, Neutral};
 use materiant::virtual_grid::LruImageCache;
 
 use crate::icons::GrooveIcon;
@@ -33,12 +35,27 @@ use crate::views::cover_image::{CoverImage, CoverKind, DEFAULT_PLAYLIST_COLOR, p
 /// Chiều cao cố định của dòng tên và dòng phụ: thẻ cao đúng `COVER + TEXT_BLOCK`, lưới tính được cao ô.
 const TITLE_HEIGHT: f32 = 20.;
 const SUBTITLE_HEIGHT: f32 = 16.;
-const TEXT_GAP: f32 = 8.;
+const TEXT_GAP: f32 = 12.;
+/// Khe giữa dòng tên và dòng phụ (`mt-1` của bản cũ).
+const SUBTITLE_GAP: f32 = 4.;
+/// `border-2` và `p-3` của bản cũ.
 const BORDER: f32 = 2.;
+const PADDING: f32 = 12.;
 /// Phần cao của ô ngoài bìa vuông: hai viền + khoảng cách + hai dòng chữ + dư 2 px cho sai số làm tròn pixel.
 /// `VirtualGrid::new(.., cell_height = CARD_EXTRA_HEIGHT)` + `.height_per_width(1.)`; lưới chừa thêm 12 px quanh ô
 /// (padding của ô) và bìa hẹp hơn ô 12 + 2 × `BORDER` px, hai phần này triệt tiêu nhau ở bề ngang.
-pub const CARD_EXTRA_HEIGHT: f32 = 2. * BORDER + TEXT_GAP + TITLE_HEIGHT + SUBTITLE_HEIGHT + 2.;
+pub const CARD_EXTRA_HEIGHT: f32 = 2. * BORDER + TEXT_GAP + SUBTITLE_GAP + TITLE_HEIGHT + SUBTITLE_HEIGHT + 2. + 4.;
+
+/// Chuyển của `transition-all duration-300` (thẻ, lớp phủ) và `duration-500` (phóng bìa) bản cũ.
+const FADE: Duration = Duration::from_millis(300);
+const ZOOM: Duration = Duration::from_millis(500);
+/// `group-hover:scale-105`.
+const ZOOM_SCALE: f32 = 1.05;
+/// `hover:border-color` + `box-shadow: 0 0 20px <accent>40` (0x40 = 25%).
+/// Web dùng blur 20 px; ô của `VirtualGrid` cắt (`overflow_hidden`, đệm 6 px) mọi thứ vẽ ngoài ô, blur 20 hiện thành khung chữ nhật
+/// bị cắt cứng quanh thẻ, nên hạ còn 12 px.
+const GLOW_BLUR: f32 = 12.;
+const GLOW_ALPHA: f32 = 0.25;
 
 type Handler = Rc<dyn Fn(CategoryRef, &mut Window, &mut App)>;
 
@@ -106,6 +123,46 @@ impl CategoryCard {
     }
 }
 
+/// Trạng thái rê của một thẻ, giữ qua các khung bằng `window.use_keyed_state`. `seq` tăng mỗi lần đổi: là khoá của hoạt ảnh,
+/// đổi khoá thì hoạt ảnh chạy lại. `seq == 0` = chưa từng rê, vẽ tĩnh, không dựng hoạt ảnh.
+#[derive(Default, Clone, Copy)]
+struct HoverState {
+    hovered: bool,
+    seq: usize,
+}
+
+/// `cubic-bezier(0.4, 0, 0.2, 1)`, đường chuyển mặc định của Tailwind (`transition-all`): tìm t để x(t) = `x` rồi lấy y(t).
+fn ease(x: f32) -> f32 {
+    let (mut lo, mut hi) = (0_f32, 1_f32);
+    for _ in 0..24 {
+        let t = (lo + hi) / 2.;
+        let bx = 3. * (1. - t).powi(2) * t * 0.4 + 3. * (1. - t) * t * t * 0.2 + t.powi(3);
+        if bx < x { lo = t } else { hi = t }
+    }
+    let t = (lo + hi) / 2.;
+    3. * (1. - t) * t * t + t.powi(3)
+}
+
+/// Chạy `style(phần_tử, tiến_độ)` với tiến độ 0..1 (1 = đang rê). Chưa từng rê thì vẽ tĩnh ở 0; đã rê thì nội suy
+/// `duration` khi `seq` đổi, xong thì đứng yên, không vẽ lại. Tắt chuyển động của OS: `with_animation` tự nhảy tới đích.
+fn animated<E: IntoElement + 'static>(
+    element: E,
+    id: impl Into<gpui::ElementId>,
+    state: HoverState,
+    duration: Duration,
+    style: impl Fn(E, f32) -> E + 'static,
+) -> AnyElement {
+    if state.seq == 0 {
+        return style(element, 0.).into_any_element();
+    }
+    let hovered = state.hovered;
+    element
+        .with_animation(id, Animation::new(duration).with_easing(ease), move |el, t| {
+            style(el, if hovered { t } else { 1. - t })
+        })
+        .into_any_element()
+}
+
 /// Mã chỉ số của loại, để đặt id phần tử không đụng nhau giữa album 1, thư mục 1, playlist 1.
 fn kind_tag(reference: CategoryRef) -> (&'static str, i64) {
     match reference {
@@ -116,13 +173,14 @@ fn kind_tag(reference: CategoryRef) -> (&'static str, i64) {
 }
 
 impl RenderOnce for CategoryCard {
-    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let c = cx.theme().colors().clone();
         let reference = self.summary.reference;
         let (tag, id) = kind_tag(reference);
         let group: SharedString = format!("card-{tag}-{id}").into();
         let accent = accent_of(&self.summary);
-        let border_hover = accent.unwrap_or(c.primary_ink);
+        // Bản cũ: `accentColor || '#06b6d4'`, không có màu thì viền cyan.
+        let border_hover = accent.or_else(|| parse_color(DEFAULT_PLAYLIST_COLOR)).unwrap_or(c.primary_ink);
 
         let cover = CoverImage::new(
             cover_path(&self.summary, self.covers.as_ref()),
@@ -131,13 +189,22 @@ impl RenderOnce for CategoryCard {
             &self.cache,
         );
 
+        let state_entity = window.use_keyed_state(group.clone(), cx, |_, _| HoverState::default());
+        let state = *state_entity.read(cx);
+        let has_image = cover_path(&self.summary, self.covers.as_ref()).is_some();
+        let surface = c.surface;
         let (on_open, on_play, on_delete) = (self.on_open, self.on_play, self.on_delete);
         // Nút trong lớp phủ không được lọt nhấp lên thẻ (sẽ mở danh sách): `stop_propagation` trong `on_click`. Không dùng
-        // `occlude()` ở đây: nó chặn hover của thẻ, `group_hover` tắt và lớp phủ biến mất ngay dưới con trỏ.
+        // `occlude()` ở đây: nó chặn hover của thẻ, `on_hover` tắt và lớp phủ biến mất ngay dưới con trỏ.
         let action =
             |button_id: (&'static str, i64), icon: GrooveIcon, label: &'static str, danger: bool, run: Handler| {
                 let ink = if danger { c.danger } else { c.text };
+                // `bg-theme-bg-placeholder/80` + viền `border-theme-border/50` của bản cũ, tròn.
                 div()
+                    .rounded_full()
+                    .bg(c.neutral(Neutral::N200).opacity(0.8))
+                    .border_1()
+                    .border_color(c.border.opacity(0.5))
                     .debug_selector(move || format!("{}-{}", button_id.0, button_id.1))
                     .child(
                         IconButton::new((button_id.0, button_id.1 as usize), icon)
@@ -159,33 +226,56 @@ impl RenderOnce for CategoryCard {
             .justify_center()
             .gap_4()
             .bg(c.surface.opacity(0.75))
-            .rounded_lg()
-            .invisible()
-            .group_hover(group.clone(), |s| s.visible())
             .child(action(("card-play", id), GrooveIcon::Play, t!("library.card.play_all"), false, on_play))
             .child(action(("card-delete", id), GrooveIcon::Delete, t!("library.card.delete"), true, on_delete));
 
-        div()
+        let overlay =
+            animated(overlay, SharedString::from(format!("{group}-overlay-{}", state.seq)), state, FADE, |el, p| {
+                if p <= 0. { el.invisible() } else { el.opacity(p) }
+            });
+        // Bìa phóng 1,05 trong khung đã cắt góc: ảnh lớn hơn khung và lệch đều bốn phía.
+        let cover = animated(
+            div().absolute().child(cover),
+            SharedString::from(format!("{group}-cover-{}", state.seq)),
+            state,
+            ZOOM,
+            move |el, p| {
+                let scale = if has_image { 1. + (ZOOM_SCALE - 1.) * p } else { 1. };
+                el.size(relative(scale)).left(relative((1. - scale) / 2.)).top(relative((1. - scale) / 2.))
+            },
+        );
+
+        let card = div()
             .id((tag, id as usize))
             .relative()
             .context_menu(move |menu, _, cx| crate::views::card_menu::build(menu, reference, cx))
-            .group(group.clone())
+            .on_hover({
+                let state_entity = state_entity.clone();
+                move |hovered: &bool, _, cx| {
+                    state_entity.update(cx, |s, cx| {
+                        if s.hovered != *hovered {
+                            s.hovered = *hovered;
+                            s.seq += 1;
+                            cx.notify();
+                        }
+                    });
+                }
+            })
             .size_full()
             .flex()
             .flex_col()
-            .gap(px(TEXT_GAP))
+            .p(px(PADDING))
             .border(px(BORDER))
-            .border_color(transparent_black())
             .rounded_xl()
             .cursor_pointer()
             .debug_selector(move || format!("card-{tag}-{id}"))
-            .group_hover(group, move |s| s.border_color(border_hover))
             .on_click(move |_: &ClickEvent, window, cx| on_open(reference, window, cx))
-            .child(div().relative().w_full().aspect_square().child(cover).child(overlay))
+            .child(div().relative().w_full().aspect_square().rounded_lg().overflow_hidden().child(cover).child(overlay))
             .child(
                 div()
                     .flex_none()
                     .min_w_0()
+                    .mt(px(TEXT_GAP))
                     .child(
                         div()
                             .h(px(TITLE_HEIGHT))
@@ -196,13 +286,28 @@ impl RenderOnce for CategoryCard {
                     )
                     .child(
                         div()
+                            .mt(px(SUBTITLE_GAP))
                             .h(px(SUBTITLE_HEIGHT))
                             .truncate()
                             .text_size(cx.theme().caption_size())
                             .text_color(c.muted)
                             .child(subtitle(&self.summary)),
                     ),
-            )
+            );
+        animated(card, SharedString::from(format!("{group}-fx-{}", state.seq)), state, FADE, move |el, p| {
+            let glow = if p > 0. {
+                vec![BoxShadow {
+                    color: border_hover.opacity(GLOW_ALPHA * p),
+                    offset: point(px(0.), px(0.)),
+                    blur_radius: px(GLOW_BLUR),
+                    spread_radius: px(0.),
+                    inset: false,
+                }]
+            } else {
+                Vec::new()
+            };
+            el.border_color(border_hover.opacity(p)).bg(surface.opacity(0.4 + 0.2 * p)).shadow(glow)
+        })
     }
 }
 
