@@ -82,6 +82,8 @@ pub fn run(dev: DevArgs) {
         library_page::install(cx);
         // Task 13: player cần thư viện ở trên.
         crate::player::install(cx);
+        // Task 14: thanh phát vào `Slot::PlayerBar`, cần player ở trên.
+        crate::views::player_bar::install(handle, cx);
         dev::replay(handle, dev.keys, cx);
     });
 }
