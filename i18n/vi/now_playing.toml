@@ -1,7 +1,6 @@
 # Vùng now_playing: khoá viết không tiền tố, tra bằng t!("now_playing.<khoá>").
 
 [cover]
-alt = "Ảnh bìa"
 
 [song]
 no_song = "Chưa chọn bài nào"
@@ -9,7 +8,6 @@ unknown_artist = "Chưa rõ nghệ sĩ"
 
 [timeline]
 current = "{position} / {duration}"
-segment_start = "Tới đầu đoạn {title}"
 
 [lyrics]
 title = "Lời bài hát"

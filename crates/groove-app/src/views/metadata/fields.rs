@@ -213,8 +213,6 @@ pub struct Form {
     pub current_name: String,
     pub fields: Vec<(Field, Entity<TextField>)>,
     pub comment: Entity<TextArea>,
-    /// Giá trị lúc mở, để so "đã đổi" khi áp cho nhóm.
-    pub original: TagFields,
 }
 
 impl Form {
@@ -244,20 +242,14 @@ impl Form {
             area.set_value(comment_text, window, cx);
             area
         });
-        Form {
-            filename,
-            extension,
-            current_name: view.filename.clone(),
-            fields,
-            comment,
-            original: view.fields.clone(),
-        }
+        Form { filename, extension, current_name: view.filename.clone(), fields, comment }
     }
 
     pub fn field(&self, field: Field) -> &Entity<TextField> {
         &self.fields.iter().find(|(f, _)| *f == field).expect("every field has an entity").1
     }
 
+    #[cfg(test)]
     pub fn value(&self, field: Field, cx: &App) -> String {
         self.field(field).read(cx).value(cx).to_string()
     }

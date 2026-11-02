@@ -33,11 +33,8 @@ bpm = "BPM"
 grouping = "Grouping"
 comment = "Comment"
 compilation = "Compilation of various artists"
-extension = "File extension"
 
 [cover]
-label = "Cover"
-empty = "No cover"
 hint = "Click to choose an image, drop one here, or paste while hovering this box"
 choose = "Choose cover image"
 remove = "Remove cover"

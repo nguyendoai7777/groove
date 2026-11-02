@@ -96,22 +96,27 @@ impl SettingsDialog {
         }
     }
 
+    #[cfg(test)]
     pub fn is_open(&self) -> bool {
         self.handle.is_open()
     }
 
+    #[cfg(test)]
     pub fn tab(&self) -> SettingsTab {
         self.tab
     }
 
+    #[cfg(test)]
     pub fn keybindings(&self) -> &Entity<KeybindingsPanel> {
         &self.keys
     }
 
+    #[cfg(test)]
     pub fn general(&self) -> &Entity<GeneralPanel> {
         &self.general
     }
 
+    #[cfg(test)]
     pub fn roots(&self) -> &Entity<RootsPanel> {
         &self.roots
     }

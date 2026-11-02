@@ -20,7 +20,6 @@ preset = "Preset"
 bass_boost = "Bass boost"
 gain_unit = "dB"
 band_label = "Band {hz}"
-curve_label = "Equalizer curve"
 note = "Changes are heard right away. Cancel restores the values from when the dialog opened."
 
 [preset]

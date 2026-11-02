@@ -3,7 +3,6 @@
 [bar]
 no_song = "Chưa chọn bài hát"
 unknown_artist = "Không rõ nghệ sĩ"
-open_now_playing = "Mở màn Đang phát"
 shuffle = "Phát ngẫu nhiên"
 prev = "Bài trước"
 next = "Bài kế"
@@ -14,7 +13,6 @@ repeat_one = "Lặp lại một bài"
 mute = "Tắt tiếng"
 unmute = "Bật tiếng"
 volume = "Âm lượng"
-seek = "Tua"
 settings = "Cài đặt"
 
 [toast]

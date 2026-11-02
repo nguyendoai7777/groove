@@ -100,6 +100,7 @@ fn app_prefs(cx: &App) -> (u8, bool) {
 }
 
 type PrefsFn = fn(&App) -> (u8, bool);
+type PlayerAction = fn(&mut Player, &mut Context<Player>);
 
 pub struct PlayerBar {
     player: Entity<Player>,
@@ -178,10 +179,17 @@ impl PlayerBar {
             (player.is_playing(), player.queue().shuffle(), player.queue().repeat())
         };
         let player = self.player.clone();
-        let button = move |id: &'static str, icon: GrooveIcon, label: &'static str, on: bool| {
-            let button = IconButton::new(id, icon).accessibility_label(label).disabled(!enabled);
-            let button = if on { button.color(c.primary) } else { button };
-            button.with_tooltip((id, 0usize), label)
+        let button = {
+            let player = player.clone();
+            move |id: &'static str, icon: GrooveIcon, label: &'static str, on: bool, action: PlayerAction| {
+                let player = player.clone();
+                let button = IconButton::new(id, icon)
+                    .accessibility_label(label)
+                    .disabled(!enabled)
+                    .on_click(move |_: &ClickEvent, _, cx| player.update(cx, action));
+                let button = if on { button.color(c.primary) } else { button };
+                div().occlude().debug_selector(move || id.to_owned()).child(button.with_tooltip((id, 0usize), label))
+            }
         };
 
         let (play_icon, play_label) = if playing {
@@ -199,13 +207,14 @@ impl PlayerBar {
             .items_center()
             .justify_center()
             .gap_2()
-            .child(div().occlude().child(button(
+            .child(button(
                 "player-shuffle",
                 GrooveIcon::Shuffle,
                 t!("player.bar.shuffle"),
                 shuffle,
-            )))
-            .child(div().occlude().child(button("player-prev", GrooveIcon::Prev, t!("player.bar.prev"), false)))
+                Player::toggle_shuffle,
+            ))
+            .child(button("player-prev", GrooveIcon::Prev, t!("player.bar.prev"), false, Player::prev))
             .child(
                 div().occlude().child(
                     IconButton::new("player-play", play_icon)
@@ -221,8 +230,8 @@ impl PlayerBar {
                         .with_tooltip(("player-play", 0usize), play_label),
                 ),
             )
-            .child(div().occlude().child(button("player-next", GrooveIcon::Next, t!("player.bar.next"), false)))
-            .child(div().occlude().child(button("player-repeat", repeat_icon, repeat_label, repeat == RepeatMode::One)))
+            .child(button("player-next", GrooveIcon::Next, t!("player.bar.next"), false, Player::next))
+            .child(button("player-repeat", repeat_icon, repeat_label, repeat == RepeatMode::One, Player::toggle_repeat))
     }
 }
 
@@ -561,6 +570,45 @@ mod tests {
         rig.until(cx, "song loaded", |p| p.current_song().is_some() && p.duration_sec() > 0.);
         cx.update(|window, cx| window.draw(cx).clear(cx));
         assert!(bar.read_with(cx, |bar, cx| bar.is_enabled(cx)));
+    }
+
+    /// Bốn nút điều khiển chạy thật: Next, Prev đổi bài, Shuffle, Repeat đổi chế độ và tắt lẫn nhau (bảng 1.4).
+    #[gpui::test]
+    fn transport_buttons_drive_the_player(cx: &mut TestAppContext) {
+        let rig = rig(cx);
+        let (_bar, cx) = open_bar(cx);
+        let first = fixtures::write_sample(rig.dir.path(), "a", AudioKind::Wav).unwrap();
+        let second = fixtures::write_sample(rig.dir.path(), "b", AudioKind::Wav).unwrap();
+        rig.player.update(cx, |p, cx| p.play_paths(vec![first.clone(), second.clone()], cx));
+        rig.until(cx, "song loaded", |p| p.current_song().is_some() && p.duration_sec() > 0.);
+        rig.player.update(cx, |p, cx| p.pause(cx));
+        let click = |cx: &mut VisualTestContext, id: &'static str| {
+            cx.update(|window, cx| {
+                window.refresh();
+                window.draw(cx).clear(cx);
+            });
+            let at = cx.debug_bounds(id).unwrap_or_else(|| panic!("không thấy {id}")).center();
+            cx.simulate_mouse_move(at, None, Modifiers::none());
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            cx.simulate_click(at, Modifiers::none());
+        };
+        let is = |path: &std::path::Path| {
+            let track = groove_core::model::TrackRef::External(path.to_owned());
+            move |p: &Player| p.current_track() == Some(&track) && p.current_song().is_some()
+        };
+
+        click(cx, "player-next");
+        rig.until(cx, "next", is(&second));
+        click(cx, "player-prev");
+        rig.until(cx, "prev", is(&first));
+
+        click(cx, "player-shuffle");
+        assert!(rig.player.read_with(cx, |p, _| p.queue().shuffle()));
+        click(cx, "player-repeat");
+        rig.player.read_with(cx, |p, _| {
+            assert_eq!(p.queue().repeat(), RepeatMode::One);
+            assert!(!p.queue().shuffle(), "bật repeat tắt shuffle");
+        });
     }
 
     /// S20: kéo trên thanh chỉ đổi xem trước, `Player::seek` đúng một lần khi thả chuột.

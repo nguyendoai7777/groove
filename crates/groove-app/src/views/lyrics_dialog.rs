@@ -136,14 +136,17 @@ impl TextDialog {
         TextDialog { kind, ops, handle, area, track: None, busy: false, generation: 0, _subscriptions: subscriptions }
     }
 
+    #[cfg(test)]
     pub fn kind(&self) -> TextKind {
         self.kind
     }
 
+    #[cfg(test)]
     pub fn is_open(&self) -> bool {
         self.handle.is_open()
     }
 
+    #[cfg(test)]
     /// Ô đang khoá vì đọc hoặc ghi chưa xong.
     pub fn is_busy(&self) -> bool {
         self.busy
@@ -154,6 +157,7 @@ impl TextDialog {
         self.area.read(cx).value(cx)
     }
 
+    #[cfg(test)]
     /// Đặt chữ trong ô (cho test và cho view gốc muốn điền sẵn).
     pub fn set_text(&mut self, text: impl Into<SharedString>, window: &mut Window, cx: &mut Context<Self>) {
         let text = text.into();

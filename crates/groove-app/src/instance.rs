@@ -109,7 +109,9 @@ fn dev_tag(debug: bool, data_dir: Option<&Path>) -> String {
 impl Endpoint {
     /// Endpoint thật cho người dùng hiện tại. Windows theo SID: pipe là toàn máy, tên người dùng thì có thể trùng sau khi lọc.
     fn primary() -> io::Result<Endpoint> {
-        let data_dir = std::env::var_os("GROOVE_DATA_DIR").map(PathBuf::from);
+        // Như `groove_core::paths`: biến này chỉ có nghĩa ở bản debug, bản phát hành không đọc (M1).
+        let data_dir =
+            if cfg!(debug_assertions) { std::env::var_os("GROOVE_DATA_DIR").map(PathBuf::from) } else { None };
         let tag = dev_tag(cfg!(debug_assertions), data_dir.as_deref());
         #[cfg(windows)]
         {

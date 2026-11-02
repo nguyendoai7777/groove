@@ -1,6 +1,5 @@
 # Vùng palette: khoá viết không tiền tố, tra bằng t!("palette.<khoá>").
 
-title = "Command palette"
 placeholder = "Type / for playback commands, or search songs and artists..."
 mode_search = "Search"
 mode_cli = "Command mode"
@@ -34,7 +33,6 @@ prev = "Previous song"
 volume = "Set the volume from 0 to 100"
 theme = "Switch between light and dark (dark, light, system)"
 help = "Show the list of commands"
-tab = "pick"
 
 [error]
 unknown = "No command named {name}. Type /help for the list of commands."

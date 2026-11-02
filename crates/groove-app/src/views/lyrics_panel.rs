@@ -112,6 +112,7 @@ impl LyricsPanel {
 }
 
 impl LyricsPanel {
+    #[cfg(test)]
     /// Thân cột lúc này (cho test).
     pub fn state(&self, cx: &App) -> Body {
         self.body(cx)

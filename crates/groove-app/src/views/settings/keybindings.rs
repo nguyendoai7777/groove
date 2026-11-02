@@ -130,6 +130,7 @@ impl KeybindingsPanel {
         state.update(cx, |state, cx| state.replace_all(text, window, cx));
     }
 
+    #[cfg(test)]
     /// Lỗi đang hiện dưới ô (cho test).
     pub fn has_error(&self) -> bool {
         self.error

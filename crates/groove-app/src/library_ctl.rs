@@ -214,6 +214,11 @@ pub fn import_notice(report: &ImportReport) -> (ToastKind, String) {
     (ToastKind::Success, t!("actions.import.done", added = added, missing = report.marked_missing.len()))
 }
 
+/// Toast tóm tắt khi đĩa đổi ngoài app (đặc tả 1.11).
+pub fn external_change_notice(report: &SyncReport) -> String {
+    t!("actions.sync.changed", added = report.added, updated = report.updated, removed = report.removed.len())
+}
+
 pub fn rescan_notice(tally: &IndexTally) -> (ToastKind, String) {
     let kind =
         if tally.missing.is_empty() && tally.failed.is_empty() { ToastKind::Success } else { ToastKind::Warning };
@@ -317,6 +322,7 @@ impl LibraryCtl {
         self.rescan.running()
     }
 
+    #[cfg(test)]
     pub fn is_watching(&self) -> bool {
         self.watcher.is_some()
     }
@@ -359,6 +365,9 @@ impl LibraryCtl {
                     ProgressKind::TagBackfill | ProgressKind::MetadataBulk => {}
                 }
                 self.push_activity(cx);
+            }
+            LibraryEvent::ExternalChange(report) => {
+                self.notice(ToastKind::Info, external_change_notice(&report), cx);
             }
             LibraryEvent::OpenFailed(_) | LibraryEvent::Moved(_) => {}
         }
@@ -664,7 +673,10 @@ impl LibraryCtl {
             SongEditKind::Lyrics => self.lyrics_dialog.clone(),
             SongEditKind::Timeline => self.timeline_dialog.clone(),
         };
-        let ops = app::metadata_ops(cx);
+        let Some(ops) = app::try_metadata_ops(cx) else {
+            self.notice(ToastKind::Danger, t!("actions.unavailable"), cx);
+            return;
+        };
         let this = cx.entity();
         with_window(cx, move |window, cx| {
             let dialog = existing.unwrap_or_else(|| {
@@ -731,7 +743,10 @@ impl LibraryCtl {
         if self.metadata_dialog.is_some() {
             return;
         }
-        let ops = app::metadata_ops(cx);
+        let Some(ops) = app::try_metadata_ops(cx) else {
+            self.notice(ToastKind::Danger, t!("actions.unavailable"), cx);
+            return;
+        };
         let this = cx.entity();
         with_window(cx, move |window, cx| {
             // Hai lần mở sát nhau cùng chờ ở đây: lần sau không được thay mất hộp của lần trước.
@@ -745,7 +760,7 @@ impl LibraryCtl {
 
     fn adopt_metadata(&mut self, dialog: Entity<MetadataDialog>, cx: &mut Context<Self>) {
         self._metadata_events = Some(cx.subscribe(&dialog, |this, _, event: &MetadataDialogEvent, cx| match event {
-            MetadataDialogEvent::Saved(_) => {
+            MetadataDialogEvent::Saved => {
                 if let Some(page) = this.page.as_ref().and_then(WeakEntity::upgrade) {
                     page.update(cx, |page, cx| page.refresh_lists(cx));
                 }
@@ -1185,6 +1200,22 @@ mod tests {
         wait_until(cx, "tắt quét", |cx| !ctl.read_with(cx, |c, _| c.is_rescanning()));
     }
 
+    /// Đặc tả 1.11: đĩa đổi ngoài app thì có toast tóm tắt; `Synced` của import, quét lại, thao tác trong app thì không.
+    #[gpui::test]
+    fn outside_changes_get_a_summary_toast(cx: &mut TestAppContext) {
+        let env = env();
+        let (_ctl, notices) = ctl_with(cx, &env, fake_picker(None, Rc::default()));
+        env.library.writer().emit(LibraryEvent::Synced(SyncReport { added: 9, ..SyncReport::default() }));
+        cx.run_until_parked();
+        assert!(notices.borrow().is_empty(), "{:?}", notices.borrow());
+        let report = SyncReport { added: 2, updated: 3, removed: vec![1] };
+        env.library.writer().emit(LibraryEvent::ExternalChange(report));
+        wait_until(cx, "toast", |_| !notices.borrow().is_empty());
+        let (kind, message) = notices.borrow()[0].clone();
+        assert_eq!(kind, ToastKind::Info);
+        assert!(message.contains('2') && message.contains('3') && message.contains('1'), "{message}");
+    }
+
     /// C8 — mở app: watcher chạy, một lần duy nhất; `shutdown` dừng watcher rồi đóng thư viện.
     #[gpui::test]
     fn starts_once_and_shuts_down_in_order(cx: &mut TestAppContext) {
@@ -1586,6 +1617,7 @@ mod tests {
             "actions.play.failed",
             "actions.remove.failed",
             "actions.cover.failed",
+            "actions.sync.changed",
             "actions.card.play_all",
             "actions.card.set_cover",
             "actions.card.edit_metadata",

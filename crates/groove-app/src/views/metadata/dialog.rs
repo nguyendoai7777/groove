@@ -47,7 +47,7 @@ pub struct GroupScope {
 #[derive(Clone, Debug)]
 pub enum MetadataDialogEvent {
     /// Bài đang mở đã ghi xong (tệp, và DB nếu là bài thư viện). Nạp lại danh sách khi nhận.
-    Saved(Box<SavedTrack>),
+    Saved,
     /// Dialog đã đóng (Esc, nút, hoặc lưu xong): chủ bỏ entity.
     Closed,
 }
@@ -271,6 +271,7 @@ impl MetadataDialog {
         &self.track
     }
 
+    #[cfg(test)]
     pub fn is_open(&self) -> bool {
         self.handle.is_open()
     }
@@ -279,6 +280,7 @@ impl MetadataDialog {
         matches!(self.phase, Phase::Ready)
     }
 
+    #[cfg(test)]
     pub fn load_error(&self) -> Option<&str> {
         match &self.phase {
             Phase::Failed(text) => Some(text),
@@ -286,34 +288,42 @@ impl MetadataDialog {
         }
     }
 
+    #[cfg(test)]
     pub fn is_saving(&self) -> bool {
         self.saving
     }
 
+    #[cfg(test)]
     pub fn error(&self) -> Option<&str> {
         self.error.as_deref()
     }
 
+    #[cfg(test)]
     pub fn name_error(&self) -> Option<&str> {
         self.name_error.as_deref()
     }
 
+    #[cfg(test)]
     pub fn bulk_report(&self) -> Option<&BulkText> {
         self.bulk.as_ref()
     }
 
+    #[cfg(test)]
     pub fn view_data(&self) -> Option<&MetadataView> {
         self.view.as_ref()
     }
 
+    #[cfg(test)]
     pub fn cover_pane(&self) -> Option<&Entity<CoverPane>> {
         self.cover.as_ref()
     }
 
+    #[cfg(test)]
     pub fn mode(&self) -> WriteMode {
         self.mode
     }
 
+    #[cfg(test)]
     pub fn applies_to_group(&self) -> bool {
         self.apply_group
     }
@@ -347,6 +357,7 @@ impl MetadataDialog {
         }
     }
 
+    #[cfg(test)]
     /// Gõ vào ô tên như người dùng (kể cả cắt đuôi, kiểm tên).
     pub fn type_filename(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(form) = &self.form else { return };
@@ -418,19 +429,16 @@ impl MetadataDialog {
         cx: &mut Context<Self>,
     ) {
         self.saving = false;
-        let saved = match saved {
-            Ok(saved) => saved,
-            Err(error) => {
-                if error.file_written() {
-                    // Thẻ đã vào tệp: bài đang phát phải đọc lại dù tên chưa đổi hoặc DB chưa theo.
-                    self.saved = true;
-                    refresh_player(cx);
-                }
-                self.error = Some(error_text(&error));
-                cx.notify();
-                return;
+        if let Err(error) = saved {
+            if error.file_written() {
+                // Thẻ đã vào tệp: bài đang phát phải đọc lại dù tên chưa đổi hoặc DB chưa theo.
+                self.saved = true;
+                refresh_player(cx);
             }
-        };
+            self.error = Some(error_text(&error));
+            cx.notify();
+            return;
+        }
         self.saved = true;
         let mut clean = true;
         match bulk {
@@ -445,7 +453,7 @@ impl MetadataDialog {
             None => {}
         }
         refresh_player(cx);
-        cx.emit(MetadataDialogEvent::Saved(Box::new(saved)));
+        cx.emit(MetadataDialogEvent::Saved);
         if clean {
             self.handle.close(window, cx);
         }
@@ -1061,7 +1069,7 @@ mod tests {
         let fields = tags::read_track(&renamed).unwrap().fields;
         assert_eq!(fields.title.as_deref(), Some("New title"));
         assert_eq!(fields.artist.as_deref(), Some("New artist"));
-        assert!(matches!(rig.events.borrow().first(), Some(MetadataDialogEvent::Saved(s)) if s.path == renamed));
+        assert!(matches!(rig.events.borrow().first(), Some(MetadataDialogEvent::Saved)));
         assert!(!rig.is_open(cx), "lưu xong thì đóng");
         wait_until(cx, "phát Closed", |_| {
             rig.events.borrow().iter().any(|e| matches!(e, MetadataDialogEvent::Closed))
@@ -1217,7 +1225,7 @@ mod tests {
         });
         assert_eq!(tags::read_track(&c).unwrap().fields.genre.as_deref(), Some("Pop"));
         assert_eq!(tags::read_track(&b).unwrap().fields.genre, None, "tệp lỗi nguyên vẹn");
-        assert!(matches!(rig.events.borrow().first(), Some(MetadataDialogEvent::Saved(_))), "bài mở đã lưu");
+        assert!(matches!(rig.events.borrow().first(), Some(MetadataDialogEvent::Saved)), "bài mở đã lưu");
     }
 
     /// C11 — bìa: ảnh hợp lệ thì lưu vào tệp; tệp không phải ảnh thì báo và giữ nguyên; bỏ bìa xoá bìa.
@@ -1284,7 +1292,7 @@ mod tests {
             d.save(window, cx);
         });
         saved_or_failed(&rig, cx);
-        assert_eq!(rig.events.borrow().iter().filter(|e| matches!(e, MetadataDialogEvent::Saved(_))).count(), 1);
+        assert_eq!(rig.events.borrow().iter().filter(|e| matches!(e, MetadataDialogEvent::Saved)).count(), 1);
     }
 
     /// C14 — dán: clipboard có ảnh thì ô bìa nhận, clipboard chỉ có chữ thì để ô nhập tự dán.

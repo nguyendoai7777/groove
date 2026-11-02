@@ -51,7 +51,12 @@ pub fn logs_dir() -> io::Result<PathBuf> {
 /// DB của bản Tauri, không kiểm tệp có tồn tại. Chạy thử từ app Claude thì AppData bị ảo hoá MSIX: không thấy tệp ở đó
 /// không có nghĩa là máy không có DB.
 pub fn legacy_db() -> io::Result<PathBuf> {
-    let base = dirs::data_dir().ok_or_else(|| not_found("data dir"))?;
+    resolve_legacy_db(dev_override(), dirs::data_dir())
+}
+
+/// Có `GROOVE_DATA_DIR` thì tìm trong đó: chạy thử không được đọc DB thật của người dùng (M1).
+fn resolve_legacy_db(dev: Option<OsString>, os: Option<PathBuf>) -> io::Result<PathBuf> {
+    let base = dev.map(PathBuf::from).or(os).ok_or_else(|| not_found("data dir"))?;
     Ok(base.join(LEGACY_APP_DIR).join(LEGACY_DB_FILE))
 }
 
@@ -178,6 +183,14 @@ mod tests {
     fn missing_os_dir_is_an_error() {
         assert_eq!(resolve_data_dir(None, None).unwrap_err().kind(), io::ErrorKind::NotFound);
         assert_eq!(resolve_cache_dir(None, None).unwrap_err().kind(), io::ErrorKind::NotFound);
+    }
+
+    #[test]
+    fn override_keeps_the_real_legacy_db_out_of_reach() {
+        let real = Some(PathBuf::from("/home/u/.local/share"));
+        let moved = resolve_legacy_db(Some(OsString::from("/tmp/g")), real.clone()).unwrap();
+        assert!(moved.starts_with("/tmp/g"), "{moved:?}");
+        assert!(resolve_legacy_db(None, real).unwrap().starts_with("/home/u/.local/share"));
     }
 
     #[test]

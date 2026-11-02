@@ -397,12 +397,16 @@ fn run_reconcile(indexer: &Indexer, now_ms: i64) -> Result<ReconcileReport, Inde
         Err(err) => {
             if report.sync.changed_anything() {
                 indexer.emit_outcome(&report.sync);
+
+                indexer.emit_external_change(&report.sync);
             }
             return Err(err.into());
         }
     }
     if report.sync.changed_anything() {
         indexer.emit_outcome(&report.sync);
+
+        indexer.emit_external_change(&report.sync);
     }
     Ok(report)
 }

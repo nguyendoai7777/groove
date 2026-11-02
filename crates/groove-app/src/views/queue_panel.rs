@@ -124,16 +124,19 @@ impl QueuePanel {
         panel
     }
 
+    #[cfg(test)]
     /// Số bài đang hiển thị (cho test).
     pub fn len(&self) -> usize {
         self.tracks.len()
     }
 
+    #[cfg(test)]
     /// Dòng đã dựng, `None` là chưa tra xong (cho test).
     pub fn rows(&self) -> &[Option<Row>] {
         &self.rows
     }
 
+    #[cfg(test)]
     pub fn current(&self) -> Option<usize> {
         self.current
     }

@@ -33,11 +33,8 @@ bpm = "BPM"
 grouping = "Nhóm"
 comment = "Ghi chú"
 compilation = "Tuyển tập nhiều nghệ sĩ"
-extension = "Đuôi tệp"
 
 [cover]
-label = "Bìa"
-empty = "Chưa có bìa"
 hint = "Nhấp để chọn ảnh, kéo thả hoặc dán ảnh khi rê chuột lên ô"
 choose = "Chọn ảnh bìa"
 remove = "Bỏ bìa"

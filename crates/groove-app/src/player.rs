@@ -337,6 +337,7 @@ impl Player {
         self.changed(cx);
     }
 
+    #[cfg(test)]
     /// Xoá hàng đợi và bài đang chọn, dừng tiếng.
     pub fn clear(&mut self, cx: &mut Context<Self>) {
         self.user_action();
