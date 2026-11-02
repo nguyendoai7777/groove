@@ -501,10 +501,14 @@ fn album_name(conn: &Connection, album_id: Option<i64>) -> Result<Option<String>
 }
 
 /// Đổi đường dẫn, giữ `id` (N3, N4). Đích là bài khác thì báo lỗi, không đè; chỉ đổi hoa thường trên hệ tệp gập thì được.
+/// Đích chỉ là dòng đang đánh dấu mất (`track_for_path` đã coi là trống) thì dòng đó nhường chỗ: tên giờ thuộc về bài này, và
+/// đường dẫn là danh tính của dòng nên nó không thể quay lại được nữa.
 pub fn move_song(conn: &Connection, id: i64, new_path: &Path, folder_id: Option<i64>) -> Result<()> {
     let file_path = path_text(new_path);
     let path_key = schema::path_key(&file_path);
-    if song_id_by_key(conn, &path_key)?.is_some_and(|other| other != id) {
+    if let Some(other) = song_id_by_key(conn, &path_key)?.filter(|other| *other != id)
+        && !delete_missing_song(conn, other)?
+    {
         return Err(QueryError::PathConflict(new_path.to_owned()));
     }
     let mut stmt = conn.prepare_cached(
@@ -1146,6 +1150,19 @@ mod tests {
         mark_song_missing(&conn, a, 1).unwrap();
         assert!(delete_missing_song(&conn, a).unwrap());
         assert_eq!(ids(&songs(&conn, CategoryRef::Playlist(list)).unwrap()), [b]);
+    }
+
+    #[test]
+    fn a_rename_may_take_the_name_of_a_missing_song_only() {
+        let (_dir, conn) = db();
+        let f = folder(&conn);
+        let a = upsert_song(&conn, &entry("/m/a.mp3", f)).unwrap().id;
+        let b = upsert_song(&conn, &entry("/m/b.mp3", f)).unwrap().id;
+        assert!(matches!(move_song(&conn, a, Path::new("/m/b.mp3"), None), Err(QueryError::PathConflict(_))));
+        mark_song_missing(&conn, b, 1).unwrap();
+        move_song(&conn, a, Path::new("/m/b.mp3"), None).unwrap();
+        assert_eq!(track_for_path(&conn, Path::new("/m/b.mp3")).unwrap(), TrackRef::Library(a));
+        assert!(song_by_id(&conn, b).unwrap().is_none());
     }
 
     #[test]

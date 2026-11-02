@@ -11,6 +11,18 @@
 | Phụ thuộc mới | Theo mục 5 của đặc tả; soát giấy phép ở `groove-gd1_01` |
 | File đụng tới | `app/library_ctl.rs`, `views/{song_menu,playlist_dialog,card_menu}.rs`, `i18n/*/actions.toml` (N9, S2, S3) |
 
+## 0. Bàn giao từ groove-gd1_09 (02/11/2026)
+
+<!-- handoff: groove-gd1_09 -->
+
+- **Phải nối**: giữ `watcher::LibraryWatcher::start(indexer)` suốt phiên trong `library_ctl`, trước `Library::shutdown` gọi `stop`. `start` tự gắn watcher rồi tự so đĩa với DB, đừng gọi `reconcile` thêm. Sau import, bỏ gốc: `refresh_roots()`.
+- **N9 đã có dữ liệu**: schema bản 2 có `excluded_paths`. `queries::{add_excluded_path, remove_excluded_path, excluded_paths, is_excluded}`. Quét, watcher, import gốc cha đều tự bỏ qua chỗ đã thêm; hàm chỉ ghi dòng, không xoá bài: xoá bài dưới đó trong cùng transaction.
+- **Import đổi**: `ImportReport.removed` thành `marked_missing`, thêm `moved`, `restored`. Toast "đã xoá" giờ nghĩa là "không còn thấy tệp"; playlist vẫn giữ.
+- **Bài đang mất** ẩn khỏi mọi danh sách, 30 ngày mới dọn. Muốn cho người dùng dọn ngay: `reconcile::{missing_songs, forget_missing}`.
+- **Sự kiện mới phải nghe**: `LibraryEvent::Moved` tới cùng `Synced` khi đổi tên ngoài app. Mở app không đổi gì thì không có sự kiện, không toast.
+- **Soát lại khi làm**: `cargo test -p groove-library --test watcher_reconcile`.
+- Chi tiết: `plan/groove-gd1_09_watcher-reconcile.md` mục 9.
+
 ## 0. Bàn giao từ groove-gd1_15 (02/11/2026)
 
 <!-- handoff: groove-gd1_15 -->
