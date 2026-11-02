@@ -13,6 +13,13 @@
 
 Đặc tả: `docs/rewrite-spec.md`, bảng mục 6 dòng 29. Đọc mục liên quan của đặc tả trước khi code; viết tắt đường dẫn ở cuối mục 6.
 
+## 0. Bàn giao từ groove-gd1_26 (02/11/2026)
+
+<!-- handoff: groove-gd1_26 -->
+
+- **Đã có sẵn để dùng**: icon taskbar và logo đã chép vào `crates/groove-app/assets/{taskbar,media}`, gỡ `src-tauri` không ảnh hưởng.
+- **Soát lại khi làm**: ba mục `[groove-gd1_26 · owner-qa]` ở `plan/_backlog.md`; biên dịch trọn `groove-app` trên macOS, Linux; đo RAM có thêm hai luồng `taskbar`, `media-session`.
+
 ## 1. Làm gì
 - Làm đúng hành vi ở mục 1 và dữ liệu ở mục 2 của đặc tả cho phạm vi "File đụng tới".
 - Chỉ sửa tệp mình sở hữu; thiếu API từ task khác thì ghi mục 8, không sửa tệp của làn khác.

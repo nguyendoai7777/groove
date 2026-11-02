@@ -146,3 +146,7 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [groove-gd1_19] Ctrl+V chỉ dán ảnh khi chuột đang trên ô bìa và clipboard có ảnh / tệp ảnh — luôn chặn Ctrl+V trong dialog — để ô nhập vẫn dán chữ được.
 - [groove-gd1_19] Bài `not_started` của báo cáo lô chỉ hiện số lượng — kèm tên — `BulkReport.not_started` chỉ có id, tra tên cần DB đang đóng.
 - [groove-gd1_19] Nền dialog bấm không đóng, Esc bị chặn khi đang lưu — theo mặc định của materiant — tránh mất bản sửa dài.
+- [groove-gd1_26] Nút giữa taskbar luôn bật, Prev, Next tắt khi chưa có bài — tắt cả ba — bản cũ chỉ tắt hai nút điều hướng, Play khi chưa có bài tự lấy bài kế.
+- [groove-gd1_26] Bài không bìa trên Windows hiện logo app — giữ nguyên ảnh cũ — souvlaki không xoá được ảnh, ảnh bài trước sẽ dính sang bài sau.
+- [groove-gd1_26] Bỏ qua `SetVolume`, `Quit`, `OpenUri` từ OS, nhận `Raise` — làm đủ — ngoài đặc tả 5.4; `OpenUri` từ tiến trình khác còn là cửa mở tệp tuỳ ý.
+- [groove-gd1_26] Thêm `assets/taskbar`, `assets/media/no_cover.png` chép từ `src-tauri/icons` — trỏ thẳng `src-tauri` — task 29 gỡ thư mục đó.

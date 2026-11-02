@@ -86,6 +86,8 @@ pub fn run(dev: DevArgs) {
         crate::commands::install(cx);
         // Task 14: thanh phát vào `Slot::PlayerBar`, cần player ở trên.
         crate::views::player_bar::install(handle, cx);
+        // Task 26: media session, nút taskbar, cần phím tắt ở trên.
+        crate::platform::media_session::install(handle, cx);
         dev::replay(handle, dev.keys, cx);
     });
 }
