@@ -1,1 +1,63 @@
 # Vùng settings: khoá viết không tiền tố, tra bằng t!("settings.<khoá>").
+
+title = "Settings"
+
+[tab]
+general = "General"
+keybindings = "Keyboard shortcuts"
+library = "Library"
+
+[general]
+steps = "Seek and volume steps"
+seek_step = "Seek step (seconds)"
+seek_step_hint = "1 or more. Used by the seek keys and buttons."
+volume_step = "Volume step"
+volume_step_hint = "1 to 100. Used by the up and down keys and the mouse wheel."
+
+[eq]
+title = "Equalizer"
+preset = "Preset"
+bass_boost = "Bass boost"
+gain_unit = "dB"
+band_label = "Band {hz}"
+curve_label = "Equalizer curve"
+note = "Changes are heard right away. Cancel restores the values from when the dialog opened."
+
+[preset]
+custom = "Custom"
+flat = "Flat"
+bass_strong = "Bass strong"
+bass_moderate = "Bass moderate"
+pop = "Pop"
+rock = "Rock"
+electronic = "Electronic"
+vocal = "Vocal"
+treble = "Treble"
+
+[keys]
+hint = "A JSON array where every item has key and command. Combos read like ctrl+k, two-key sequences like g m."
+reset = "Reset to defaults"
+commands = "Available commands"
+area_label = "Keyboard shortcut list (JSON)"
+
+[keys.error]
+empty = "The box is empty. Enter a JSON array, or press Reset to defaults."
+syntax = "Invalid JSON at line {line}, column {column}. Check the commas and brackets."
+not_array = "It must be an array, starting with [ and ending with ]."
+missing_field = "Item {number} has no key or command, or one of them is empty."
+unknown_command = "Item {number}: there is no command \"{command}\". See the list of commands below."
+invalid_key = "Item {number}: cannot read the key \"{key}\". Use ctrl, alt, shift, at most two keys."
+duplicate = "Item {number}: the key \"{key}\" is already used by item {first}."
+unreachable = "Item {number}: the sequence \"{key}\" can never be reached because its first key is already a single key in item {prefix}."
+
+[roots]
+title = "Music folders"
+hint = "Groove watches these folders and updates itself when files change."
+empty = "No folders yet. Press Add folder to start."
+unavailable = "The library could not be opened, so folders cannot be listed."
+add = "Add folder"
+rescan = "Rescan"
+remove = "Remove"
+confirm_remove = "Remove for real"
+remove_note = "Removing a folder only takes its songs out of the library. The files stay on disk."
+busy = "Importing or scanning..."
