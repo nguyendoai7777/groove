@@ -1,1 +1,23 @@
 # Vùng shell: khoá viết không tiền tố, tra bằng t!("shell.<khoá>").
+
+[nav]
+my_music = "Thư viện"
+now_playing = "Đang phát"
+playlists = "Danh sách phát"
+settings = "Cài đặt"
+
+[side_nav]
+collapse = "Thu gọn thanh bên"
+expand = "Mở rộng thanh bên"
+
+[app_bar]
+back = "Quay lại"
+minimize = "Thu nhỏ"
+maximize = "Phóng to"
+restore = "Khôi phục"
+close = "Đóng"
+search_placeholder = "Tìm bài hát, lệnh..."
+
+# Chỗ giữ cho màn chưa được dựng; chỉ thấy trong lúc các task còn làm dở.
+[slot]
+empty = "Màn {page} chưa được dựng"
