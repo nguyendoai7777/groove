@@ -96,6 +96,8 @@ pub fn run(dev: DevArgs) {
         crate::views::command_palette::install(handle, cx);
         // Task 21: màn Now Playing vào `Slot::NowPlaying`, cần player và thư viện ở trên.
         crate::views::now_playing::install(handle, cx);
+        // Task 24: hộp Settings vào `Slot::Settings`, nghe `ShellEvent::OpenSettings`; cần player và thư viện ở trên.
+        crate::views::settings::dialog::install(handle, cx);
         dev::replay(handle, dev.keys, cx);
     });
 }
@@ -171,6 +173,12 @@ fn install_settings(settings: Settings, saver: Option<JsonSaver>, cx: &mut App) 
     .detach();
 }
 
+/// Đặt cài đặt toàn app cho test của view khác (`app::settings` cần global này), không lưu đĩa.
+#[cfg(test)]
+pub fn install_settings_for_test(settings: Settings, cx: &mut App) {
+    install_settings(settings, None, cx);
+}
+
 /// Cài đặt hiện tại.
 pub fn settings(cx: &App) -> &Settings {
     cx.global::<SettingsStore>().entity.read(cx)
@@ -203,6 +211,8 @@ pub enum Slot {
     NowPlaying,
     /// Bảng lệnh (task 23): dialog tự vẽ lớp phủ, nên chỉ cần nằm trong cây của khung.
     CommandPalette,
+    /// Hộp Settings (task 24): cũng là dialog tự vẽ lớp phủ.
+    Settings,
 }
 
 /// Sự kiện của khung cho view khác nghe.
@@ -221,6 +231,7 @@ struct Slots {
     library: Option<AnyView>,
     now_playing: Option<AnyView>,
     command_palette: Option<AnyView>,
+    settings: Option<AnyView>,
 }
 
 impl Slots {
@@ -230,6 +241,7 @@ impl Slots {
             Slot::Library => self.library.as_ref(),
             Slot::NowPlaying => self.now_playing.as_ref(),
             Slot::CommandPalette => self.command_palette.as_ref(),
+            Slot::Settings => self.settings.as_ref(),
         }
     }
 
@@ -239,6 +251,7 @@ impl Slots {
             Slot::Library => self.library = Some(view),
             Slot::NowPlaying => self.now_playing = Some(view),
             Slot::CommandPalette => self.command_palette = Some(view),
+            Slot::Settings => self.settings = Some(view),
         }
     }
 }
@@ -423,6 +436,7 @@ impl Render for Shell {
                     .children(player),
             )
             .children(self.slots.get(Slot::CommandPalette).map(|view| view.clone().into_any_element()))
+            .children(self.slots.get(Slot::Settings).map(|view| view.clone().into_any_element()))
             .child(ToastViewport::new().inset_top(px(app_bar::HEIGHT)))
     }
 }
@@ -433,6 +447,12 @@ impl Render for Shell {
 struct ShellHandle(Entity<Shell>);
 
 impl Global for ShellHandle {}
+
+/// Đặt khung cho test của view cần `app::shell` (`run` mới đặt global này).
+#[cfg(test)]
+pub fn set_shell_for_test(shell: Entity<Shell>, cx: &mut App) {
+    cx.set_global(ShellHandle(shell));
+}
 
 pub fn shell(cx: &App) -> Entity<Shell> {
     cx.global::<ShellHandle>().0.clone()

@@ -1,1 +1,104 @@
-//! groove-gd1_24.
+//! groove-gd1_24: tab Cài đặt chung (đặc tả 1.10): bước tua, bước âm lượng, rồi bảng EQ.
+//!
+//! Hai bước áp ngay như EQ (người dùng thấy tác dụng ở phím tua, bánh xe ngay khi gõ); Huỷ do hộp trả về giá trị lúc mở.
+//! Ô trống hay ngoài khoảng chưa phải giá trị: bỏ qua, ô tự kẹp lại khi mất focus.
+
+use groove_core::settings::Settings;
+use groove_core::t;
+use materiant::field::number::NumberField;
+use materiant::gpui_kit::prelude::*;
+use materiant::gpui_kit::{
+    App, Context, Entity, FontWeight, IntoElement, ParentElement, Render, Styled, Window, div, px,
+};
+
+use super::eq_panel::EqPanel;
+use crate::app;
+
+/// Khoảng hợp lệ của bước tua, giây (`Settings::sanitize` chỉ chặn dưới; trần để ô không nhận số vô lý).
+pub const SEEK_STEP_RANGE: std::ops::RangeInclusive<u32> = 1..=3600;
+/// Khoảng hợp lệ của bước âm lượng (đặc tả 1.10).
+pub const VOLUME_STEP_RANGE: std::ops::RangeInclusive<u8> = 1..=100;
+
+pub struct GeneralPanel {
+    seek_step: Entity<NumberField>,
+    volume_step: Entity<NumberField>,
+    eq: Entity<EqPanel>,
+}
+
+impl GeneralPanel {
+    pub fn new(window: &mut Window, cx: &mut Context<Self>) -> GeneralPanel {
+        let seek_step = cx.new(|cx| {
+            NumberField::new("settings-seek-step", window, cx)
+                .label(t!("settings.general.seek_step"))
+                .hint(t!("settings.general.seek_step_hint"))
+                .range(*SEEK_STEP_RANGE.start()..=*SEEK_STEP_RANGE.end())
+                .step(1)
+                .on_change(|value, _, cx| {
+                    let Some(value) = value.map(|v| v as u32).filter(|v| SEEK_STEP_RANGE.contains(v)) else { return };
+                    if app::settings(cx).seek_step != value {
+                        app::update_settings(cx, |s| s.seek_step = value);
+                    }
+                })
+        });
+        let volume_step = cx.new(|cx| {
+            NumberField::new("settings-volume-step", window, cx)
+                .label(t!("settings.general.volume_step"))
+                .hint(t!("settings.general.volume_step_hint"))
+                .range(*VOLUME_STEP_RANGE.start()..=*VOLUME_STEP_RANGE.end())
+                .step(1)
+                .on_change(|value, _, cx| {
+                    let Some(value) = value.map(|v| v as u8).filter(|v| VOLUME_STEP_RANGE.contains(v)) else { return };
+                    if app::settings(cx).volume_step != value {
+                        app::update_settings(cx, |s| s.volume_step = value);
+                    }
+                })
+        });
+        GeneralPanel { seek_step, volume_step, eq: cx.new(|_| EqPanel::new()) }
+    }
+
+    pub fn eq_panel(&self) -> &Entity<EqPanel> {
+        &self.eq
+    }
+
+    /// Nạp giá trị hiện có vào các ô (lúc mở hộp, và sau khi Huỷ trả về).
+    pub fn show(&mut self, settings: &Settings, window: &mut Window, cx: &mut Context<Self>) {
+        let (seek, volume) = (f64::from(settings.seek_step), f64::from(settings.volume_step));
+        self.seek_step.update(cx, |field, cx| field.set_value(seek, window, cx));
+        self.volume_step.update(cx, |field, cx| field.set_value(volume, window, cx));
+        let eq = settings.eq.clone();
+        self.eq.update(cx, |panel, cx| panel.show(eq, cx));
+    }
+}
+
+#[cfg(test)]
+impl GeneralPanel {
+    /// Số đang hiện trong ô bước tua.
+    pub fn seek_step_value(&self, cx: &App) -> Option<f64> {
+        self.seek_step.read(cx).value(cx)
+    }
+
+    /// Gõ `text` vào ô bước tua như người dùng (thay cả ô), đi qua đúng `on_change` thật.
+    pub fn type_seek_step(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let text = text.to_owned();
+        let state = self.seek_step.read(cx).input_state().clone();
+        state.update(cx, |state, cx| state.replace_all(text, window, cx));
+    }
+}
+
+impl Render for GeneralPanel {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .flex()
+            .flex_col()
+            .gap_4()
+            .child(div().font_weight(FontWeight::SEMIBOLD).child(t!("settings.general.steps")))
+            .child(
+                div()
+                    .flex()
+                    .gap_4()
+                    .child(div().w(px(240.)).child(self.seek_step.clone()))
+                    .child(div().w(px(240.)).child(self.volume_step.clone())),
+            )
+            .child(self.eq.clone())
+    }
+}
