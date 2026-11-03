@@ -19,7 +19,6 @@ metadata = "Thông tin bài"
 timeline = "Timeline"
 edit_lyrics = "Sửa lời"
 add_lyrics = "Thêm lời"
-queue = "Hàng đợi"
 
 [queue]
 title = "Hàng đợi phát"
