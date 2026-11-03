@@ -129,6 +129,11 @@ fn desktop_entry_opens_many_files_and_covers_each_format() {
     assert!(mime.ends_with(';'), "chuẩn desktop entry đòi `;` cuối danh sách");
     assert!(desktop.lines().any(|l| l == "Categories=AudioVideo;Audio;Player;"));
     assert!(desktop.lines().any(|l| l == "Icon=groove"));
+    // dev-app-id: bản phát hành ghép icon theo `app_id` = tên tệp; bản debug mã khác, mục dev của `start.sh` không đè gói.
+    let window_state = read("crates/groove-app/src/window_state.rs");
+    assert!(desktop.lines().any(|l| l == "StartupWMClass=groove"));
+    assert!(window_state.contains("RELEASE_APP_ID: &str = \"groove\";"));
+    assert!(window_state.contains("DEV_APP_ID: &str = \"groove.dev\";"));
     // pip: mục "Trình phát thu nhỏ" ở menu chuột phải của dock; `--pip` đi qua kênh một phiên (`instance.rs`).
     assert!(desktop.lines().any(|l| l == "Actions=pip;"));
     assert!(

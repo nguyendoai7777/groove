@@ -18,8 +18,13 @@ use materiant::gpui_kit::{
 
 use crate::app::{self, Shell};
 
-/// Trùng tên `packaging/linux/groove.desktop`: dock Linux ghép cửa sổ với icon theo `app_id`.
-pub const APP_ID: &str = "groove";
+/// Bản phát hành: trùng tên `packaging/linux/groove.desktop`, dock Linux ghép cửa sổ với icon theo `app_id`.
+pub const RELEASE_APP_ID: &str = "groove";
+/// Bản debug (dev-app-id, 03/11/2026): mã riêng để dock, ô tìm, Mission Center coi là app khác — mục `groove.dev.desktop` do
+/// `start.sh` ghi không đè mục của gói đã cài. Dấu chấm, không gạch ngang: Mission Center tách tên scope
+/// `app-<launcher>-<id>-<số>.scope` theo `-`.
+pub const DEV_APP_ID: &str = "groove.dev";
+pub const APP_ID: &str = if cfg!(debug_assertions) { DEV_APP_ID } else { RELEASE_APP_ID };
 /// Cao của vùng kéo cửa sổ (thanh trên, đặc tả 1.1).
 const DRAG_STRIP_HEIGHT: f32 = 36.;
 /// Phần vùng kéo tối thiểu phải nằm trên màn để người dùng còn nắm được cửa sổ.
