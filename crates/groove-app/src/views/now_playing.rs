@@ -8,6 +8,10 @@
 //! [`TextDialog`] (task 19, 20) cho bài đang phát. Hộp lyrics, timeline tự đóng khi đổi bài, lưu xong tự nạp lại bài.
 //! Tiêu đề cửa sổ là `<bài> - <nghệ sĩ> | Groove X` khi đang ở màn này.
 //!
+//! Responsive (chủ dự án 03/11/2026; bản web không có): màn hẹp hơn [`NARROW_WIDTH`] thì ẩn cột hàng đợi, `LyricsPanel` hiện nút
+//! Hàng đợi mở chính [`QueuePanel`] trong drawer phải (`Dialog::drawer` của materiant: Esc, bấm nền, bẫy Tab). Bề ngang đo lúc
+//! `prepaint` (canvas phủ màn); đổi mức thì xin khung mới. Rộng ra lại khi drawer đang mở thì drawer đóng, cột hiện lại.
+//!
 //! Accent đọc từ cột `covers.accent_color` của DB ở luồng nền (UI không chạm đĩa, N7). Bài là tệp ngoài thì không có accent
 //! (không có hàng trong `covers`), quầng bỏ trống.
 //!
@@ -25,9 +29,10 @@ use groove_library::store::Library;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
     AnyElement, AnyWindowHandle, App, Context, Entity, FontWeight, Hsla, IntoElement, ParentElement, Pixels, Render,
-    RenderImage, SharedString, StyleRefinement, Styled, Subscription, Task, Window, div, linear_color_stop,
+    RenderImage, SharedString, StyleRefinement, Styled, Subscription, Task, Window, canvas, div, linear_color_stop,
     linear_gradient, px, relative,
 };
+use materiant::overlay::dialog::{Dialog, DialogHandle};
 use materiant::theme::ActiveTheme;
 use materiant::virtual_grid::LruImageCache;
 
@@ -52,6 +57,9 @@ pub const GLOW_OPACITY: f32 = 0.3;
 /// cột lời giữa chỉ còn ~86 px, ba nút Metadata / Timeline / Lời bị cắt (thấy khi chạy thật, groove-gd1_29).
 pub const LEFT_COLUMN: (f32, f32, f32) = (0.25, 150., 300.);
 pub const RIGHT_COLUMN: (f32, f32, f32) = (0.32, 190., 340.);
+/// Màn hẹp hơn mức này (px, cả màn Now Playing) thì ẩn cột hàng đợi, mở nó bằng nút trong drawer: ở 1024 px cột lời còn ~376 px,
+/// đủ tiêu đề + ba nút một hàng; hẹp hơn thì ba cột ép chật (ảnh chủ dự án, màn ~860 px).
+pub const NARROW_WIDTH: f32 = 1024.;
 const COVER_CACHE: usize = 4;
 
 /// `<bài> - <nghệ sĩ> | Groove X`; bài không có nghệ sĩ thì bỏ phần `- <nghệ sĩ>`. Không có bài thì `None` (về tên trang).
@@ -86,6 +94,9 @@ pub struct NowPlaying {
     lyrics_dialog: Option<Entity<TextDialog>>,
     timeline_dialog: Option<Entity<TextDialog>>,
     metadata_dialog: Option<Entity<MetadataDialog>>,
+    /// Màn hẹp: cột hàng đợi ẩn, hàng đợi mở trong [`Self::queue_drawer`].
+    narrow: bool,
+    queue_drawer: DialogHandle,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -137,6 +148,8 @@ impl NowPlaying {
             lyrics_dialog,
             timeline_dialog,
             metadata_dialog: None,
+            narrow: false,
+            queue_drawer: DialogHandle::new(cx),
             _subscriptions: subscriptions,
         };
         view.refresh_cover(cx);
@@ -246,6 +259,11 @@ impl NowPlaying {
 
     /// Nút ở `LyricsPanel` được bấm: mở hộp tương ứng cho bài đang phát.
     fn panel_event(&mut self, event: LyricsPanelEvent, window: &mut Window, cx: &mut Context<Self>) {
+        if event == LyricsPanelEvent::Queue {
+            self.queue_panel.update(cx, |panel, cx| panel.reveal_current(cx));
+            self.queue_drawer.open(window, cx);
+            return;
+        }
         let Some(track) = self.player.read(cx).current_track().cloned() else { return };
         match event {
             LyricsPanelEvent::Lyrics => {
@@ -258,6 +276,7 @@ impl NowPlaying {
                     dialog.update(cx, |dialog, cx| dialog.open(track, window, cx));
                 }
             }
+            LyricsPanelEvent::Queue => {}
             LyricsPanelEvent::Metadata => {
                 let Some(ops) = self.ops.clone() else { return };
                 if self.metadata_dialog.is_some() {
@@ -275,6 +294,30 @@ impl NowPlaying {
                 cx.notify();
             }
         }
+    }
+
+    /// Đổi giữa ba cột và hai cột + drawer.
+    fn set_narrow(&mut self, narrow: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.narrow == narrow {
+            return;
+        }
+        self.narrow = narrow;
+        if !narrow && self.queue_drawer.is_open() {
+            self.queue_drawer.close(window, cx);
+        }
+        self.lyrics_panel.update(cx, |panel, cx| panel.set_queue_button(narrow, cx));
+        self.queue_panel.update(cx, |panel, cx| panel.set_in_drawer(narrow, cx));
+        cx.notify();
+    }
+
+    #[cfg(test)]
+    pub fn is_narrow(&self) -> bool {
+        self.narrow
+    }
+
+    #[cfg(test)]
+    pub fn queue_drawer(&self) -> &DialogHandle {
+        &self.queue_drawer
     }
 
     fn cover(&self, cx: &App) -> AnyElement {
@@ -346,13 +389,40 @@ impl Render for NowPlaying {
             .child(div().flex_none().text_color(c.muted).child(artist))
             .child(div().w_full().flex_1().min_h_0().mt_4().child(self.timeline_box.clone().cached(full())));
 
-        let right = column(RIGHT_COLUMN).child(self.queue_panel.clone().cached(full()));
+        let narrow = self.narrow;
+        let right = (!narrow).then(|| column(RIGHT_COLUMN).child(self.queue_panel.clone().cached(full())));
+        let drawer = narrow.then(|| {
+            Dialog::new("now-playing-queue", &self.queue_drawer)
+                .drawer(true)
+                .max_width(px(RIGHT_COLUMN.2))
+                .flush_body(true)
+                .child(div().flex_1().min_h_0().child(self.queue_panel.clone().cached(full())))
+        });
+        // Đo bề ngang của màn lúc prepaint; đổi mức thì đổi bố cục ở khung sau.
+        let meter = {
+            let this = cx.entity().downgrade();
+            canvas(
+                move |bounds, window, cx| {
+                    let now = f32::from(bounds.size.width) < NARROW_WIDTH;
+                    if now != narrow {
+                        this.update(cx, |view, cx| view.set_narrow(now, window, cx)).ok();
+                        window.request_animation_frame();
+                    }
+                },
+                |_, _, _, _| {},
+            )
+            .absolute()
+            .top_0()
+            .left_0()
+            .size_full()
+        };
 
         div()
             .id("now-playing")
             .relative()
             .size_full()
             .overflow_hidden()
+            .child(meter)
             .children(glow)
             .child(
                 div()
@@ -363,11 +433,12 @@ impl Render for NowPlaying {
                     .child(left)
                     .children(layout::vline(cx))
                     .child(div().flex_1().min_w_0().h_full().child(self.lyrics_panel.clone().cached(full())))
-                    .children(layout::vline(cx))
-                    .child(right),
+                    .when(!narrow, |row| row.children(layout::vline(cx)))
+                    .children(right),
             )
             .children(self.lyrics_dialog.clone())
             .children(self.timeline_dialog.clone())
+            .children(drawer)
             .children(self.metadata_dialog.clone())
     }
 }
@@ -512,7 +583,8 @@ mod tests_support {
         });
         let view = window.update(cx, |root, _, _| root.view().clone().downcast::<NowPlaying>().unwrap()).unwrap();
         let cx = VisualTestContext::from_window(window.into(), cx).into_mut();
-        cx.simulate_resize(size(px(1000.), px(700.)));
+        // Rộng hơn `NARROW_WIDTH`: đủ ba cột.
+        cx.simulate_resize(size(px(1200.), px(700.)));
         cx.update(|window, cx| window.draw(cx).clear(cx));
         (view, cx)
     }
@@ -603,6 +675,31 @@ mod view_tests {
         rig.until(cx, "metadata closes on track change", |cx| {
             view.read_with(cx, |v, cx| v.metadata_dialog().is_none_or(|d| !d.read(cx).is_open()))
         });
+    }
+
+    /// Responsive: hẹp hơn `NARROW_WIDTH` thì ẩn cột hàng đợi, nút Hàng đợi mở drawer; rộng ra thì drawer đóng, cột hiện lại.
+    #[gpui::test]
+    fn narrow_screen_moves_the_queue_into_a_drawer(cx: &mut TestAppContext) {
+        let rig = rig(cx);
+        let (view, cx) = open_view(&rig, cx);
+        assert!(!view.read_with(cx, |v, _| v.is_narrow()));
+        let draw = |cx: &mut VisualTestContext| {
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            cx.run_until_parked();
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+        };
+        cx.simulate_resize(gpui::size(px(900.), px(700.)));
+        draw(cx);
+        assert!(view.read_with(cx, |v, _| v.is_narrow()));
+        let panel = view.read_with(cx, |v, _| v.lyrics_panel().clone());
+        panel.update(cx, |_, cx| cx.emit(LyricsPanelEvent::Queue));
+        draw(cx);
+        assert!(view.read_with(cx, |v, _| v.queue_drawer().is_open()), "nút mở drawer");
+
+        cx.simulate_resize(gpui::size(px(1200.), px(700.)));
+        draw(cx);
+        assert!(!view.read_with(cx, |v, _| v.is_narrow()));
+        assert!(!view.read_with(cx, |v, _| v.queue_drawer().is_open()), "rộng ra thì drawer đóng");
     }
 
     /// C4 bấm một dòng hàng đợi phát bài đó.
