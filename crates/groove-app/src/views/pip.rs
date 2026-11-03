@@ -1,8 +1,8 @@
 //! pip (03/11/2026): trình phát thu nhỏ — cửa sổ nhỏ kiểu Picture in picture của trình duyệt.
 //!
-//! Cửa sổ 420 × 140 không viền, cỡ cố định: bìa vuông bên trái; bên phải tên bài (một dòng, [`Marquee`]) + nút quay lại cửa
+//! Cửa sổ 420 × 116 không viền, cỡ cố định, đệm 8 px: bìa vuông 100 px bên trái; bên phải tên bài (một dòng, [`Marquee`]) + nút quay lại cửa
 //! sổ chính ở góc trên phải, thanh tua ([`SeekBar::without_times`], giãn hết bề ngang), hàng nút Shuffle / Lùi / Phát-Dừng /
-//! Tới / Repeat ([`Transport`] của thanh phát); ba khối cách đều (`justify-around`). Chỗ trống là vùng kéo cửa sổ, thanh
+//! Tới / Repeat ([`Transport`] của thanh phát); ba khối cách nhau và cách mép 8 px. Chỗ trống là vùng kéo cửa sổ, thanh
 //! tua `occlude` để kéo là tua. Dùng chung `Player` với cửa sổ chính (`player::player`).
 //!
 //! - **Mở / đóng**: [`toggle`] từ nút PiP và menu chuột phải của thanh phát; [`open`] từ menu dock (`groove --pip`, jump list
@@ -39,11 +39,15 @@ use crate::views::marquee::Marquee;
 use crate::views::player_bar::{BarState, ControlSet, Transport, web_icon_button};
 use crate::views::seek_bar::{self, SeekBar};
 
-/// Cỡ cửa sổ (như PiP của trình duyệt cho một dòng nhạc): bìa vuông bằng chiều cao.
-pub const SIZE: (f32, f32) = (420., 140.);
+/// Cỡ cửa sổ (như PiP của trình duyệt cho một dòng nhạc): cao vừa đủ ba khối của cột phải cộng đệm.
+pub const SIZE: (f32, f32) = (420., PADDING * 2. + COVER);
+/// Bìa vuông cao bằng cột phải (ba khối + hai khe).
+const COVER: f32 = HEADER_HEIGHT + seek_bar::HIT_HEIGHT + CONTROLS_HEIGHT + GAP * 2.;
 /// Lần đầu (chưa lưu vị trí): cách mép phải, mép dưới của màn.
 const SCREEN_MARGIN: f32 = 32.;
-const PADDING: f32 = 10.;
+/// Đệm cửa sổ bốn phía; khe giữa bìa và cột phải, giữa ba khối của cột.
+const PADDING: f32 = 8.;
+const GAP: f32 = 8.;
 /// Hàng tên bài: cao bằng nút quay lại.
 const HEADER_HEIGHT: f32 = 28.;
 const BACK_BOX: f32 = 28.;
@@ -277,8 +281,10 @@ impl PipView {
         });
         CoverImage::new(path, CoverKind::Album, None, &self.cache)
             .embedded(self.external.clone())
-            .radius(px(0.))
-            .look(PlaceholderLook::Thumb(px(SIZE.1)))
+            .radius(px(4.))
+            // Đĩa giữ chỗ lấp cả ô bìa: `Thumb` thụt icon 8 px mỗi bên, đĩa trong `album.svg` rộng 40 / 46 ô icon; mép đĩa
+            // cách cột phải đúng khe 8 px.
+            .look(PlaceholderLook::Thumb(px(COVER * 46. / 40. + 16.)))
             .into_any_element()
     }
 
@@ -354,7 +360,9 @@ impl Render for PipView {
             .text_size(cx.theme().font_size())
             .font_weight(FontWeight::NORMAL)
             .drag_region()
-            .child(island::cached(&self.cover_island, |s| s.size(px(SIZE.1)).flex_none()))
+            .p(px(PADDING))
+            .gap(px(GAP))
+            .child(island::cached(&self.cover_island, |s| s.size(px(COVER)).flex_none()))
             .child(
                 div()
                     .flex_1()
@@ -362,9 +370,8 @@ impl Render for PipView {
                     .h_full()
                     .flex()
                     .flex_col()
-                    // Ba khối cách đều (`justify-around`).
-                    .justify_around()
-                    .p(px(PADDING))
+                    // Ba khối cách nhau 8 px, cửa sổ cao vừa khít (xem `SIZE`).
+                    .gap(px(GAP))
                     .child(header)
                     .child(seek)
                     .child(controls),

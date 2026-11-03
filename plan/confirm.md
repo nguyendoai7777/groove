@@ -409,4 +409,5 @@ Trình phát thu nhỏ (`views::pip`): cửa sổ 420 × 140, mở từ nút c�
 - Lỗi "rê là thanh chạy theo": cả PiP là vùng kéo, nhấn trên thanh tua thành `HTCAPTION` → GPUI bắt đầu kéo nhưng Windows nuốt
   lần thả chuột. Sửa: khung thanh tua `occlude` (ưu tiên slider: kéo thanh là tua, không dời cửa sổ), thanh tua dừng lan
   MouseDown. Thanh tua, thanh âm lượng ở cửa sổ chính không dính (không nằm trong vùng kéo) — đã soát trong desktop ẩn.
-- Cột phải: tên bài 28 px, thanh tua 16 px, hàng nút 40 px, `justify-around` trong đệm 10 px.
+- Cột phải: tên bài 28 px, thanh tua 16 px, hàng nút 40 px, khe 8 px, cửa sổ đệm 8 px bốn phía, bìa 100 px cách cột
+  phải 8 px (chủ dự án chốt 03/11/2026); cửa sổ 420 × 116. Bìa bo 4 px; đĩa giữ chỗ lấp cả ô bìa để mép đĩa cách cột 8 px.
