@@ -23,6 +23,7 @@ use materiant::scroll::TRACK_THICKNESS;
 use materiant::theme::{ActiveTheme, Neutral};
 
 use crate::player::{self, Player};
+use crate::views::bars_overlay;
 use crate::views::playing_bars::PlayingBars;
 use crate::views::song_row::{display_artist, display_title};
 
@@ -98,6 +99,8 @@ pub struct QueuePanel {
     cache: HashMap<i64, Row>,
     rows: Rc<Vec<Option<Row>>>,
     current: Option<usize>,
+    /// `is_playing` ở lần đồng bộ trước: thanh nhảy của dòng hiện tại chạy / đứng theo nó.
+    playing: bool,
     /// Con trỏ bàn phím; `None` thì tô dòng hiện tại.
     cursor: Option<usize>,
     skip_center: bool,
@@ -117,6 +120,7 @@ impl QueuePanel {
             cache: HashMap::new(),
             rows: Rc::default(),
             current: None,
+            playing: false,
             cursor: None,
             skip_center: false,
             list: VirtualListHandle::new(),
@@ -144,14 +148,22 @@ impl QueuePanel {
         self.current
     }
 
-    /// Đồng bộ với hàng đợi của `Player` mỗi khi nó báo đổi (kể cả nhịp 250 ms: so sánh, không sao chép).
+    /// Đồng bộ với hàng đợi của `Player` mỗi khi nó báo đổi (so sánh, không sao chép). Chỉ `notify` khi thứ panel vẽ đổi:
+    /// panel nằm trong khung `cached` của Now Playing, `notify` thừa là dựng lại cả danh sách.
     fn sync(&mut self, cx: &mut Context<Self>) {
-        let (same, current, current_song) = {
+        let (same, current, current_song, playing) = {
             let player = self.player.read(cx);
             let queue = player.queue();
-            (queue.visible().eq(self.tracks.iter()), queue.current_index(), player.current_song().cloned())
+            (
+                queue.visible().eq(self.tracks.iter()),
+                queue.current_index(),
+                player.current_song().cloned(),
+                player.is_playing(),
+            )
         };
         let mut dirty = false;
+        let mut changed = playing != self.playing;
+        self.playing = playing;
         if !same {
             let tracks: Vec<TrackRef> = self.player.read(cx).queue().visible().cloned().collect();
             self.tracks = Rc::new(tracks);
@@ -171,8 +183,10 @@ impl QueuePanel {
         if dirty {
             self.rows = Rc::new(build_rows(&self.tracks, &self.cache));
             self.load_missing(cx);
+            changed = true;
         }
         if current != self.current {
+            changed = true;
             self.current = current;
             self.cursor = None;
             if let Some(ix) = current
@@ -181,7 +195,9 @@ impl QueuePanel {
                 self.list.scroll_to(ix, Align::Center);
             }
         }
-        cx.notify();
+        if changed {
+            cx.notify();
+        }
     }
 
     fn load_missing(&mut self, cx: &mut Context<Self>) {
@@ -232,8 +248,9 @@ impl QueuePanel {
 
 impl Render for QueuePanel {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        bars_overlay::forget(cx.entity_id(), cx);
         let c = cx.theme().colors().clone();
-        let playing = self.player.read(cx).is_playing();
+        let playing = self.playing;
         let count = self.tracks.len();
         let current = self.current;
         let this = cx.entity();
@@ -281,7 +298,12 @@ impl Render for QueuePanel {
                     };
                     let index_cell = div().w(px(INDEX_WIDTH)).flex_none().flex().items_center().justify_center().child(
                         if is_current {
-                            PlayingBars::new(playing).size(px(14.)).into_any_element()
+                            if playing {
+                                // Vẽ ở lớp phủ: panel nằm trong khung `cached` của Now Playing.
+                                bars_overlay::anchor(px(14.)).into_any_element()
+                            } else {
+                                PlayingBars::new(false).size(px(14.)).into_any_element()
+                            }
                         } else {
                             div().text_xs().text_color(c.muted).child((ix + 1).to_string()).into_any_element()
                         },

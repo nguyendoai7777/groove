@@ -89,9 +89,19 @@ Danh sách chung: `materiant/CLAUDE.md` mục "Soát trước khi xong một com
   - view `cached` chỉ dựng lại khi chính nó (hay view con) `notify`: thứ nó đọc trong `render` phải có `observe` → `notify`
     (`Island` nghe chủ, chủ nghe `Player`…). Theme, ngôn ngữ, đổi cỡ, rê chuột, focus thì GPUI tự làm mới cả cửa sổ;
   - cần cỡ xác định: `.cached(style)` bố cục theo `style`, không đo nội dung — gốc của view con lấp đúng khung (`size_full`).
-  Test mẫu: `app::tests::animation_frames_reuse_the_cached_page_but_data_changes_still_show`, `views::island::tests`.
+  - thanh nhảy đang chạy nằm TRONG view `cached` (danh sách bài, hàng đợi, header dòng thời gian) thì đặt
+    `bars_overlay::anchor`, không `PlayingBars::new(true)`: lớp phủ cấp nội dung của Shell vẽ nó, trang không bẩn theo khung.
+    View chứa anchor gọi `bars_overlay::forget(cx.entity_id(), cx)` đầu `render`;
+  - nhịp vị trí khi phát là `Player::clock()` (`PlaybackClock`), không phải `notify` của `Player`: chỉ view vẽ vị trí nghe nó
+    (thanh tua `cached` riêng, TimelineBox), thưa còn mỗi giây khi cửa sổ nền (`PlaybackClock::due`). View nghe `Player` chỉ
+    `notify` khi đúng thứ nó vẽ đổi (`BarState` của thanh phát, `Body` của lời bài…).
+  Test mẫu: `app::tests::animation_frames_reuse_the_cached_page_but_data_changes_still_show`,
+  `app::tests::bars_in_a_cached_page_animate_on_the_overlay_without_rebuilding_the_page`,
+  `player::tests::position_ticks_notify_the_clock_not_the_player`, `views::island::tests`.
 - **Ảnh bìa**: `views::cover_image::CoverImage` cho cả bìa thư viện lẫn bìa nhúng (`.embedded`), `.radius(…)` bằng bo góc của khung
-  chứa (không phóng khi rê); lớp phủ trên bìa tự bo cùng bán kính.
+  chứa (không phóng khi rê); lớp phủ trên bìa tự bo cùng bán kính. Bìa nhúng là `Arc<RenderImage>` đã thu 512 px của
+  `Player::external_cover` — không `Image::from_bytes` + `use_render_image` (bộ đệm tài nguyên của GPUI không bao giờ nhả);
+  ảnh tự giải mã thì nhả bằng `cx.drop_image` khi bỏ.
 - **Xem bằng mắt ở desktop ẩn**: `tools/measure-hidden.ps1 -Seed <seed_data.exe>` có sẵn một bài tên dài đang mở (không phát) để
   thanh phát không khoá và tên chạy; `-Songs <n>` thêm n bài vào thư viện tạm (đo với thư viện có bài); `-Active` mở cửa sổ ở
   trạng thái active; dòng mốc in cả `cpu=` (% một nhân). Không gõ `space` trong `-Keys` (phát ra loa). CPU so trước / sau thì

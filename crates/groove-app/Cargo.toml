@@ -20,6 +20,8 @@ materiant.workspace = true
 anyhow.workspace = true
 crossbeam-channel.workspace = true
 futures.workspace = true
+# `Frame` của bìa nhúng đã giải mã (`player::embedded_cover`); cùng bản với GPUI, groove-library.
+image = { version = "0.25", default-features = false }
 # Một phiên (đặc tả 5.5).
 interprocess = "2.4"
 log.workspace = true

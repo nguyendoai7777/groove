@@ -16,7 +16,7 @@ use groove_core::model::CategoryRef;
 // `#[derive(IntoElement)]` trỏ crate `gpui`; bản không test chỉ có `materiant::gpui_kit`.
 use materiant::gpui_kit as gpui;
 use materiant::gpui_kit::{
-    AnyElement, App, Bounds, Corners, Entity, Hsla, Image, ImageCache, IntoElement, ParentElement, Pixels, RenderImage,
+    AnyElement, App, Bounds, Corners, Entity, Hsla, ImageCache, IntoElement, ParentElement, Pixels, RenderImage,
     RenderOnce, Resource, Rgba, Styled, Window, canvas, div, linear_color_stop, linear_gradient, px, relative, svg,
 };
 use materiant::icon::Icon;
@@ -59,7 +59,8 @@ pub fn parse_color(text: &str) -> Option<Hsla> {
 #[derive(Clone)]
 pub enum CoverSource {
     Path(PathBuf),
-    Embedded(Arc<Image>),
+    /// Bìa nhúng đã giải mã (`Player::external_cover`): vẽ thẳng, không qua bộ đệm tài nguyên của GPUI (không bao giờ nhả).
+    Embedded(Arc<RenderImage>),
 }
 
 /// Dáng placeholder của bìa album theo chỗ đặt, như bản web (`music-card.vue`, `now-playing.vue`, `audio-controller.vue`).
@@ -107,7 +108,7 @@ impl CoverImage {
     }
 
     /// Ảnh nhúng trong tệp nhạc ngoài thư viện; không có thì như [`CoverImage::new`] với `path`.
-    pub fn embedded(mut self, image: Option<Arc<Image>>) -> CoverImage {
+    pub fn embedded(mut self, image: Option<Arc<RenderImage>>) -> CoverImage {
         if let Some(image) = image {
             self.source = Some(CoverSource::Embedded(image));
         }
@@ -202,7 +203,7 @@ fn loaded(
             let resource = Resource::Path(path.as_path().into());
             cache.update(cx, |cache, cx| cache.load(&resource, window, cx)).and_then(Result::ok)
         }
-        CoverSource::Embedded(image) => image.clone().use_render_image(window, cx),
+        CoverSource::Embedded(image) => Some(image.clone()),
     }
 }
 

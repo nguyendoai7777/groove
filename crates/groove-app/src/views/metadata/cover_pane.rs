@@ -15,8 +15,8 @@ use groove_library::tags::{CoverArt, CoverEdit};
 use materiant::button::{Button, Size};
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    ClipboardEntry, Context, EventEmitter, ExternalPaths, Image, ImageFormat, ImageSource, IntoElement, ObjectFit,
-    ParentElement, PathPromptOptions, Render, SharedString, Styled, StyledImage, Window, div, img, px,
+    App, ClipboardEntry, Context, EventEmitter, ExternalPaths, Image, ImageFormat, ImageSource, IntoElement, ObjectFit,
+    ParentElement, PathPromptOptions, Render, RenderImage, SharedString, Styled, StyledImage, Window, div, img, px,
 };
 use materiant::icon::{Icon, IconName};
 use materiant::theme::{ActiveTheme, Neutral};
@@ -111,18 +111,20 @@ pub struct CoverPane {
     hovered: bool,
     /// Ảnh đang hiện, kèm nguồn để gỡ asset khi bỏ.
     shown: Option<Arc<Image>>,
+    /// Bản đã giải mã của `shown` lần vẽ gần nhất: `remove_asset` chỉ bỏ khỏi bộ đệm tài nguyên, texture trong atlas GPU phải
+    /// nhả riêng bằng `drop_image`.
+    decoded: Option<Arc<RenderImage>>,
 }
 
 impl EventEmitter<CoverPaneEvent> for CoverPane {}
 
 impl CoverPane {
     pub fn new(original: Option<CoverArt>, cx: &mut Context<Self>) -> CoverPane {
-        let mut pane = CoverPane { original, choice: Choice::Keep, problem: None, hovered: false, shown: None };
+        let mut pane =
+            CoverPane { original, choice: Choice::Keep, problem: None, hovered: false, shown: None, decoded: None };
         pane.shown = pane.image_for_choice();
         cx.on_release(|pane, cx| {
-            if let Some(image) = pane.shown.take() {
-                ImageSource::from(image).remove_asset(cx);
-            }
+            pane.release_shown(cx);
         })
         .detach();
         pane
@@ -140,10 +142,19 @@ impl CoverPane {
         }
     }
 
-    fn refresh(&mut self, cx: &mut Context<Self>) {
+    /// Bỏ ảnh đang hiện khỏi bộ đệm tài nguyên và atlas GPU (hoãn tới cuối lượt: lúc đang cập nhật cửa sổ, `drop_image` không
+    /// với tới atlas của cửa sổ đó).
+    fn release_shown(&mut self, cx: &mut App) {
         if let Some(old) = self.shown.take() {
             ImageSource::from(old).remove_asset(cx);
         }
+        if let Some(decoded) = self.decoded.take() {
+            cx.defer(move |cx| cx.drop_image(decoded, None));
+        }
+    }
+
+    fn refresh(&mut self, cx: &mut Context<Self>) {
+        self.release_shown(cx);
         self.shown = self.image_for_choice();
         cx.emit(CoverPaneEvent::Changed);
         cx.notify();
@@ -270,7 +281,10 @@ impl CoverPane {
 const INNER_RADIUS: f32 = 6.;
 
 impl Render for CoverPane {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if self.decoded.is_none() {
+            self.decoded = self.shown.clone().and_then(|image| image.get_render_image(window, cx));
+        }
         let c = cx.theme().colors().clone();
         let side = px(SIDE);
         let frame = div()

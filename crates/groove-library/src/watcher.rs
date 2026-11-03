@@ -240,7 +240,10 @@ fn run(indexer: Indexer, options: WatcherOptions, inbox: Receiver<Command>) {
     let handler = move |result: DebounceEventResult| {
         let _ = events_tx.send(result);
     };
-    let mut debouncer = match new_debouncer(options.debounce, None, handler) {
+    // Luồng của debouncer ngủ theo nhịp này cả khi không có gì đổi; mặc định 1/4 thời gian chờ (500 ms) là đánh thức app 2 lần
+    // mỗi giây suốt đời. Nửa thời gian chờ: báo trễ nhất 1,5 lần thời gian chờ (3 s), thức 1 lần mỗi giây.
+    let tick = options.debounce / 2;
+    let mut debouncer = match new_debouncer(options.debounce, Some(tick), handler) {
         Ok(debouncer) => debouncer,
         Err(err) => {
             // Không theo dõi được thì vẫn so một lần khi mở app.
@@ -259,6 +262,9 @@ fn run(indexer: Indexer, options: WatcherOptions, inbox: Receiver<Command>) {
     run_reconcile(&indexer);
 
     loop {
+        // Chỉ hẹn giờ thử gắn lại khi có gốc đang vắng: không thì chờ lệnh / sự kiện, không tự thức.
+        let retry =
+            if waiting.is_empty() { crossbeam_channel::never() } else { crossbeam_channel::after(options.root_retry) };
         select! {
             recv(inbox) -> command => match command {
                 Ok(Command::RefreshRoots(done)) => {
@@ -299,10 +305,7 @@ fn run(indexer: Indexer, options: WatcherOptions, inbox: Receiver<Command>) {
                     waiting.push(root);
                 }
             },
-            default(options.root_retry) => {
-                if waiting.is_empty() {
-                    continue;
-                }
+            recv(retry) -> _ => {
                 let before = attached.len();
                 let mut all = attached.clone();
                 all.append(&mut waiting);

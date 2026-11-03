@@ -24,9 +24,9 @@ use groove_library::metadata_ops::MetadataOps;
 use groove_library::store::Library;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    AnyElement, AnyWindowHandle, App, Context, Entity, FontWeight, Hsla, Image, ImageFormat, IntoElement,
-    ParentElement, Pixels, Render, SharedString, StyleRefinement, Styled, Subscription, Task, Window, div,
-    linear_color_stop, linear_gradient, px, relative,
+    AnyElement, AnyWindowHandle, App, Context, Entity, FontWeight, Hsla, IntoElement, ParentElement, Pixels, Render,
+    RenderImage, SharedString, StyleRefinement, Styled, Subscription, Task, Window, div, linear_color_stop,
+    linear_gradient, px, relative,
 };
 use materiant::theme::ActiveTheme;
 use materiant::virtual_grid::LruImageCache;
@@ -71,7 +71,7 @@ pub struct NowPlaying {
     covers: Option<CoverStore>,
     cache: Entity<LruImageCache>,
     /// Bìa của tệp ngoài, dựng một lần mỗi lần đổi bài.
-    external: Option<Arc<Image>>,
+    external: Option<Arc<RenderImage>>,
     accent: Option<Hsla>,
     /// Bìa mà `accent` thuộc về (hoặc đang tra).
     accent_hash: Option<String>,
@@ -99,7 +99,7 @@ impl NowPlaying {
         cx: &mut Context<Self>,
     ) -> NowPlaying {
         let player = player::player(cx);
-        let timeline_box = cx.new(TimelineBox::new);
+        let timeline_box = cx.new(|cx| TimelineBox::new(window, cx));
         let lyrics_panel = cx.new(LyricsPanel::new);
         let queue_panel = cx.new({
             let library = library.clone();
@@ -206,9 +206,7 @@ impl NowPlaying {
     fn refresh_cover(&mut self, cx: &mut Context<Self>) {
         let (external, hash) = {
             let player = self.player.read(cx);
-            let external = player.external_cover().and_then(|cover| {
-                Some(Arc::new(Image::from_bytes(ImageFormat::from_mime_type(&cover.mime)?, cover.data.clone())))
-            });
+            let external = player.external_cover().cloned();
             (external, player.current_song().and_then(|song| song.cover_hash.clone()))
         };
         self.external = external;
