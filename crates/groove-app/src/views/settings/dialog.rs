@@ -13,7 +13,7 @@
 //!
 //! Hộp nằm trong cây của khung như bảng lệnh (`Slot::Settings`), dựng một lần ở `install`.
 
-use groove_core::settings::{EqSettings, Settings};
+use groove_core::settings::{EqSettings, Settings, UiFont};
 use groove_core::t;
 use materiant::button::Button;
 use materiant::effect::ripple::{RippleConfig, RippleExt};
@@ -77,6 +77,7 @@ impl SettingsTab {
 /// Giá trị lúc mở hộp, để Huỷ trả về.
 #[derive(Clone, Debug, PartialEq)]
 struct Snapshot {
+    font: UiFont,
     seek_step: u32,
     volume_step: u8,
     eq: EqSettings,
@@ -84,7 +85,12 @@ struct Snapshot {
 
 impl Snapshot {
     fn of(settings: &Settings) -> Snapshot {
-        Snapshot { seek_step: settings.seek_step, volume_step: settings.volume_step, eq: settings.eq.clone() }
+        Snapshot {
+            font: settings.font,
+            seek_step: settings.seek_step,
+            volume_step: settings.volume_step,
+            eq: settings.eq.clone(),
+        }
     }
 }
 
@@ -190,6 +196,7 @@ impl SettingsDialog {
 
     fn revert(&mut self, snapshot: Snapshot, cx: &mut Context<Self>) {
         app::update_settings(cx, |s| {
+            s.font = snapshot.font;
             s.seek_step = snapshot.seek_step;
             s.volume_step = snapshot.volume_step;
         });
@@ -623,12 +630,14 @@ mod tests {
         assert_eq!(settings(cx).seek_step, 7);
     }
 
-    /// C4 — Huỷ khôi phục bước tua, EQ và bỏ nháp phím tắt (đặc tả 1.10).
+    /// C4 — Huỷ khôi phục font, bước tua, EQ và bỏ nháp phím tắt (đặc tả 1.10).
     #[gpui::test]
     fn c4_cancel_restores_everything_and_drops_the_key_draft(cx: &mut TestAppContext) {
         let (rig, cx) = rig(cx);
         open(&rig, cx);
         type_seek(&rig, "45", cx);
+        // Ô chọn font gọi đúng lời này (`general.rs`).
+        cx.update(|_, cx| crate::app::update_settings(cx, |s| s.font = UiFont::BeVietnamPro));
         set_keys_text(&rig, "[]", cx);
         eq_panel(&rig, cx).update(cx, |panel, cx| panel.apply(|eq| eq.set_band(0, 6.0), cx));
         draw(cx);
@@ -639,6 +648,7 @@ mod tests {
         cancel(&rig, cx);
         let after = settings(cx);
         assert_eq!(after.seek_step, 5);
+        assert_eq!(after.font, UiFont::MonaSans, "font về như lúc mở");
         assert_eq!(panel.read_with(cx, |p, _| p.eq().gains[0]), 0.0);
         assert_eq!(after.custom_keybindings, None, "nháp phím tắt không bao giờ được lưu");
         assert!(!is_open(&rig, cx));

@@ -1,13 +1,14 @@
-//! groove-gd1_24: tab Cài đặt chung (đặc tả 1.10): bước tua, bước âm lượng, trình phát mặc định (gd2_01), rồi bảng EQ.
+//! groove-gd1_24: tab Cài đặt chung (đặc tả 1.10): font chữ (D-20, áp ngay, Huỷ trả về), bước tua, bước âm lượng, trình phát mặc định (gd2_01), rồi bảng EQ.
 //!
 //! Hai bước áp ngay như EQ (người dùng thấy tác dụng ở phím tua, bánh xe ngay khi gõ); Huỷ do hộp trả về giá trị lúc mở.
 //! Ô trống hay ngoài khoảng chưa phải giá trị: bỏ qua, ô tự kẹp lại khi mất focus.
 
-use groove_core::settings::Settings;
+use groove_core::settings::{Settings, UiFont};
 use groove_core::t;
 use materiant::field::number::NumberField;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div, px};
+use materiant::select::Select;
 use materiant::theme::ActiveTheme;
 
 use super::default_player::{Backend, DefaultPlayerPanel};
@@ -106,6 +107,22 @@ impl Render for GeneralPanel {
                 .pt_4()
                 .border_t_1()
                 .border_color(border)
+                .child(
+                    // Tên font là tên riêng, hiện nguyên văn ở cả hai ngôn ngữ; mỗi mục vẽ bằng chính font của nó thì đẹp hơn nhưng
+                    // `Select` chưa nhận mục tự vẽ.
+                    Select::new("settings-font")
+                        .label(t!("settings.general.font"))
+                        .label_weight(materiant::gpui_kit::FontWeight::NORMAL)
+                        .items(UiFont::ALL.map(app::font_family))
+                        .selected(UiFont::ALL.iter().position(|f| *f == app::settings(cx).font))
+                        .on_change(|ix, _, cx| {
+                            let font = UiFont::ALL[*ix];
+                            if app::settings(cx).font != font {
+                                app::update_settings(cx, |s| s.font = font);
+                            }
+                        })
+                        .w(px(240.)),
+                )
                 .child(div().child(t!("settings.general.steps")))
                 .child(
                     div()

@@ -8,6 +8,7 @@ keybindings = "Keyboard shortcuts"
 library = "Library"
 
 [general]
+font = "Font"
 steps = "Seek and volume steps"
 seek_step = "Seek step (seconds)"
 seek_step_hint = "1 or more. Used by the seek keys and buttons."

@@ -8,6 +8,7 @@ keybindings = "Phím tắt"
 library = "Thư viện"
 
 [general]
+font = "Phông chữ"
 steps = "Bước tua và âm lượng"
 seek_step = "Bước tua (giây)"
 seek_step_hint = "Từ 1 trở lên. Dùng cho phím tua và nút tua."

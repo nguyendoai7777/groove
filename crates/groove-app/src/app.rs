@@ -20,7 +20,7 @@
 use std::cell::OnceCell;
 use std::time::Duration;
 
-use groove_core::settings::{JsonSaver, Settings, ThemeChoice};
+use groove_core::settings::{JsonSaver, Settings, ThemeChoice, UiFont};
 use groove_core::{paths, t};
 use groove_library::covers::CoverStore;
 use groove_library::metadata_ops::MetadataOps;
@@ -156,15 +156,23 @@ fn theme_mode(choice: ThemeChoice) -> ThemeMode {
 /// Màu nhấn là primary mặc định của materiant (deeppink, như fastcast — G-4); view đọc `cx.theme().colors().primary`, không
 /// ghim mã màu. Chữ một độ đậm (G-6): nhãn và tiêu đề của mọi component materiant về normal ngay ở theme, view không phải
 /// truyền `*_weight(NORMAL)` từng chỗ.
-fn apply_theme(choice: ThemeChoice, cx: &mut App) {
-    set_theme(&groove_theme(choice), cx);
+fn apply_theme(choice: ThemeChoice, font: UiFont, cx: &mut App) {
+    set_theme(&groove_theme(choice, font), cx);
 }
 
-fn groove_theme(choice: ThemeChoice) -> MateriantTheme {
+/// Họ font nhúng (materiant `font`, D-20) của lựa chọn trong Settings.
+pub fn font_family(font: UiFont) -> &'static str {
+    match font {
+        UiFont::MonaSans => materiant::font::MONA_SANS,
+        UiFont::BeVietnamPro => materiant::font::BE_VIETNAM_PRO,
+    }
+}
+
+fn groove_theme(choice: ThemeChoice, font: UiFont) -> MateriantTheme {
     MateriantTheme {
         mode: Some(theme_mode(choice)),
-        // Mona Sans nhúng (materiant `font`), không theo font hệ thống: Ubuntu Sans biến thiên làm lệch dấu tiếng Việt.
-        font_family: Some(materiant::font::MONA_SANS.into()),
+        // Font nhúng, không theo font hệ thống: Ubuntu Sans biến thiên làm lệch dấu tiếng Việt.
+        font_family: Some(font_family(font).into()),
         label_weight: Some(FontWeight::NORMAL.0),
         title_weight: Some(FontWeight::NORMAL.0),
         ..Default::default()
@@ -173,16 +181,16 @@ fn groove_theme(choice: ThemeChoice) -> MateriantTheme {
 
 /// Đặt cài đặt toàn app, áp theme, và theo dõi để áp lại theme / ngôn ngữ khi chúng đổi.
 fn install_settings(settings: Settings, saver: Option<JsonSaver>, cx: &mut App) {
-    apply_theme(settings.theme, cx);
-    let mut applied = (settings.theme, settings.effective_language());
+    apply_theme(settings.theme, settings.font, cx);
+    let mut applied = (settings.theme, settings.effective_language(), settings.font);
     let entity = cx.new(|_| settings);
     cx.observe(&entity, move |entity, cx| {
         let now = {
             let s = entity.read(cx);
-            (s.theme, s.effective_language())
+            (s.theme, s.effective_language(), s.font)
         };
-        if now.0 != applied.0 {
-            apply_theme(now.0, cx);
+        if now.0 != applied.0 || now.2 != applied.2 {
+            apply_theme(now.0, now.2, cx);
         }
         if now.1 != applied.1 {
             groove_core::i18n::set_language(now.1);
