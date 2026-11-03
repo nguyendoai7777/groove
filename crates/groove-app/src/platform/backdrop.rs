@@ -10,6 +10,13 @@
 //! đổi cỡ cửa sổ (DWM vẽ lại lớp acrylic mỗi lần dời; window-vibrancy ghi rõ "bad performance when resizing/dragging"). Ở các
 //! bản đó cửa sổ chính đổi sang blur-behind kiểu Aero (`ACCENT_ENABLE_BLURBEHIND`) như bản Tauri (`window_vibrancy::apply_blur`):
 //! vẫn mờ, không hạt nhiễu acrylic, kéo mượt. Windows 11 22H2+ giữ acrylic.
+//!
+//! blur-region (03/11/2026): blur-behind không tự giới hạn trong cửa sổ — trên Windows 10 thật lớp mờ tràn ra một vùng cỡ màn
+//! bên phải / dưới cửa sổ, và phủ viền đổi cỡ vô hình 8 px (trái, phải, dưới) thành vệt xám quanh khung. Nay vùng mờ đặt đúng
+//! bằng vùng client (`DwmEnableBlurBehindWindow` + `hRgnBlur`), đặt lại mỗi `WM_SIZE` (đổi cỡ, phóng to / khôi phục), rồi đặt
+//! lại accent. Bóng DWM quanh khung (vẽ trong viền vô hình) tắt bằng `DWMWA_NCRENDERING_POLICY = DISABLED`.
+//!
+//! Kiểm tay trên màn thật: `GROOVE_BLUR=acrylic` giữ acrylic của GPUI (so độ mượt khi kéo), `GROOVE_WINDOW_SHADOW=on` giữ bóng.
 
 use materiant::gpui_kit::{App, Hsla};
 use materiant::style::FLOATING_SURFACE_ALPHA;
@@ -25,23 +32,40 @@ pub fn side_nav_surface(cx: &App) -> Hsla {
     if theme.is_dark() { surface.opacity(FLOATING_SURFACE_ALPHA) } else { surface }
 }
 
-/// Đổi nền mờ của cửa sổ `Blurred` sang blur-behind ở bản Windows có acrylic giật khi kéo. Gọi một lần sau khi mở cửa sổ (GPUI
-/// chỉ đặt nền lúc tạo). Nền khác không làm gì.
+/// Đổi nền mờ của cửa sổ `Blurred` sang blur-behind (đúng bằng vùng client) ở bản Windows có acrylic giật khi kéo, và tắt bóng
+/// DWM quanh khung. Gọi một lần sau khi mở cửa sổ (GPUI chỉ đặt nền lúc tạo). Nền khác không làm gì.
 pub fn smooth_blur(window: &materiant::gpui_kit::Window) {
     #[cfg(windows)]
-    if let Some(hwnd) = super::window_controls::hwnd(window)
-        && sys::acrylic_lags(sys::build_number())
-    {
-        sys::blur_behind(hwnd);
+    if let Some(hwnd) = super::window_controls::hwnd(window) {
+        if !env_is("GROOVE_WINDOW_SHADOW", "on") {
+            sys::disable_frame_shadow(hwnd);
+        }
+        if sys::acrylic_lags(sys::build_number()) && !env_is("GROOVE_BLUR", "acrylic") {
+            sys::install_blur_behind(hwnd);
+        }
     }
     #[cfg(not(windows))]
     let _ = window;
 }
 
 #[cfg(windows)]
+fn env_is(name: &str, value: &str) -> bool {
+    std::env::var(name).is_ok_and(|v| v.eq_ignore_ascii_case(value))
+}
+
+#[cfg(windows)]
 mod sys {
-    use windows_sys::Win32::Foundation::HWND;
+    use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM};
+    use windows_sys::Win32::Graphics::Dwm::{
+        DWM_BB_BLURREGION, DWM_BB_ENABLE, DWM_BLURBEHIND, DWMNCRP_DISABLED, DWMWA_NCRENDERING_POLICY,
+        DwmEnableBlurBehindWindow, DwmSetWindowAttribute,
+    };
+    use windows_sys::Win32::Graphics::Gdi::{CreateRectRgn, DeleteObject};
     use windows_sys::Win32::System::LibraryLoader::{GetModuleHandleA, GetProcAddress};
+    use windows_sys::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{GetClientRect, WM_NCDESTROY, WM_SIZE};
+
+    const SUBCLASS_ID: usize = 0x626c_7572;
 
     /// Bản đầu có acrylic mượt khi kéo (Windows 11 22H2).
     const SMOOTH_ACRYLIC_BUILD: u32 = 22621;
@@ -96,8 +120,76 @@ mod sys {
         size: usize,
     }
 
+    /// Tắt vẽ phần ngoài client của DWM: mất bóng / viền 1 px quanh khung (vệt xám trong viền đổi cỡ vô hình).
+    pub fn disable_frame_shadow(hwnd: HWND) {
+        let policy = DWMNCRP_DISABLED;
+        // SAFETY: `hwnd` là cửa sổ đang sống; con trỏ tới biến cục bộ đúng cỡ.
+        unsafe {
+            DwmSetWindowAttribute(
+                hwnd,
+                DWMWA_NCRENDERING_POLICY as u32,
+                (&raw const policy).cast(),
+                size_of::<i32>() as u32,
+            );
+        }
+    }
+
+    /// Bật blur-behind vừa khít vùng client và giữ nó khít khi đổi cỡ (subclass nghe `WM_SIZE`).
+    pub fn install_blur_behind(hwnd: HWND) {
+        apply(hwnd);
+        // SAFETY: subclass không giữ dữ liệu; `SetWindowSubclass` không gửi thông điệp nên không chạy lồng wndproc của GPUI.
+        unsafe {
+            SetWindowSubclass(hwnd, Some(subclass_proc), SUBCLASS_ID, 0);
+        }
+    }
+
+    unsafe extern "system" fn subclass_proc(
+        hwnd: HWND,
+        message: u32,
+        wparam: WPARAM,
+        lparam: LPARAM,
+        _: usize,
+        _: usize,
+    ) -> LRESULT {
+        // SAFETY: chuyển tiếp nguyên tham số cho wndproc của GPUI trước, rồi đặt lại vùng mờ theo cỡ mới.
+        unsafe {
+            if message == WM_NCDESTROY {
+                RemoveWindowSubclass(hwnd, Some(subclass_proc), SUBCLASS_ID);
+                return DefSubclassProc(hwnd, message, wparam, lparam);
+            }
+            let result = DefSubclassProc(hwnd, message, wparam, lparam);
+            if message == WM_SIZE {
+                apply(hwnd);
+            }
+            result
+        }
+    }
+
+    /// Vùng mờ = vùng client hiện tại, rồi accent blur-behind.
+    fn apply(hwnd: HWND) {
+        let mut client = RECT { left: 0, top: 0, right: 0, bottom: 0 };
+        // SAFETY: `hwnd` là cửa sổ đang sống; region tạo ra được DWM chép, xoá ngay sau lời gọi.
+        unsafe {
+            if GetClientRect(hwnd, &mut client) == 0 {
+                return;
+            }
+            let region = CreateRectRgn(0, 0, client.right, client.bottom);
+            let blur = DWM_BLURBEHIND {
+                dwFlags: DWM_BB_ENABLE | DWM_BB_BLURREGION,
+                fEnable: 1,
+                hRgnBlur: region,
+                fTransitionOnMaximized: 0,
+            };
+            DwmEnableBlurBehindWindow(hwnd, &blur);
+            if !region.is_null() {
+                DeleteObject(region);
+            }
+        }
+        blur_behind(hwnd);
+    }
+
     /// `SetWindowCompositionAttribute` (user32, không công khai — như gpui-pre-windows, window-vibrancy): blur-behind, không tô màu.
-    pub fn blur_behind(hwnd: HWND) {
+    fn blur_behind(hwnd: HWND) {
         type SetAttribute = unsafe extern "system" fn(HWND, *mut CompositionData) -> i32;
         // SAFETY: user32 đã nạp sẵn trong mọi tiến trình có cửa sổ; hàm lấy đúng chữ ký đã biết; `hwnd` là cửa sổ đang sống.
         unsafe {

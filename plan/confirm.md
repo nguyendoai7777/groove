@@ -439,3 +439,17 @@ Settings → Chung → "Kiểu chia vùng": thẻ bo tròn (mặc định) / chi
 - [layout-style] Đường dưới header cột trái nối liền đường dưới thanh trên (cùng 36 px) thành một vạch ngang suốt cửa sổ — chỉ kẻ dưới thanh trên — giống ảnh app Claude chủ dự án gửi.
 - [layout-style] PiP không theo kiểu này — áp cả PiP — PiP là một khối nhỏ, không có vùng nào để chia.
 - [layout-style] Đổi kiểu gọi `refresh_windows` (như đổi ngôn ngữ) thay vì cho từng view `cached` nghe cài đặt — `observe` → `notify` từng view — một chỗ, không sót view `cached` mới thêm sau; đổi cài đặt khác vẫn không dựng lại view `cached` (test `app::tests::layout_style_change_rebuilds_the_cached_page`).
+
+## blur-region
+
+- Chủ dự án thấy trên Windows 10 (bản dev): lớp mờ tràn một vùng cỡ màn bên phải / dưới cửa sổ, và vệt xám quanh khung. Sửa: vùng
+  mờ đặt bằng vùng client (`DwmEnableBlurBehindWindow` + `hRgnBlur`, đặt lại mỗi `WM_SIZE` rồi đặt lại accent); tắt vẽ phần ngoài
+  client của DWM (`DWMWA_NCRENDERING_POLICY = DISABLED`) để bỏ bóng / viền trong viền đổi cỡ vô hình 8 px. Đổi cỡ từ mép vẫn
+  được (viền vô hình còn, chỉ không vẽ).
+- Debug và release không khác đường tạo cửa sổ / nền: `cfg(debug_assertions)` chỉ ở thư mục dữ liệu, AUMID / app id, D-Bus,
+  console, inspector của materiant; manifest nhúng như nhau.
+- Desktop ẩn không có nền mờ — chưa thấy tận mắt. Chủ dự án kiểm trên màn thật (`pwsh start.ps1 groove`):
+  1. Cửa sổ không phóng to: lớp mờ chỉ nằm sau cửa sổ, không tràn sang phải / xuống dưới; không còn vệt xám quanh khung.
+  2. Kéo mép đổi cỡ, phóng to rồi khôi phục, thu nhỏ rồi mở lại: lớp mờ vẫn khít.
+  3. Kéo cửa sổ vẫn mượt. So sánh: `$env:GROOVE_BLUR="acrylic"` (acrylic cũ), `$env:GROOVE_WINDOW_SHADOW="on"` (bóng cũ).
+  Nếu lớp mờ vẫn tràn thì blur-behind không theo `hRgnBlur` — bước sau là cắt bằng `SetWindowRgn` (đổi cỡ ở mép phải tự hit-test).
