@@ -32,7 +32,9 @@ param(
     [switch]$Active,
     [string]$Clicks = "",
     # Rê trên nút bao lâu (ms) trước khi nhấp — đủ lâu thì tooltip đã hiện.
-    [int]$Hover = 150
+    [int]$Hover = 150,
+    # Ghi `settings.json` của dữ liệu tạm trước khi mở app, vd '{"theme":"light"}'.
+    [string]$Settings = ""
 )
 $ErrorActionPreference = "Stop"
 
@@ -151,6 +153,7 @@ if ($bytes.IndexOf("GROOVE_DATA_DIR", [StringComparison]::Ordinal) -lt 0) {
     throw "$exe does not honour GROOVE_DATA_DIR and would open the real library. Build with debug assertions."
 }
 Remove-Variable bytes
+if ($Settings) { Set-Content -LiteralPath (Join-Path $data "settings.json") -Value $Settings -Encoding utf8NoBOM }
 if ($Seed) { & (Resolve-Path $Seed).Path $data $Songs | Out-Host; if ($LASTEXITCODE) { throw "seed failed: $LASTEXITCODE" } }
 
 $name = "groove-hidden-" + $PID
