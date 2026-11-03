@@ -578,6 +578,8 @@ impl Render for MetadataDialog {
         let save_label = if self.saving { t!("metadata.saving") } else { t!("metadata.save") };
         Dialog::new("metadata-dialog", &self.handle)
             .max_width(px(900.))
+            // Cao tối đa 3/4 bề ngang: hộp nhiều trường không kéo dài hết màn hình cao.
+            .max_aspect(0.75)
             .title(t!("metadata.title"))
             .title_weight(materiant::gpui_kit::FontWeight::NORMAL)
             .divided(true)
