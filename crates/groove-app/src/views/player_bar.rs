@@ -35,6 +35,7 @@ use materiant::gpui_kit::{
     AnyElement, AnyWindowHandle, App, ClickEvent, Context, Entity, FocusHandle, FontWeight, IntoElement, ParentElement,
     Render, RenderImage, ScrollEvent, StyleRefinement, Styled, Subscription, Window, black, div, px, relative,
 };
+use materiant::menu::{ContextMenuExt, MenuItem};
 use materiant::overlay::tooltip::TooltipExt;
 use materiant::slider::Slider;
 use materiant::style::{ActiveTokens, ring_overlay};
@@ -50,6 +51,7 @@ use crate::route::Route;
 use crate::views::cover_image::{CoverImage, CoverKind, PlaceholderLook};
 use crate::views::island::{self, Island};
 use crate::views::marquee::Marquee;
+use crate::views::pip;
 use crate::views::seek_bar::{self, SLIDER_SCALE, SeekBar};
 use play_morph::PlayMorph;
 
@@ -66,6 +68,8 @@ const ICON_BOX: f32 = 36.;
 const ICON_GLYPH: f32 = 28.;
 /// `text-green-500` của Shuffle / Repeat đang bật.
 const TOGGLE_ON: u32 = 0x22c55e;
+/// Icon PiP nét mảnh trong hộp 24 px: 24 px cho cân với icon loa (vẽ đặc, chừa lề).
+const PIP_GLYPH: f32 = 24.;
 /// Nút Play phủ trên bìa: icon 32 px (cỡ mặc định của `toggle-play.vue`).
 const COVER_PLAY_ICON: f32 = 32.;
 /// Toast lỗi thiết bị ở lại lâu hơn mặc định: người dùng cần thời gian đọc cách gỡ.
@@ -84,7 +88,14 @@ pub fn volume_icon(volume: u8, muted: bool) -> GrooveIcon {
 
 /// Nút icon như `icon-btn.vue` trên thanh phát: tròn, hộp `edge`, icon `glyph`. Tắt: màu chữ phụ, rê thành màu chữ
 /// (`text-theme-text-muted hover:text-theme-text`); bật: xanh lá `green-500` cả lúc rê. Nền rê là màu chữ (bật: xanh) 9 %.
-fn web_icon_button(id: &'static str, icon: GrooveIcon, edge: f32, glyph: f32, on: bool, cx: &App) -> IconButton {
+pub(crate) fn web_icon_button(
+    id: &'static str,
+    icon: GrooveIcon,
+    edge: f32,
+    glyph: f32,
+    on: bool,
+    cx: &App,
+) -> IconButton {
     let c = cx.theme().colors();
     let button = IconButton::new(id, icon).w(px(edge)).h(px(edge)).icon_size(px(glyph)).rounded_full();
     if on {
@@ -124,140 +135,53 @@ pub fn output_failed_toast() -> ToastSpec {
         .duration(Some(OUTPUT_TOAST))
 }
 
-/// Âm lượng, tắt tiếng hiện tại. `Player` chưa có hàm đọc (ghi ở mục 8 của task), nên đọc cài đặt của app; test thay bằng bản giả.
-fn app_prefs(cx: &App) -> (u8, bool) {
-    let settings = app::settings(cx);
-    (settings.volume, settings.is_muted)
+/// Một bộ nút điều khiển (thanh phát, cửa sổ PiP): id (debug selector, tooltip) và cỡ.
+#[derive(Clone, Copy)]
+pub struct ControlSet {
+    pub play: &'static str,
+    pub shuffle: &'static str,
+    pub prev: &'static str,
+    pub next: &'static str,
+    pub repeat: &'static str,
+    /// Nút thường: hộp, icon.
+    pub icon: (f32, f32),
+    /// Nút Play: icon, vùng bấm.
+    pub play_size: (f32, f32),
+    /// Khoảng cách giữa các nút.
+    pub gap: f32,
 }
 
-type PrefsFn = fn(&App) -> (u8, bool);
+const BAR_CONTROLS: ControlSet = ControlSet {
+    play: "player-play",
+    shuffle: "player-shuffle",
+    prev: "player-prev",
+    next: "player-next",
+    repeat: "player-repeat",
+    icon: (ICON_BOX, ICON_GLYPH),
+    play_size: (PLAY_ICON, PLAY_BOX),
+    gap: 16.,
+};
 
-/// Thứ thanh phát và ba phần `cached` của nó đọc từ `Player` / cài đặt. `Player` báo đổi mà thứ này không đổi (tua, hàng đợi,
-/// EQ…) thì không `notify`: mỗi lần `notify` dựng lại cả bìa, cụm nút, âm lượng.
-#[derive(PartialEq)]
-struct BarState {
-    song: Option<Song>,
-    playing: bool,
-    shuffle: bool,
-    repeat: RepeatMode,
-    prefs: (u8, bool),
-}
-
-impl BarState {
-    fn of(player: &Player, prefs: PrefsFn, cx: &App) -> BarState {
-        BarState {
-            song: player.current_song().cloned(),
-            playing: player.is_playing(),
-            shuffle: player.queue().shuffle(),
-            repeat: player.queue().repeat(),
-            prefs: prefs(cx),
-        }
-    }
-}
-type PlayerAction = fn(&mut Player, &mut Context<Player>);
-
-pub struct PlayerBar {
+/// Cụm Shuffle / Prev / Play / Next / Repeat: hình icon Play / Pause đang chuyển, focus và ripple của nút Play. Thanh phát và
+/// cửa sổ PiP mỗi bên một bản, cùng nghe một `Player`; view chủ gọi [`Transport::sync`] đầu `render`.
+pub struct Transport {
     player: Entity<Player>,
-    seek: Entity<SeekBar>,
-    covers: Option<CoverStore>,
-    cache: Entity<LruImageCache>,
-    prefs: PrefsFn,
-    /// Bìa của tệp ngoài, đã giải mã sẵn ở `Player` (một bản dùng chung với Now Playing).
-    external: Option<Arc<RenderImage>>,
-    /// Hình icon Play / Pause đang chuyển (chung cho nút giữa thanh và nút trên bìa).
     morph: PlayMorph,
     play_focus: FocusHandle,
-    cover_play_focus: FocusHandle,
     /// Phát ripple khi nhấn Space / Enter lên nút Play (chuột thì ripple tự bắt).
     play_ripple: RippleTrigger,
-    cover_play_ripple: RippleTrigger,
-    /// Phần `cached` (cpu): bìa, cụm điều khiển + thanh tua, âm lượng.
-    /// Lần `notify` gần nhất vẽ theo trạng thái này.
-    state: BarState,
-    cover_island: Entity<Island<PlayerBar>>,
-    center_island: Entity<Island<PlayerBar>>,
-    volume_island: Entity<Island<PlayerBar>>,
-    _subscriptions: Vec<Subscription>,
 }
 
-impl PlayerBar {
-    pub fn new(covers: Option<CoverStore>, window: &mut Window, cx: &mut Context<Self>) -> PlayerBar {
-        PlayerBar::with_prefs(covers, app_prefs, window, cx)
-    }
-
-    fn with_prefs(
-        covers: Option<CoverStore>,
-        prefs: PrefsFn,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> PlayerBar {
-        let player = player::player(cx);
-        let seek = cx.new(|cx| SeekBar::new(window, cx));
-        let cache = LruImageCache::new(COVER_CACHE, cx);
-        let subscriptions = vec![
-            cx.observe(&player, |this, player, cx| {
-                let now = BarState::of(player.read(cx), this.prefs, cx);
-                if now != this.state {
-                    this.state = now;
-                    cx.notify();
-                }
-            }),
-            cx.subscribe_in(&player, window, |this, _, event: &PlayerEvent, window, cx| match event {
-                PlayerEvent::TrackChanged => this.refresh_external(cx),
-                PlayerEvent::TrackFailed { title, kind, gave_up, .. } => {
-                    Toast::push(window, cx, track_failed_toast(*kind, title.as_deref(), *gave_up));
-                }
-                PlayerEvent::OutputFailed => {
-                    Toast::push(window, cx, output_failed_toast());
-                }
-                PlayerEvent::DeviceChanged => {}
-            }),
-        ];
+impl Transport {
+    pub fn new<V>(player: Entity<Player>, cx: &mut Context<V>) -> Transport {
         let morph = PlayMorph::new(player.read(cx).is_playing());
-        let state = BarState::of(player.read(cx), prefs, cx);
-        let mut bar = PlayerBar {
-            player,
-            seek,
-            covers,
-            cache,
-            prefs,
-            external: None,
-            morph,
-            play_focus: cx.focus_handle(),
-            cover_play_focus: cx.focus_handle(),
-            play_ripple: RippleTrigger::default(),
-            cover_play_ripple: RippleTrigger::default(),
-            state,
-            cover_island: Island::new(PlayerBar::cover_part, cx),
-            center_island: Island::new(PlayerBar::center_part, cx),
-            volume_island: Island::new(PlayerBar::volume_part, cx),
-            _subscriptions: subscriptions,
-        };
-        bar.refresh_external(cx);
-        bar
+        Transport { player, morph, play_focus: cx.focus_handle(), play_ripple: RippleTrigger::default() }
     }
 
-    /// Có bài đang chọn: không thì cả thanh mờ, không bấm được.
-    pub fn is_enabled(&self, cx: &App) -> bool {
-        self.player.read(cx).current_song().is_some()
-    }
-
-    fn refresh_external(&mut self, cx: &mut Context<Self>) {
-        self.external = self.player.read(cx).external_cover().cloned();
-        cx.notify();
-    }
-
-    fn cover(&self, cx: &App) -> AnyElement {
-        let path = self.player.read(cx).current_song().and_then(|song| {
-            let hash = song.cover_hash.as_deref()?;
-            Some(self.covers.as_ref()?.path(hash, CoverSize::Small))
-        });
-        // Vuông như `audio-controller.vue` (khung `overflow-hidden`, không bo góc).
-        CoverImage::new(path, CoverKind::Album, None, &self.cache)
-            .embedded(self.external.clone())
-            .radius(px(0.))
-            .look(PlaceholderLook::Thumb(px(COVER_SIZE)))
-            .into_any_element()
+    /// Đưa icon Play / Pause theo trạng thái phát (chạy hiệu ứng khi vừa đổi).
+    pub fn sync(&mut self, cx: &App) {
+        let playing = self.player.read(cx).is_playing();
+        self.morph.set_playing(playing, Instant::now(), cx.reduce_motion());
     }
 
     /// Nút Play / Pause như `toggle-play.vue`: không nền, không đổi màu khi rê; icon màu chữ biến hình theo [`PlayMorph`].
@@ -315,26 +239,22 @@ impl PlayerBar {
             .into_any_element()
     }
 
-    fn controls(&self, enabled: bool, window: &Window, cx: &mut App) -> impl IntoElement {
-        let play = self.play_button(
-            "player-play",
-            (PLAY_ICON, PLAY_BOX),
-            enabled,
-            (&self.play_focus, &self.play_ripple),
-            window,
-            cx,
-        );
+    /// Hàng năm nút theo `set`.
+    pub fn controls(&self, set: &ControlSet, enabled: bool, window: &Window, cx: &mut App) -> impl IntoElement {
+        let play =
+            self.play_button(set.play, set.play_size, enabled, (&self.play_focus, &self.play_ripple), window, cx);
         let cx: &App = cx;
         let (shuffle, repeat) = {
             let player = self.player.read(cx);
             (player.queue().shuffle(), player.queue().repeat())
         };
         let player = self.player.clone();
+        let (edge, glyph) = set.icon;
         let button = {
             let player = player.clone();
             move |id: &'static str, icon: GrooveIcon, label: &'static str, on: bool, action: PlayerAction| {
                 let player = player.clone();
-                let button = web_icon_button(id, icon, ICON_BOX, ICON_GLYPH, on, cx)
+                let button = web_icon_button(id, icon, edge, glyph, on, cx)
                     .accessibility_label(label)
                     .disabled(!enabled)
                     .on_click(move |_: &ClickEvent, _, cx| player.update(cx, action));
@@ -351,18 +271,156 @@ impl PlayerBar {
             .flex()
             .items_center()
             .justify_center()
-            .gap_4()
-            .child(button(
-                "player-shuffle",
-                GrooveIcon::Shuffle,
-                t!("player.bar.shuffle"),
-                shuffle,
-                Player::toggle_shuffle,
-            ))
-            .child(button("player-prev", GrooveIcon::Prev, t!("player.bar.prev"), false, Player::prev))
+            .gap(px(set.gap))
+            .child(button(set.shuffle, GrooveIcon::Shuffle, t!("player.bar.shuffle"), shuffle, Player::toggle_shuffle))
+            .child(button(set.prev, GrooveIcon::Prev, t!("player.bar.prev"), false, Player::prev))
             .child(play)
-            .child(button("player-next", GrooveIcon::Next, t!("player.bar.next"), false, Player::next))
-            .child(button("player-repeat", repeat_icon, repeat_label, repeat == RepeatMode::One, Player::toggle_repeat))
+            .child(button(set.next, GrooveIcon::Next, t!("player.bar.next"), false, Player::next))
+            .child(button(set.repeat, repeat_icon, repeat_label, repeat == RepeatMode::One, Player::toggle_repeat))
+    }
+
+    #[cfg(test)]
+    pub fn morph(&self) -> &PlayMorph {
+        &self.morph
+    }
+}
+
+/// Âm lượng, tắt tiếng hiện tại. `Player` chưa có hàm đọc (ghi ở mục 8 của task), nên đọc cài đặt của app; test thay bằng bản giả.
+fn app_prefs(cx: &App) -> (u8, bool) {
+    let settings = app::settings(cx);
+    (settings.volume, settings.is_muted)
+}
+
+pub(crate) type PrefsFn = fn(&App) -> (u8, bool);
+
+/// Thứ thanh phát và ba phần `cached` của nó đọc từ `Player` / cài đặt. `Player` báo đổi mà thứ này không đổi (tua, hàng đợi,
+/// EQ…) thì không `notify`: mỗi lần `notify` dựng lại cả bìa, cụm nút, âm lượng. Cửa sổ PiP dùng chung (không đọc âm lượng).
+#[derive(PartialEq)]
+pub(crate) struct BarState {
+    song: Option<Song>,
+    playing: bool,
+    shuffle: bool,
+    repeat: RepeatMode,
+    prefs: (u8, bool),
+    /// Cửa sổ PiP đang mở: nút PiP của thanh đổi nhãn.
+    pip: bool,
+}
+
+impl BarState {
+    pub(crate) fn of(player: &Player, prefs: PrefsFn, cx: &App) -> BarState {
+        BarState {
+            song: player.current_song().cloned(),
+            playing: player.is_playing(),
+            shuffle: player.queue().shuffle(),
+            repeat: player.queue().repeat(),
+            prefs: prefs(cx),
+            pip: pip::is_open(cx),
+        }
+    }
+}
+type PlayerAction = fn(&mut Player, &mut Context<Player>);
+
+pub struct PlayerBar {
+    player: Entity<Player>,
+    seek: Entity<SeekBar>,
+    covers: Option<CoverStore>,
+    cache: Entity<LruImageCache>,
+    prefs: PrefsFn,
+    /// Bìa của tệp ngoài, đã giải mã sẵn ở `Player` (một bản dùng chung với Now Playing).
+    external: Option<Arc<RenderImage>>,
+    /// Cụm nút giữa thanh; hình icon Play / Pause của nó dùng chung cho nút trên bìa.
+    transport: Transport,
+    cover_play_focus: FocusHandle,
+    cover_play_ripple: RippleTrigger,
+    /// Phần `cached` (cpu): bìa, cụm điều khiển + thanh tua, âm lượng.
+    /// Lần `notify` gần nhất vẽ theo trạng thái này.
+    state: BarState,
+    cover_island: Entity<Island<PlayerBar>>,
+    center_island: Entity<Island<PlayerBar>>,
+    volume_island: Entity<Island<PlayerBar>>,
+    _subscriptions: Vec<Subscription>,
+}
+
+impl PlayerBar {
+    pub fn new(covers: Option<CoverStore>, window: &mut Window, cx: &mut Context<Self>) -> PlayerBar {
+        PlayerBar::with_prefs(covers, app_prefs, window, cx)
+    }
+
+    fn with_prefs(
+        covers: Option<CoverStore>,
+        prefs: PrefsFn,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> PlayerBar {
+        let player = player::player(cx);
+        let seek = cx.new(|cx| SeekBar::new(window, cx));
+        let cache = LruImageCache::new(COVER_CACHE, cx);
+        let pip_state = pip::state(cx);
+        let subscriptions = vec![
+            cx.observe(&player, |this, _, cx| this.refresh_state(cx)),
+            cx.observe(&pip_state, |this, _, cx| this.refresh_state(cx)),
+            cx.subscribe_in(&player, window, |this, _, event: &PlayerEvent, window, cx| match event {
+                PlayerEvent::TrackChanged => this.refresh_external(cx),
+                PlayerEvent::TrackFailed { title, kind, gave_up, .. } => {
+                    Toast::push(window, cx, track_failed_toast(*kind, title.as_deref(), *gave_up));
+                }
+                PlayerEvent::OutputFailed => {
+                    Toast::push(window, cx, output_failed_toast());
+                }
+                PlayerEvent::DeviceChanged => {}
+            }),
+        ];
+        let transport = Transport::new(player.clone(), cx);
+        let state = BarState::of(player.read(cx), prefs, cx);
+        let mut bar = PlayerBar {
+            player,
+            seek,
+            covers,
+            cache,
+            prefs,
+            external: None,
+            transport,
+            cover_play_focus: cx.focus_handle(),
+            cover_play_ripple: RippleTrigger::default(),
+            state,
+            cover_island: Island::new(PlayerBar::cover_part, cx),
+            center_island: Island::new(PlayerBar::center_part, cx),
+            volume_island: Island::new(PlayerBar::volume_part, cx),
+            _subscriptions: subscriptions,
+        };
+        bar.refresh_external(cx);
+        bar
+    }
+
+    /// Có bài đang chọn: không thì cả thanh mờ, không bấm được.
+    pub fn is_enabled(&self, cx: &App) -> bool {
+        self.player.read(cx).current_song().is_some()
+    }
+
+    fn refresh_state(&mut self, cx: &mut Context<Self>) {
+        let now = BarState::of(self.player.read(cx), self.prefs, cx);
+        if now != self.state {
+            self.state = now;
+            cx.notify();
+        }
+    }
+
+    fn refresh_external(&mut self, cx: &mut Context<Self>) {
+        self.external = self.player.read(cx).external_cover().cloned();
+        cx.notify();
+    }
+
+    fn cover(&self, cx: &App) -> AnyElement {
+        let path = self.player.read(cx).current_song().and_then(|song| {
+            let hash = song.cover_hash.as_deref()?;
+            Some(self.covers.as_ref()?.path(hash, CoverSize::Small))
+        });
+        // Vuông như `audio-controller.vue` (khung `overflow-hidden`, không bo góc).
+        CoverImage::new(path, CoverKind::Album, None, &self.cache)
+            .embedded(self.external.clone())
+            .radius(px(0.))
+            .look(PlaceholderLook::Thumb(px(COVER_SIZE)))
+            .into_any_element()
     }
 }
 
@@ -390,7 +448,7 @@ impl PlayerBar {
                     .bg(black().opacity(0.4))
                     .invisible()
                     .group_hover("player-cover", |style| style.visible())
-                    .child(self.play_button(
+                    .child(self.transport.play_button(
                         "player-cover-play",
                         (COVER_PLAY_ICON, PLAY_BOX),
                         true,
@@ -411,7 +469,7 @@ impl PlayerBar {
             .flex()
             .items_center()
             .justify_center()
-            .child(self.controls(enabled, window, cx))
+            .child(self.transport.controls(&BAR_CONTROLS, enabled, window, cx))
             .into_any_element()
     }
 
@@ -475,8 +533,26 @@ impl PlayerBar {
                             }),
                     ),
             )
+            .child(pip_button(enabled, cx))
             .into_any_element()
     }
+}
+
+/// Nút trình phát thu nhỏ bên phải thanh âm lượng: mở / đóng cửa sổ PiP (như nút PiP của trình duyệt).
+fn pip_button(enabled: bool, cx: &App) -> impl IntoElement {
+    let label = pip_label(cx);
+    div().occlude().debug_selector(|| "player-pip".to_owned()).child(
+        web_icon_button("player-pip", GrooveIcon::Pip, ICON_BOX, PIP_GLYPH, false, cx)
+            .accessibility_label(label)
+            .disabled(!enabled)
+            .on_click(|_: &ClickEvent, _, cx| pip::toggle(cx))
+            .with_tooltip(("player-pip", 0usize), label),
+    )
+}
+
+/// Nhãn của nút / mục menu PiP theo việc cửa sổ PiP đang mở.
+fn pip_label(cx: &App) -> &'static str {
+    if pip::is_open(cx) { t!("player.bar.pip_close") } else { t!("player.bar.pip") }
 }
 
 /// cpu (03/11/2026): tên bài chạy ([`Marquee`]) vẽ lại view này mỗi nhịp màn hình, nên bìa, cụm điều khiển, âm lượng là
@@ -485,7 +561,7 @@ impl Render for PlayerBar {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let colors = cx.theme().colors().clone();
         let playing = self.player.read(cx).is_playing();
-        self.morph.set_playing(playing, Instant::now(), cx.reduce_motion());
+        self.transport.sync(cx);
         let enabled = self.is_enabled(cx);
         let (artist, title) = match self.player.read(cx).current_song() {
             Some(song) => (
@@ -535,6 +611,14 @@ impl Render for PlayerBar {
 
         let bar = div()
             .id("player-bar-view")
+            // Menu chuột phải của thanh phát: trình phát thu nhỏ.
+            .context_menu(|menu, _, cx| {
+                menu.item(
+                    MenuItem::new("player-menu-pip", pip_label(cx))
+                        .icon(GrooveIcon::Pip)
+                        .on_select(|_, cx| pip::toggle(cx)),
+                )
+            })
             .font_weight(FontWeight::NORMAL)
             .relative()
             .size_full()
@@ -807,7 +891,7 @@ mod tests {
             window.draw(cx).clear(cx);
         });
         let settled = |cx: &mut VisualTestContext| {
-            bar.read_with(cx, |bar, _| bar.morph.shape(Instant::now() + play_morph::DURATION))
+            bar.read_with(cx, |bar, _| bar.transport.morph().shape(Instant::now() + play_morph::DURATION))
         };
         assert_eq!(settled(cx), 1., "đang dừng: tam giác");
 
@@ -822,9 +906,35 @@ mod tests {
         });
         assert_eq!(settled(cx), 0., "đang phát: hai vạch");
         assert!(
-            bar.read_with(cx, |bar, _| bar.morph.is_animating(Instant::now())),
+            bar.read_with(cx, |bar, _| bar.transport.morph().is_animating(Instant::now())),
             "vừa bấm thì đang chuyển hình, không nhảy"
         );
+    }
+
+    /// pip — nút bên phải thanh âm lượng mở rồi đóng trình phát thu nhỏ; nhãn đổi theo (phần âm lượng `cached` nghe trạng thái PiP).
+    #[gpui::test]
+    fn pip_button_toggles_the_mini_player(cx: &mut TestAppContext) {
+        let rig = rig(cx);
+        cx.update(|cx| app::install_settings_for_test(groove_core::settings::Settings::default(), cx));
+        let (_bar, cx) = open_bar(cx);
+        let path = fixtures::write_sample(rig.dir.path(), "a", AudioKind::Wav).unwrap();
+        rig.player.update(cx, |p, cx| p.play_paths(vec![path], cx));
+        rig.until(cx, "song loaded", |p| p.current_song().is_some() && p.duration_sec() > 0.);
+        rig.player.update(cx, |p, cx| p.pause(cx));
+        let click = |cx: &mut VisualTestContext| {
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            let at = cx.debug_bounds("player-pip").expect("có nút PiP").center();
+            cx.simulate_mouse_move(at, None, Modifiers::none());
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            cx.simulate_click(at, Modifiers::none());
+            cx.run_until_parked();
+        };
+        click(cx);
+        assert!(cx.update(|_, cx| pip::is_open(cx)));
+        assert_eq!(cx.update(|_, cx| cx.windows().len()), 2);
+        assert_eq!(cx.update(|_, cx| pip_label(cx)), t!("player.bar.pip_close"));
+        click(cx);
+        assert!(!cx.update(|_, cx| pip::is_open(cx)));
     }
 
     /// S20: kéo trên thanh chỉ đổi xem trước, `Player::seek` đúng một lần khi thả chuột.

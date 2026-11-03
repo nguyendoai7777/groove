@@ -129,6 +129,13 @@ fn desktop_entry_opens_many_files_and_covers_each_format() {
     assert!(mime.ends_with(';'), "chuẩn desktop entry đòi `;` cuối danh sách");
     assert!(desktop.lines().any(|l| l == "Categories=AudioVideo;Audio;Player;"));
     assert!(desktop.lines().any(|l| l == "Icon=groove"));
+    // pip: mục "Trình phát thu nhỏ" ở menu chuột phải của dock; `--pip` đi qua kênh một phiên (`instance.rs`).
+    assert!(desktop.lines().any(|l| l == "Actions=pip;"));
+    assert!(
+        desktop.contains(
+            "\n[Desktop Action pip]\nName=Picture in picture\nName[vi]=Trình phát thu nhỏ\nExec=groove --pip\n"
+        )
+    );
 }
 
 /// Icon hicolor đủ cỡ cho menu, "Mở bằng", thanh tác vụ.

@@ -389,3 +389,14 @@ Chủ dự án (2026-11-03): không muốn chữ bị cắt "…" ở đâu tron
 - [perf-notify] Trần bộ đệm bìa của lưới thư viện 192 → 96 (~48 → ~24 MB bìa 256 px): khoảng 2,5 khung ở cửa sổ lớn; cuộn xa hơn thì đọc lại JPEG nhỏ từ đĩa.
 - [perf-notify] Watcher: tick của debouncer `debounce / 2` (1 s, trước 500 ms mặc định): báo trễ nhất 3 s thay vì 2,5 s; hẹn giờ thử gắn lại gốc vắng (30 s) chỉ khi có gốc đang vắng.
 - [perf-notify] Luồng âm thanh hỏi 100 ms một lần trong 30 s sau khi dừng (`groove-audio` `engine.rs`) — để nguyên — chỉ 30 s rồi ngủ hẳn, sửa phải đổi vòng lặp engine.
+
+## pip
+
+Trình phát thu nhỏ (`views::pip`): cửa sổ 420 × 140, mở từ nút cạnh thanh âm lượng, menu chuột phải của thanh phát, menu dock.
+
+- [pip] Mở PiP thì để nguyên cửa sổ chính như trình duyệt — thu nhỏ / ẩn cửa sổ chính — người dùng tự chọn; nút "Quay lại cửa sổ chính" đóng PiP rồi đưa cửa sổ chính lên. Đóng cửa sổ chính vẫn thoát app (đóng luôn PiP) — giữ app sống khi còn PiP — chưa có khay hệ thống để mở lại cửa sổ chính.
+- [pip] Cỡ cố định 420 × 140, không đổi cỡ, không thu nhỏ; chỉ nhớ vị trí (`pipWindow` trong settings) — cho kéo giãn — bố cục cố định bìa vuông + một dòng tên + thanh tua + hàng nút; nháy đúp vùng kéo không làm gì.
+- [pip] Mở không lấy focus — lấy focus — giống PiP trình duyệt, không cướp phím của app đang gõ. Hệ quả: chữ chạy chỉ chạy khi người dùng bấm vào PiP (luật CPU: chỉ hoạt ảnh ở cửa sổ active + đang phát).
+- [pip] Luôn trên cùng: Windows `SetWindowPos(HWND_TOPMOST)`, macOS `NSFloatingWindowLevel` + theo mọi Space / cạnh app toàn màn hình; Linux không làm (Wayland không có giao thức, người dùng tự chọn Alt+Space → "Always on Top") — `WindowKind::PopUp` / `Floating` của GPUI — PopUp trên Windows mất khung + nút taskbar, trên macOS là `NSPanel` tự ẩn khi app mất focus, trên X11 là override-redirect.
+- [pip] Lần đầu mở ở góc dưới phải màn có cửa sổ chính, cách mép 32 px; Wayland không cho app đặt vị trí nên compositor tự đặt và không nhớ được vị trí.
+- [pip] Menu dock: Linux `Actions=pip` trong `.desktop` (cả bản dev của `start.sh`) chạy `groove --pip`, đi qua kênh một phiên `instance.rs`; Windows jump list `--dock-action 0` (tiến trình thứ hai chuyển cho phiên đang chạy); macOS menu dock gọi action trong tiến trình — đi qua MPRIS — MPRIS không có lệnh mở cửa sổ riêng, kênh `instance.rs` đã có sẵn và chạy cả khi app chưa mở (mở app rồi mở PiP).

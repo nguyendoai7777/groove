@@ -28,6 +28,18 @@ pub struct OpenRequest {
     pub paths: Vec<PathBuf>,
     /// Đưa cửa sổ lên trước.
     pub activate: bool,
+    /// Mở trình phát thu nhỏ (menu dock: `groove --pip`, jump list Windows `--dock-action 0`).
+    pub pip: bool,
+}
+
+/// Cờ mở trình phát thu nhỏ. `--dock-action <n>` là lệnh jump list của gpui-pre-windows (`set_dock_menu`); menu dock chỉ có
+/// một mục là PiP.
+pub const PIP_FLAG: &str = "--pip";
+const DOCK_ACTION_FLAG: &str = "--dock-action";
+
+/// Tiến trình được mở để bật trình phát thu nhỏ.
+pub fn wants_pip(args: &[OsString]) -> bool {
+    args.iter().skip(1).any(|arg| arg == PIP_FLAG || arg == DOCK_ACTION_FLAG)
 }
 
 /// Đối số không phải cờ, bỏ `argv[0]`. Cờ của `dev.rs` có giá trị đi kèm không phải tệp.
@@ -35,7 +47,7 @@ pub fn positional_args(args: &[OsString]) -> Vec<PathBuf> {
     let mut out = Vec::new();
     let mut iter = args.iter().skip(1);
     while let Some(arg) = iter.next() {
-        if arg == "--display" || arg == "--keys" {
+        if arg == "--display" || arg == "--keys" || arg == DOCK_ACTION_FLAG {
             iter.next();
         } else if !arg.to_str().is_some_and(|text| text.starts_with("--")) {
             out.push(PathBuf::from(arg));
@@ -126,7 +138,7 @@ pub fn run_app(application: Application, on_ready: impl FnOnce(&mut App) + 'stat
     let (sender, receiver) = instance::take_incoming().unwrap_or_else(mpsc::unbounded);
     application.on_open_urls(move |urls| {
         let paths = resolve_urls(&urls);
-        let _ = sender.unbounded_send(OpenRequest { paths, activate: true });
+        let _ = sender.unbounded_send(OpenRequest { paths, activate: true, pip: false });
     });
     let args: Vec<OsString> = std::env::args_os().collect();
     let cwd = std::env::current_dir().unwrap_or_default();
@@ -137,13 +149,9 @@ pub fn run_app(application: Application, on_ready: impl FnOnce(&mut App) + 'stat
     });
 }
 
-/// Đưa cửa sổ lên trước. `activate_window` của GPUI đã khôi phục cửa sổ thu nhỏ (`IsIconic` + `SW_RESTORE`, S22). Phiên sau đã
-/// gọi `AllowSetForegroundWindow`. Wayland không có token thì chỉ nhấp nháy taskbar (đặc tả 5.5).
+/// Đưa cửa sổ chính lên trước (không phải cửa sổ PiP). Phiên sau đã gọi `AllowSetForegroundWindow`.
 fn bring_to_front(cx: &mut App) {
-    cx.activate(true);
-    if let Some(window) = cx.windows().first().copied() {
-        let _ = window.update(cx, |_, window, _| window.activate_window());
-    }
+    crate::app::bring_main_to_front(cx);
 }
 
 /// Bơm yêu cầu vào player cho tới hết đời app. `initial` đứng đầu đợt đầu tiên, trước mọi thứ phiên khác gửi tới.
@@ -161,6 +169,9 @@ fn install(
                 if request.activate {
                     cx.update(|cx| front(cx));
                 }
+                if request.pip {
+                    cx.update(crate::views::pip::open);
+                }
                 batch = request.paths;
                 if batch.is_empty() {
                     continue;
@@ -173,6 +184,9 @@ fn install(
                     quiet = false;
                     if request.activate {
                         cx.update(|cx| front(cx));
+                    }
+                    if request.pip {
+                        cx.update(crate::views::pip::open);
                     }
                     batch.extend(request.paths);
                 }
@@ -219,6 +233,16 @@ mod tests {
         let args = os(&["groove", "--display", "secondary", "a.mp3", "--background", "--keys", "x y", "b.flac"]);
         assert_eq!(positional_args(&args), [PathBuf::from("a.mp3"), PathBuf::from("b.flac")]);
         assert!(positional_args(&os(&["groove"])).is_empty());
+    }
+
+    /// pip — `--pip` (Linux `Actions=`) và `--dock-action 0` (jump list Windows) mở trình phát thu nhỏ, không thành tệp.
+    #[test]
+    fn dock_flags_open_pip_and_are_not_files() {
+        assert!(wants_pip(&os(&["groove", "--pip"])));
+        assert!(wants_pip(&os(&["groove.exe", "--dock-action", "0"])));
+        assert!(!wants_pip(&os(&["groove", "a.mp3"])));
+        assert!(!wants_pip(&os(&["--pip"])), "argv[0] không phải cờ");
+        assert!(positional_args(&os(&["groove.exe", "--dock-action", "0", "a.mp3"])) == [PathBuf::from("a.mp3")]);
     }
 
     /// S22: đuôi không phân biệt hoa thường, đủ sáu đuôi của liên kết, đuôi khác bị bỏ.
@@ -307,7 +331,7 @@ mod tests {
         }
 
         fn open(&self, paths: Vec<PathBuf>) {
-            self.sender.unbounded_send(OpenRequest { paths, activate: true }).unwrap();
+            self.sender.unbounded_send(OpenRequest { paths, activate: true, pip: false }).unwrap();
         }
 
         /// Chạy vòng sự kiện, đẩy đồng hồ giả qua cửa sổ gộp, kéo mẫu cho tới khi điều kiện đúng.
