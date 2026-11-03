@@ -411,3 +411,14 @@ Trình phát thu nhỏ (`views::pip`): cửa sổ 420 × 140, mở từ nút c�
   MouseDown. Thanh tua, thanh âm lượng ở cửa sổ chính không dính (không nằm trong vùng kéo) — đã soát trong desktop ẩn.
 - Cột phải: tên bài 28 px, thanh tua 16 px, hàng nút 40 px, khe 8 px, cửa sổ đệm 8 px bốn phía, bìa 100 px cách cột
   phải 8 px (chủ dự án chốt 03/11/2026); cửa sổ 420 × 116. Bìa bo 4 px; đĩa giữ chỗ lấp cả ô bìa để mép đĩa cách cột 8 px.
+
+## drag-lag
+
+- Kéo cửa sổ giật có ba nguồn: (1) gpui-pre 0.3.10 `refresh()` cả cây (bỏ cache `cached`) mỗi `WM_MOVE`; (2) `window_state` lưu vị
+  trí bằng `update_settings` ⇒ `Shell` `notify` mỗi nhịp; (3) nền acrylic của `Blurred` trên Windows 10.
+- (1) subclass `platform::move_loop` giữ `WM_MOVE` trong vòng dời, chuyển một lần lúc thả (đo desktop ẩn, bản debug, 120 nhịp
+  16 ms: 52–57 % CPU → 0–3 %; vị trí vẫn lưu đúng). Không vá GPUI (crate ngoài). (2) `app::store_settings_quietly`.
+- (3) build < 22621 đổi accent sang `ACCENT_ENABLE_BLURBEHIND` không tô màu (bản Tauri dùng `window_vibrancy::apply_blur`, tô
+  `(18,18,18,107)`; ở đây cột trái tự tô alpha 0,88 nên bỏ màu tô). Mất hạt nhiễu acrylic. Desktop ẩn không có nền mờ: chủ dự
+  án kiểm tay trên màn DELL (độ mượt khi kéo, độ mờ nền theme sáng / tối). Bản release tệ hơn dev có lẽ vì vẽ nhanh hơn nên
+  trình ra nhiều khung hơn trong vòng dời — chưa đo trên màn thật.

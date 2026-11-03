@@ -22,7 +22,8 @@
 # thật `IsIconic` / `IsZoomed` sau mỗi lần bấm. Sau `min` script tự `SW_RESTORE` để bấm tiếp. Bước `hit@x:y` chỉ rê tới điểm
 # (px logic, x âm tính từ mép phải) và in hit-test; `dbl@x:y` nhấp đúp ở đó (vùng kéo: phóng to / khôi phục). Kéo chuột:
 # `down@x:y`, `move@x:y`, `up@x:y` (nhấn / rê / thả, đi đường WM_NC* nếu hit-test không phải HTCLIENT như chuột thật);
-# `shot@<tệp.png>` chụp cửa sổ giữa các bước.
+# `shot@<tệp.png>` chụp cửa sổ giữa các bước; `nudge@n` dời cửa sổ n lần 1 px mỗi 16 ms giữa
+# `WM_ENTERSIZEMOVE` / `WM_EXITSIZEMOVE` (như kéo) và in CPU lúc dời; `settings` in `settings.json` của dữ liệu tạm.
 #
 # `-Pip`: chạy kèm `--pip` và bấm / chụp cửa sổ trình phát thu nhỏ thay cửa sổ chính.
 param(
@@ -73,6 +74,7 @@ public static class HiddenDesktop {
     [DllImport("user32")] public static extern bool IsZoomed(IntPtr hwnd);
     [DllImport("user32")] public static extern bool IsWindow(IntPtr hwnd);
     [DllImport("user32")] public static extern bool ShowWindowAsync(IntPtr hwnd, int cmd);
+    [DllImport("user32")] public static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
     [DllImport("user32")] public static extern bool GetClientRect(IntPtr hwnd, out RECT rect);
     [DllImport("user32")] public static extern bool ClientToScreen(IntPtr hwnd, ref POINT point);
     [DllImport("user32")] public static extern uint GetDpiForWindow(IntPtr hwnd);
@@ -258,6 +260,22 @@ try {
             $client = New-Object HiddenDesktop+RECT
             [void][HiddenDesktop]::GetClientRect($h, [ref]$client)
             if ($c -match '^shot@(.+)$') { Take-Shot $h $Matches[1]; continue }
+            if ($c -eq "settings") { Start-Sleep -Milliseconds 1500; "settings: " + (Get-Content -Raw (Join-Path $data "settings.json") -ErrorAction SilentlyContinue); continue }
+            if ($c -match '^nudge@(\d+)$') {
+                # Dời cửa sổ n lần, 1 px mỗi 16 ms như lúc kéo (mỗi lần một WM_MOVE), in CPU dùng trong lúc dời.
+                $r = New-Object HiddenDesktop+RECT; [void][HiddenDesktop]::GetWindowRect($h, [ref]$r)
+                $proc.Refresh(); $cpu0 = $proc.TotalProcessorTime; $wall = [Diagnostics.Stopwatch]::StartNew()
+                $ignored = [IntPtr]::Zero
+                [void][HiddenDesktop]::SendMessageTimeoutW($h, 0x0231, [IntPtr]::Zero, [IntPtr]::Zero, 2, 2000, [ref]$ignored) # WM_ENTERSIZEMOVE
+                for ($i = 1; $i -le [int]$Matches[1]; $i++) {
+                    [void][HiddenDesktop]::SetWindowPos($h, [IntPtr]::Zero, $r.L + ($i % 40), $r.T, 0, 0, 0x0015) # NOSIZE | NOZORDER | NOACTIVATE
+                    Start-Sleep -Milliseconds 16
+                }
+                [void][HiddenDesktop]::SendMessageTimeoutW($h, 0x0232, [IntPtr]::Zero, [IntPtr]::Zero, 2, 2000, [ref]$ignored) # WM_EXITSIZEMOVE
+                $proc.Refresh()
+                "{0}: cpu={1:N1}% over {2:N0} ms" -f $c, (100 * ($proc.TotalProcessorTime - $cpu0).TotalMilliseconds / $wall.ElapsedMilliseconds), $wall.ElapsedMilliseconds
+                continue
+            }
             if ($c -match '^(down|move|up)@(-?\d+):(\d+)$') {
                 $lx = [int]$Matches[2]
                 $x = if ($lx -lt 0) { [int]($client.R + $lx * $scale) } else { [int]($lx * $scale) }
