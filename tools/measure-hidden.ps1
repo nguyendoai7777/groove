@@ -19,7 +19,8 @@
 #
 # `-Clicks "max,max,min,close"`: bấm nút cửa sổ ở góc trên phải bằng thông điệp Win32 như khi rê + nhấp chuột thật
 # (`WM_MOUSEMOVE` → `WM_NCHITTEST` → `WM_NC*` hoặc `WM_LBUTTON*` theo kết quả hit-test), rồi in hit-test và trạng thái
-# thật `IsIconic` / `IsZoomed` sau mỗi lần bấm. Sau `min` script tự `SW_RESTORE` để bấm tiếp.
+# thật `IsIconic` / `IsZoomed` sau mỗi lần bấm. Sau `min` script tự `SW_RESTORE` để bấm tiếp. Bước `hit@x:y` chỉ rê tới điểm
+# (px logic, x âm tính từ mép phải) và in hit-test; `dbl@x:y` nhấp đúp ở đó (vùng kéo: phóng to / khôi phục).
 param(
     [Parameter(Mandatory)][string]$Exe,
     [int]$Seconds = 15,
@@ -94,6 +95,30 @@ public static class HiddenDesktop {
             PostMessageW(h, 0x00A1, (IntPtr)ht, Pack(p.X, p.Y)); // WM_NCLBUTTONDOWN
             System.Threading.Thread.Sleep(60);
             PostMessageW(h, 0x00A2, (IntPtr)ht, Pack(p.X, p.Y)); // WM_NCLBUTTONUP
+        }
+        return ht;
+    }
+
+    // Rê tới (x, y) rồi hỏi WM_NCHITTEST, không nhấp.
+    public static int HitTest(IntPtr h, int x, int y, int hover) {
+        IntPtr r;
+        var p = new POINT { X = x, Y = y };
+        ClientToScreen(h, ref p);
+        PostMessageW(h, 0x0200, IntPtr.Zero, Pack(x, y));
+        System.Threading.Thread.Sleep(hover);
+        SendMessageTimeoutW(h, 0x0084, IntPtr.Zero, Pack(p.X, p.Y), 2, 2000, out r);
+        return (int)r;
+    }
+
+    // Nhấp đúp như chuột thật ở vùng không phải client: WM_NCLBUTTONDBLCLK thay lần nhấn thứ hai.
+    public static int DoubleClick(IntPtr h, int x, int y, int hover) {
+        int ht = HitTest(h, x, y, hover);
+        var p = new POINT { X = x, Y = y };
+        ClientToScreen(h, ref p);
+        if (ht != 1) {
+            PostMessageW(h, 0x00A3, (IntPtr)ht, Pack(p.X, p.Y)); // WM_NCLBUTTONDBLCLK
+            System.Threading.Thread.Sleep(60);
+            PostMessageW(h, 0x00A2, (IntPtr)ht, Pack(p.X, p.Y));
         }
         return ht;
     }
@@ -180,8 +205,15 @@ try {
             $scale = [HiddenDesktop]::GetDpiForWindow($h) / 96.0
             $client = New-Object HiddenDesktop+RECT
             [void][HiddenDesktop]::GetClientRect($h, [ref]$client)
-            $x = [int]($client.R - $offset[$c] * $scale); $y = [int](24 * $scale)
-            $ht = [HiddenDesktop]::Click($h, $x, $y, $Hover)
+            if ($c -match '^(hit|dbl)@(-?\d+):(\d+)$') {
+                $lx = [int]$Matches[2]
+                $x = if ($lx -lt 0) { [int]($client.R + $lx * $scale) } else { [int]($lx * $scale) }
+                $y = [int]([int]$Matches[3] * $scale)
+                $ht = if ($Matches[1] -eq "hit") { [HiddenDesktop]::HitTest($h, $x, $y, $Hover) } else { [HiddenDesktop]::DoubleClick($h, $x, $y, $Hover) }
+            } else {
+                $x = [int]($client.R - $offset[$c] * $scale); $y = [int](24 * $scale)
+                $ht = [HiddenDesktop]::Click($h, $x, $y, $Hover)
+            }
             Start-Sleep -Milliseconds 700
             $alive = [HiddenDesktop]::IsWindow($h)
             "click {0} at {1},{2}: hit_test={3} minimized={4} maximized={5} window_alive={6}" -f $c, $x, $y,

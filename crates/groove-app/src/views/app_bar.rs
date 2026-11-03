@@ -3,7 +3,8 @@
 //! Nút lùi theo lịch sử (mờ khi không lùi được); ô tìm giữa rộng 40 % bấm để mở bảng lệnh, kèm chip `Ctrl` `K`; thu nhỏ,
 //! phóng to / khôi phục, đóng như bản web ([`caption`]: icon `Minus`, `ArrowsExpand` / `ArrowsCompress`, `Close` 20 px trong ô
 //! 36 px; rê xám nhạt, Đóng rê đỏ `red-600` icon trắng). Vùng trống kéo được cửa sổ, nhấp đúp phóng to / khôi phục (OS lo
-//! qua `HTCAPTION`); phần tử bấm được `occlude` để không kéo theo.
+//! qua `HTCAPTION`): vùng kéo là khung bọc ở `Shell` nằm sau thanh (thanh nhúng `cached`, xem `app::Shell::render`);
+//! phần tử bấm được `occlude` để không kéo theo, phần còn lại của thanh không chặn chuột.
 //!
 //! window-buttons (03/11/2026): nút cửa sổ là nút bấm thường gọi [`window_controls`], không còn vùng `WindowControlArea`
 //! cho OS hit-test (bấm trên màn thật không ăn) — lý do ở đầu module đó.
@@ -23,7 +24,6 @@ use materiant::kbd::Kbd;
 use materiant::overlay::tooltip::TooltipExt;
 use materiant::theme::color::hex;
 use materiant::theme::{ActiveTheme, Neutral};
-use materiant::window::DragRegionExt;
 
 use crate::icons::GrooveIcon;
 use crate::platform::window_controls;
@@ -205,7 +205,6 @@ impl RenderOnce for AppBar {
             .flex_none()
             .flex()
             .items_center()
-            .drag_region()
             .child(back)
             .child(search)
             .child(

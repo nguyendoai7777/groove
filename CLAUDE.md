@@ -113,13 +113,18 @@ bash packaging/linux/build-deb.sh                             # .deb, libasound 
 màn nào, không giành focus, dữ liệu tạm; in RAM, số cửa sổ, tiêu đề, dòng WARN / ERROR. Từ chối exe không đọc
 `GROOVE_DATA_DIR` (bản phát hành thật sẽ mở thư viện thật); đo gần bản phát hành thì build release với
 `CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=true`. Không có nền mờ, con trỏ, taskbar thật; xem ảnh xong xoá. `-Clicks` bấm nút cửa sổ
-bằng thông điệp Win32 như chuột thật, in hit-test và `IsIconic` / `IsZoomed` thật sau mỗi lần bấm (`-Hover <ms>` rê trước khi bấm).
+bằng thông điệp Win32 như chuột thật, in hit-test và `IsIconic` / `IsZoomed` thật sau mỗi lần bấm (`-Hover <ms>` rê trước khi bấm); `hit@x:y` chỉ in hit-test ở
+điểm đó, `dbl@x:y` nhấp đúp (vùng kéo). Muốn view `cached` được dùng lại như lúc chạy thật thì thêm `-Seed … -Active` (chữ chạy).
 
 `tools/run.ps1`: màn phụ, không focus, phím đưa thẳng vào GPUI, chụp đúng cửa sổ, in RAM, `foreground_unchanged`; dữ liệu ở
 thư mục tạm; máy chỉ một màn thì từ chối (không đè màn đang dùng), muốn thử thật truyền `-Display primary`. `--display` chọn
 màn không có thì thoát, không rơi về màn mặc định. Xem ảnh xong xoá thư mục `-Out`.
 
 ## Bẫy
+
+- **Vùng `WindowControlArea` (kéo cửa sổ) không đặt trong view `cached`**: gpui-pre 0.3.10 dùng lại hitbox, listener của view
+  `cached` nhưng không chép `window_control_hitboxes`, vùng kéo mất từ khung đầu tiên view được dùng lại (hit-test thành
+  `HTCLIENT`). Vùng kéo của thanh trên, header cột trái là khung bọc ở `Shell::render`, vẽ sau phần `cached`.
 
 - **Bản Tauri để đối soát — không xoá**: `src-tauri/target/x86_64-pc-windows-msvc/release/groovex.exe` (exe tự chứa giao diện) và
   `release/groovex_0.1.0_*` (setup, msi, portable). Dọn `target` không đụng hai chỗ này (`clean.sh` đã bỏ qua).

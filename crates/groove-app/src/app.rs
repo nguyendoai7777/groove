@@ -34,6 +34,7 @@ use materiant::gpui_kit::{
 use materiant::style::StyledExt;
 use materiant::theme::{ActiveTheme, MateriantTheme, ThemeMode, set_theme};
 use materiant::toast::ToastViewport;
+use materiant::window::DragRegionExt;
 
 use crate::dev::{self, DevArgs};
 use crate::icons;
@@ -443,8 +444,23 @@ impl Render for Shell {
         let c = cx.theme().colors().clone();
         // Bề rộng nội suy ở đây (không trong cột trái): view `cached` cần chủ đưa cỡ.
         self.nav_width = side_nav::animated_width(settings(cx).side_nav_collapsed, window, cx);
-        let nav = island::cached(&self.nav, |s| s.w(px(self.nav_width)).h_full().flex_none());
-        let bar = island::cached(&self.bar, |s| s.w_full().h(px(app_bar::HEIGHT)).flex_none());
+        // Vùng kéo cửa sổ (thanh trên, header cột trái — `data-tauri-drag-region` của bản web) nằm ở đây, sau phần `cached`:
+        // GPUI (gpui-pre 0.3.10) dùng lại hitbox, listener của view `cached` nhưng không chép vùng `WindowControlArea`, nên
+        // vùng kéo đặt trong view `cached` mất ngay khung đầu tiên view đó được dùng lại. Hitbox của khung bọc vẽ trước, nằm
+        // sau mọi phần tử của thanh; nút `occlude` chặn nó, chỗ trống thì không.
+        let nav = div()
+            .relative()
+            .w(px(self.nav_width))
+            .h_full()
+            .flex_none()
+            .child(div().absolute().top_0().left_0().w_full().h(px(side_nav::HEADER_HEIGHT)).drag_region())
+            .child(island::cached(&self.nav, |s| s.size_full()));
+        let bar = div()
+            .w_full()
+            .h(px(app_bar::HEIGHT))
+            .flex_none()
+            .drag_region()
+            .child(island::cached(&self.bar, |s| s.size_full()));
 
         let content = match (content_slot(route), self.slots.get(content_slot(route))) {
             // Trang thư viện không có hoạt ảnh lặp ngoài thanh nhảy của bài đang phát: nhúng `cached`, khung của chữ chạy
