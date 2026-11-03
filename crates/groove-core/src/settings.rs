@@ -108,7 +108,7 @@ impl EqPreset {
     }
 }
 
-/// EQ người dùng chỉnh. `gains` là giá trị thanh trượt và đường cong, chưa tính bass boost.
+/// EQ người dùng chỉnh. `gains` là giá trị thanh trượt, chưa tính bass boost.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct EqSettings {

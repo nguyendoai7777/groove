@@ -1,7 +1,7 @@
 //! groove-gd1_24: mười cột dọc và thanh bass của bảng EQ, vẽ và nhận chuột bằng `canvas` (dáng của `setting-general.vue`).
 //!
-//! Cột: đường rãnh mảnh mờ suốt chiều cao, phần tô màu nhấn dày từ đáy lên tới núm, núm tròn 14 px, vầng sáng quanh núm khi rê,
-//! kéo hay có focus bàn phím. Đường cong nối các núm vẽ trước (nằm dưới cột) như `z-0` / `z-10` của bản web. Bấm chỗ nào
+//! Cột: cùng dáng thanh bass dựng đứng — rãnh 2 px mờ suốt chiều cao, phần tô màu nhấn cùng bề dày từ đáy lên tới núm, núm
+//! tròn 10 px, vầng sáng quanh núm khi rê, kéo hay có focus bàn phím. Không vẽ đường nối các núm (chủ dự án bỏ, 03/11/2026). Bấm chỗ nào
 //! trong cột cũng đặt giá trị tại đó rồi kéo tiếp được (như bấm rãnh của thanh trượt); đang kéo thì chuột ra ngoài khung
 //! vẫn theo. Mọi đổi giá trị đi qua `EqPanel::set_band` / `set_bass`, nên áp ngay tới player.
 //!
@@ -15,19 +15,16 @@ use materiant::gpui_kit::{
 use materiant::gpui_kit::{CursorStyle, Hsla};
 use materiant::theme::ActiveTheme;
 
-use super::eq_curve::{INSET, THUMB_SIZE, paint_curve};
 use super::eq_panel::{BAND_STEP, BASS_STEP, EqPanel};
 
-/// Bề dày phần tô của cột (ảnh mẫu: khoảng 7 px) và rãnh mờ phía trên.
-const BAR_WIDTH: f32 = 7.;
+/// Núm 10 px, rãnh (và phần tô) 2 px, vầng 22 px — chung cho cột dải và thanh bass (web: `thumb-size 10`, `track-size 2`).
+const THUMB_SIZE: f32 = 10.;
 const RAIL_WIDTH: f32 = 2.;
-/// Đường kính vầng sáng quanh núm khi rê / kéo / focus.
-const HALO_SIZE: f32 = 30.;
-/// Thanh bass: núm 10 px, rãnh 2 px, vầng 22 px, vùng bấm cao 24 px (web: `thumb-size 10`, `track-size 2`).
-const BASS_THUMB: f32 = 10.;
-const BASS_RAIL: f32 = 2.;
-const BASS_HALO: f32 = 22.;
+const HALO_SIZE: f32 = 22.;
+/// Vùng bấm cao của thanh bass.
 pub const BASS_HIT_HEIGHT: f32 = 24.;
+/// Nửa núm: núm không bao giờ ra khỏi cột, nên chừa chừng đó ở đỉnh và đáy.
+const INSET: f32 = THUMB_SIZE / 2.;
 
 /// Thứ đang được kéo.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -53,9 +50,8 @@ pub fn gain_at(y: f32, height: f32) -> f32 {
 
 /// Mức bass boost của hoành độ `x` trong thanh rộng `width`.
 pub fn bass_at(x: f32, width: f32) -> f32 {
-    let inset = BASS_THUMB / 2.;
-    let travel = (width - 2. * inset).max(1.);
-    let ratio = ((x - inset) / travel).clamp(0., 1.);
+    let travel = (width - 2. * INSET).max(1.);
+    let ratio = ((x - INSET) / travel).clamp(0., 1.);
     snap(ratio * BASS_BOOST_MAX_DB, 0., BASS_STEP)
 }
 
@@ -63,7 +59,7 @@ fn snap(value: f32, min: f32, step: f32) -> f32 {
     min + ((value - min) / step).round() * step
 }
 
-/// Tung độ núm của mức `gain` trong khung cao `height` (cùng công thức với đường cong).
+/// Tung độ núm của mức `gain` trong khung cao `height` (nghịch đảo của `gain_at`).
 fn thumb_y(gain: f32, height: f32) -> f32 {
     let ratio = (gain.clamp(-EQ_GAIN_LIMIT_DB, EQ_GAIN_LIMIT_DB) + EQ_GAIN_LIMIT_DB) / (2. * EQ_GAIN_LIMIT_DB);
     INSET + (1. - ratio) * (height - 2. * INSET).max(0.)
@@ -156,8 +152,6 @@ pub fn bands_canvas(view: Entity<EqPanel>) -> impl IntoElement {
                 (*panel.gains(), panel.drag(), panel.hover(), panel.key_band(), panel.focus().clone())
             };
             let keyboard_focus = materiant::style::focus_visible(&focus, window, cx);
-            let curve = Hsla { l: (c.primary.l + 0.1).min(1.), ..c.primary };
-            paint_curve(window, bounds, &gains, curve);
 
             let column = width / EQ_BAND_COUNT as f32;
             let bottom = bounds.origin.y + px(height - INSET);
@@ -168,9 +162,9 @@ pub fn bands_canvas(view: Entity<EqPanel>) -> impl IntoElement {
                     point(x - px(RAIL_WIDTH / 2.), bounds.origin.y + px(INSET)),
                     size(px(RAIL_WIDTH), px(height - 2. * INSET)),
                 );
-                window.paint_quad(fill(rail, c.text.opacity(0.1)).corner_radii(px(RAIL_WIDTH / 2.)));
-                let bar = Bounds::new(point(x - px(BAR_WIDTH / 2.), y), size(px(BAR_WIDTH), bottom - y));
-                window.paint_quad(fill(bar, c.primary).corner_radii(px(BAR_WIDTH / 2.)));
+                window.paint_quad(fill(rail, c.text.opacity(0.15)).corner_radii(px(RAIL_WIDTH / 2.)));
+                let bar = Bounds::new(point(x - px(RAIL_WIDTH / 2.), y), size(px(RAIL_WIDTH), bottom - y));
+                window.paint_quad(fill(bar, c.primary).corner_radii(px(RAIL_WIDTH / 2.)));
                 let active = drag == Some(Drag::Band(band))
                     || (drag.is_none() && hover == Some(band))
                     || (keyboard_focus && key_band == band);
@@ -216,22 +210,21 @@ pub fn bass_canvas(view: Entity<EqPanel>) -> impl IntoElement {
                 let panel = view.read(cx);
                 (panel.bass_boost(), panel.drag(), panel.bass_hover(), panel.focus().clone())
             };
-            let inset = BASS_THUMB / 2.;
-            let travel = (width - 2. * inset).max(0.);
+            let travel = (width - 2. * INSET).max(0.);
             let ratio = (value / BASS_BOOST_MAX_DB).clamp(0., 1.);
             let center_y = bounds.origin.y + px(height / 2.);
-            let thumb_x = bounds.origin.x + px(inset + ratio * travel);
+            let thumb_x = bounds.origin.x + px(INSET + ratio * travel);
             let rail = Bounds::new(
-                point(bounds.origin.x + px(inset), center_y - px(BASS_RAIL / 2.)),
-                size(px(travel), px(BASS_RAIL)),
+                point(bounds.origin.x + px(INSET), center_y - px(RAIL_WIDTH / 2.)),
+                size(px(travel), px(RAIL_WIDTH)),
             );
-            window.paint_quad(fill(rail, c.text.opacity(0.15)).corner_radii(px(BASS_RAIL / 2.)));
-            let done = Bounds::new(rail.origin, size(thumb_x - rail.origin.x, px(BASS_RAIL)));
-            window.paint_quad(fill(done, c.primary).corner_radii(px(BASS_RAIL / 2.)));
+            window.paint_quad(fill(rail, c.text.opacity(0.15)).corner_radii(px(RAIL_WIDTH / 2.)));
+            let done = Bounds::new(rail.origin, size(thumb_x - rail.origin.x, px(RAIL_WIDTH)));
+            window.paint_quad(fill(done, c.primary).corner_radii(px(RAIL_WIDTH / 2.)));
             if drag == Some(Drag::Bass) || (drag.is_none() && hover) {
-                circle(window, thumb_x, center_y, BASS_HALO, c.primary.opacity(0.2));
+                circle(window, thumb_x, center_y, HALO_SIZE, c.primary.opacity(0.2));
             }
-            circle(window, thumb_x, center_y, BASS_THUMB, c.primary);
+            circle(window, thumb_x, center_y, THUMB_SIZE, c.primary);
             window.set_cursor_style(CursorStyle::PointingHand, &hitbox);
             listen(
                 window,

@@ -343,3 +343,8 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [card-hover] "Nút hover hơi xám, opacity 0,85" hiểu là: nền nút lúc rê nhích một bậc trung tính (`neutral(N200)` → `neutral(N300)`) với độ đục 0,85 (lúc nghỉ giữ 0,8 như bản web), nền rê 9 % của `IconButton` tắt (màu gốc trong suốt, `.ink` giữ màu icon) — trước đó hai lớp chồng thành mảng xám đặc — hoặc làm mờ cả nút 0,85 (icon cũng mờ, khó đọc trên bìa sáng). Chưa nhìn trên màn thật.
 - [card-hover] Nút 36 px (32 + 4), icon 22 px, nét icon 2 → 1,5: Play thêm biến thể `PlayThin` (Play dùng ở danh sách bài, thanh phát), Delete chỉ thẻ dùng nên làm mảnh ngay tệp `delete.svg` — hoặc tạo `DeleteThin` riêng.
 - [card-hover] Bỏ phóng bìa 1,05 khi rê, xoá luôn `CoverImage::zoom` (không chỗ nào khác dùng, Now Playing không phóng).
+
+## settings-eq-nav (03/11/2026)
+
+- [settings-eq-nav] Thanh dải EQ giữ vẽ bằng `canvas` của groove (`eq_bands`), đổi sang đúng dáng thanh Bass boost dựng đứng: rãnh và phần tô cùng 2 px, núm 10 px, vầng 22 px (dùng chung hằng số với thanh bass) — hoặc thêm chiều dọc cho `materiant::slider` (rail 4 px, núm 16 px cố định, sẽ dày hơn thanh bass mà chủ dự án lấy làm mẫu, và phải viết lại bàn phím một điểm dừng Tab cho mười dải). Bỏ hẳn đường cong nối các núm, xoá `eq_curve.rs`. Chưa nhìn trên màn thật.
+- [settings-eq-nav] Cột tab của hộp Settings dùng lại `side_nav::NavInk` (mở `pub`) + `materiant::tabs::InkBar` dọc 3 px; hàng cao 40 px (cột trái chính 42 px), không icon, không bo góc, không khe giữa hàng — giữ mỗi hàng một điểm dừng Tab như trước (↑ ↓ Home End), thêm vòng focus như hàng của cột trái.

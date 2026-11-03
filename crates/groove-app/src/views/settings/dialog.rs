@@ -24,6 +24,8 @@ use materiant::gpui_kit::{
 };
 use materiant::overlay::dialog::{Dialog, DialogHandle};
 use materiant::scroll::ScrollArea;
+use materiant::style::ActiveTokens;
+use materiant::tabs::InkBar;
 use materiant::theme::ActiveTheme;
 
 use super::general::GeneralPanel;
@@ -31,6 +33,7 @@ use super::keybindings::{Draft, KeybindingsPanel};
 use super::roots::RootsPanel;
 use crate::app::{self, ShellEvent, Slot};
 use crate::library_ctl;
+use crate::views::side_nav::{ACTIVE_BAR, NavInk};
 
 /// Bề ngang hộp (đặc tả 1.10).
 const DIALOG_WIDTH: f32 = 800.;
@@ -38,8 +41,9 @@ const DIALOG_WIDTH: f32 = 800.;
 const BODY_HEIGHT: f32 = 470.;
 /// Chừa cho tiêu đề, hàng nút, lề khi cửa sổ thấp hơn hộp.
 const CHROME_HEIGHT: f32 = 170.;
-/// Rộng cột tab (web: `w-40`, mục chọn có nền).
+/// Rộng cột tab (web: `w-40`) và cao một hàng (hàng cao đều để vạch trượt khỏi đo).
 const TABS_WIDTH: f32 = 160.;
+const TAB_HEIGHT: f32 = 40.;
 /// Đệm của body: cột tab cách mép trái hộp `EDGE`; nội dung cuộn đệm `CONTENT_PADDING` đều hai bên (≥ vùng bắt chuột 9 px
 /// của thanh cuộn, D-16), trên dưới `EDGE`. Bản web: tab cách mép 12 px, nội dung cách mép phải ~16 px.
 const EDGE: f32 = 12.;
@@ -196,54 +200,89 @@ impl SettingsDialog {
         });
     }
 
-    /// Cột tab dọc: mục đang chọn có nền nhạt màu nhấn và chữ màu nhấn, mục khác sáng lên khi rê (như bản web). ↑ ↓ dời và chọn.
-    fn tab_list(&self, _window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let c = cx.theme().colors().clone();
-        let items = SettingsTab::ALL.into_iter().enumerate().map(|(ix, tab)| {
-            let selected = tab == self.tab;
-            let go = move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>, to: SettingsTab| {
-                this.select_tab(to, cx);
-                window.focus(&this.tab_focus[to.index()], cx);
-            };
-            div()
-                .id(("settings-tab", ix))
-                .track_focus(&self.tab_focus[ix])
-                .px_3()
-                .py_2()
-                .rounded_md()
-                .cursor_pointer()
-                .text_sm()
-                .when(selected, |d| d.bg(c.primary.opacity(0.15)).text_color(c.primary))
-                .when(!selected, |d| d.text_color(c.muted).hover(|s| s.bg(c.text.opacity(0.06)).text_color(c.text)))
-                .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| go(this, window, cx, tab)))
-                .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
-                    let last = SettingsTab::ALL.len() - 1;
-                    let to = match event.keystroke.key.as_str() {
-                        "up" => ix.saturating_sub(1),
-                        "down" => (ix + 1).min(last),
-                        "home" => 0,
-                        "end" => last,
-                        _ => return,
-                    };
-                    cx.stop_propagation();
-                    go(this, window, cx, SettingsTab::ALL[to]);
-                }))
-                .child(tab.label())
-                .ripple(RippleConfig::default())
-        });
+    /// Cột tab dọc, cùng kiểu cột trái chính (`side_nav`): hàng phẳng có vạch trái 3 px; vạch màu nhấn của mục đang chọn là
+    /// một `InkBar` trượt lên xuống khi đổi mục, nền `layer(N200)`, chữ thường; mục khác chữ `muted`, rê thì nền `layer(N100)`
+    /// và vạch nhạt. Mỗi hàng một điểm dừng Tab, ↑ ↓ Home End dời và chọn, vòng focus khi đi bằng phím.
+    fn tab_list(&self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let primary = cx.theme().colors().primary;
+        let ring_color = cx.focus_ring_color();
+        let items: Vec<AnyElement> = SettingsTab::ALL
+            .into_iter()
+            .enumerate()
+            .map(|(ix, tab)| {
+                let selected = tab == self.tab;
+                let ink = NavInk::resolve(selected, cx);
+                let ring = materiant::style::focus_visible(&self.tab_focus[ix], window, cx);
+                let go = move |this: &mut Self, window: &mut Window, cx: &mut Context<Self>, to: SettingsTab| {
+                    this.select_tab(to, cx);
+                    window.focus(&this.tab_focus[to.index()], cx);
+                };
+                div()
+                    .id(("settings-tab", ix))
+                    .track_focus(&self.tab_focus[ix])
+                    .relative()
+                    .flex()
+                    .flex_none()
+                    .items_center()
+                    .h(px(TAB_HEIGHT))
+                    .pl(px(13.))
+                    .pr_3()
+                    .border_l(px(ACTIVE_BAR))
+                    .border_color(ink.bar)
+                    .cursor_pointer()
+                    .text_sm()
+                    .text_color(ink.label)
+                    .when(selected, |d| d.bg(ink.active_bg))
+                    .when(!selected, |d| {
+                        d.hover(move |s| s.bg(ink.hover_bg).border_color(ink.hover_bar).text_color(ink.hover))
+                    })
+                    .on_click(cx.listener(move |this, _: &ClickEvent, window, cx| go(this, window, cx, tab)))
+                    .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
+                        let last = SettingsTab::ALL.len() - 1;
+                        let to = match event.keystroke.key.as_str() {
+                            "up" => ix.saturating_sub(1),
+                            "down" => (ix + 1).min(last),
+                            "home" => 0,
+                            "end" => last,
+                            _ => return,
+                        };
+                        cx.stop_propagation();
+                        go(this, window, cx, SettingsTab::ALL[to]);
+                    }))
+                    .child(div().flex_1().min_w_0().truncate().child(tab.label()))
+                    .when(ring, |d| {
+                        d.child(
+                            div()
+                                .absolute()
+                                .top(px(2.))
+                                .bottom(px(2.))
+                                .left(px(2.))
+                                .right(px(2.))
+                                .border_2()
+                                .rounded(px(4.))
+                                .border_color(ring_color),
+                        )
+                    })
+                    .ripple(RippleConfig::default())
+                    .into_any_element()
+            })
+            .collect();
+        let ink = InkBar::new("settings-tab-ink", self.tab.index() as f32 * TAB_HEIGHT, TAB_HEIGHT)
+            .vertical()
+            .thickness(ACTIVE_BAR)
+            .color(primary)
+            .build(window, cx)
+            .debug_selector(|| "settings-tab-ink".into());
         div()
-            .flex()
-            .flex_col()
             .flex_none()
-            .gap_1()
             .w(px(TABS_WIDTH))
             .ml(px(EDGE))
             .py(px(EDGE))
             .debug_selector(|| "settings-tabs".into())
-            .children(items)
+            .child(div().relative().flex().flex_col().children(items).child(ink))
     }
 
-    fn body(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
+    fn body(&self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let height = BODY_HEIGHT.min((f32::from(window.viewport_size().height) - CHROME_HEIGHT).max(120.));
         let panel = match self.tab {
             SettingsTab::General => self.general.clone().into_any_element(),
@@ -664,6 +703,31 @@ mod tests {
         draw(cx);
         draw(cx);
         assert_everything_reverted(&rig, cx, "Esc");
+    }
+
+    /// Cột tab như cột trái chính: vạch 3 px của mục đang chọn trượt tới hàng mới khi đổi tab (không nhảy), ↓ dời và chọn.
+    #[gpui::test]
+    fn tab_ink_slides_to_the_new_row(cx: &mut TestAppContext) {
+        let (rig, cx) = rig(cx);
+        open(&rig, cx);
+        let ink = |cx: &mut VisualTestContext| cx.debug_bounds("settings-tab-ink").expect("vạch đã vẽ");
+        let first = ink(cx);
+        assert_eq!((first.size.width, first.size.height), (px(ACTIVE_BAR), px(TAB_HEIGHT)));
+
+        rig.dialog.update_in(cx, |d, window, cx| {
+            window.focus(&d.tab_focus[0], cx);
+        });
+        cx.simulate_keystrokes("down");
+        assert_eq!(rig.dialog.read_with(cx, |d, _| d.tab()), SettingsTab::Keybindings);
+        draw(cx);
+        cx.executor().advance_clock(Duration::from_millis(120));
+        draw(cx);
+        let mid = ink(cx).origin.y;
+        assert!(mid > first.origin.y && mid < first.origin.y + px(TAB_HEIGHT), "đang trượt: {mid:?}");
+        cx.executor().advance_clock(Duration::from_millis(400));
+        draw(cx);
+        draw(cx);
+        assert_eq!(ink(cx).origin.y, first.origin.y + px(TAB_HEIGHT));
     }
 
     /// Bố cục: header / body / footer chồng sát nhau, cùng bề ngang; cột tab cách mép trái 12 px; khung cuộn chạm mép phải
