@@ -135,7 +135,9 @@ bằng thông điệp Win32 như chuột thật, in hit-test và `IsIconic` / `I
 điểm đó, `dbl@x:y` nhấp đúp (vùng kéo). Muốn view `cached` được dùng lại như lúc chạy thật thì thêm `-Seed … -Active` (chữ chạy). `-Settings <json>` ghi
 `settings.json` của dữ liệu tạm trước khi mở (vd `{"theme":"light"}` để chụp theme sáng). Kéo chuột trong `-Clicks`: `down@x:y`,
 `move@x:y`, `up@x:y` (đi đường `WM_NC*` khi hit-test không phải `HTCLIENT`, như chuột thật), `shot@<tệp.png>` chụp giữa các bước;
-kéo slider của materiant cần vài bước `move`. `-Pip` chạy kèm `--pip`, bấm / chụp cửa sổ trình phát thu nhỏ.
+kéo slider của materiant cần vài bước `move`. `-Pip` chạy kèm `--pip`, bấm / chụp cửa sổ trình phát thu nhỏ. `nudge@n` dời cửa sổ
+n lần 1 px mỗi 16 ms giữa `WM_ENTERSIZEMOVE` / `WM_EXITSIZEMOVE` như lúc kéo và in CPU lúc dời (nền mờ không có ở desktop ẩn);
+`settings` in `settings.json` của dữ liệu tạm.
 
 `tools/run.ps1`: màn phụ, không focus, phím đưa thẳng vào GPUI, chụp đúng cửa sổ, in RAM, `foreground_unchanged`; dữ liệu ở
 thư mục tạm; máy chỉ một màn thì từ chối (không đè màn đang dùng), muốn thử thật truyền `-Display primary`. `--display` chọn
@@ -149,6 +151,11 @@ màn không có thì thoát, không rơi về màn mặc định. Xem ảnh xong
 - **Phần tử kéo được (thanh tua, slider) nằm trong vùng kéo cửa sổ thì phải `occlude`**: không thì hit-test là `HTCAPTION`,
   GPUI vẫn nhận MouseDown nhưng Windows vào vòng dời cửa sổ và nuốt lần thả chuột — thanh kẹt ở trạng thái kéo, rê là chạy theo
   (PiP, 03/11/2026).
+- **Mỗi `WM_MOVE` GPUI vẽ lại cả cây, bỏ qua cache `cached`** (`bounds_changed` → `refresh`): kéo cửa sổ thấp khung, bóng mờ, ~55 %
+  CPU (bản debug). `platform::move_loop` giữ `WM_MOVE` trong vòng dời của OS, thả chuột mới báo một lần — cửa sổ mới phải
+  `move_loop::install`. Giá trị không vẽ lên đâu (vị trí cửa sổ) ghi bằng `app::store_settings_quietly`, không `update_settings`
+  (cái sau `notify` `Shell`). Nền `Blurred` (acrylic) giật khi kéo trên Windows 10 / 11 trước 22H2: `backdrop::smooth_blur` đổi
+  sang blur-behind như bản Tauri.
 
 - **Bản Tauri để đối soát — không xoá**: `src-tauri/target/x86_64-pc-windows-msvc/release/groovex.exe` (exe tự chứa giao diện) và
   `release/groovex_0.1.0_*` (setup, msi, portable). Dọn `target` không đụng hai chỗ này (`clean.sh` đã bỏ qua).
