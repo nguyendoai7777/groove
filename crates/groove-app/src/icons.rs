@@ -71,6 +71,8 @@ groove_icons! {
     NowPlaying => "now-playing",
     /// Playlists.
     Album => "album",
+    /// Đĩa vẽ bằng nét mảnh (cùng hình `album`), cho placeholder bìa lớn Now Playing: phóng to không phình nét.
+    AlbumThin => "album-thin",
     // Thanh phát.
     Shuffle => "shuffle",
     Loop => "loop",

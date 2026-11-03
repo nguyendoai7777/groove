@@ -39,7 +39,7 @@ pub const COLLAPSED_WIDTH: f32 = 56.;
 pub const HEADER_HEIGHT: f32 = 36.;
 pub const ITEM_HEIGHT: f32 = 42.;
 const ACTIVE_BAR: f32 = 3.;
-/// Nút thu / mở: tròn 28 px, icon 18 px nét 1,5 (chủ dự án: to hơn, mảnh hơn).
+/// Nút thu / mở: tròn 28 px, icon 18 px; SVG vẽ trên lưới 18 đơn vị, nét 1 px canh nửa điểm ảnh cho sắc, mảnh (chủ dự án).
 const TOGGLE_SIZE: f32 = 28.;
 const ICON_SIZE: f32 = 18.;
 const WIDTH_TRANSITION: Duration = Duration::from_millis(300);
@@ -113,6 +113,7 @@ impl RenderOnce for SideNav {
         let c = cx.theme().colors().clone();
 
         let toggle_label = if self.collapsed { t!("shell.side_nav.expand") } else { t!("shell.side_nav.collapse") };
+        let nav_ink = NavInk::resolve(false, cx);
         let toggle = {
             let on_toggle = self.on_toggle.clone();
             div().flex_none().occlude().child(
@@ -121,6 +122,9 @@ impl RenderOnce for SideNav {
                     if self.collapsed { GrooveIcon::SidebarExpand } else { GrooveIcon::SidebarCollapse },
                 )
                 .base()
+                // Cùng màu icon mục nav chưa chọn (xám `muted`, rê sáng lên) — trắng đặc trông đậm hơn icon bên dưới.
+                .ink(nav_ink.icon)
+                .hover_ink(nav_ink.hover)
                 .accessibility_label(toggle_label)
                 .on_click(move |_: &ClickEvent, window, cx| on_toggle((), window, cx))
                 .rounded_full()
