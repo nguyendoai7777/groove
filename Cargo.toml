@@ -18,7 +18,8 @@ groove-library = { path = "crates/groove-library" }
 groove-audio = { path = "crates/groove-audio" }
 # Repo anh em trong workspace xdesktop (clone cạnh groove). Worktree ở `.claude/worktrees/` cần lối nối
 # `.claude/worktrees/materiant` → `materiant` (junction / symlink) để đường dẫn này trỏ đúng.
-materiant = { path = "../materiant" }
+# `font-mona-sans`: chữ giao diện là Mona Sans nhúng (chủ dự án 03/11/2026), không theo font của máy.
+materiant = { path = "../materiant", features = ["font-mona-sans"] }
 
 anyhow = "1"
 crossbeam-channel = "0.5"
