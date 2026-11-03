@@ -524,6 +524,8 @@ impl SongList {
 
 impl Render for SongList {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // Hàng đang phát đặt anchor của `bars_overlay`; lần vẽ này ghi lại nếu hàng còn hiện.
+        crate::views::bars_overlay::forget(cx.entity_id(), cx);
         let c = cx.theme().colors().clone();
         let accent = self.summary.as_ref().and_then(accent_of).unwrap_or(c.primary);
         let glow = div().absolute().top_0().left_0().right_0().h(px(GLOW_HEIGHT)).bg(linear_gradient(

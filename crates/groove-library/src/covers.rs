@@ -13,7 +13,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use groove_core::paths;
 use image::codecs::jpeg::JpegEncoder;
 use image::imageops::{self, FilterType};
-use image::{DynamicImage, ImageDecoder, ImageError, ImageReader, Limits, RgbImage};
+use image::{DynamicImage, ImageDecoder, ImageError, ImageReader, Limits, RgbImage, RgbaImage};
 use sha2::{Digest, Sha256};
 
 use crate::db::migrate::{CoverRecord, CoverSink};
@@ -138,6 +138,30 @@ impl CoverStore {
 impl CoverSink for CoverStore {
     fn store(&mut self, image: &[u8]) -> anyhow::Result<CoverRecord> {
         Ok(self.save(image)?)
+    }
+}
+
+/// Bìa nhúng của tệp ngoài để vẽ thẳng (không ghi đĩa, không băm): giải mã có giới hạn như [`CoverStore::save`], thu về cạnh
+/// dài `size` px. `None` khi ảnh hỏng, quá cỡ, hay bộ giải mã hoảng (S25). Chạy ở luồng nền: ảnh gốc 3000 px là ~36 MB RGBA,
+/// bản thu nhỏ 512 px còn ~1 MB.
+pub fn decode_preview(image: &[u8], size: u32) -> Option<RgbaImage> {
+    let decode = || -> Result<RgbaImage, ImageError> {
+        let rgba = shrink_for_work(decode_limited(image)?).into_rgba8();
+        let (width, height) = rgba.dimensions();
+        let longest = width.max(height);
+        if longest <= size {
+            return Ok(rgba);
+        }
+        let scale = |side: u32| ((u64::from(side) * u64::from(size) / u64::from(longest)) as u32).max(1);
+        Ok(imageops::resize(&rgba, scale(width), scale(height), FilterType::CatmullRom))
+    };
+    match catch_unwind(AssertUnwindSafe(decode)) {
+        Ok(Ok(image)) => Some(image),
+        Ok(Err(err)) => {
+            log::debug!("embedded cover: {err}");
+            None
+        }
+        Err(_) => None,
     }
 }
 

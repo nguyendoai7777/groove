@@ -202,8 +202,12 @@ impl CommandPalette {
                 this.on_input(value.to_string(), window, cx);
             }
         })];
-        // Thanh bars và dòng "đang phát" theo player.
-        subscriptions.push(cx.observe(&player(cx), |_, _, cx| cx.notify()));
+        // Thanh bars và dòng "đang phát" theo player; bảng đóng thì không vẽ gì, không dựng lại.
+        subscriptions.push(cx.observe(&player(cx), |this, _, cx| {
+            if this.handle.is_open() {
+                cx.notify();
+            }
+        }));
         let this = cx.entity().downgrade();
         subscriptions.push(cx.intercept_keystrokes(move |event, window, cx| {
             if let Some(this) = this.upgrade() {

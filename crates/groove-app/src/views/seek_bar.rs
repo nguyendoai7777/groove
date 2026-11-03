@@ -99,13 +99,23 @@ pub struct SeekBar {
     cursor_x: Option<f32>,
     /// Bề ngang thanh ở lần vẽ gần nhất, để đặt nhãn.
     width: f32,
-    _observe: Subscription,
+    _observe: [Subscription; 2],
 }
 
 impl SeekBar {
-    pub fn new(cx: &mut Context<Self>) -> SeekBar {
+    /// Nghe `Player` (bài, tua, dừng) và nhịp vị trí [`PlaybackClock`]: thanh phát nhúng thanh tua `cached` riêng, nhịp chỉ dựng
+    /// lại view này. Cửa sổ nền thì thưa nhịp còn mỗi giây một lần.
+    pub fn new(window: &mut Window, cx: &mut Context<Self>) -> SeekBar {
         let player = player::player(cx);
-        let observe = cx.observe(&player, |_, _, cx| cx.notify());
+        let clock = player.read(cx).clock().clone();
+        let observe = [
+            cx.observe(&player, |_, _, cx| cx.notify()),
+            cx.observe_in(&clock, window, |_, clock, window, cx| {
+                if clock.read(cx).due(window.is_window_active()) {
+                    cx.notify();
+                }
+            }),
+        ];
         SeekBar { player, scrub: Scrub::default(), cursor_x: None, width: 0., _observe: observe }
     }
 
@@ -288,7 +298,7 @@ impl Render for SeekBar {
 
         div()
             .id("seek-bar")
-            .w_full()
+            .size_full()
             .flex()
             .items_center()
             .gap_2()

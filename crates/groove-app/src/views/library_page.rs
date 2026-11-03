@@ -59,9 +59,10 @@ const MIN_CELL_WIDTH: f32 = 128.;
 const MAX_COLUMNS: f32 = 6.;
 /// Bề ngang cột trái lúc thu: dùng để ước bề ngang vùng nội dung theo hướng rộng nhất, nên không bao giờ quá `MAX_COLUMNS`.
 const NAV_COLLAPSED_WIDTH: f32 = crate::views::side_nav::COLLAPSED_WIDTH;
-/// Số bìa giữ trong bộ nhớ: gấp 2–3 lần số ô trong một khung (6 cột × ~6 hàng), xem
-/// `materiant/plan/completed/gd5/materiant-gd5_04_virtual-grid.md` mục 9. Bìa 256 px giải mã ≈ 256 KB.
-const COVER_CACHE_CAPACITY: usize = 192;
+/// Số bìa giữ trong bộ nhớ: khoảng 2,5 lần số ô một khung ở cửa sổ lớn (6 cột × ~6 hàng), xem
+/// `materiant/plan/completed/gd5/materiant-gd5_04_virtual-grid.md` mục 9. Bìa 256 px giải mã ≈ 256 KB, nên trần 96 ≈ 24 MB
+/// (192 cũ ≈ 48 MB); cuộn ngược quá đó thì đọc lại tệp JPEG nhỏ từ đĩa, nhanh.
+const COVER_CACHE_CAPACITY: usize = 96;
 
 /// Thứ view báo lên cho task 17 (nghiệp vụ) và cho `install` (điều hướng).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
