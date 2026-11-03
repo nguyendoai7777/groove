@@ -428,3 +428,4 @@ Trình phát thu nhỏ (`views::pip`): cửa sổ 420 × 140, mở từ nút c�
 - Ba nút cửa sổ có ripple tâm (`RippleConfig::centered()`), màu theo icon lúc rê: xám nhạt trên nền xám, trắng trên nền đỏ của
   Đóng. Vòng tròn đường kính bằng bề ngang nút như nút icon của materiant, không loang tới góc ô vuông. PiP không có nút cửa
   sổ riêng (nút quay lại là nút icon đã có ripple).
+- [volume-compact] Thanh âm lượng dùng `Slider::compact()` (rãnh 2 px, núm 10 px như thanh EQ / bass) — `.rail(3.4).thumb(10.)` cho cùng dày với thanh tua — vì sao: chủ dự án lấy tỉ lệ thanh EQ làm mẫu; thanh tua và PiP là canvas không có núm nên không đổi.
