@@ -4,6 +4,7 @@ title = "Cài đặt"
 
 [tab]
 general = "Cài đặt chung"
+eq = "EQ"
 keybindings = "Phím tắt"
 library = "Thư viện"
 

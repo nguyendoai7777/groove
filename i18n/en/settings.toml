@@ -4,6 +4,7 @@ title = "Settings"
 
 [tab]
 general = "General"
+eq = "EQ"
 keybindings = "Keyboard shortcuts"
 library = "Library"
 

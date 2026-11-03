@@ -1,4 +1,4 @@
-//! groove-gd1_24: hộp Settings (đặc tả 1.10), 800 px, cột trái ba tab: Cài đặt chung, Phím tắt, Thư viện.
+//! groove-gd1_24: hộp Settings (đặc tả 1.10), 800 px, cột trái bốn tab: Cài đặt chung, EQ, Phím tắt, Thư viện.
 //!
 //! Mở bằng `ShellEvent::OpenSettings` (nút ở đáy cột trái, hay lệnh). Luật của đặc tả:
 //!
@@ -28,6 +28,7 @@ use materiant::style::ActiveTokens;
 use materiant::tabs::InkBar;
 use materiant::theme::ActiveTheme;
 
+use super::eq_panel::EqPanel;
 use super::general::GeneralPanel;
 use super::keybindings::{Draft, KeybindingsPanel};
 use super::roots::RootsPanel;
@@ -44,8 +45,8 @@ const CHROME_HEIGHT: f32 = 170.;
 /// Rộng cột tab (web: `w-40`) và cao một hàng (hàng cao đều để vạch trượt khỏi đo).
 const TABS_WIDTH: f32 = 160.;
 const TAB_HEIGHT: f32 = 40.;
-/// Đệm của body: cột tab cách mép trái hộp `EDGE`; nội dung cuộn đệm `CONTENT_PADDING` đều hai bên (≥ vùng bắt chuột 9 px
-/// của thanh cuộn, D-16), trên dưới `EDGE`. Bản web: tab cách mép 12 px, nội dung cách mép phải ~16 px.
+/// Đệm của body: cột tab sát mép trái hộp (vạch màu nhấn chạm mép), đệm trên dưới `EDGE`; nội dung cuộn đệm `CONTENT_PADDING`
+/// đều hai bên (≥ vùng bắt chuột 9 px của thanh cuộn, D-16), trên dưới `EDGE`.
 const EDGE: f32 = 12.;
 const CONTENT_PADDING: f32 = 16.;
 /// Khe giữa cột tab và khung cuộn.
@@ -54,16 +55,19 @@ const TABS_GAP: f32 = 8.;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SettingsTab {
     General,
+    Eq,
     Keybindings,
     Library,
 }
 
 impl SettingsTab {
-    const ALL: [SettingsTab; 3] = [SettingsTab::General, SettingsTab::Keybindings, SettingsTab::Library];
+    const ALL: [SettingsTab; 4] =
+        [SettingsTab::General, SettingsTab::Eq, SettingsTab::Keybindings, SettingsTab::Library];
 
     fn label(self) -> &'static str {
         match self {
             SettingsTab::General => t!("settings.tab.general"),
+            SettingsTab::Eq => t!("settings.tab.eq"),
             SettingsTab::Keybindings => t!("settings.tab.keybindings"),
             SettingsTab::Library => t!("settings.tab.library"),
         }
@@ -98,10 +102,11 @@ pub struct SettingsDialog {
     handle: DialogHandle,
     tab: SettingsTab,
     general: Entity<GeneralPanel>,
+    eq: Entity<EqPanel>,
     keys: Entity<KeybindingsPanel>,
     roots: Entity<RootsPanel>,
     /// Điểm dừng Tab của từng mục ở cột tab (↑ ↓ dời và chọn).
-    tab_focus: [FocusHandle; 3],
+    tab_focus: [FocusHandle; SettingsTab::ALL.len()],
     /// `Some` suốt lúc hộp mở và chưa qua OK / Huỷ.
     opened: Option<Snapshot>,
 }
@@ -112,6 +117,7 @@ impl SettingsDialog {
             handle: DialogHandle::new(cx),
             tab: SettingsTab::General,
             general: cx.new(|cx| GeneralPanel::new(window, cx)),
+            eq: cx.new(EqPanel::new),
             keys: cx.new(|cx| KeybindingsPanel::new(window, cx)),
             roots: cx.new(|_| RootsPanel::new()),
             tab_focus: std::array::from_fn(|_| cx.focus_handle().tab_stop(true)),
@@ -140,6 +146,11 @@ impl SettingsDialog {
     }
 
     #[cfg(test)]
+    pub fn eq(&self) -> &Entity<EqPanel> {
+        &self.eq
+    }
+
+    #[cfg(test)]
     pub fn roots(&self) -> &Entity<RootsPanel> {
         &self.roots
     }
@@ -153,6 +164,8 @@ impl SettingsDialog {
         self.opened = Some(Snapshot::of(&settings));
         self.tab = SettingsTab::General;
         self.general.update(cx, |general, cx| general.show(&settings, window, cx));
+        let eq = settings.eq.clone();
+        self.eq.update(cx, |panel, cx| panel.show(eq, cx));
         self.keys.update(cx, |keys, cx| keys.show(&settings, window, cx));
         let ctl = library_ctl::ctl(cx);
         self.roots.update(cx, |roots, cx| roots.bind(ctl, cx));
@@ -202,9 +215,7 @@ impl SettingsDialog {
         });
         // EQ đi qua player để engine nghe lại giá trị cũ; bảng EQ cũng về hiển thị giá trị đó.
         let eq = snapshot.eq;
-        self.general.update(cx, |general, cx| {
-            general.eq_panel().clone().update(cx, |panel, cx| panel.restore(eq, cx));
-        });
+        self.eq.update(cx, |panel, cx| panel.restore(eq, cx));
     }
 
     /// Cột tab dọc, cùng kiểu cột trái chính (`side_nav`): hàng phẳng có vạch trái 3 px; vạch màu nhấn của mục đang chọn là
@@ -283,7 +294,6 @@ impl SettingsDialog {
         div()
             .flex_none()
             .w(px(TABS_WIDTH))
-            .ml(px(EDGE))
             .py(px(EDGE))
             .debug_selector(|| "settings-tabs".into())
             .child(div().relative().flex().flex_col().children(items).child(ink))
@@ -293,6 +303,7 @@ impl SettingsDialog {
         let height = BODY_HEIGHT.min((f32::from(window.viewport_size().height) - CHROME_HEIGHT).max(120.));
         let panel = match self.tab {
             SettingsTab::General => self.general.clone().into_any_element(),
+            SettingsTab::Eq => self.eq.clone().into_any_element(),
             SettingsTab::Keybindings => self.keys.clone().into_any_element(),
             SettingsTab::Library => self.roots.clone().into_any_element(),
         };
@@ -382,7 +393,6 @@ mod tests {
     use super::*;
     use crate::library_ctl::{LibraryCtl, PickKind, Picker};
     use crate::player::{self, PlayerDeps};
-    use crate::views::settings::eq_panel::EqPanel;
     use crate::views::settings::roots::RootsState;
 
     const TIMEOUT: Duration = Duration::from_secs(20);
@@ -479,7 +489,7 @@ mod tests {
     }
 
     fn eq_panel(rig: &Rig, cx: &VisualTestContext) -> Entity<EqPanel> {
-        rig.dialog.read_with(cx, |dialog, cx| dialog.general().read(cx).eq_panel().clone())
+        rig.dialog.read_with(cx, |dialog, _| dialog.eq().clone())
     }
 
     /// Sóng sin 440 Hz dài 30 giây, đủ lâu để chạy cả test dù kéo mẫu nhanh hơn thời gian thật.
@@ -728,7 +738,7 @@ mod tests {
             window.focus(&d.tab_focus[0], cx);
         });
         cx.simulate_keystrokes("down");
-        assert_eq!(rig.dialog.read_with(cx, |d, _| d.tab()), SettingsTab::Keybindings);
+        assert_eq!(rig.dialog.read_with(cx, |d, _| d.tab()), SettingsTab::Eq);
         draw(cx);
         cx.executor().advance_clock(Duration::from_millis(120));
         draw(cx);
@@ -738,9 +748,18 @@ mod tests {
         draw(cx);
         draw(cx);
         assert_eq!(ink(cx).origin.y, first.origin.y + px(TAB_HEIGHT));
+
+        // End tới mục cuối (Thư viện, hàng thứ tư): vạch dừng đúng hàng đó.
+        cx.simulate_keystrokes("end");
+        assert_eq!(rig.dialog.read_with(cx, |d, _| d.tab()), SettingsTab::Library);
+        draw(cx);
+        cx.executor().advance_clock(Duration::from_millis(400));
+        draw(cx);
+        draw(cx);
+        assert_eq!(ink(cx).origin.y, first.origin.y + px(TAB_HEIGHT * 3.));
     }
 
-    /// Bố cục: header / body / footer chồng sát nhau, cùng bề ngang; cột tab cách mép trái 12 px; khung cuộn chạm mép phải
+    /// Bố cục: header / body / footer chồng sát nhau, cùng bề ngang; cột tab sát mép trái của hộp; khung cuộn chạm mép phải
     /// của hộp và hai đường kẻ, nội dung đệm đều 16 px hai bên trong khung cuộn (D-16).
     #[gpui::test]
     fn layout_has_divided_sections_and_flush_scroll(cx: &mut TestAppContext) {
@@ -753,7 +772,7 @@ mod tests {
         assert_eq!(body.bottom(), footer.origin.y);
         assert_eq!(f32::from(header.size.width), DIALOG_WIDTH);
         let tabs = cx.debug_bounds("settings-tabs").expect("có cột tab");
-        assert_eq!(f32::from(tabs.origin.x - body.origin.x), EDGE);
+        assert_eq!(tabs.origin.x, body.origin.x, "cột tab sát mép trái, không đệm");
         assert_eq!(tabs.origin.y, body.origin.y, "cột tab đệm trên `EDGE` bên trong");
         let content = cx.debug_bounds("settings-content").expect("có nội dung");
         assert_eq!(content.right(), body.right(), "khung cuộn chạm mép phải của hộp");
@@ -971,7 +990,7 @@ mod tests {
         draw(cx);
     }
 
-    /// Vẽ được cả ba tab ở cửa sổ nhỏ nhất, không panic.
+    /// Vẽ được cả bốn tab ở cửa sổ nhỏ nhất, không panic.
     #[gpui::test]
     fn every_tab_draws_in_the_smallest_window(cx: &mut TestAppContext) {
         let (rig, cx) = rig(cx);

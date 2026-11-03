@@ -1,4 +1,4 @@
-//! groove-gd1_24: tab Cài đặt chung (đặc tả 1.10): font chữ (D-20, áp ngay, Huỷ trả về), bước tua, bước âm lượng, trình phát mặc định (gd2_01), rồi bảng EQ.
+//! groove-gd1_24: tab Cài đặt chung (đặc tả 1.10): font chữ (D-20, áp ngay, Huỷ trả về), bước tua, bước âm lượng, trình phát mặc định (gd2_01). Bảng EQ ở tab riêng (`EqPanel`).
 //!
 //! Hai bước áp ngay như EQ (người dùng thấy tác dụng ở phím tua, bánh xe ngay khi gõ); Huỷ do hộp trả về giá trị lúc mở.
 //! Ô trống hay ngoài khoảng chưa phải giá trị: bỏ qua, ô tự kẹp lại khi mất focus.
@@ -9,10 +9,8 @@ use materiant::field::number::NumberField;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div, px};
 use materiant::select::Select;
-use materiant::theme::ActiveTheme;
 
 use super::default_player::{Backend, DefaultPlayerPanel};
-use super::eq_panel::EqPanel;
 use crate::app;
 
 /// Khoảng hợp lệ của bước tua, giây (`Settings::sanitize` chỉ chặn dưới; trần để ô không nhận số vô lý).
@@ -24,7 +22,6 @@ pub struct GeneralPanel {
     seek_step: Entity<NumberField>,
     volume_step: Entity<NumberField>,
     default_player: Entity<DefaultPlayerPanel>,
-    eq: Entity<EqPanel>,
 }
 
 impl GeneralPanel {
@@ -58,11 +55,7 @@ impl GeneralPanel {
                 })
         });
         let default_player = cx.new(|cx| DefaultPlayerPanel::new(Backend::SYSTEM, window, cx));
-        GeneralPanel { seek_step, volume_step, default_player, eq: cx.new(EqPanel::new) }
-    }
-
-    pub fn eq_panel(&self) -> &Entity<EqPanel> {
-        &self.eq
+        GeneralPanel { seek_step, volume_step, default_player }
     }
 
     /// Nạp giá trị hiện có vào các ô (lúc mở hộp, và sau khi Huỷ trả về).
@@ -70,8 +63,6 @@ impl GeneralPanel {
         let (seek, volume) = (f64::from(settings.seek_step), f64::from(settings.volume_step));
         self.seek_step.update(cx, |field, cx| field.set_value(seek, window, cx));
         self.volume_step.update(cx, |field, cx| field.set_value(volume, window, cx));
-        let eq = settings.eq.clone();
-        self.eq.update(cx, |panel, cx| panel.show(eq, cx));
         self.default_player.update(cx, |panel, cx| panel.refresh(cx));
     }
 }
@@ -95,43 +86,36 @@ impl GeneralPanel {
 }
 
 impl Render for GeneralPanel {
-    /// Bảng EQ đứng đầu (ảnh mẫu của bản web mở tab ở Equalizer); bước tua, bước âm lượng, trình phát mặc định ở dưới, ngăn bằng
-    /// một đường kẻ như `border-t` của bản web.
+    /// Font, bước tua, bước âm lượng, trình phát mặc định xếp dọc.
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let border = cx.theme().colors().border.opacity(0.4);
-        div().flex().flex_col().gap_4().child(self.eq.clone()).child(
-            div()
-                .flex()
-                .flex_col()
-                .gap_4()
-                .pt_4()
-                .border_t_1()
-                .border_color(border)
-                .child(
-                    // Tên font là tên riêng, hiện nguyên văn ở cả hai ngôn ngữ; mỗi mục vẽ bằng chính font của nó thì đẹp hơn nhưng
-                    // `Select` chưa nhận mục tự vẽ.
-                    Select::new("settings-font")
-                        .label(t!("settings.general.font"))
-                        .label_weight(materiant::gpui_kit::FontWeight::NORMAL)
-                        .items(UiFont::ALL.map(app::font_family))
-                        .selected(UiFont::ALL.iter().position(|f| *f == app::settings(cx).font))
-                        .on_change(|ix, _, cx| {
-                            let font = UiFont::ALL[*ix];
-                            if app::settings(cx).font != font {
-                                app::update_settings(cx, |s| s.font = font);
-                            }
-                        })
-                        .w(px(240.)),
-                )
-                .child(div().child(t!("settings.general.steps")))
-                .child(
-                    div()
-                        .flex()
-                        .gap_4()
-                        .child(div().w(px(240.)).child(self.seek_step.clone()))
-                        .child(div().w(px(240.)).child(self.volume_step.clone())),
-                )
-                .child(self.default_player.clone()),
-        )
+        div()
+            .flex()
+            .flex_col()
+            .gap_4()
+            .child(
+                // Tên font là tên riêng, hiện nguyên văn ở cả hai ngôn ngữ; mỗi mục vẽ bằng chính font của nó thì đẹp hơn nhưng
+                // `Select` chưa nhận mục tự vẽ.
+                Select::new("settings-font")
+                    .label(t!("settings.general.font"))
+                    .label_weight(materiant::gpui_kit::FontWeight::NORMAL)
+                    .items(UiFont::ALL.map(app::font_family))
+                    .selected(UiFont::ALL.iter().position(|f| *f == app::settings(cx).font))
+                    .on_change(|ix, _, cx| {
+                        let font = UiFont::ALL[*ix];
+                        if app::settings(cx).font != font {
+                            app::update_settings(cx, |s| s.font = font);
+                        }
+                    })
+                    .w(px(240.)),
+            )
+            .child(div().child(t!("settings.general.steps")))
+            .child(
+                div()
+                    .flex()
+                    .gap_4()
+                    .child(div().w(px(240.)).child(self.seek_step.clone()))
+                    .child(div().w(px(240.)).child(self.volume_step.clone())),
+            )
+            .child(self.default_player.clone())
     }
 }
