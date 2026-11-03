@@ -2,7 +2,7 @@
 //! (xem `CLAUDE.md`, "Ngoại lệ có chủ ý").
 //!
 //! Bố cục (đặc tả 1.1): cột điều hướng trái (nền alpha, lộ desktop đã nhoè), bên phải là thanh trên 36 px + vùng nội dung
-//! đục, đáy là thanh phát cao 90 px đục. Cửa sổ không viền, mở bằng `translucent_window_options` (Linux không có mờ thì đục, `platform::backdrop`).
+//! đục, đáy là thanh phát cao 90 px đục. Cửa sổ không viền, mở bằng `translucent_window_options`.
 //!
 //! # Cho task sau
 //!
@@ -131,7 +131,6 @@ fn main_window_options(
         window_min_size: Some(size(px(WINDOW_MIN_SIZE.0), px(WINDOW_MIN_SIZE.1))),
         display_id,
         focus,
-        window_background: crate::platform::backdrop::window_background(),
         ..materiant::window::translucent_window_options()
     }
 }
@@ -605,7 +604,7 @@ mod tests {
     use groove_core::model::CategoryRef;
     use groove_core::settings::StartPage;
     use materiant::gpui_kit::base::Root;
-    use materiant::gpui_kit::point;
+    use materiant::gpui_kit::{WindowBackgroundAppearance, point};
 
     use super::*;
 
@@ -651,7 +650,7 @@ mod tests {
         let bounds = Bounds::new(point(px(0.), px(0.)), size(px(WINDOW_SIZE.0), px(WINDOW_SIZE.1)));
         let options = main_window_options(bounds, None, true);
         assert!(options.titlebar.is_none(), "không thanh tiêu đề OS");
-        assert_eq!(options.window_background, crate::platform::backdrop::window_background());
+        assert_eq!(options.window_background, WindowBackgroundAppearance::Blurred);
         assert_eq!(options.window_decorations, Some(WindowDecorations::Client));
         assert!(options.is_movable && options.is_resizable && options.focus);
         assert_eq!(options.inactive_frame_interval, None, "giữ trần khung hình của materiant::window_options");
