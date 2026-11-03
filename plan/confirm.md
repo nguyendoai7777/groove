@@ -422,3 +422,9 @@ Trình phát thu nhỏ (`views::pip`): cửa sổ 420 × 140, mở từ nút c�
   `(18,18,18,107)`; ở đây cột trái tự tô alpha 0,88 nên bỏ màu tô). Mất hạt nhiễu acrylic. Desktop ẩn không có nền mờ: chủ dự
   án kiểm tay trên màn DELL (độ mượt khi kéo, độ mờ nền theme sáng / tối). Bản release tệ hơn dev có lẽ vì vẽ nhanh hơn nên
   trình ra nhiều khung hơn trong vòng dời — chưa đo trên màn thật.
+
+## caption-ripple
+
+- Ba nút cửa sổ có ripple tâm (`RippleConfig::centered()`), màu theo icon lúc rê: xám nhạt trên nền xám, trắng trên nền đỏ của
+  Đóng. Vòng tròn đường kính bằng bề ngang nút như nút icon của materiant, không loang tới góc ô vuông. PiP không có nút cửa
+  sổ riêng (nút quay lại là nút icon đã có ripple).
