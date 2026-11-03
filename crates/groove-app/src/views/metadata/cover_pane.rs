@@ -314,7 +314,8 @@ impl Render for CoverPane {
                     .px_3()
                     .text_center()
                     .text_color(c.muted)
-                    .child(Icon::new(GrooveIcon::DefaultCover).size(px(56.)).color(c.muted.opacity(0.7)))
+                    // Cùng icon đĩa, cùng màu với bìa trống của thanh phát (`cover_image`, `PlaceholderLook::Thumb`).
+                    .child(Icon::new(GrooveIcon::Album).size(px(64.)).color(c.neutral(Neutral::N500).opacity(0.9)))
                     .child(div().text_sm().child(t!("metadata.cover.hint"))),
             ),
         };
