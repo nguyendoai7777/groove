@@ -475,7 +475,10 @@ impl Render for PlayerBar {
             .gap_1()
             .cursor_pointer()
             .on_click(|_, _, cx| app::navigate(Route::NowPlaying, cx))
-            .child(div().truncate().text_sm().text_color(colors.muted).child(artist))
+            // Thanh cao cố định: tên nghệ sĩ dài chạy chữ như tên bài, không cắt "…".
+            .child(
+                div().text_sm().text_color(colors.muted).child(Marquee::new("player-artist", artist).paused(!playing)),
+            )
             .child(div().child(Marquee::new("player-title", title).paused(!playing)));
 
         let cover = island::cached(&self.cover_island, |s| s.size(px(COVER_SIZE)).flex_none());

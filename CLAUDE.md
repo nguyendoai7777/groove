@@ -77,6 +77,10 @@ Danh sách chung: `materiant/CLAUDE.md` mục "Soát trước khi xong một com
   chọn ở Settings → Chung (`Settings::font`, `UiFont`); `groove_theme` đặt `font_family`, gốc `Shell` gắn
   `.font_family(cx.theme().font_family())`. Cửa sổ / gốc mới phải gắn như vậy, không thì rơi về font hệ thống (Linux: Ubuntu Sans biến
   thiên, lệch dấu tiếng Việt). Trang giấy phép kèm OFL của cả hai họ (`packaging/licenses/gen-licenses.ps1`).
+- **Không cắt chữ "…"** (chủ dự án, 2026-11-03): chữ của dữ liệu (tên bài, nghệ sĩ, album, đoạn timeline, đường dẫn) xuống
+  dòng như Apple Music — không `truncate` / `text_ellipsis`. Danh sách ảo dòng khác cao: `VirtualList::measured_rows()` + gọi
+  `remeasure()` khi chữ đổi mà số dòng giữ nguyên; danh sách ngắn trong hộp thoại: `.fit_content().max_h(…)`. Chỗ cao cố định
+  không xuống dòng được (thanh phát) thì chạy chữ `Marquee`. Chỗ còn cắt và lý do: `plan/confirm.md` mục `wrap`.
 - **Space là phím toàn cục** (phát / dừng): vòng focus đi qua `materiant::style::focus_visible`, kể cả nút / hàng tự dựng.
 - **Hoạt ảnh lặp** (chữ chạy `Marquee`, thanh nhảy `PlayingBars`): chỉ chạy khi cửa sổ active, dừng tại chỗ khi cửa sổ nền / thu
   nhỏ. Mỗi khung GPUI dựng lại view đang chạy hoạt ảnh và **mọi view tổ tiên**; view nhúng `cached` không bẩn thì dùng lại cả

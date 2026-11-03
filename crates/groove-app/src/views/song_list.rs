@@ -191,6 +191,7 @@ impl SongList {
         self.status = Status::Loading;
         self.summary = None;
         self.songs = Arc::default();
+        self.list.remeasure();
         self.selected = None;
         self.collapsed = false;
         self.list.scroll_to(0, materiant::list::Align::Start);
@@ -265,6 +266,8 @@ impl SongList {
             (Ok(Some(summary)), Ok(songs)) => {
                 self.summary = Some(summary);
                 self.songs = Arc::new(songs);
+                // Bài khác ⇒ chữ khác ⇒ cao dòng khác (`measured_rows`).
+                self.list.remeasure();
                 self.status = Status::Ready;
                 self.selected = self.selected.filter(|ix| *ix < self.songs.len());
             }
@@ -289,10 +292,7 @@ impl SongList {
 
     /// Đọc vị trí cuộn, thu hoặc mở đầu danh sách theo hai ngưỡng. Gọi sau mọi thứ có thể đổi vị trí cuộn.
     fn sync_header(&mut self, cx: &mut Context<Self>) {
-        let (scroll_top, max_top) = {
-            let handle = self.list.scroll_handle().0.borrow();
-            (self.list.scroll_top(), handle.base_handle.max_offset().y.as_f32().abs())
-        };
+        let (scroll_top, max_top) = (self.list.scroll_top(), self.list.max_scroll_top());
         let collapsed = next_collapsed(self.collapsed, scroll_top, max_top);
         if collapsed != self.collapsed {
             self.collapsed = collapsed;
@@ -405,7 +405,7 @@ impl SongList {
                 .gap_2()
                 .text_size(px(14.))
                 .text_color(c.muted)
-                .when_some(sub, |row, sub| row.child(div().truncate().child(sub)).child("•"))
+                .when_some(sub, |row, sub| row.child(div().min_w_0().child(sub)).child("•"))
                 .child(count_text)
         };
 
@@ -418,8 +418,8 @@ impl SongList {
             .gap_1()
             .when(!collapsed, |col| col.child(label))
             .child(
+                // Tên dài xuống dòng (không cắt "…"); khung đầu cao thêm theo chữ.
                 div()
-                    .truncate()
                     .font_weight(FontWeight::NORMAL)
                     .text_size(px(if collapsed { 20. } else { 36. }))
                     .text_color(c.text)
@@ -440,7 +440,7 @@ impl SongList {
 
         div()
             .flex_none()
-            .h(px(if collapsed { COLLAPSED_HEIGHT } else { EXPANDED_HEIGHT }))
+            .min_h(px(if collapsed { COLLAPSED_HEIGHT } else { EXPANDED_HEIGHT }))
             .w_full()
             .px(px(PAGE_PADDING))
             .py(px(HEADER_VERTICAL_PADDING))
@@ -469,6 +469,7 @@ impl SongList {
                 this.update(cx, |this, cx| this.context_menu(ix, cx)).ok();
             }))
         })
+        .measured_rows()
         .track(&self.list)
         .padding_x(px(PAGE_PADDING))
         .track_focus(&self.focus)
