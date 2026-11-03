@@ -200,7 +200,7 @@ impl Render for LyricsPanel {
                 .track_scroll(&self.scroll)
                 .flex_1()
                 .min_h_0()
-                .child(div().w_full().px_6().py_4().flex().flex_col().gap_1().children(
+                .child(div().w_full().px_4().py_4().flex().flex_col().gap_1().children(
                     lyric_lines(&text).into_iter().map(|line| match line {
                         // Cỡ chữ tên bài của hàng chờ bên phải (`text_sm`), căn trái (chủ dự án 03/11/2026).
                         LyricLine::Text(line) => div().w_full().text_sm().child(line.to_owned()),
