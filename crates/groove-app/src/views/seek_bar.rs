@@ -10,6 +10,10 @@
 //! mỗi giây như bản web (tốn khung hình liên tục, đặc tả mục 4).
 //!
 //! Không có thời lượng (chưa có bài, tệp chưa biết độ dài) thì thanh chỉ để xem, bấm không làm gì.
+//!
+//! [`SeekBar::without_times`] (PiP): bỏ hai nhãn giờ để thanh giãn hết bề ngang; nhãn khi rê / kéo hiện giờ tại con trỏ.
+//! Nhấn chuột trên thanh dừng lan sự kiện: thanh nằm trong vùng kéo cửa sổ (PiP) thì cha phải `occlude` nó, nếu không
+//! Windows nhận `HTCAPTION`, vào vòng dời cửa sổ và nuốt lần thả chuột — thanh kẹt ở trạng thái kéo, rê là chạy theo.
 
 use groove_core::timeline::{self, BarSegment, Segment};
 use materiant::gpui_kit::prelude::*;
@@ -99,6 +103,8 @@ pub struct SeekBar {
     cursor_x: Option<f32>,
     /// Bề ngang thanh ở lần vẽ gần nhất, để đặt nhãn.
     width: f32,
+    /// Vẽ hai nhãn giờ hai bên (thanh phát); `false` ở PiP.
+    times: bool,
     _observe: [Subscription; 2],
 }
 
@@ -116,7 +122,13 @@ impl SeekBar {
                 }
             }),
         ];
-        SeekBar { player, scrub: Scrub::default(), cursor_x: None, width: 0., _observe: observe }
+        SeekBar { player, scrub: Scrub::default(), cursor_x: None, width: 0., times: true, _observe: observe }
+    }
+
+    /// Bỏ hai nhãn giờ (PiP): thanh giãn hết bề ngang, nhãn khi rê / kéo hiện giờ tại con trỏ.
+    pub fn without_times(mut self) -> SeekBar {
+        self.times = false;
+        self
     }
 
     #[cfg(test)]
@@ -176,7 +188,12 @@ impl Render for SeekBar {
         let label = self.cursor_x.filter(|_| enabled && self.width > 0.).and_then(|x| {
             let bar = timeline::segments_to_bar(&segments, duration, self.width, GAP);
             let item = bar.get(segment_at(&bar, x)?)?;
-            Some((x, segment_label(&segments, item)?))
+            let named = segment_label(&segments, item);
+            if self.times {
+                return Some((x, named?));
+            }
+            let at = timeline::format_time(timeline::x_to_time(&bar, x));
+            Some((x, named.map_or_else(|| at.clone(), |named| format!("{at} · {named}"))))
         });
 
         let track = canvas(
@@ -228,6 +245,7 @@ impl Render for SeekBar {
                                 && hitbox.is_hovered(window)
                             {
                                 view.update(cx, |this, cx| this.press(&layout, local(event.position), cx));
+                                cx.stop_propagation();
                             }
                         }
                     });
@@ -296,15 +314,16 @@ impl Render for SeekBar {
                 .with_priority(1)
             }));
 
+        let times = self.times;
         div()
             .id("seek-bar")
             .size_full()
             .flex()
             .items_center()
             .gap_2()
-            .child(time_label(timeline::format_time(shown), colors.muted, false))
+            .when(times, |row| row.child(time_label(timeline::format_time(shown), colors.muted, false)))
             .child(bar)
-            .child(time_label(timeline::format_time(duration), colors.muted, true))
+            .when(times, |row| row.child(time_label(timeline::format_time(duration), colors.muted, true)))
             .when(dragging, |row| row.cursor_pointer())
     }
 }
