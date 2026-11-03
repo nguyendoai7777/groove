@@ -151,7 +151,7 @@ impl Render for LyricsPanel {
             .justify_between()
             .gap_2()
             .px_4()
-            .pt_3()
+            .pt_2()
             .pb_2()
             .child(div().text_lg().font_weight(FontWeight::NORMAL).child(t!("now_playing.lyrics.title")))
             .when(has_song, |row| {
