@@ -1,21 +1,22 @@
 //! linux-chrome (03/11/2026): nền cột trái theo việc OS có làm mờ phía sau cửa sổ được hay không.
 //!
-//! Windows (acrylic), macOS (`NSVisualEffectView`) luôn mờ ⇒ cửa sổ `Blurred`, cột trái nền alpha
-//! (`translucent_surface`). gpui-pre-linux 0.3.10 chỉ xin mờ qua `org_kde_kwin_blur` trên Wayland (KWin có, GNOME / Mutter
-//! và mọi compositor wlroots không có), X11 không xin gì: ở đó `Blurred` chỉ là trong suốt trơn, nhìn xuyên thấy rõ chữ cửa
-//! sổ phía sau. Không có mờ thì cửa sổ đục (`Opaque`) và cột trái nền `surface` đặc (`plan/confirm.md` mục `linux-chrome`).
+//! Windows (acrylic), macOS (`NSVisualEffectView`) luôn mờ ⇒ cột trái nền alpha 0,88 (`translucent_surface`).
+//! gpui-pre-linux 0.3.10 chỉ xin mờ qua `org_kde_kwin_blur` trên Wayland (KWin có; GNOME / Mutter — GNOME 50 không quảng bá
+//! giao thức mờ nào —, wlroots không có), X11 không xin gì: ở đó `Blurred` chỉ là trong suốt trơn, chữ cửa sổ phía sau lộ
+//! rõ. Không có mờ thì cột trái đục hơn: alpha 0,94 như khối nổi trên Linux (D-10, chủ dự án chốt 03/11/2026).
 
-use materiant::gpui_kit::{App, Hsla, WindowBackgroundAppearance};
+use materiant::gpui_kit::{App, Hsla};
+use materiant::style::FLOATING_SURFACE_ALPHA;
 use materiant::theme::ActiveTheme;
 
-/// Nền cửa sổ chính.
-pub fn window_background() -> WindowBackgroundAppearance {
-    if blur_available() { WindowBackgroundAppearance::Blurred } else { WindowBackgroundAppearance::Opaque }
-}
-
-/// Nền cột trái: alpha khi cửa sổ mờ, `surface` đục khi không.
+/// Nền cột trái: alpha 0,88 khi cửa sổ mờ, 0,94 khi chỉ trong suốt. Tông sáng giữ đục như `translucent_surface`.
 pub fn side_nav_surface(cx: &App) -> Hsla {
-    if blur_available() { materiant::window::translucent_surface(cx) } else { cx.theme().colors().surface }
+    if blur_available() {
+        return materiant::window::translucent_surface(cx);
+    }
+    let theme = cx.theme();
+    let surface = theme.colors().surface;
+    if theme.is_dark() { surface.opacity(FLOATING_SURFACE_ALPHA) } else { surface }
 }
 
 #[cfg(not(target_os = "linux"))]
@@ -24,7 +25,7 @@ pub fn blur_available() -> bool {
 }
 
 /// Đoán theo môi trường như gpui-pre-linux chọn nền: có `WAYLAND_DISPLAY` thì Wayland, và chỉ KWin (Plasma) có
-/// `org_kde_kwin_blur`. Đoán sai về phía KWin thiếu giao thức thì vẫn như cũ (trong suốt trơn) — không tệ hơn trước.
+/// `org_kde_kwin_blur`. Đoán sai về phía KWin tắt hiệu ứng mờ thì chỉ là trong suốt 0,88 như trước.
 #[cfg(target_os = "linux")]
 pub fn blur_available() -> bool {
     static AVAILABLE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
