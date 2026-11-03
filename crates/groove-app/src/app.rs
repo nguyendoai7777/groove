@@ -845,8 +845,11 @@ mod tests {
 
         cx.update(|_, cx| update_settings(cx, |s| s.theme_preset = "deeppink".into()));
         assert!(!cx.update(|_, cx| cx.theme().is_dark()), "bảng màu không đổi nền");
+        assert_eq!(primary(cx), Hsla::from(DEEPPINK_THEME.primary.unwrap().resolve(false)));
+        // deeppink chỉ đổi màu nhấn: nền về như mặc định, không sót nền của Rebecca Purple.
         let surface = cx.update(|_, cx| cx.theme().colors().surface);
-        assert_eq!(surface, Hsla::from(DEEPPINK_THEME.surface.unwrap().resolve(false)));
+        let default_surface = materiant::theme::palette::DEFAULT_SEEDS.surface.resolve(false);
+        assert_eq!(surface, Hsla::from(default_surface));
 
         cx.update(|_, cx| update_settings(cx, |s| s.theme_preset = "no-such-preset".into()));
         assert_eq!(primary(cx), default_light, "khoá lạ ⇒ mặc định");
