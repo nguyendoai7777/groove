@@ -26,7 +26,6 @@ copyright = "Bản quyền"
 bpm = "BPM"
 grouping = "Nhóm"
 comment = "Ghi chú"
-compilation = "Tuyển tập nhiều nghệ sĩ"
 
 [cover]
 hint = "Nhấp để chọn ảnh, kéo thả hoặc dán ảnh khi rê chuột lên ô"
@@ -41,7 +40,7 @@ read_failed = "Không đọc được tệp ảnh"
 
 [group]
 apply = "Áp cho cả {count} bài trong mục này"
-hint = "Gồm album, nghệ sĩ album, thể loại, năm, tuyển tập và bìa. Bài khác không bao giờ bị làm sạch hoàn toàn."
+hint = "Gồm album, nghệ sĩ album, thể loại, năm và bìa. Bài khác không bao giờ bị làm sạch hoàn toàn."
 
 [name_error]
 empty = "Tên tệp không được để trống"
