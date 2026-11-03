@@ -50,6 +50,19 @@ pub enum ThemeChoice {
     System,
 }
 
+/// Font chữ giao diện (Settings → Chung), cả hai nhúng trong app (materiant `font`, D-20). Mặc định Mona Sans.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UiFont {
+    #[default]
+    MonaSans,
+    BeVietnamPro,
+}
+
+impl UiFont {
+    pub const ALL: [UiFont; 2] = [UiFont::MonaSans, UiFont::BeVietnamPro];
+}
+
 /// Trang mở lại khi khởi động; không nhớ tham số xem danh sách (đặc tả 1.1).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -202,6 +215,7 @@ pub struct Settings {
     /// `None`: chưa chọn, theo OS.
     pub language: Option<Language>,
     pub theme: ThemeChoice,
+    pub font: UiFont,
     pub volume: u8,
     pub is_muted: bool,
     /// Mức âm lượng trước khi tắt tiếng (tắt tiếng đưa `volume` về 0); bỏ tắt tiếng trả về mức này. `None` khi không nhớ gì.
@@ -221,6 +235,7 @@ impl Default for Settings {
         Settings {
             language: None,
             theme: ThemeChoice::default(),
+            font: UiFont::default(),
             volume: 75,
             is_muted: false,
             volume_before_mute: None,
@@ -451,6 +466,16 @@ mod tests {
 
     fn temp_file(dir: &tempfile::TempDir) -> PathBuf {
         dir.path().join("nested").join("settings.json")
+    }
+
+    /// Font mặc định Mona Sans; tệp cũ chưa có khoá `font` đọc ra mặc định; khoá camelCase, giá trị snake_case.
+    #[test]
+    fn font_defaults_to_mona_sans_and_round_trips() {
+        assert_eq!(Settings::default().font, UiFont::MonaSans);
+        let old: Settings = serde_json::from_str(r#"{"volume":40}"#).unwrap();
+        assert_eq!(old.font, UiFont::MonaSans);
+        let json = serde_json::to_value(Settings { font: UiFont::BeVietnamPro, ..Settings::default() }).unwrap();
+        assert_eq!(json["font"], "be_vietnam_pro");
     }
 
     #[test]

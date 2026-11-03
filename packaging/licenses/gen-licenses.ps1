@@ -30,6 +30,10 @@ $extra = @(
     @{
         Name = 'Mona Sans'; Version = 'font embedded by the materiant library'; License = 'OFL-1.1'
         Url = 'https://github.com/github/mona-sans'; Text = '../../../materiant/assets/fonts/mona-sans/OFL.txt'
+    },
+    @{
+        Name = 'Be Vietnam Pro'; Version = 'font embedded by the materiant library'; License = 'OFL-1.1'
+        Url = 'https://github.com/bettergui/BeVietnamPro'; Text = '../../../materiant/assets/fonts/be-vietnam-pro/OFL.txt'
     }
 )
 # Nhãn được phép ngoài danh sách D-2: chỉ đúng thành phần G-2 đã chấp nhận.
