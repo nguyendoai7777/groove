@@ -27,7 +27,6 @@ use materiant::gpui_kit::{
 use materiant::icon::{Icon, IconName};
 use materiant::overlay::dialog::{Dialog, DialogHandle};
 use materiant::style::Accent;
-use materiant::tabs::{TabItem, Tabs};
 use materiant::theme::{ActiveTheme, Neutral};
 
 use super::cover_pane::{CoverPane, CoverPaneEvent};
@@ -56,11 +55,7 @@ enum Phase {
 
 /// Đệm của nội dung cuộn trong hộp (như đệm header / footer của `Dialog::divided`).
 const BODY_PADDING_X: f32 = 24.;
-/// Đệm dưới của thân; không đệm trên: hàng tab nằm sát đường kẻ dưới header.
-const BODY_PADDING_BOTTOM: f32 = 16.;
-
-const TAB_COMMON: usize = 0;
-const TAB_DETAILS: usize = 1;
+const BODY_PADDING_Y: f32 = 16.;
 
 /// Chữ báo cáo lô.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -155,7 +150,6 @@ pub struct MetadataDialog {
     form: Option<Form>,
     cover: Option<Entity<CoverPane>>,
     compilation: bool,
-    tab: usize,
     apply_group: bool,
     saving: bool,
     /// Đã có ít nhất một lần lưu xong (nút Huỷ thành Đóng).
@@ -205,7 +199,6 @@ impl MetadataDialog {
             form: None,
             cover: None,
             compilation: false,
-            tab: TAB_COMMON,
             apply_group: false,
             saving: false,
             saved: false,
@@ -458,7 +451,8 @@ impl MetadataDialog {
         )
     }
 
-    fn render_common(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+    /// Một trang, không chia tab: bìa bên trái, mọi ô bên phải.
+    fn render_form(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let (form, cover) = (self.form.as_ref()?, self.cover.as_ref()?);
         let c = cx.theme().colors().clone();
         let chip = div()
@@ -495,32 +489,21 @@ impl MetadataDialog {
             .child(form.field(Field::Album).clone())
             .child(form.field(Field::AlbumArtist).clone())
             .children(self.field_pair(Field::TrackNo, Field::TrackTotal))
-            .children(self.field_pair(Field::DiscNo, Field::DiscTotal));
+            .children(self.field_pair(Field::DiscNo, Field::DiscTotal))
+            .children(self.field_pair(Field::Year, Field::Genre))
+            .children(self.field_pair(Field::Composer, Field::Publisher))
+            .children(self.field_pair(Field::Copyright, Field::Bpm))
+            .child(form.field(Field::Grouping).clone())
+            .child(form.comment.clone())
+            .child(
+                Checkbox::new("metadata-compilation")
+                    .label(t!("metadata.field.compilation"))
+                    .checked(if self.compilation { CheckState::Checked } else { CheckState::Unchecked })
+                    .on_change(cx.listener(|this, state: &CheckState, _, cx| {
+                        this.set_compilation(*state == CheckState::Checked, cx);
+                    })),
+            );
         Some(div().flex().gap_5().items_start().child(cover.clone()).child(fields).into_any_element())
-    }
-
-    fn render_details(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
-        let form = self.form.as_ref()?;
-        Some(
-            div()
-                .flex()
-                .flex_col()
-                .gap_3()
-                .children(self.field_pair(Field::Year, Field::Genre))
-                .children(self.field_pair(Field::Composer, Field::Publisher))
-                .children(self.field_pair(Field::Copyright, Field::Bpm))
-                .child(form.field(Field::Grouping).clone())
-                .child(form.comment.clone())
-                .child(
-                    Checkbox::new("metadata-compilation")
-                        .label(t!("metadata.field.compilation"))
-                        .checked(if self.compilation { CheckState::Checked } else { CheckState::Unchecked })
-                        .on_change(cx.listener(|this, state: &CheckState, _, cx| {
-                            this.set_compilation(*state == CheckState::Checked, cx);
-                        })),
-                )
-                .into_any_element(),
-        )
     }
 
     fn render_group(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
@@ -572,25 +555,11 @@ impl MetadataDialog {
             }
             Phase::Ready => {}
         }
-        let tabs = Tabs::new("metadata-tabs")
-            .font_weight(materiant::gpui_kit::FontWeight::NORMAL)
-            .tab(TabItem::new(t!("metadata.tab.common")))
-            .tab(TabItem::new(t!("metadata.tab.details")))
-            .selected(self.tab)
-            .on_change(cx.listener(|this, ix: &usize, _, cx| {
-                this.tab = *ix;
-                cx.notify();
-            }));
-        let content = match self.tab {
-            TAB_DETAILS => self.render_details(cx),
-            _ => self.render_common(cx),
-        };
         div()
             .flex()
             .flex_col()
             .gap_4()
-            .child(tabs)
-            .children(content)
+            .children(self.render_form(cx))
             .children(self.render_group(cx))
             .children(self.render_messages(cx))
             .into_any_element()
@@ -651,7 +620,7 @@ impl Render for MetadataDialog {
                     .flex_shrink(1.)
                     .min_h_0()
                     .px(px(BODY_PADDING_X))
-                    .pb(px(BODY_PADDING_BOTTOM))
+                    .py(px(BODY_PADDING_Y))
                     .overflow_y_scroll()
                     // Ctrl+V trên ô bìa dán ảnh; ngoài ô, hoặc clipboard không có ảnh, thì ô nhập tự dán chữ.
                     .capture_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
@@ -1065,7 +1034,7 @@ mod tests {
         assert!(rig.dialog.read_with(cx, |d, _| !d.applies_to_group()));
         let scope = GroupScope { category: CategoryRef::Folder(folder), songs: 2 };
         let (rig, cx) = open_dialog(cx, &env, TrackRef::Library(ida), Some(scope));
-        assert_eq!(rig.value(Field::Genre, cx), "Rock", "ô ở tab chưa vẽ vẫn mang giá trị của tệp");
+        assert_eq!(rig.value(Field::Genre, cx), "Rock", "ô mang giá trị của tệp");
         rig.set(Field::Album, "Shared", cx);
         rig.dialog.update_in(cx, |d, _, cx| d.set_apply_group(true, cx));
         rig.save(cx);
@@ -1157,19 +1126,13 @@ mod tests {
         assert!(tag.extended_texts().any(|t| t.description == "REPLAYGAIN_TRACK_GAIN"), "{ids:?}");
     }
 
-    /// C13 — bố cục: cả hai tab vẽ được, lưu hai lần liên tiếp bị chặn.
+    /// C13 — bố cục: vẽ được, lưu hai lần liên tiếp bị chặn.
     #[::gpui::test]
-    fn renders_every_tab_and_ignores_a_second_save_while_saving(cx: &mut TestAppContext) {
+    fn renders_and_ignores_a_second_save_while_saving(cx: &mut TestAppContext) {
         let env = env();
         let path = env.mp3("Song", &[("TIT2", "T"), ("TSSE", "x")]);
         let (rig, cx) = open_dialog(cx, &env, TrackRef::External(path), None);
-        for tab in [TAB_COMMON, TAB_DETAILS] {
-            rig.dialog.update(cx, |d, cx| {
-                d.tab = tab;
-                cx.notify();
-            });
-            frame(cx);
-        }
+        frame(cx);
         rig.dialog.update_in(cx, |d, window, cx| {
             d.save(window, cx);
             assert!(d.is_saving());

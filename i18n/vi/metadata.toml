@@ -8,10 +8,6 @@ save = "Lưu"
 saving = "Đang lưu..."
 cancel = "Huỷ"
 
-[tab]
-common = "Chung"
-details = "Chi tiết"
-
 [field]
 filename = "Tên tệp"
 title = "Tiêu đề"

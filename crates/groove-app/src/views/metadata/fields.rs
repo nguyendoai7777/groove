@@ -10,7 +10,7 @@ use groove_library::tags::{CoverEdit, MetadataEdit, TagFields};
 use materiant::field::{TextArea, TextField};
 use materiant::gpui_kit::{App, AppContext, Entity, SharedString, Window};
 
-/// Trường chữ một dòng của hai tab Common và Details (tên tệp, ghi chú, tuyển tập có ô riêng).
+/// Trường chữ một dòng của biểu mẫu (tên tệp, ghi chú, tuyển tập có ô riêng).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Field {
     Title,

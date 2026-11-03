@@ -8,10 +8,6 @@ save = "Save"
 saving = "Saving..."
 cancel = "Cancel"
 
-[tab]
-common = "Common"
-details = "Details"
-
 [field]
 filename = "File name"
 title = "Title"
