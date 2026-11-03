@@ -1,14 +1,19 @@
-//! groove-gd1_24: tab Cài đặt chung (đặc tả 1.10): font chữ (D-20, áp ngay, Huỷ trả về), bước tua, bước âm lượng, trình phát mặc định (gd2_01). Bảng EQ ở tab riêng (`EqPanel`).
+//! groove-gd1_24: tab Cài đặt chung (đặc tả 1.10): giao diện — nền sáng / tối, bảng màu (preset của materiant, dạng thẻ như
+//! trang theme của gallery), font chữ (D-20), cả ba áp ngay, Huỷ trả về —, bước tua, bước âm lượng, trình phát mặc định
+//! (gd2_01). Bảng EQ ở tab riêng (`EqPanel`).
 //!
 //! Hai bước áp ngay như EQ (người dùng thấy tác dụng ở phím tua, bánh xe ngay khi gõ); Huỷ do hộp trả về giá trị lúc mở.
 //! Ô trống hay ngoài khoảng chưa phải giá trị: bỏ qua, ô tự kẹp lại khi mất focus.
 
-use groove_core::settings::{Settings, UiFont};
+use groove_core::settings::{Settings, ThemeChoice, UiFont};
 use groove_core::t;
+use materiant::field::FieldLabel;
 use materiant::field::number::NumberField;
 use materiant::gpui_kit::prelude::*;
-use materiant::gpui_kit::{Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div, px};
+use materiant::gpui_kit::{Context, Entity, FontWeight, IntoElement, ParentElement, Render, Styled, Window, div, px};
 use materiant::select::Select;
+use materiant::theme::ActiveTheme;
+use materiant::theme::picker::ThemePicker;
 
 use super::default_player::{Backend, DefaultPlayerPanel};
 use crate::app;
@@ -85,28 +90,72 @@ impl GeneralPanel {
     }
 }
 
+/// Thứ tự mục của ô Nền.
+const THEME_CHOICES: [ThemeChoice; 3] = [ThemeChoice::Light, ThemeChoice::Dark, ThemeChoice::System];
+
+fn theme_choice_label(choice: ThemeChoice) -> &'static str {
+    match choice {
+        ThemeChoice::Light => t!("settings.general.mode_light"),
+        ThemeChoice::Dark => t!("settings.general.mode_dark"),
+        ThemeChoice::System => t!("settings.general.mode_system"),
+    }
+}
+
 impl Render for GeneralPanel {
-    /// Font, bước tua, bước âm lượng, trình phát mặc định xếp dọc.
+    /// Giao diện (nền, font, bảng màu), bước tua, bước âm lượng, trình phát mặc định xếp dọc.
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let settings = app::settings(cx);
+        let presets = app::theme_presets();
+        let preset = presets.iter().position(|p| p.key == settings.theme_preset.as_str()).unwrap_or(0);
+        let mode = Select::new("settings-theme-mode")
+            .label(t!("settings.general.mode"))
+            .label_weight(FontWeight::NORMAL)
+            .items(THEME_CHOICES.map(theme_choice_label))
+            .selected(THEME_CHOICES.iter().position(|c| *c == settings.theme))
+            .on_change(|ix, _, cx| {
+                let choice = THEME_CHOICES[*ix];
+                if app::settings(cx).theme != choice {
+                    app::update_settings(cx, |s| s.theme = choice);
+                }
+            })
+            .w(px(240.));
+        // Tên font là tên riêng, hiện nguyên văn ở cả hai ngôn ngữ; mỗi mục vẽ bằng chính font của nó thì đẹp hơn nhưng
+        // `Select` chưa nhận mục tự vẽ.
+        let font = Select::new("settings-font")
+            .label(t!("settings.general.font"))
+            .label_weight(FontWeight::NORMAL)
+            .items(UiFont::ALL.map(app::font_family))
+            .selected(UiFont::ALL.iter().position(|f| *f == settings.font))
+            .on_change(|ix, _, cx| {
+                let font = UiFont::ALL[*ix];
+                if app::settings(cx).font != font {
+                    app::update_settings(cx, |s| s.font = font);
+                }
+            })
+            .w(px(240.));
+        let picker = ThemePicker::new("settings-theme-preset")
+            .items(presets.iter().cloned())
+            .selected(preset)
+            // Nền do ô Nền quyết, kể cả preset ghim tối (black-pink): thẻ vẽ đúng nền người dùng sẽ thấy sau khi bấm.
+            .preview_dark(cx.theme().is_dark())
+            .on_change(move |ix, _, cx| {
+                let key = presets[*ix].key.to_string();
+                if app::settings(cx).theme_preset != key {
+                    app::update_settings(cx, |s| s.theme_preset = key);
+                }
+            });
         div()
             .flex()
             .flex_col()
             .gap_4()
+            .child(div().child(t!("settings.general.appearance")))
+            .child(div().flex().gap_4().child(mode).child(font))
             .child(
-                // Tên font là tên riêng, hiện nguyên văn ở cả hai ngôn ngữ; mỗi mục vẽ bằng chính font của nó thì đẹp hơn nhưng
-                // `Select` chưa nhận mục tự vẽ.
-                Select::new("settings-font")
-                    .label(t!("settings.general.font"))
-                    .label_weight(materiant::gpui_kit::FontWeight::NORMAL)
-                    .items(UiFont::ALL.map(app::font_family))
-                    .selected(UiFont::ALL.iter().position(|f| *f == app::settings(cx).font))
-                    .on_change(|ix, _, cx| {
-                        let font = UiFont::ALL[*ix];
-                        if app::settings(cx).font != font {
-                            app::update_settings(cx, |s| s.font = font);
-                        }
-                    })
-                    .w(px(240.)),
+                div()
+                    .flex()
+                    .flex_col()
+                    .child(FieldLabel::new(t!("settings.general.theme_preset")).weight(FontWeight::NORMAL))
+                    .child(picker),
             )
             .child(div().child(t!("settings.general.steps")))
             .child(

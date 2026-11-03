@@ -355,3 +355,9 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [ui-font] Nguyên nhân lệch dấu chưa chứng minh bằng mắt: dữ liệu tên bài là Unicode dựng sẵn (`ọ` = U+1ECD), font hệ thống Ubuntu Sans là font biến thiên; đã đo GPUI Linux nhận đúng họ Mona Sans và chọn đúng tệp theo độ đậm, hết cảnh báo `.SystemUIFont`. Dấu có về đúng chỗ không: chờ chủ dự án xem.
 - [ui-font] Ô chọn font là `Select` ở Settings → Chung, đầu khối dưới bảng EQ, áp ngay khi chọn, Huỷ / Esc trả về như bước tua — hoặc radio, hoặc áp khi bấm Lưu. Tên font hiện nguyên văn ở cả hai ngôn ngữ (tên riêng), mục chưa vẽ bằng chính font của nó (`Select` của materiant chưa nhận mục tự vẽ). Khoá `font` trong `settings.json`: `mona_sans` (mặc định) / `be_vietnam_pro`.
 - [marquee-pause] Nhạc dừng thì tên bài chạy (thanh phát, Now Playing) dừng tại chỗ, phát tiếp chạy tiếp từ chỗ đó — chạy cả lúc dừng như web — lúc đứng yên không xin khung nào (số đo cpu: chạy ~7–9 % một nhân, đứng yên ~1 %).
+
+## settings-theme (03/11/2026)
+
+- [settings-theme] Bảng màu ở Settings → Chung dùng `materiant::theme::picker::ThemePicker` (thẻ xem trước nền, cột bên, chữ, nút màu nhấn — component chung, gallery trang theme cũng dùng thay hàng nút chữ cũ) — hoặc giữ nút chữ như gallery cũ. Bốn preset: Mặc định (deeppink, G-4), Đen hồng, Hồng đỏ, Tím; khoá `themePreset` trong `settings.json` (`default`, `black-pink`, `rose-red`, `rebecca-purple`), khoá lạ ⇒ mặc định. Chưa nhìn trên màn thật (đã chụp ở GNOME Shell headless: tối, sáng, đổi preset).
+- [settings-theme] Thêm ô Nền (Sáng / Tối / Theo hệ thống) cạnh ô Phông chữ — trước đó chỉ đổi được bằng lệnh bật tắt sáng tối. Nền luôn theo ô Nền, kể cả preset Đen hồng (materiant ghim nó tối) — hoặc chọn Đen hồng thì ép Tối. Thẻ vẽ theo nền đang chọn (`preview_dark`).
+- [settings-theme] Nền, bảng màu áp ngay khi chọn và lưu (debounce) như font; Huỷ / Esc / bấm lớp phủ trả cả hai về lúc mở hộp.

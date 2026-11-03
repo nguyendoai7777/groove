@@ -9,12 +9,24 @@ keybindings = "Keyboard shortcuts"
 library = "Library"
 
 [general]
+appearance = "Appearance"
+mode = "Background"
+mode_light = "Light"
+mode_dark = "Dark"
+mode_system = "System"
+theme_preset = "Color theme"
 font = "Font"
 steps = "Seek and volume steps"
 seek_step = "Seek step (seconds)"
 seek_step_hint = "1 or more. Used by the seek keys and buttons."
 volume_step = "Volume step"
 volume_step_hint = "1 to 100. Used by the up and down keys and the mouse wheel."
+
+[theme_preset]
+default = "Default"
+black_pink = "Black pink"
+rose_red = "Rose red"
+rebecca_purple = "Rebecca purple"
 
 [eq]
 title = "Equalizer"
