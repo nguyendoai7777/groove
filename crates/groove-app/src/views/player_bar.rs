@@ -476,7 +476,7 @@ impl Render for PlayerBar {
             .cursor_pointer()
             .on_click(|_, _, cx| app::navigate(Route::NowPlaying, cx))
             .child(div().truncate().text_sm().text_color(colors.muted).child(artist))
-            .child(div().child(Marquee::new("player-title", title)));
+            .child(div().child(Marquee::new("player-title", title).paused(!playing)));
 
         let cover = island::cached(&self.cover_island, |s| s.size(px(COVER_SIZE)).flex_none());
         let left = div().w(relative(0.3)).min_w_0().flex().items_center().gap_3().child(cover).child(text);

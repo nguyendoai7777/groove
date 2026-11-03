@@ -624,9 +624,9 @@ impl Render for MetadataDialog {
                         }
                     }))
                     // Ô bìa ghim bên trái, chỉ phần trường nhập cuộn (thanh cuộn nổi sát mép phải hộp, D-16).
-                    .children(cover.map(|cover| {
-                        div().flex_none().pl(px(BODY_PADDING_X)).py(px(BODY_PADDING_Y)).child(cover)
-                    }))
+                    .children(
+                        cover.map(|cover| div().flex_none().pl(px(BODY_PADDING_X)).py(px(BODY_PADDING_Y)).child(cover)),
+                    )
                     .child(
                         ScrollArea::new("metadata-scroll")
                             .vertical()
