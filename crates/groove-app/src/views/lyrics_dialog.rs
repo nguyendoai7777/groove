@@ -30,7 +30,7 @@ use materiant::toast::{Toast, ToastKind, ToastSpec};
 use crate::player::{self, PlayerEvent};
 
 /// Bề ngang hộp (đặc tả 1.6, 1.7).
-const DIALOG_WIDTH: f32 = 500.;
+const DIALOG_WIDTH: f32 = 667.;
 /// Số dòng của ô (đặc tả 1.7).
 const ROWS: usize = 12;
 
