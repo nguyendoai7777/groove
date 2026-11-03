@@ -2,7 +2,8 @@
 //!
 //! Rộng 230 px, thu còn 56 px; đầu cột cao 36 px kéo được cửa sổ, có tên app + nút tròn thu / mở; ba mục cao 42 px, vạch trái
 //! 3 px của mục đang chọn trượt lên xuống khi đổi mục (`materiant::tabs::InkBar`, cùng nhịp với tab dọc); Settings ở đáy.
-//! Nền là tầng alpha của cửa sổ mờ (`translucent_surface`), phần nội dung bên phải đục. Bề rộng nội suy 300 ms, OS bật giảm
+//! Nền là tầng alpha của cửa sổ mờ (`translucent_surface`; OS không làm mờ được thì đục, `platform::backdrop`), phần nội
+//! dung bên phải đục. Bề rộng nội suy 300 ms, OS bật giảm
 //! chuyển động thì nhảy (`transition` của gpui-base tự xử lý).
 //!
 //! chrome-nav (02/11/2026): nút thu là nút tròn 28 px icon khung có vách (khác hẳn nút lùi `<` của thanh trên — trước đây hai
@@ -29,9 +30,9 @@ use materiant::style::ActiveTokens;
 use materiant::tabs::InkBar;
 use materiant::theme::color::hex;
 use materiant::theme::{ActiveTheme, Neutral};
-use materiant::window::translucent_surface;
 
 use crate::icons::GrooveIcon;
+use crate::platform::backdrop;
 use crate::route::Route;
 
 pub const EXPANDED_WIDTH: f32 = 230.;
@@ -191,7 +192,7 @@ impl RenderOnce for SideNav {
             .flex()
             .flex_col()
             .overflow_hidden()
-            .bg(translucent_surface(cx))
+            .bg(backdrop::side_nav_surface(cx))
             .child(header)
             .child(div().relative().flex_1().flex().flex_col().overflow_hidden().children(items).children(ink))
             .child(div().flex_none().border_t_1().border_color(c.border.opacity(0.3)).child(settings))

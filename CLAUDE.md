@@ -60,7 +60,7 @@ Viết tắt trong task: `core`, `library`, `audio`, `app`, `views` = `crates/gr
   chép trong một transaction, không sửa tệp cũ; giữ nguyên `id` của `songs`, `playlists`, `albums`, `folders`; `user_version`
   lớn hơn bản đang hỗ trợ thì từ chối mở và báo, không ghi đè. Thẻ tệp nhạc tương thích hai chiều, `TXXX:TIMELINE` giữ tên.
 - **Lệch có chủ đích so với bản web** (GPUI: `div` không có `scale`, `transform`, `backdrop-filter`, transition khai báo):
-  khối nổi nền alpha 0,85 (D-10) thay `backdrop-blur`, chỉ cột trái mờ cả cửa sổ (`Blurred`); bỏ `scale` khi hover, đổi
+  khối nổi nền alpha 0,85 (D-10) thay `backdrop-blur`, chỉ cột trái mờ cả cửa sổ (`Blurred`; Linux ngoài KWin không có mờ ⇒ cửa sổ đục, cột trái `surface`, `platform::backdrop`); bỏ `scale` khi hover, đổi
   nền / viền; bỏ nhấp nháy số giờ; thanh phát cập nhật tối đa 4 lần / s và chỉ khi đang phát. Nền `Blurred` làm GPUI tắt
   ClearType, chữ cả app khử răng cưa xám — chờ chủ dự án xem trên màn thật.
 - **Màu nhấn** theo theme materiant (deeppink, như fastcast — G-4): `app::apply_theme` không đặt `primary`; view lấy

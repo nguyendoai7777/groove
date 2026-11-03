@@ -4,7 +4,8 @@
 //!   --background                                  hiện cửa sổ mà không kích hoạt, app đang dùng giữ focus
 //!   --keys "down ctrl-t down@200,150 wait@500 up@200,150 shot@ten"
 //!       phím, chuột trái (`down@x,y`, `up@`, `move@`, `drag@`, toạ độ trong cửa sổ), nghỉ (`wait@ms`), xin chụp
-//!       (`shot@ten`, in `SHOT ten`); in `KEY <bước>` mỗi bước, cuối cùng `KEYS DONE`.
+//!       (`shot@ten`, in `SHOT ten`); in `KEY <bước>` mỗi bước, cuối cùng `KEYS DONE`. `dbl@x,y`: lần nhấn thứ hai của
+//!       nhấp đúp (`click_count` 2); `state@ten` in `STATE ten maximized=… bounds=…` của cửa sổ thật.
 
 use std::time::Duration;
 
@@ -49,6 +50,7 @@ pub enum Simulated {
     Mouse(PlatformInput),
     Wait(u64),
     Shot(String),
+    State(String),
 }
 
 impl Simulated {
@@ -65,6 +67,9 @@ impl Simulated {
             }
             return Ok(Simulated::Shot(arg.to_owned()));
         }
+        if kind == "state" {
+            return Ok(Simulated::State(arg.to_owned()));
+        }
         if kind == "wait" {
             return arg.parse().map(Simulated::Wait).map_err(|e| format!("wait@<ms>: {e}"));
         }
@@ -75,17 +80,17 @@ impl Simulated {
         let position = point(px(x), px(y));
         let (button, modifiers) = (MouseButton::Left, Modifiers::default());
         Ok(Simulated::Mouse(match kind {
-            "down" => PlatformInput::MouseDown(MouseDownEvent {
+            "down" | "dbl" => PlatformInput::MouseDown(MouseDownEvent {
                 button,
                 position,
                 modifiers,
-                click_count: 1,
+                click_count: if kind == "dbl" { 2 } else { 1 },
                 first_mouse: false,
             }),
             "up" => PlatformInput::MouseUp(MouseUpEvent { button, position, modifiers, click_count: 1 }),
             "move" => PlatformInput::MouseMove(MouseMoveEvent { position, pressed_button: None, modifiers }),
             "drag" => PlatformInput::MouseMove(MouseMoveEvent { position, pressed_button: Some(button), modifiers }),
-            _ => return Err(format!("unknown `{kind}@` — down | up | move | drag | wait | shot")),
+            _ => return Err(format!("unknown `{kind}@` — down | dbl | up | move | drag | wait | shot | state")),
         }))
     }
 }
@@ -153,6 +158,12 @@ pub fn replay(handle: AnyWindowHandle, keys: Vec<(String, Simulated)>, cx: &mut 
                     0
                 }
                 Simulated::Wait(ms) => ms,
+                Simulated::State(name) => {
+                    let _ = cx.update_window(handle, |_, window, _| {
+                        println!("STATE {name} maximized={} bounds={:?}", window.is_maximized(), window.bounds());
+                    });
+                    0
+                }
                 Simulated::Shot(name) => {
                     // `tools/run.ps1` thấy dòng này thì chụp; chờ cho kịp chụp trước bước kế.
                     println!("SHOT {name}");
