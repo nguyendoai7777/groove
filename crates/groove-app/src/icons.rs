@@ -80,6 +80,8 @@ groove_icons! {
     Prev => "prev",
     Next => "next",
     Play => "play",
+    /// Như `play`, nét 1,5: nút Play all trên lớp phủ của thẻ thư viện (chủ dự án 03/11/2026: icon mảnh hơn).
+    PlayThin => "play-thin",
     /// groove-gd1_14: nút Phát khi đang phát.
     Pause => "pause",
     VolumeMute => "volume-mute",
@@ -88,6 +90,7 @@ groove_icons! {
     VolumeMax => "volume-max",
     // Thẻ, menu, hộp thoại, bảng lệnh.
     Folder => "folder",
+    /// Nét 1,5 (mảnh hơn icon khác): hiện chỉ nút Delete trên lớp phủ của thẻ dùng.
     Delete => "delete",
     Edit => "edit",
     LyricsBubble => "lyrics-bubble",

@@ -6,9 +6,8 @@
 //! icon thư mục, playlist là màu của playlist + icon album.
 //!
 //! ui-audit (02/11/2026): GPUI không cắt con theo bo góc (`overflow_hidden` chỉ cắt hình chữ nhật), nên ảnh trong khung bo
-//! góc phải tự bo đúng bán kính của khung, và ảnh phóng to (hover thẻ) phải cắt ngay lúc vẽ: ảnh vẽ bằng
-//! `Window::paint_image(khung, vùng ảnh, bo góc)`, vùng ảnh là `object-fit: cover` nhân [`CoverImage::zoom`] quanh tâm, phần
-//! tràn bị cắt theo khung nên bốn góc luôn tròn. Placeholder (đang nạp, lỗi, không bìa) cũng bo cùng bán kính.
+//! góc phải tự bo đúng bán kính của khung: ảnh vẽ bằng `Window::paint_image(khung, vùng ảnh, bo góc)`, vùng ảnh là
+//! `object-fit: cover` quanh tâm, phần tràn bị cắt theo khung nên bốn góc luôn tròn. Placeholder (đang nạp, lỗi, không bìa) cũng bo cùng bán kính.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -87,7 +86,6 @@ pub struct CoverImage {
     accent: Option<Hsla>,
     cache: Entity<LruImageCache>,
     radius: Pixels,
-    zoom: f32,
     look: PlaceholderLook,
 }
 
@@ -104,7 +102,6 @@ impl CoverImage {
             accent,
             cache: cache.clone(),
             radius: RADIUS,
-            zoom: 1.,
             look: PlaceholderLook::Card,
         }
     }
@@ -126,12 +123,6 @@ impl CoverImage {
     /// Dáng placeholder khi chưa có bìa (chỉ ảnh hưởng bìa album).
     pub fn look(mut self, look: PlaceholderLook) -> CoverImage {
         self.look = look;
-        self
-    }
-
-    /// Phóng ảnh quanh tâm (1 = vừa khung); phần tràn bị cắt theo khung, góc vẫn bo.
-    pub fn zoom(mut self, zoom: f32) -> CoverImage {
-        self.zoom = zoom.max(1.);
         self
     }
 }
@@ -191,11 +182,11 @@ fn placeholder(
     .into_any_element()
 }
 
-/// Vùng vẽ ảnh: `object-fit: cover` trong `frame` rồi phóng `zoom` quanh tâm khung.
-pub fn zoomed_cover(frame: Bounds<Pixels>, image: materiant::gpui_kit::Size<Pixels>, zoom: f32) -> Bounds<Pixels> {
+/// Vùng vẽ ảnh: `object-fit: cover` trong `frame`, quanh tâm khung.
+pub fn fit_cover(frame: Bounds<Pixels>, image: materiant::gpui_kit::Size<Pixels>) -> Bounds<Pixels> {
     let (fw, fh) = (f32::from(frame.size.width), f32::from(frame.size.height));
     let (iw, ih) = (f32::from(image.width).max(1.), f32::from(image.height).max(1.));
-    let scale = (fw / iw).max(fh / ih) * zoom.max(1.);
+    let scale = (fw / iw).max(fh / ih);
     Bounds::centered_at(frame.center(), materiant::gpui_kit::size(px(iw * scale), px(ih * scale)))
 }
 
@@ -218,7 +209,7 @@ fn loaded(
 impl RenderOnce for CoverImage {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let colors = cx.theme().colors().clone();
-        let (radius, zoom) = (self.radius, self.zoom);
+        let radius = self.radius;
         let frame = div().size_full().rounded(radius);
         let data = self.source.as_ref().and_then(|source| loaded(source, &self.cache, window, cx));
         match data {
@@ -228,7 +219,7 @@ impl RenderOnce for CoverImage {
                     move |bounds, _, window, _| {
                         let size = data.size(0);
                         let image = materiant::gpui_kit::size(px(size.width.0 as f32), px(size.height.0 as f32));
-                        let target = zoomed_cover(bounds, image, zoom);
+                        let target = fit_cover(bounds, image);
                         if let Err(err) =
                             window.paint_image(bounds, target, Corners::all(radius), data.clone(), 0, false)
                         {
@@ -259,20 +250,16 @@ mod tests {
         assert!(parse_color("#éééééé").is_none(), "không hoảng với unicode");
     }
 
-    /// Ảnh dọc 100 x 200 trong khung 50 x 50: cover phủ kín khung theo cạnh ngắn, phóng 1,05 quanh tâm khung; mép khung luôn
-    /// nằm trong ảnh nên góc bo của khung không lộ nền.
+    /// Ảnh dọc 100 x 200 trong khung 50 x 50: cover phủ kín khung theo cạnh ngắn, quanh tâm khung; mép khung luôn nằm trong
+    /// ảnh nên góc bo của khung không lộ nền.
     #[test]
-    fn zoomed_cover_covers_the_frame_around_its_center() {
+    fn fit_cover_covers_the_frame_around_its_center() {
         use materiant::gpui_kit::{point, size};
         let frame = Bounds::new(point(px(10.), px(20.)), size(px(50.), px(50.)));
-        let fit = zoomed_cover(frame, size(px(100.), px(200.)), 1.);
+        let fit = fit_cover(frame, size(px(100.), px(200.)));
         assert_eq!(fit.size, size(px(50.), px(100.)));
         assert_eq!(fit.center(), frame.center());
-        let zoomed = zoomed_cover(frame, size(px(100.), px(200.)), 1.05);
-        assert!((f32::from(zoomed.size.width) - 52.5).abs() < 1e-3);
-        assert_eq!(zoomed.center(), frame.center());
-        assert!(zoomed.origin.x <= frame.origin.x && zoomed.bottom_right().x >= frame.bottom_right().x);
-        assert_eq!(zoomed_cover(frame, size(px(100.), px(200.)), 0.5), fit, "không thu nhỏ dưới 1");
+        assert!(fit.origin.x <= frame.origin.x && fit.bottom_right().x >= frame.bottom_right().x);
     }
 
     #[test]
