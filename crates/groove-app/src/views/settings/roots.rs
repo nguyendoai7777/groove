@@ -166,7 +166,8 @@ impl RootsPanel {
             .py_1()
             .border_b_1()
             .border_color(c.border)
-            .child(div().flex_1().min_w_0().truncate().child(root.display().to_string()))
+            // Đường dẫn dài xuống dòng (ngắt giữa chữ khi không có chỗ ngắt), không cắt "…".
+            .child(div().flex_1().min_w_0().child(root.display().to_string()))
             .child(
                 Button::new(("settings-root-remove", ix), label)
                     .size(Size::Sm)

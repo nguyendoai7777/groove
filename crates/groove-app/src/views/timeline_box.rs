@@ -23,8 +23,10 @@ use crate::player::{self, Player};
 use crate::views::bars_overlay;
 use crate::views::playing_bars::PlayingBars;
 
-/// Cao một dòng đoạn (bản cũ `py-1.5` + chữ `text-sm`).
+/// Cao tối thiểu một dòng đoạn (bản cũ `py-1.5` + chữ `text-sm`); tên đoạn dài xuống dòng thì dòng cao thêm.
 pub const ROW_HEIGHT: f32 = 34.;
+/// Đệm trên / dưới của dòng đoạn (= `py-1.5`).
+const ROW_PADDING_Y: f32 = 6.;
 const HEADER_HEIGHT: f32 = 36.;
 /// Đệm trái của nội dung dòng; cộng `TRACK_THICKNESS` (9) của danh sách = 12, thẳng hàng với tiêu đề (`px_3`).
 const ROW_INSET: f32 = 3.;
@@ -52,6 +54,8 @@ pub struct TimelineBox {
     player: Entity<Player>,
     list: VirtualListHandle,
     active: Option<usize>,
+    /// `lines_key` của lần vẽ trước.
+    lines_key: u64,
     /// Giây đang hiện ở nhãn `vị trí / thời lượng`: nhịp 250 ms chỉ dựng lại khi nhãn hay dòng đang phát đổi.
     shown_sec: i64,
     _observe: [Subscription; 2],
@@ -74,8 +78,14 @@ impl TimelineBox {
                 }
             }),
         ];
-        let mut view =
-            TimelineBox { player, list: VirtualListHandle::new(), active: None, shown_sec: -1, _observe: observe };
+        let mut view = TimelineBox {
+            player,
+            list: VirtualListHandle::new(),
+            active: None,
+            lines_key: 0,
+            shown_sec: -1,
+            _observe: observe,
+        };
         view.follow(cx);
         view
     }
@@ -105,6 +115,17 @@ impl TimelineBox {
     }
 }
 
+/// Dấu vân của chữ các dòng: khác ⇒ cao dòng có thể khác.
+fn lines_key(lines: &[Line]) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    for line in lines {
+        line.time.hash(&mut hasher);
+        line.title.hash(&mut hasher);
+    }
+    hasher.finish()
+}
+
 struct Line {
     time: SharedString,
     title: SharedString,
@@ -129,6 +150,12 @@ impl Render for TimelineBox {
             return div().into_any_element();
         }
         let c = cx.theme().colors().clone();
+        // Đổi bài / sửa timeline ⇒ chữ khác ⇒ đo lại cao dòng (`measured_rows`).
+        let key = lines_key(&lines);
+        if key != self.lines_key {
+            self.lines_key = key;
+            self.list.remeasure();
+        }
         let lines = Rc::new(lines);
         let count = lines.len();
 
@@ -157,7 +184,9 @@ impl Render for TimelineBox {
                 let current = active == Some(ix);
                 div()
                     .w_full()
+                    .min_h(px(ROW_HEIGHT))
                     .px(px(ROW_INSET))
+                    .py(px(ROW_PADDING_Y))
                     .flex()
                     .items_center()
                     .gap_2()
@@ -173,7 +202,6 @@ impl Render for TimelineBox {
                         div()
                             .flex_1()
                             .min_w_0()
-                            .truncate()
                             .text_color(if current { primary } else { text.opacity(0.85) })
                             .child(line.title.clone()),
                     )
@@ -204,6 +232,7 @@ impl Render for TimelineBox {
             .child(header)
             .child(
                 VirtualList::new("timeline-box-rows", count, px(ROW_HEIGHT), rows)
+                    .measured_rows()
                     .selected(active)
                     .on_select(jump.clone())
                     .on_activate(jump)

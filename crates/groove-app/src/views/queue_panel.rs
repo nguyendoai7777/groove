@@ -27,8 +27,10 @@ use crate::views::bars_overlay;
 use crate::views::playing_bars::PlayingBars;
 use crate::views::song_row::{display_artist, display_title};
 
-/// Cao một dòng: tên bài + nghệ sĩ.
+/// Cao tối thiểu của một dòng (tên bài + nghệ sĩ một dòng); tên dài xuống dòng thì dòng cao thêm (`measured_rows`).
 pub const ROW_HEIGHT: f32 = 52.;
+/// Đệm trên / dưới chữ của dòng: dòng xuống nhiều hàng vẫn thoáng như dòng thường.
+const ROW_PADDING_Y: f32 = 8.;
 const INDEX_WIDTH: f32 = 28.;
 /// Đệm trái của nội dung dòng; cộng `TRACK_THICKNESS` (9) của danh sách = 16, thẳng hàng với tiêu đề (`px_4`).
 const ROW_INSET: f32 = 7.;
@@ -182,6 +184,8 @@ impl QueuePanel {
         }
         if dirty {
             self.rows = Rc::new(build_rows(&self.tracks, &self.cache));
+            // Chữ đổi ⇒ cao dòng đổi (tên dài xuống dòng).
+            self.list.remeasure();
             self.load_missing(cx);
             changed = true;
         }
@@ -226,6 +230,7 @@ impl QueuePanel {
                     }
                 }
                 this.rows = Rc::new(build_rows(&this.tracks, &this.cache));
+                this.list.remeasure();
                 cx.notify();
             });
         }));
@@ -310,7 +315,9 @@ impl Render for QueuePanel {
                     );
                     div()
                         .id(("np-queue-row", ix))
-                        .size_full()
+                        // Cao theo chữ (`measured_rows`), không `size_full`: dòng ngắn vẫn đủ `ROW_HEIGHT`, chữ giữa dòng.
+                        .w_full()
+                        .min_h(px(ROW_HEIGHT))
                         .px(px(ROW_INSET))
                         .flex()
                         .items_center()
@@ -322,22 +329,24 @@ impl Render for QueuePanel {
                             div()
                                 .flex_1()
                                 .min_w_0()
+                                .py(px(ROW_PADDING_Y))
                                 .flex()
                                 .flex_col()
+                                // Không cắt "…": tên dài xuống dòng như Apple Music, dòng cao theo chữ.
                                 .child(
                                     div()
-                                        .truncate()
                                         .text_sm()
                                         .text_color(if is_current { c.primary_ink } else { c.text.opacity(0.9) })
                                         .child(title),
                                 )
-                                .child(div().truncate().text_xs().text_color(c.muted).child(artist)),
+                                .child(div().text_xs().text_color(c.muted).child(artist)),
                         )
                         .into_any_element()
                 }
             };
             let (select, activate) = (this.clone(), this.clone());
             VirtualList::new("np-queue-rows", count, px(ROW_HEIGHT), render_row)
+                .measured_rows()
                 // Space là phím phát / dừng toàn cục: không để nó bật vòng focus quanh hàng đợi.
                 .focus_ring(false)
                 .selected(self.cursor.or(current))

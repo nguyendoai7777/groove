@@ -37,8 +37,13 @@ use materiant::virtual_grid::LruImageCache;
 use crate::icons::GrooveIcon;
 use crate::views::cover_image::{self, CoverImage, CoverKind, parse_color};
 
-/// Chiều cao cố định của dòng tên và dòng phụ: thẻ cao đúng `COVER + TEXT_BLOCK`, lưới tính được cao ô.
-const TITLE_HEIGHT: f32 = 20.;
+/// Số hàng chữ của tên thẻ: tên dài xuống tới hai hàng rồi mới cắt (chủ dự án 03/11/2026 không muốn cắt "…"; lưới ô cùng cỡ
+/// của `VirtualGrid` không cho thẻ cao riêng, xem `plan/confirm.md` mục `wrap`).
+const TITLE_LINES: usize = 2;
+/// Cao một hàng chữ tên thẻ.
+const TITLE_LINE_HEIGHT: f32 = 20.;
+/// Chiều cao cố định của khối tên và dòng phụ: thẻ cao đúng `COVER + TEXT_BLOCK`, lưới tính được cao ô.
+const TITLE_HEIGHT: f32 = TITLE_LINE_HEIGHT * TITLE_LINES as f32;
 const SUBTITLE_HEIGHT: f32 = 16.;
 const TEXT_GAP: f32 = 12.;
 /// Khe giữa dòng tên và dòng phụ (`mt-1` của bản cũ).
@@ -283,8 +288,11 @@ impl RenderOnce for CategoryCard {
                     .mt(px(TEXT_GAP))
                     .child(
                         div()
-                            .h(px(TITLE_HEIGHT))
-                            .truncate()
+                            // Tên một dòng thì dòng phụ nằm sát dưới; chỗ thừa của ô dồn xuống đáy.
+                            .max_h(px(TITLE_HEIGHT))
+                            .line_height(px(TITLE_LINE_HEIGHT))
+                            .line_clamp(TITLE_LINES)
+                            .text_ellipsis()
                             .text_color(c.text)
                             .child(SharedString::from(self.summary.name.clone())),
                     )

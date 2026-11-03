@@ -22,8 +22,12 @@ use crate::icons::GrooveIcon;
 use crate::views::bars_overlay;
 use crate::views::playing_bars::PlayingBars;
 
-/// Cao một dòng (bản cũ `py-3` + chữ `text-sm`).
+/// Cao tối thiểu một dòng (bản cũ `py-3` + chữ `text-sm`); chữ dài xuống dòng thì dòng cao thêm (`measured_rows`).
 pub const ROW_HEIGHT: f32 = 44.;
+/// Đệm trên / dưới của dòng (= `py-3`).
+const ROW_PADDING_Y: f32 = 12.;
+/// Cao một hàng chữ của dòng: ô `#` cao đúng chừng này để số / bars / Play nằm ngang hàng chữ đầu.
+const LINE_HEIGHT: f32 = ROW_HEIGHT - 2. * ROW_PADDING_Y;
 pub const INDEX_WIDTH: f32 = 48.;
 pub const DURATION_WIDTH: f32 = 96.;
 /// Cột nghệ sĩ ẩn dưới bề ngang cửa sổ này (bản cũ `hidden md:table-cell`, `md` = 768 px của Tailwind).
@@ -114,9 +118,9 @@ impl SongRow {
     }
 }
 
-/// Ô của một cột: lề cân hai bên, không co.
+/// Ô của một cột: lề cân hai bên. Chữ dài xuống dòng, không cắt "…" (chủ dự án 03/11/2026, như Apple Music).
 fn cell() -> gpui::Div {
-    div().px(px(CELL_PADDING)).min_w_0().overflow_hidden().whitespace_nowrap().text_ellipsis()
+    div().px(px(CELL_PADDING)).min_w_0()
 }
 
 /// Dòng tiêu đề cột (`#`, tiêu đề, thời lượng, nghệ sĩ) cùng bố cục với [`SongRow`].
@@ -139,7 +143,8 @@ impl SongRow {
     fn index_cell(&self, c: &ThemeColors) -> impl IntoElement + use<> {
         let accent = c.primary_ink;
         let hover_icon = || Icon::new(GrooveIcon::Play).size(px(12.)).color(accent);
-        let stack = div().w(px(INDEX_WIDTH)).flex_none().h_full().relative().flex().items_center().justify_center();
+        let stack =
+            div().w(px(INDEX_WIDTH)).flex_none().h(px(LINE_HEIGHT)).relative().flex().items_center().justify_center();
         let rest = |child: AnyElement| {
             div()
                 .absolute()
@@ -193,9 +198,12 @@ impl RenderOnce for SongRow {
         div()
             .group(GROUP)
             .debug_selector(move || format!("song-row-{number}"))
-            .size_full()
+            // Cao theo chữ: dòng ngắn đủ `ROW_HEIGHT`, chữ dài xuống dòng; các cột canh theo hàng chữ đầu.
+            .w_full()
+            .min_h(px(ROW_HEIGHT))
+            .py(px(ROW_PADDING_Y))
             .flex()
-            .items_center()
+            .items_start()
             .text_size(px(TEXT_SIZE))
             .when_some(on_context, |row, handler| {
                 row.on_mouse_down(MouseButton::Right, move |event: &MouseDownEvent, window, cx| {

@@ -48,7 +48,7 @@ const DIALOG_WIDTH: f32 = 600.;
 const EDGE: f32 = 16.;
 /// Cao hàng ô tìm (launcher fastcast: 56 px).
 const SEARCH_HEIGHT: f32 = 56.;
-/// Cao một dòng, tiêu đề nhóm cũng cao bằng (danh sách ảo cần dòng đều nhau).
+/// Cao tối thiểu một dòng (tiêu đề nhóm cao đúng bằng); tên bài / mô tả dài xuống dòng thì dòng cao thêm.
 const ROW_HEIGHT: f32 = 44.;
 /// Cao tối đa của danh sách (bản cũ `max-h-cmd-list-max-h`).
 const LIST_MAX_HEIGHT: f32 = 352.;
@@ -301,6 +301,8 @@ impl CommandPalette {
             self.rows.extend((0..self.songs.len()).map(Row::Song));
         }
         self.selected = first_selectable(&self.rows);
+        // Cùng số dòng mà chữ khác (gõ thêm chữ) ⇒ đo lại cao dòng.
+        self.list.remeasure();
         self.list.scroll_to(0, Align::Start);
     }
 
@@ -520,7 +522,6 @@ impl CommandPalette {
         }
         let views = Rc::new(self.row_views(cx));
         let entity = cx.entity();
-        let height = (views.len() as f32 * ROW_HEIGHT).min(LIST_MAX_HEIGHT);
         let on_select = {
             let entity = entity.clone();
             move |ix: &usize, window: &mut Window, cx: &mut App| {
@@ -547,7 +548,8 @@ impl CommandPalette {
                 RowView::Header(title) => div()
                     .px_3()
                     .pb_1()
-                    .size_full()
+                    .w_full()
+                    .h(px(ROW_HEIGHT))
                     .flex()
                     .items_end()
                     .text_size(px(12.))
@@ -557,7 +559,9 @@ impl CommandPalette {
                 RowView::Item { icon, title, description, trailing } => div()
                     .id(("palette-row", ix))
                     .px_3()
-                    .size_full()
+                    .py_1p5()
+                    .w_full()
+                    .min_h(px(ROW_HEIGHT))
                     .flex()
                     .items_center()
                     .gap_3()
@@ -569,8 +573,8 @@ impl CommandPalette {
                             .min_w_0()
                             .flex()
                             .flex_col()
-                            .child(div().truncate().text_size(px(14.)).child(title.clone()))
-                            .child(div().truncate().text_size(px(12.)).text_color(c.muted).child(description.clone())),
+                            .child(div().text_size(px(14.)).child(title.clone()))
+                            .child(div().text_size(px(12.)).text_color(c.muted).child(description.clone())),
                     )
                     .child(match trailing {
                         Trailing::None => div().into_any_element(),
@@ -585,7 +589,9 @@ impl CommandPalette {
         .on_select(on_select)
         .on_activate(|_, _, _| {})
         .padding_x(px(EDGE))
-        .h(px(height));
+        // Cao theo dòng đã đo (tên dài xuống dòng), tối đa `LIST_MAX_HEIGHT` rồi cuộn.
+        .fit_content()
+        .max_h(px(LIST_MAX_HEIGHT));
         let _ = window;
         list.into_any_element()
     }

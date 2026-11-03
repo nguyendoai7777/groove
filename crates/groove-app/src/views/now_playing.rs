@@ -333,7 +333,8 @@ impl Render for NowPlaying {
                     .font_weight(FontWeight::NORMAL)
                     .child(Marquee::new("now-playing-title", title).paused(!playing)),
             )
-            .child(div().flex_none().truncate().text_color(c.muted).child(artist))
+            // Tên nghệ sĩ dài xuống dòng (không cắt "…").
+            .child(div().flex_none().text_color(c.muted).child(artist))
             .child(div().w_full().flex_1().min_h_0().mt_4().child(self.timeline_box.clone().cached(full())));
 
         let right = column(RIGHT_COLUMN).child(self.queue_panel.clone().cached(full()));

@@ -366,6 +366,16 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [settings-theme] Màu nhấn mặc định đổi sang xanh Material `#005cbb` (chủ dự án), nhánh tối `#abc7ff` (azure tông 80 của Material 3, chữ trên nút lật đen) — hoặc giữ `#005cbb` cả hai nền (~3:1 trên nền tối, khó đọc). Áp cho cả fastcast (preset Default của nó). Preset Black Pink đổi khoá thành `deeppink`, nhãn "Deeppink"; khoá cũ `black-pink` trong `settings.json` tự đọc thành `deeppink`. Nhãn preset hai ngôn ngữ theo ảnh mẫu: Rose & Red, Rebecca Purple (tên riêng).
 - [settings-theme] Preset Deeppink chỉ đổi màu nhấn (`#c71585` / `#ff1493`), nền, chữ, viền, màu trạng thái như Mặc định (chủ dự án: "chỉ khác đúng màu chủ đạo") — trước đó mang cả nền đen tuyền `#0a0a0a` và trung tính zinc của Black Pink cũ. Rose & Red, Rebecca Purple vẫn có trung tính ám màu riêng.
 
+## wrap
+
+Chủ dự án (2026-11-03): không muốn chữ bị cắt "…" ở đâu trong Groove X, xuống dòng như Apple Music.
+
+- [wrap] Danh sách ảo dòng khác cao (`VirtualList::measured_rows`, materiant) cho hàng đợi Now Playing, hộp timeline, danh sách bài; bảng lệnh dùng `fit_content` (cao theo dòng đã đo, tối đa 352 px) — giữ dòng cao đều + cắt — chữ phải xuống dòng; vẫn chỉ dựng dòng trong khung (D-17).
+- [wrap] Tên thẻ trong lưới thư viện (`category_card`) xuống tối đa 2 dòng rồi mới cắt "…", dòng phụ (số bài / nghệ sĩ) vẫn một dòng cắt "…" — cho xuống dòng hết — `VirtualGrid` cần ô cao đều để dựng ảo (D-17); thẻ cao thêm 20 px cho dòng thứ hai.
+- [wrap] Tên bài ở thanh phát và Now Playing vẫn chạy chữ (`Marquee`, đã có); tên nghệ sĩ ở thanh phát giờ cũng chạy chữ; Now Playing cho tên nghệ sĩ xuống dòng — xuống dòng ở thanh phát — thanh cao cố định, xuống dòng là đẩy vỡ thanh.
+- [wrap] Còn cắt một dòng, chữ là của app (i18n, ngắn), không phải dữ liệu người dùng: tên app + nhãn mục ở cột trái (`side_nav`: cột co giãn 56 ↔ 230 px có hoạt ảnh, vạch chọn đặt theo `ix × ITEM_HEIGHT`), nhãn tab Settings (vạch chọn theo `ix × TAB_HEIGHT`), chữ gợi ý ô tìm (ô nhập một dòng), ô "Đang nhập…" trong lưới (ô cao đều) — đổi sang xuống dòng — thấy "…" ở đây nghĩa là bản dịch quá dài, sửa bản dịch.
+- [wrap] Đường dẫn thư mục nhạc trong Settings xuống dòng (ngắt giữa chữ khi không có chỗ ngắt) — cắt "…" giữa đường dẫn — người dùng cần thấy đủ đường dẫn.
+
 ## perf-notify
 
 - [perf-notify] Nhịp vị trí 250 ms tách khỏi `Player` thành entity `PlaybackClock` (`Player::clock`) — giữ `notify` Player rồi lọc ở từng view — chỉ thanh tua, nhãn giờ / dòng đang phát của TimelineBox và media session nghe nhịp; `Player` chỉ `notify` khi trạng thái đổi (nhịp vẫn `notify` Player đúng lúc `engine.is_playing()` đổi, để nút Play / Pause theo kịp luồng âm thanh).
