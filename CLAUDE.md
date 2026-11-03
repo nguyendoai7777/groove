@@ -133,7 +133,9 @@ màn nào, không giành focus, dữ liệu tạm; in RAM, số cửa sổ, tiê
 `CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=true`. Không có nền mờ, con trỏ, taskbar thật; xem ảnh xong xoá. `-Clicks` bấm nút cửa sổ
 bằng thông điệp Win32 như chuột thật, in hit-test và `IsIconic` / `IsZoomed` thật sau mỗi lần bấm (`-Hover <ms>` rê trước khi bấm); `hit@x:y` chỉ in hit-test ở
 điểm đó, `dbl@x:y` nhấp đúp (vùng kéo). Muốn view `cached` được dùng lại như lúc chạy thật thì thêm `-Seed … -Active` (chữ chạy). `-Settings <json>` ghi
-`settings.json` của dữ liệu tạm trước khi mở (vd `{"theme":"light"}` để chụp theme sáng).
+`settings.json` của dữ liệu tạm trước khi mở (vd `{"theme":"light"}` để chụp theme sáng). Kéo chuột trong `-Clicks`: `down@x:y`,
+`move@x:y`, `up@x:y` (đi đường `WM_NC*` khi hit-test không phải `HTCLIENT`, như chuột thật), `shot@<tệp.png>` chụp giữa các bước;
+kéo slider của materiant cần vài bước `move`. `-Pip` chạy kèm `--pip`, bấm / chụp cửa sổ trình phát thu nhỏ.
 
 `tools/run.ps1`: màn phụ, không focus, phím đưa thẳng vào GPUI, chụp đúng cửa sổ, in RAM, `foreground_unchanged`; dữ liệu ở
 thư mục tạm; máy chỉ một màn thì từ chối (không đè màn đang dùng), muốn thử thật truyền `-Display primary`. `--display` chọn
@@ -144,6 +146,9 @@ màn không có thì thoát, không rơi về màn mặc định. Xem ảnh xong
 - **Vùng `WindowControlArea` (kéo cửa sổ) không đặt trong view `cached`**: gpui-pre 0.3.10 dùng lại hitbox, listener của view
   `cached` nhưng không chép `window_control_hitboxes`, vùng kéo mất từ khung đầu tiên view được dùng lại (hit-test thành
   `HTCLIENT`). Vùng kéo của thanh trên, header cột trái là khung bọc ở `Shell::render`, vẽ sau phần `cached`.
+- **Phần tử kéo được (thanh tua, slider) nằm trong vùng kéo cửa sổ thì phải `occlude`**: không thì hit-test là `HTCAPTION`,
+  GPUI vẫn nhận MouseDown nhưng Windows vào vòng dời cửa sổ và nuốt lần thả chuột — thanh kẹt ở trạng thái kéo, rê là chạy theo
+  (PiP, 03/11/2026).
 
 - **Bản Tauri để đối soát — không xoá**: `src-tauri/target/x86_64-pc-windows-msvc/release/groovex.exe` (exe tự chứa giao diện) và
   `release/groovex_0.1.0_*` (setup, msi, portable). Dọn `target` không đụng hai chỗ này (`clean.sh` đã bỏ qua).

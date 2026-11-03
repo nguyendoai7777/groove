@@ -20,7 +20,11 @@
 # `-Clicks "max,max,min,close"`: bấm nút cửa sổ ở góc trên phải bằng thông điệp Win32 như khi rê + nhấp chuột thật
 # (`WM_MOUSEMOVE` → `WM_NCHITTEST` → `WM_NC*` hoặc `WM_LBUTTON*` theo kết quả hit-test), rồi in hit-test và trạng thái
 # thật `IsIconic` / `IsZoomed` sau mỗi lần bấm. Sau `min` script tự `SW_RESTORE` để bấm tiếp. Bước `hit@x:y` chỉ rê tới điểm
-# (px logic, x âm tính từ mép phải) và in hit-test; `dbl@x:y` nhấp đúp ở đó (vùng kéo: phóng to / khôi phục).
+# (px logic, x âm tính từ mép phải) và in hit-test; `dbl@x:y` nhấp đúp ở đó (vùng kéo: phóng to / khôi phục). Kéo chuột:
+# `down@x:y`, `move@x:y`, `up@x:y` (nhấn / rê / thả, đi đường WM_NC* nếu hit-test không phải HTCLIENT như chuột thật);
+# `shot@<tệp.png>` chụp cửa sổ giữa các bước.
+#
+# `-Pip`: chạy kèm `--pip` và bấm / chụp cửa sổ trình phát thu nhỏ thay cửa sổ chính.
 param(
     [Parameter(Mandatory)][string]$Exe,
     [int]$Seconds = 15,
@@ -34,7 +38,8 @@ param(
     # Rê trên nút bao lâu (ms) trước khi nhấp — đủ lâu thì tooltip đã hiện.
     [int]$Hover = 150,
     # Ghi `settings.json` của dữ liệu tạm trước khi mở app, vd '{"theme":"light"}'.
-    [string]$Settings = ""
+    [string]$Settings = "",
+    [switch]$Pip
 )
 $ErrorActionPreference = "Stop"
 
@@ -100,6 +105,28 @@ public static class HiddenDesktop {
         }
         return ht;
     }
+
+    // Một bước của thao tác kéo: 0 nhấn, 1 rê, 2 thả. Vùng không phải client đi đường WM_NC* như chuột thật (nhấn trên
+    // HTCAPTION thì GPUI vẫn nhận MouseDown trước khi OS dời cửa sổ). Trả mã hit-test.
+    public static int Drag(IntPtr h, int x, int y, int kind, int hover) {
+        IntPtr r;
+        var p = new POINT { X = x, Y = y };
+        ClientToScreen(h, ref p);
+        if (kind == 0) { PostMessageW(h, 0x0200, IntPtr.Zero, Pack(x, y)); System.Threading.Thread.Sleep(hover); } // rê tới trước khi nhấn
+        SendMessageTimeoutW(h, 0x0084, IntPtr.Zero, Pack(p.X, p.Y), 2, 2000, out r);
+        int ht = (int)r;
+        IntPtr held = kind == 2 ? IntPtr.Zero : (IntPtr)1;
+        if (kind == 1) held = (IntPtr)Held;
+        uint[] client = { 0x0201, 0x0200, 0x0202 }; // WM_LBUTTONDOWN, WM_MOUSEMOVE, WM_LBUTTONUP
+        uint[] nc = { 0x00A1, 0x00A0, 0x00A2 };
+        if (ht == 1) PostMessageW(h, client[kind], held, Pack(x, y));
+        else PostMessageW(h, nc[kind], (IntPtr)ht, Pack(p.X, p.Y));
+        if (kind == 0) Held = 1;
+        if (kind == 2) Held = 0;
+        System.Threading.Thread.Sleep(hover);
+        return ht;
+    }
+    static int Held;
 
     // Rê tới (x, y) rồi hỏi WM_NCHITTEST, không nhấp.
     public static int HitTest(IntPtr h, int x, int y, int hover) {
@@ -170,6 +197,7 @@ $si.lpDesktop = "WinSta0\$name"
 $pi = New-Object HiddenDesktop+PROCESS_INFORMATION
 $line = if ($Active) { "`"$exe`"" } else { "`"$exe`" --background" }
 if ($Keys) { $line += " --keys `"$Keys`"" }
+if ($Pip) { $line += " --pip" }
 $cmd = New-Object Text.StringBuilder $line
 # CREATE_NO_WINDOW: bản debug là ứng dụng console, không để console hiện ở desktop đang dùng.
 if (-not [HiddenDesktop]::CreateProcessW($exe, $cmd, [IntPtr]::Zero, [IntPtr]::Zero, $false, 0x08000000, [IntPtr]::Zero, (Split-Path $exe), [ref]$si, [ref]$pi)) {
@@ -179,6 +207,27 @@ if (-not [HiddenDesktop]::CreateProcessW($exe, $cmd, [IntPtr]::Zero, [IntPtr]::Z
 $proc = Get-Process -Id $pi.dwProcessId
 $script:cpuMark = [TimeSpan]::Zero
 $script:wallMark = [Diagnostics.Stopwatch]::StartNew()
+
+# Cửa sổ cần bấm / chụp: `-Pip` lấy cửa sổ nhỏ nhất (PiP 420 × 140), không thì cửa sổ đầu.
+function Target-Window($list) {
+    if (-not $Pip -or $list.Count -lt 2) { return $list[0] }
+    $list | Sort-Object { $r = New-Object HiddenDesktop+RECT; [void][HiddenDesktop]::GetWindowRect($_, [ref]$r); ($r.R - $r.L) * ($r.B - $r.T) } |
+        Select-Object -First 1
+}
+
+function Take-Shot($h, [string]$path) {
+    $rect = New-Object HiddenDesktop+RECT
+    [void][HiddenDesktop]::GetWindowRect($h, [ref]$rect)
+    $bitmap = New-Object Drawing.Bitmap ([Math]::Max(1, $rect.R - $rect.L)), ([Math]::Max(1, $rect.B - $rect.T))
+    $graphics = [Drawing.Graphics]::FromImage($bitmap)
+    $dc = $graphics.GetHdc()
+    [void][HiddenDesktop]::PrintWindow($h, $dc, 2) # PW_RENDERFULLCONTENT
+    $graphics.ReleaseHdc($dc)
+    $graphics.Dispose()
+    $bitmap.Save($path)
+    $bitmap.Dispose()
+    "shot: $path"
+}
 
 function Measure-Now([string]$label) {
     $proc.Refresh()
@@ -200,7 +249,7 @@ try {
     }
     $win = [HiddenDesktop]::Windows($desktop, $proc.Id)
     if ($Clicks -and $win.Count) {
-        $h = $win[0]
+        $h = Target-Window $win
         # Tâm nút tính từ mép phải, theo px logic (nút rộng 36, thanh cao 36); y = 24 tránh dải kéo giãn mép trên.
         $offset = @{ min = 90; max = 54; close = 18 }
         $names = @{ 1 = "HTCLIENT"; 2 = "HTCAPTION"; 8 = "HTMINBUTTON"; 9 = "HTMAXBUTTON"; 20 = "HTCLOSE"; 12 = "HTTOP"; 14 = "HTTOPRIGHT" }
@@ -208,6 +257,15 @@ try {
             $scale = [HiddenDesktop]::GetDpiForWindow($h) / 96.0
             $client = New-Object HiddenDesktop+RECT
             [void][HiddenDesktop]::GetClientRect($h, [ref]$client)
+            if ($c -match '^shot@(.+)$') { Take-Shot $h $Matches[1]; continue }
+            if ($c -match '^(down|move|up)@(-?\d+):(\d+)$') {
+                $lx = [int]$Matches[2]
+                $x = if ($lx -lt 0) { [int]($client.R + $lx * $scale) } else { [int]($lx * $scale) }
+                $y = [int]([int]$Matches[3] * $scale)
+                $ht = [HiddenDesktop]::Drag($h, $x, $y, @{ down = 0; move = 1; up = 2 }[$Matches[1]], $Hover)
+                "{0}: hit_test={1}" -f $c, $(if ($names.ContainsKey($ht)) { $names[$ht] } else { $ht })
+                continue
+            }
             if ($c -match '^(hit|dbl)@(-?\d+):(\d+)$') {
                 $lx = [int]$Matches[2]
                 $x = if ($lx -lt 0) { [int]($client.R + $lx * $scale) } else { [int]($lx * $scale) }
@@ -226,19 +284,7 @@ try {
         }
         $win = [HiddenDesktop]::Windows($desktop, $proc.Id)
     }
-    if ($Shot -and $win.Count) {
-        $rect = New-Object HiddenDesktop+RECT
-        [void][HiddenDesktop]::GetWindowRect($win[0], [ref]$rect)
-        $bitmap = New-Object Drawing.Bitmap ([Math]::Max(1, $rect.R - $rect.L)), ([Math]::Max(1, $rect.B - $rect.T))
-        $graphics = [Drawing.Graphics]::FromImage($bitmap)
-        $dc = $graphics.GetHdc()
-        [void][HiddenDesktop]::PrintWindow($win[0], $dc, 2) # PW_RENDERFULLCONTENT
-        $graphics.ReleaseHdc($dc)
-        $graphics.Dispose()
-        $bitmap.Save($Shot)
-        $bitmap.Dispose()
-        "shot: $Shot"
-    }
+    if ($Shot -and $win.Count) { Take-Shot (Target-Window $win) $Shot }
 } finally {
     $proc.Refresh()
     if (-not $proc.HasExited) { $proc.Kill(); $proc.WaitForExit(5000) | Out-Null }

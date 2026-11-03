@@ -401,3 +401,12 @@ Trình phát thu nhỏ (`views::pip`): cửa sổ 420 × 140, mở từ nút c�
 - [pip] Lần đầu mở ở góc dưới phải màn có cửa sổ chính, cách mép 32 px; Wayland không cho app đặt vị trí nên compositor tự đặt và không nhớ được vị trí.
 - [pip] Menu dock: Linux `Actions=pip` trong `.desktop` (cả bản dev của `start.sh`) chạy `groove --pip`, đi qua kênh một phiên `instance.rs`; Windows jump list `--dock-action 0` (tiến trình thứ hai chuyển cho phiên đang chạy); macOS menu dock gọi action trong tiến trình — đi qua MPRIS — MPRIS không có lệnh mở cửa sổ riêng, kênh `instance.rs` đã có sẵn và chạy cả khi app chưa mở (mở app rồi mở PiP).
 - [queue-scroll-top] Mở màn Now Playing (lần đầu và mỗi lần quay lại từ màn khác) thì bài đang phát lên sát mép trên hàng đợi; đổi bài khi đang ở màn vẫn cuộn vào giữa như bản web — chủ dự án chỉ yêu cầu lúc mở màn — đổi bài cũng đưa lên đỉnh.
+
+## pip-ui
+
+- Thanh tua PiP bỏ hai nhãn giờ để giãn hết bề ngang cột; nhãn khi rê / kéo hiện giờ tại con trỏ (khúc có tên: `giờ · tên (đầu - cuối)`).
+  Không còn thấy thời lượng bài khi không rê — đổi lấy thanh dài như chủ dự án yêu cầu.
+- Lỗi "rê là thanh chạy theo": cả PiP là vùng kéo, nhấn trên thanh tua thành `HTCAPTION` → GPUI bắt đầu kéo nhưng Windows nuốt
+  lần thả chuột. Sửa: khung thanh tua `occlude` (ưu tiên slider: kéo thanh là tua, không dời cửa sổ), thanh tua dừng lan
+  MouseDown. Thanh tua, thanh âm lượng ở cửa sổ chính không dính (không nằm trong vùng kéo) — đã soát trong desktop ẩn.
+- Cột phải: tên bài 28 px, thanh tua 16 px, hàng nút 40 px, `justify-around` trong đệm 10 px.

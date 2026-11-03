@@ -1,8 +1,9 @@
 //! pip (03/11/2026): trình phát thu nhỏ — cửa sổ nhỏ kiểu Picture in picture của trình duyệt.
 //!
 //! Cửa sổ 420 × 140 không viền, cỡ cố định: bìa vuông bên trái; bên phải tên bài (một dòng, [`Marquee`]) + nút quay lại cửa
-//! sổ chính ở góc trên phải, thanh tua ([`SeekBar`]), hàng nút Shuffle / Lùi / Phát-Dừng / Tới / Repeat ([`Transport`] của
-//! thanh phát). Chỗ trống là vùng kéo cửa sổ. Dùng chung `Player` với cửa sổ chính (`player::player`).
+//! sổ chính ở góc trên phải, thanh tua ([`SeekBar::without_times`], giãn hết bề ngang), hàng nút Shuffle / Lùi / Phát-Dừng /
+//! Tới / Repeat ([`Transport`] của thanh phát); ba khối cách đều (`justify-around`). Chỗ trống là vùng kéo cửa sổ, thanh
+//! tua `occlude` để kéo là tua. Dùng chung `Player` với cửa sổ chính (`player::player`).
 //!
 //! - **Mở / đóng**: [`toggle`] từ nút PiP và menu chuột phải của thanh phát; [`open`] từ menu dock (`groove --pip`, jump list
 //!   Windows, dock macOS — `open_paths`, [`install`]). Nút quay lại ([`back_to_main`]) đóng PiP và đưa cửa sổ chính lên. Mở PiP
@@ -47,6 +48,8 @@ const PADDING: f32 = 10.;
 const HEADER_HEIGHT: f32 = 28.;
 const BACK_BOX: f32 = 28.;
 const BACK_GLYPH: f32 = 18.;
+/// Hàng nút: cao bằng nút Phát.
+const CONTROLS_HEIGHT: f32 = PIP_CONTROLS.play_size.1;
 const COVER_CACHE: usize = 2;
 
 const PIP_CONTROLS: ControlSet = ControlSet {
@@ -215,7 +218,7 @@ pub struct PipView {
 impl PipView {
     pub fn new(covers: Option<CoverStore>, window: &mut Window, cx: &mut Context<Self>) -> PipView {
         let player = player::player(cx);
-        let seek = cx.new(|cx| SeekBar::new(window, cx));
+        let seek = cx.new(|cx| SeekBar::new(window, cx).without_times());
         let subscriptions = vec![
             cx.observe(&player, |this, player, cx| {
                 let now = BarState::of(player.read(cx), no_prefs, cx);
@@ -331,12 +334,14 @@ impl Render for PipView {
             // Một dòng, cao cố định: tên dài chạy chữ, không cắt "…".
             .child(div().flex_1().min_w_0().child(Marquee::new("pip-title", song_title).paused(!playing)))
             .child(back_button(cx));
+        // `occlude`: thanh tua không thuộc vùng kéo cửa sổ, kéo thanh là tua chứ không dời cửa sổ (xem `seek_bar`).
         let seek = div()
             .w_full()
             .h(px(seek_bar::HIT_HEIGHT))
             .flex_none()
+            .occlude()
             .child(self.seek.clone().cached(StyleRefinement::default().size_full()));
-        let controls = island::cached(&self.controls_island, |s| s.w_full().flex_1().min_h_0());
+        let controls = island::cached(&self.controls_island, |s| s.w_full().h(px(CONTROLS_HEIGHT)).flex_none());
 
         // Vùng kéo là khung gốc (không `cached`, xem bẫy `WindowControlArea` ở `groove/CLAUDE.md`); nút `occlude` chặn nó.
         div()
@@ -357,9 +362,9 @@ impl Render for PipView {
                     .h_full()
                     .flex()
                     .flex_col()
-                    .gap_1()
+                    // Ba khối cách đều (`justify-around`).
+                    .justify_around()
                     .p(px(PADDING))
-                    .pb(px(PADDING / 2.))
                     .child(header)
                     .child(seek)
                     .child(controls),
