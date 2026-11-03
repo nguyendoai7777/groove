@@ -106,6 +106,8 @@ pub struct QueuePanel {
     /// Con trỏ bàn phím; `None` thì tô dòng hiện tại.
     cursor: Option<usize>,
     skip_center: bool,
+    /// Lần mở màn Now Playing (kể cả lần dựng đầu) chờ đưa bài đang phát lên đỉnh khung: chưa có bài thì đợi bài đầu.
+    reveal_pending: bool,
     list: VirtualListHandle,
     load_task: Option<Task<()>>,
     _observe: Subscription,
@@ -125,12 +127,19 @@ impl QueuePanel {
             playing: false,
             cursor: None,
             skip_center: false,
+            reveal_pending: true,
             list: VirtualListHandle::new(),
             load_task: None,
             _observe: observe,
         };
         panel.sync(cx);
         panel
+    }
+
+    #[cfg(test)]
+    /// Tay cầm danh sách (cho test: đọc / đặt vị trí cuộn).
+    pub fn list(&self) -> &VirtualListHandle {
+        &self.list
     }
 
     #[cfg(test)]
@@ -148,6 +157,19 @@ impl QueuePanel {
     #[cfg(test)]
     pub fn current(&self) -> Option<usize> {
         self.current
+    }
+
+    /// Mở màn Now Playing: bài đang phát lên sát mép trên khung (queue-scroll-top, 03/11/2026). Chưa có bài thì để dành cho
+    /// bài đầu tiên.
+    pub fn reveal_current(&mut self, cx: &mut Context<Self>) {
+        match self.current {
+            Some(ix) => {
+                self.reveal_pending = false;
+                self.list.scroll_to(ix, Align::Start);
+                cx.notify();
+            }
+            None => self.reveal_pending = true,
+        }
     }
 
     /// Đồng bộ với hàng đợi của `Player` mỗi khi nó báo đổi (so sánh, không sao chép). Chỉ `notify` khi thứ panel vẽ đổi:
@@ -193,10 +215,13 @@ impl QueuePanel {
             changed = true;
             self.current = current;
             self.cursor = None;
-            if let Some(ix) = current
-                && take_center(&mut self.skip_center)
-            {
-                self.list.scroll_to(ix, Align::Center);
+            if let Some(ix) = current {
+                if std::mem::take(&mut self.reveal_pending) {
+                    self.skip_center = false;
+                    self.list.scroll_to(ix, Align::Start);
+                } else if take_center(&mut self.skip_center) {
+                    self.list.scroll_to(ix, Align::Center);
+                }
             }
         }
         if changed {

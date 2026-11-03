@@ -174,6 +174,10 @@ impl NowPlaying {
 
     /// Khung đổi màn: tiêu đề cửa sổ chỉ là của màn này khi đang ở đây (`Shell` đã xoá tiêu đề riêng khi rời màn).
     pub fn set_route(&mut self, route: Route, cx: &mut Context<Self>) {
+        // Vào màn này từ màn khác: hàng đợi đưa bài đang phát lên đỉnh khung.
+        if route == Route::NowPlaying && self.route != Route::NowPlaying {
+            self.queue_panel.update(cx, |panel, cx| panel.reveal_current(cx));
+        }
         self.route = route;
         self.apply_title(cx);
     }
@@ -509,11 +513,49 @@ mod tests_support {
 
 #[cfg(test)]
 mod view_tests {
-    use gpui::TestAppContext;
+    use gpui::{TestAppContext, VisualTestContext};
 
     use super::tests_support::*;
     use super::*;
     use crate::views::lyrics_panel::Body;
+
+    /// queue-scroll-top: mở màn (lần đầu và mỗi lần quay lại từ màn khác) thì bài đang phát lên sát mép trên hàng đợi.
+    #[gpui::test]
+    fn opening_the_screen_brings_the_current_track_to_the_top(cx: &mut TestAppContext) {
+        let rig = rig(cx);
+        let tracks: Vec<_> = (0..40).map(|i| rig.song(&format!("s{i:02}")).0).collect();
+        let (view, cx) = open_view(&rig, cx);
+        // Bài thứ 31 trong hàng đợi 40 bài: 30 bài đã phát (lịch sử) nằm trên nó.
+        rig.player.update(cx, |p, cx| {
+            p.play_list(tracks[0].clone(), tracks.clone(), cx);
+            for _ in 0..30 {
+                p.next(cx);
+            }
+        });
+        let queue = view.read_with(cx, |v, _| v.queue_panel().clone());
+        // Không qua `rig.until`: nó kéo âm thanh của engine giả, mẫu thử ngắn nên bài tự hết và nhảy sang bài sau.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+        while !queue.read_with(cx, |q, _| q.len() == 40 && q.rows().iter().all(Option::is_some)) {
+            assert!(std::time::Instant::now() < deadline, "timed out: queue ready");
+            cx.run_until_parked();
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        assert_eq!(queue.read_with(cx, |q, _| q.current()), Some(30));
+        let top = |cx: &mut VisualTestContext| {
+            for _ in 0..3 {
+                cx.update(|window, cx| window.draw(cx).clear(cx));
+            }
+            queue.read_with(cx, |q, _| q.list().scroll_top())
+        };
+        let first = top(cx);
+        assert!(first > 0., "lần đầu: đã cuộn tới bài 31 ({first})");
+
+        queue.read_with(cx, |q, _| q.list().scroll_to(0, materiant::list::Align::Start));
+        assert_eq!(top(cx), 0.);
+        view.update(cx, |v, cx| v.set_route(Route::MyMusic, cx));
+        view.update(cx, |v, cx| v.set_route(Route::NowPlaying, cx));
+        assert!((top(cx) - first).abs() < 1., "quay lại màn: bài đang phát về đúng chỗ lần đầu");
+    }
 
     /// C1 hàng đợi liệt kê đủ bài; C2 ba nút mở đúng hộp cho bài đang phát; C3 timeline hiện đoạn.
     #[gpui::test]
