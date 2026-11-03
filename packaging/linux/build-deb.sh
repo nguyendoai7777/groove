@@ -59,12 +59,21 @@ for icon in "$repo"/packaging/linux/icons/*x*.png; do
 done
 
 warnings=""
-if command -v pwsh >/dev/null 2>&1 && command -v cargo-about >/dev/null 2>&1; then
-  pwsh -NoProfile -File "$repo/packaging/licenses/gen-licenses.ps1" -Out "$root/usr/share/doc/groove-x"
+# Trang giấy phép: `gen-licenses.ps1` khi có pwsh, không thì bản Node `gen-licenses.mjs` (cùng bước, cùng chốt soát).
+# Thiếu cargo-about thì cài vào ~/.cargo (không sudo, vài phút lần đầu).
+if ! command -v cargo-about >/dev/null 2>&1; then
+  echo "==> Cài cargo-about (trang giấy phép)"
+  cargo install cargo-about --locked --features cli || echo "⚠ Cài cargo-about không xong." >&2
+fi
+licenses="$root/usr/share/doc/groove-x"
+if command -v cargo-about >/dev/null 2>&1 && command -v pwsh >/dev/null 2>&1; then
+  pwsh -NoProfile -File "$repo/packaging/licenses/gen-licenses.ps1" -Out "$licenses"
+elif command -v cargo-about >/dev/null 2>&1 && command -v node >/dev/null 2>&1; then
+  node "$repo/packaging/licenses/gen-licenses.mjs" "$licenses"
 elif [ -n "$draft" ]; then
-  warnings="⚠ Không có trang giấy phép: cần pwsh + cargo-about."$'\n'
+  warnings="⚠ Không có trang giấy phép: cần cargo-about + pwsh hoặc node."$'\n'
 else
-  echo "Không có trang giấy phép: cần pwsh + cargo-about (bản thử: --draft)." >&2
+  echo "Không có trang giấy phép: cần cargo-about + pwsh hoặc node (bản thử: --draft)." >&2
   exit 1
 fi
 cat > "$root/usr/share/doc/groove-x/copyright" <<'EOF'
