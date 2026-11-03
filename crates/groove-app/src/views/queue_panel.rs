@@ -109,8 +109,6 @@ pub struct QueuePanel {
     skip_center: bool,
     /// Lần mở màn Now Playing (kể cả lần dựng đầu) chờ đưa bài đang phát lên đỉnh khung: chưa có bài thì đợi bài đầu.
     reveal_pending: bool,
-    /// Đang vẽ trong drawer (Now Playing hẹp): không khung thẻ, thanh nhảy vẽ tại chỗ vì lớp phủ `bars_overlay` nằm dưới hộp thoại.
-    in_drawer: bool,
     list: VirtualListHandle,
     load_task: Option<Task<()>>,
     _observe: Subscription,
@@ -131,7 +129,6 @@ impl QueuePanel {
             cursor: None,
             skip_center: false,
             reveal_pending: true,
-            in_drawer: false,
             list: VirtualListHandle::new(),
             load_task: None,
             _observe: observe,
@@ -165,14 +162,6 @@ impl QueuePanel {
 
     /// Mở màn Now Playing: bài đang phát lên sát mép trên khung (queue-scroll-top, 03/11/2026). Chưa có bài thì để dành cho
     /// bài đầu tiên.
-    /// Chuyển giữa cột phải và drawer của Now Playing.
-    pub fn set_in_drawer(&mut self, in_drawer: bool, cx: &mut Context<Self>) {
-        if self.in_drawer != in_drawer {
-            self.in_drawer = in_drawer;
-            cx.notify();
-        }
-    }
-
     pub fn reveal_current(&mut self, cx: &mut Context<Self>) {
         match self.current {
             Some(ix) => {
@@ -296,7 +285,6 @@ impl Render for QueuePanel {
         let count = self.tracks.len();
         let current = self.current;
         let this = cx.entity();
-        let in_drawer = self.in_drawer;
 
         let header = div()
             .flex_none()
@@ -341,10 +329,7 @@ impl Render for QueuePanel {
                     };
                     let index_cell = div().w(px(INDEX_WIDTH)).flex_none().flex().items_center().justify_center().child(
                         if is_current {
-                            if playing && in_drawer {
-                                // Drawer là hộp thoại, vẽ trên lớp phủ của thanh nhảy: thanh vẽ tại chỗ (chỉ dựng lại panel lúc mở).
-                                PlayingBars::new(true).size(px(14.)).into_any_element()
-                            } else if playing {
+                            if playing {
                                 // Vẽ ở lớp phủ: panel nằm trong khung `cached` của Now Playing.
                                 bars_overlay::anchor(px(14.)).into_any_element()
                             } else {
@@ -417,7 +402,7 @@ impl Render for QueuePanel {
             .flex()
             .flex_col()
             .overflow_hidden()
-            .when(!in_drawer, |panel| panel.region_surface(cx))
+            .region_surface(cx)
             .child(header)
             .child(body)
     }

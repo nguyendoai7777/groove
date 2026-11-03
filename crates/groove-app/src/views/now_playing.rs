@@ -8,9 +8,10 @@
 //! [`TextDialog`] (task 19, 20) cho bài đang phát. Hộp lyrics, timeline tự đóng khi đổi bài, lưu xong tự nạp lại bài.
 //! Tiêu đề cửa sổ là `<bài> - <nghệ sĩ> | Groove X` khi đang ở màn này.
 //!
-//! Responsive (chủ dự án 03/11/2026; bản web không có): màn hẹp hơn [`NARROW_WIDTH`] thì ẩn cột hàng đợi, `LyricsPanel` hiện nút
-//! Hàng đợi mở chính [`QueuePanel`] trong drawer phải (`Dialog::drawer` của materiant: Esc, bấm nền, bẫy Tab). Bề ngang đo lúc
-//! `prepaint` (canvas phủ màn); đổi mức thì xin khung mới. Rộng ra lại khi drawer đang mở thì drawer đóng, cột hiện lại.
+//! Responsive (chủ dự án 03/11/2026; bản web không có): màn hẹp hơn [`NARROW_WIDTH`] thì ẩn cột lời bài, cột hàng đợi giãn ra;
+//! nút Lời bài dưới tên nghệ sĩ mở chính [`LyricsPanel`] (cả ba nút Metadata, Timeline, Sửa lời) trong drawer phải
+//! (`Dialog::drawer` của materiant: Esc, bấm nền, bẫy Tab). Bề ngang đo lúc `prepaint` (canvas phủ màn); đổi mức thì xin khung
+//! mới. Rộng ra lại khi drawer đang mở thì drawer đóng, cột hiện lại.
 //!
 //! Accent đọc từ cột `covers.accent_color` của DB ở luồng nền (UI không chạm đĩa, N7). Bài là tệp ngoài thì không có accent
 //! (không có hàng trong `covers`), quầng bỏ trống.
@@ -37,12 +38,13 @@ use materiant::theme::ActiveTheme;
 use materiant::virtual_grid::LruImageCache;
 
 use crate::app::{self, ShellEvent, Slot};
+use crate::icons::GrooveIcon;
 use crate::player::{self, Player, PlayerEvent};
 use crate::route::Route;
 use crate::views::cover_image::{CoverImage, CoverKind, PlaceholderLook, parse_color};
 use crate::views::layout;
 use crate::views::lyrics_dialog::TextDialog;
-use crate::views::lyrics_panel::{LyricsPanel, LyricsPanelEvent};
+use crate::views::lyrics_panel::{self, LyricsPanel, LyricsPanelEvent};
 use crate::views::marquee::Marquee;
 use crate::views::metadata::dialog::{MetadataDialog, MetadataDialogEvent};
 use crate::views::queue_panel::QueuePanel;
@@ -57,9 +59,11 @@ pub const GLOW_OPACITY: f32 = 0.3;
 /// cột lời giữa chỉ còn ~86 px, ba nút Metadata / Timeline / Lời bị cắt (thấy khi chạy thật, groove-gd1_29).
 pub const LEFT_COLUMN: (f32, f32, f32) = (0.25, 150., 300.);
 pub const RIGHT_COLUMN: (f32, f32, f32) = (0.32, 190., 340.);
-/// Màn hẹp hơn mức này (px, cả màn Now Playing) thì ẩn cột hàng đợi, mở nó bằng nút trong drawer: ở 1024 px cột lời còn ~376 px,
+/// Màn hẹp hơn mức này (px, cả màn Now Playing) thì ẩn cột lời bài, mở nó bằng nút trong drawer: ở 1024 px cột lời còn ~376 px,
 /// đủ tiêu đề + ba nút một hàng; hẹp hơn thì ba cột ép chật (ảnh chủ dự án, màn ~860 px).
 pub const NARROW_WIDTH: f32 = 1024.;
+/// Bề ngang drawer lời bài: đủ tiêu đề + ba nút một hàng và dòng lời dài.
+const LYRICS_DRAWER_WIDTH: f32 = 480.;
 const COVER_CACHE: usize = 4;
 
 /// `<bài> - <nghệ sĩ> | Groove X`; bài không có nghệ sĩ thì bỏ phần `- <nghệ sĩ>`. Không có bài thì `None` (về tên trang).
@@ -94,9 +98,9 @@ pub struct NowPlaying {
     lyrics_dialog: Option<Entity<TextDialog>>,
     timeline_dialog: Option<Entity<TextDialog>>,
     metadata_dialog: Option<Entity<MetadataDialog>>,
-    /// Màn hẹp: cột hàng đợi ẩn, hàng đợi mở trong [`Self::queue_drawer`].
+    /// Màn hẹp: cột lời bài ẩn, lời bài mở trong [`Self::lyrics_drawer`].
     narrow: bool,
-    queue_drawer: DialogHandle,
+    lyrics_drawer: DialogHandle,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -149,7 +153,7 @@ impl NowPlaying {
             timeline_dialog,
             metadata_dialog: None,
             narrow: false,
-            queue_drawer: DialogHandle::new(cx),
+            lyrics_drawer: DialogHandle::new(cx),
             _subscriptions: subscriptions,
         };
         view.refresh_cover(cx);
@@ -259,11 +263,6 @@ impl NowPlaying {
 
     /// Nút ở `LyricsPanel` được bấm: mở hộp tương ứng cho bài đang phát.
     fn panel_event(&mut self, event: LyricsPanelEvent, window: &mut Window, cx: &mut Context<Self>) {
-        if event == LyricsPanelEvent::Queue {
-            self.queue_panel.update(cx, |panel, cx| panel.reveal_current(cx));
-            self.queue_drawer.open(window, cx);
-            return;
-        }
         let Some(track) = self.player.read(cx).current_track().cloned() else { return };
         match event {
             LyricsPanelEvent::Lyrics => {
@@ -276,7 +275,6 @@ impl NowPlaying {
                     dialog.update(cx, |dialog, cx| dialog.open(track, window, cx));
                 }
             }
-            LyricsPanelEvent::Queue => {}
             LyricsPanelEvent::Metadata => {
                 let Some(ops) = self.ops.clone() else { return };
                 if self.metadata_dialog.is_some() {
@@ -302,11 +300,10 @@ impl NowPlaying {
             return;
         }
         self.narrow = narrow;
-        if !narrow && self.queue_drawer.is_open() {
-            self.queue_drawer.close(window, cx);
+        if !narrow && self.lyrics_drawer.is_open() {
+            self.lyrics_drawer.close(window, cx);
         }
-        self.lyrics_panel.update(cx, |panel, cx| panel.set_queue_button(narrow, cx));
-        self.queue_panel.update(cx, |panel, cx| panel.set_in_drawer(narrow, cx));
+        self.lyrics_panel.update(cx, |panel, cx| panel.set_in_drawer(narrow, cx));
         cx.notify();
     }
 
@@ -316,8 +313,8 @@ impl NowPlaying {
     }
 
     #[cfg(test)]
-    pub fn queue_drawer(&self) -> &DialogHandle {
-        &self.queue_drawer
+    pub fn lyrics_drawer(&self) -> &DialogHandle {
+        &self.lyrics_drawer
     }
 
     fn cover(&self, cx: &App) -> AnyElement {
@@ -371,6 +368,20 @@ impl Render for NowPlaying {
 
         // Kiểu thẻ: ba khung cách nhau và cách mép một khe. Kiểu lưới: sát nhau, đường kẻ ngăn cột, cột trái tự đệm
         // (bìa, tên bài không có thẻ bao) — `views::layout`.
+        let narrow = self.narrow;
+        let lyrics_button = narrow.then(|| {
+            let drawer = self.lyrics_drawer.clone();
+            // Hàng flex: nút giữ bề ngang nội dung như ba nút của khung lời, không giãn hết cột.
+            div().flex_none().flex().mt_3().child(
+                lyrics_panel::pill_button(
+                    "np-open-lyrics",
+                    t!("now_playing.lyrics.title"),
+                    GrooveIcon::LyricsBubble,
+                    cx,
+                )
+                .on_click(move |_, window, cx| drawer.open(window, cx)),
+            )
+        });
         let gap = px(layout::gap(cx));
         let left = column(LEFT_COLUMN)
             .flex()
@@ -387,16 +398,20 @@ impl Render for NowPlaying {
             )
             // Tên nghệ sĩ dài xuống dòng (không cắt "…").
             .child(div().flex_none().text_color(c.muted).child(artist))
+            .children(lyrics_button)
             .child(div().w_full().flex_1().min_h_0().mt_4().child(self.timeline_box.clone().cached(full())));
 
-        let narrow = self.narrow;
-        let right = (!narrow).then(|| column(RIGHT_COLUMN).child(self.queue_panel.clone().cached(full())));
+        // Hẹp: hàng đợi lấp chỗ cột lời bài để lại.
+        let right = if narrow { div().flex_1().min_w_0().h_full() } else { column(RIGHT_COLUMN) }
+            .child(self.queue_panel.clone().cached(full()));
+        let lyrics =
+            (!narrow).then(|| div().flex_1().min_w_0().h_full().child(self.lyrics_panel.clone().cached(full())));
         let drawer = narrow.then(|| {
-            Dialog::new("now-playing-queue", &self.queue_drawer)
+            Dialog::new("now-playing-lyrics", &self.lyrics_drawer)
                 .drawer(true)
-                .max_width(px(RIGHT_COLUMN.2))
+                .max_width(px(LYRICS_DRAWER_WIDTH))
                 .flush_body(true)
-                .child(div().flex_1().min_h_0().child(self.queue_panel.clone().cached(full())))
+                .child(div().flex_1().min_h_0().child(self.lyrics_panel.clone().cached(full())))
         });
         // Đo bề ngang của màn lúc prepaint; đổi mức thì đổi bố cục ở khung sau.
         let meter = {
@@ -432,9 +447,9 @@ impl Render for NowPlaying {
                     .p(gap)
                     .child(left)
                     .children(layout::vline(cx))
-                    .child(div().flex_1().min_w_0().h_full().child(self.lyrics_panel.clone().cached(full())))
+                    .children(lyrics)
                     .when(!narrow, |row| row.children(layout::vline(cx)))
-                    .children(right),
+                    .child(right),
             )
             .children(self.lyrics_dialog.clone())
             .children(self.timeline_dialog.clone())
@@ -677,9 +692,9 @@ mod view_tests {
         });
     }
 
-    /// Responsive: hẹp hơn `NARROW_WIDTH` thì ẩn cột hàng đợi, nút Hàng đợi mở drawer; rộng ra thì drawer đóng, cột hiện lại.
+    /// Responsive: hẹp hơn `NARROW_WIDTH` thì ẩn cột lời bài, nút Lời bài mở drawer; rộng ra thì drawer đóng, cột hiện lại.
     #[gpui::test]
-    fn narrow_screen_moves_the_queue_into_a_drawer(cx: &mut TestAppContext) {
+    fn narrow_screen_moves_the_lyrics_into_a_drawer(cx: &mut TestAppContext) {
         let rig = rig(cx);
         let (view, cx) = open_view(&rig, cx);
         assert!(!view.read_with(cx, |v, _| v.is_narrow()));
@@ -691,15 +706,15 @@ mod view_tests {
         cx.simulate_resize(gpui::size(px(900.), px(700.)));
         draw(cx);
         assert!(view.read_with(cx, |v, _| v.is_narrow()));
-        let panel = view.read_with(cx, |v, _| v.lyrics_panel().clone());
-        panel.update(cx, |_, cx| cx.emit(LyricsPanelEvent::Queue));
+        let drawer = view.read_with(cx, |v, _| v.lyrics_drawer().clone());
+        cx.update(|window, cx| drawer.open(window, cx));
         draw(cx);
-        assert!(view.read_with(cx, |v, _| v.queue_drawer().is_open()), "nút mở drawer");
+        assert!(view.read_with(cx, |v, _| v.lyrics_drawer().is_open()), "nút mở drawer");
 
         cx.simulate_resize(gpui::size(px(1200.), px(700.)));
         draw(cx);
         assert!(!view.read_with(cx, |v, _| v.is_narrow()));
-        assert!(!view.read_with(cx, |v, _| v.queue_drawer().is_open()), "rộng ra thì drawer đóng");
+        assert!(!view.read_with(cx, |v, _| v.lyrics_drawer().is_open()), "rộng ra thì drawer đóng");
     }
 
     /// C4 bấm một dòng hàng đợi phát bài đó.

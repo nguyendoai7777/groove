@@ -19,7 +19,6 @@ metadata = "Metadata"
 timeline = "Timeline"
 edit_lyrics = "Edit lyrics"
 add_lyrics = "Add lyrics"
-queue = "Queue"
 
 [queue]
 title = "Playing queue"
