@@ -10,7 +10,6 @@ not_found = "Không có bài nào khớp. Thử từ khoá khác."
 playall_empty = "Danh sách đang trống, chưa có bài để phát."
 
 [group]
-quick = "Thao tác nhanh"
 songs = "Bài hát"
 commands = "Lệnh"
 

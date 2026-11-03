@@ -1,12 +1,12 @@
 //! groove-gd1_21: cột giữa Now Playing, lời bài hát (đặc tả 1.5, 1.7).
 //!
-//! Đầu cột: tiêu đề, ba nút tonal Metadata, Timeline, Sửa / Thêm lời (chỉ hiện khi có bài). Thân: không có bài, có lời (các dòng
+//! Đầu cột: tiêu đề, ba nút viên thuốc Metadata, Timeline, Sửa / Thêm lời (chỉ hiện khi có bài). Thân: không có bài, có lời (các dòng
 //! canh giữa, cuộn được, dòng trống cao [`BLANK_LINE_HEIGHT`]) hoặc chưa có lời. Panel không sửa gì: nút bấm phát
 //! [`LyricsPanelEvent`] cho `NowPlaying` mở hộp thoại (task 19, 20). Đổi bài thì cuộn về đầu.
 
 use groove_core::model::TrackRef;
 use groove_core::t;
-use materiant::button::{Button, Size};
+use materiant::button::{Button, ButtonColor, Size};
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
     App, ClickEvent, Context, Entity, EventEmitter, FontWeight, IntoElement, ParentElement, Render, ScrollHandle,
@@ -96,12 +96,23 @@ impl LyricsPanel {
         cx: &mut Context<Self>,
     ) -> impl IntoElement + use<> {
         let this = cx.entity();
-        // Viên thuốc tonal nhỏ, icon trái 14 px như ba nút của `now-playing.vue`.
+        let c = cx.theme().colors();
+        // Viên thuốc như ba nút của `now-playing.vue` (chủ dự án: tonal đậm quá): nền `bg-placeholder/50`, viền
+        // `border-hover/30`, chữ 12 px màu nhấn, icon trái 14 px. Dáng text màu chữ theme nên nền rê / nhấn là lớp trung tính,
+        // ripple và vòng focus của `Button` giữ nguyên.
         Button::new(id, label)
-            .tonal()
+            .text()
+            .button_color(ButtonColor::Custom(c.text))
+            .ink(c.primary_ink)
+            .hover_ink(c.primary_ink)
             .size(Size::Sm)
             .icon(icon)
             .rounded_full()
+            .h(px(28.))
+            .px(px(12.))
+            .text_size(px(12.))
+            .bg(c.layer(Neutral::N200).opacity(0.5))
+            .border_color(c.border.opacity(0.3))
             .on_click(move |_: &ClickEvent, _: &mut Window, cx: &mut App| this.update(cx, |_, cx| cx.emit(event)))
     }
 

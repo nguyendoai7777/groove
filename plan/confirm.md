@@ -319,3 +319,6 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 - [nowplaying-ui] Bìa nhỏ thanh phát vuông, bỏ bo góc cả lớp phủ hover (chủ dự án yêu cầu; web `audio-controller.vue` cũng không bo).
 - [nowplaying-ui] Trang thư viện / danh sách bài: icon trạng thái rỗng / lỗi đổi sang đĩa như các trạng thái rỗng của web (`my-music.vue`). Hộp Metadata giữ `default-cover` vì web cũng dùng `DefaultCover` ở đó.
 - [nowplaying-ui] Ba nút khung Lyrics: `Button` tonal, `Size::Sm`, bo tròn viên thuốc, icon trái (Album / Loop / Edit) — không sửa materiant. Màn Now Playing không còn nút chữ nào khác (hàng đợi, dòng thời gian không có `Button`).
+- [nowplaying-ui] (lượt 2) Ba nút khung Lyrics bỏ tonal (chủ dự án: nền đậm quá): `Button` dáng text màu `c.text` (nền rê / nhấn trung tính, ripple + vòng focus giữ nguyên), chữ / icon `primary_ink`, đè nền `layer(N200)` alpha 0,5, viền `border` alpha 0,3, cao 28, đệm ngang 12, chữ 12 px như `now-playing.vue`. Lúc rê viền về trong suốt (dáng text của materiant), không sửa materiant cho một chỗ.
+- [nowplaying-ui] Nút thu / mở cột trái: icon 16 → 18 px, nét 1,75 → 1,5 (chủ dự án: to hơn, mảnh hơn).
+- [nowplaying-ui] Bảng lệnh: bỏ tiêu đề nhóm "Quick actions" khi ô tìm trống (chủ dự án), xoá khoá `palette.group.quick`; nhóm Commands / Songs giữ tiêu đề.

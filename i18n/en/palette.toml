@@ -10,7 +10,6 @@ not_found = "No song matches. Try another keyword."
 playall_empty = "The list is empty, there is nothing to play."
 
 [group]
-quick = "Quick actions"
 songs = "Songs"
 commands = "Commands"
 

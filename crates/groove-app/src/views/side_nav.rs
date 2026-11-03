@@ -39,9 +39,9 @@ pub const COLLAPSED_WIDTH: f32 = 56.;
 pub const HEADER_HEIGHT: f32 = 36.;
 pub const ITEM_HEIGHT: f32 = 42.;
 const ACTIVE_BAR: f32 = 3.;
-/// Nút thu / mở: tròn 28 px, icon 16 px.
+/// Nút thu / mở: tròn 28 px, icon 18 px nét 1,5 (chủ dự án: to hơn, mảnh hơn).
 const TOGGLE_SIZE: f32 = 28.;
-const ICON_SIZE: f32 = 16.;
+const ICON_SIZE: f32 = 18.;
 const WIDTH_TRANSITION: Duration = Duration::from_millis(300);
 /// Quá ngưỡng này (đang nội suy) mới vẽ chữ; thấp hơn chỉ còn icon, tránh chữ bị cắt giữa chừng.
 const LABEL_THRESHOLD: f32 = COLLAPSED_WIDTH + 64.;
