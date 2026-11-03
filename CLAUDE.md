@@ -63,7 +63,7 @@ Viết tắt trong task: `core`, `library`, `audio`, `app`, `views` = `crates/gr
   khối nổi nền alpha 0,85 (D-10) thay `backdrop-blur`, chỉ cột trái mờ cả cửa sổ (`Blurred`; Linux ngoài KWin không có mờ ⇒ cột trái alpha 0,94, `platform::backdrop`); bỏ `scale` khi hover, đổi
   nền / viền; bỏ nhấp nháy số giờ; thanh phát cập nhật tối đa 4 lần / s và chỉ khi đang phát. Nền `Blurred` làm GPUI tắt
   ClearType, chữ cả app khử răng cưa xám — chờ chủ dự án xem trên màn thật.
-- **Màu nhấn** theo theme materiant (deeppink, như fastcast — G-4): `app::apply_theme` không đặt `primary`; view lấy
+- **Màu nhấn** theo bảng màu đang chọn (Settings → Chung; mặc định xanh Material `#005cbb` của materiant — G-4, đổi 03/11/2026): `app::apply_theme` = `set_palette(preset)` + bản vá groove (nền, font, độ đậm), không đặt `primary`; nền và bảng màu lưu riêng (`theme`, `themePreset`); view lấy
   `cx.theme().colors().primary` (chữ trên nền nhạt: `primary_ink`), không mã màu nhấn cứng. Playlist chưa có màu dùng màu nhấn.
 
 ## Soát UI riêng của groove

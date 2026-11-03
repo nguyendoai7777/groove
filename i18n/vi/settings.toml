@@ -13,7 +13,7 @@ appearance = "Giao diện"
 mode = "Nền"
 mode_light = "Sáng"
 mode_dark = "Tối"
-mode_system = "Theo hệ thống"
+mode_system = "Hệ thống"
 theme_preset = "Bảng màu"
 font = "Phông chữ"
 steps = "Bước tua và âm lượng"
@@ -24,9 +24,9 @@ volume_step_hint = "Từ 1 đến 100. Dùng cho phím lên, xuống và bánh x
 
 [theme_preset]
 default = "Mặc định"
-black_pink = "Đen hồng"
-rose_red = "Hồng đỏ"
-rebecca_purple = "Tím"
+deeppink = "Deeppink"
+rose_red = "Rose & Red"
+rebecca_purple = "Rebecca Purple"
 
 [eq]
 title = "Equalizer"

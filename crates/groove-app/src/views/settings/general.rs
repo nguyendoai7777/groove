@@ -1,4 +1,4 @@
-//! groove-gd1_24: tab Cài đặt chung (đặc tả 1.10): giao diện — nền sáng / tối, bảng màu (preset của materiant, dạng thẻ như
+//! groove-gd1_24: tab Cài đặt chung (đặc tả 1.10): giao diện — nền sáng / tối / hệ thống (nút segmented), bảng màu (preset của materiant, dạng thẻ như
 //! trang theme của gallery), font chữ (D-20), cả ba áp ngay, Huỷ trả về —, bước tua, bước âm lượng, trình phát mặc định
 //! (gd2_01). Bảng EQ ở tab riêng (`EqPanel`).
 //!
@@ -7,12 +7,12 @@
 
 use groove_core::settings::{Settings, ThemeChoice, UiFont};
 use groove_core::t;
+use materiant::button::segmented::SegmentedButtons;
 use materiant::field::FieldLabel;
 use materiant::field::number::NumberField;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{Context, Entity, FontWeight, IntoElement, ParentElement, Render, Styled, Window, div, px};
 use materiant::select::Select;
-use materiant::theme::ActiveTheme;
 use materiant::theme::picker::ThemePicker;
 
 use super::default_player::{Backend, DefaultPlayerPanel};
@@ -101,15 +101,19 @@ fn theme_choice_label(choice: ThemeChoice) -> &'static str {
     }
 }
 
+/// Nhãn ô (cùng kiểu nhãn của `Select`) trên một nhóm chọn không có nhãn riêng.
+fn labeled(label: &'static str, body: impl IntoElement) -> impl IntoElement {
+    div().flex().flex_col().child(FieldLabel::new(label).weight(FontWeight::NORMAL)).child(body)
+}
+
 impl Render for GeneralPanel {
     /// Giao diện (nền, font, bảng màu), bước tua, bước âm lượng, trình phát mặc định xếp dọc.
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let settings = app::settings(cx);
         let presets = app::theme_presets();
         let preset = presets.iter().position(|p| p.key == settings.theme_preset.as_str()).unwrap_or(0);
-        let mode = Select::new("settings-theme-mode")
-            .label(t!("settings.general.mode"))
-            .label_weight(FontWeight::NORMAL)
+        // Nền và bảng màu là hai mục độc lập, lưu riêng (`theme`, `themePreset`): đổi cái này không đụng cái kia.
+        let mode = SegmentedButtons::new("settings-theme-mode")
             .items(THEME_CHOICES.map(theme_choice_label))
             .selected(THEME_CHOICES.iter().position(|c| *c == settings.theme))
             .on_change(|ix, _, cx| {
@@ -117,8 +121,7 @@ impl Render for GeneralPanel {
                 if app::settings(cx).theme != choice {
                     app::update_settings(cx, |s| s.theme = choice);
                 }
-            })
-            .w(px(240.));
+            });
         // Tên font là tên riêng, hiện nguyên văn ở cả hai ngôn ngữ; mỗi mục vẽ bằng chính font của nó thì đẹp hơn nhưng
         // `Select` chưa nhận mục tự vẽ.
         let font = Select::new("settings-font")
@@ -136,8 +139,6 @@ impl Render for GeneralPanel {
         let picker = ThemePicker::new("settings-theme-preset")
             .items(presets.iter().cloned())
             .selected(preset)
-            // Nền do ô Nền quyết, kể cả preset ghim tối (black-pink): thẻ vẽ đúng nền người dùng sẽ thấy sau khi bấm.
-            .preview_dark(cx.theme().is_dark())
             .on_change(move |ix, _, cx| {
                 let key = presets[*ix].key.to_string();
                 if app::settings(cx).theme_preset != key {
@@ -149,14 +150,9 @@ impl Render for GeneralPanel {
             .flex_col()
             .gap_4()
             .child(div().child(t!("settings.general.appearance")))
-            .child(div().flex().gap_4().child(mode).child(font))
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .child(FieldLabel::new(t!("settings.general.theme_preset")).weight(FontWeight::NORMAL))
-                    .child(picker),
-            )
+            .child(labeled(t!("settings.general.mode"), mode))
+            .child(labeled(t!("settings.general.theme_preset"), picker))
+            .child(font)
             .child(div().child(t!("settings.general.steps")))
             .child(
                 div()

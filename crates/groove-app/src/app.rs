@@ -33,7 +33,7 @@ use materiant::gpui_kit::{
 };
 use materiant::style::StyledExt;
 use materiant::theme::picker::{ThemePreset, builtin_presets};
-use materiant::theme::{ActiveTheme, MateriantTheme, ThemeMode, reset_theme, set_theme};
+use materiant::theme::{ActiveTheme, MateriantTheme, ThemeMode, set_palette, set_theme};
 use materiant::toast::ToastViewport;
 use materiant::window::DragRegionExt;
 
@@ -154,15 +154,14 @@ fn theme_mode(choice: ThemeChoice) -> ThemeMode {
     }
 }
 
-/// Màu nhấn là primary mặc định của materiant (deeppink, như fastcast — G-4); view đọc `cx.theme().colors().primary`, không
-/// ghim mã màu. Chữ một độ đậm (G-6): nhãn và tiêu đề của mọi component materiant về normal ngay ở theme, view không phải
-/// truyền `*_weight(NORMAL)` từng chỗ.
+/// Màu nhấn theo bảng màu đang chọn (Settings → Chung; mặc định là primary của materiant, xanh Material `#005cbb` — G-4);
+/// view đọc `cx.theme().colors().primary`, không ghim mã màu. Chữ một độ đậm (G-6): nhãn và tiêu đề của mọi component
+/// materiant về normal ngay ở theme, view không phải truyền `*_weight(NORMAL)` từng chỗ.
 ///
-/// `set_theme` cộng dồn ⇒ dựng lại từ mặc định mỗi lần: preset bảng màu (Settings → Chung) rồi bản vá của groove, để đổi
-/// preset không giữ sót màu của preset trước. Nền sáng / tối luôn theo `choice`, kể cả preset ghim nền (black-pink).
+/// Nền (`choice`) và bảng màu (`preset`) là hai lựa chọn độc lập: `set_palette` chỉ thay màu (không sót màu preset trước),
+/// bản vá của groove đặt nền, font, độ đậm. Nền `System` thì đổi sáng / tối theo OS với bảng màu đã chọn.
 fn apply_theme(choice: ThemeChoice, preset: &str, font: UiFont, cx: &mut App) {
-    reset_theme(cx);
-    set_theme(&theme_preset(preset).theme, cx);
+    set_palette(&theme_preset(preset).theme, cx);
     set_theme(&groove_theme(choice, font), cx);
 }
 
@@ -173,7 +172,7 @@ pub fn theme_presets() -> Vec<ThemePreset> {
         .map(|preset| {
             let label = match preset.key.as_ref() {
                 "default" => t!("settings.theme_preset.default"),
-                "black-pink" => t!("settings.theme_preset.black_pink"),
+                "deeppink" => t!("settings.theme_preset.deeppink"),
                 "rose-red" => t!("settings.theme_preset.rose_red"),
                 "rebecca-purple" => t!("settings.theme_preset.rebecca_purple"),
                 // Preset mới của materiant chưa có bản dịch: hiện khoá.
@@ -830,12 +829,12 @@ mod tests {
         assert!(!cx.update(|_, cx| cx.theme().is_dark()));
     }
 
-    /// Bảng màu: đổi preset là áp ngay, dựng lại từ mặc định (không sót màu preset trước), nền vẫn theo ô Nền kể cả preset
-    /// ghim tối, giữ font / độ đậm của groove; khoá lạ ⇒ mặc định.
+    /// Bảng màu: đổi preset là áp ngay, không sót màu preset trước, nền vẫn theo ô Nền, giữ font / độ đậm của groove; khoá lạ
+    /// ⇒ mặc định.
     #[gpui::test]
     fn theme_preset_applies_on_top_of_the_default(cx: &mut TestAppContext) {
         use materiant::gpui_kit::Hsla;
-        use materiant::theme::{BLACK_PINK_THEME, REBECCA_PURPLE_THEME};
+        use materiant::theme::{DEEPPINK_THEME, REBECCA_PURPLE_THEME};
         let (_, _, cx) = open(cx, Settings { theme: ThemeChoice::Light, ..Settings::default() });
         let primary = |cx: &mut VisualTestContext| cx.update(|_, cx| cx.theme().colors().primary);
         let default_light = primary(cx);
@@ -844,10 +843,10 @@ mod tests {
         assert_eq!(primary(cx), Hsla::from(REBECCA_PURPLE_THEME.primary.unwrap().resolve(false)));
         assert_eq!(cx.update(|_, cx| cx.theme().label_weight()), FontWeight::NORMAL, "bản vá groove áp sau preset");
 
-        cx.update(|_, cx| update_settings(cx, |s| s.theme_preset = "black-pink".into()));
-        assert!(!cx.update(|_, cx| cx.theme().is_dark()), "black-pink ghim tối nhưng ô Nền là Sáng");
+        cx.update(|_, cx| update_settings(cx, |s| s.theme_preset = "deeppink".into()));
+        assert!(!cx.update(|_, cx| cx.theme().is_dark()), "bảng màu không đổi nền");
         let surface = cx.update(|_, cx| cx.theme().colors().surface);
-        assert_eq!(surface, Hsla::from(BLACK_PINK_THEME.surface.unwrap().resolve(false)));
+        assert_eq!(surface, Hsla::from(DEEPPINK_THEME.surface.unwrap().resolve(false)));
 
         cx.update(|_, cx| update_settings(cx, |s| s.theme_preset = "no-such-preset".into()));
         assert_eq!(primary(cx), default_light, "khoá lạ ⇒ mặc định");

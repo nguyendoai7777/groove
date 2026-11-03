@@ -40,7 +40,7 @@ pub const DEFAULT_KEYBINDINGS: &[(&str, &str)] = &[
     ("g p", "go_to_now_playing"),
 ];
 
-/// Preset bảng màu mặc định (theme gốc của materiant, màu nhấn deeppink — G-4).
+/// Preset bảng màu mặc định (theme gốc của materiant, màu nhấn xanh Material `#005cbb` — G-4).
 pub const DEFAULT_THEME_PRESET: &str = "default";
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -218,7 +218,7 @@ pub struct Settings {
     /// `None`: chưa chọn, theo OS.
     pub language: Option<Language>,
     pub theme: ThemeChoice,
-    /// Khoá preset bảng màu của materiant (`materiant::theme::picker::ThemePreset::key`: `default`, `black-pink`…), chọn ở
+    /// Khoá preset bảng màu của materiant (`materiant::theme::picker::ThemePreset::key`: `default`, `deeppink`…), chọn ở
     /// Settings → Chung. Khoá lạ (bản sau bỏ preset) thì app dùng mặc định. Nền sáng / tối vẫn theo `theme`.
     pub theme_preset: String,
     pub font: UiFont,
@@ -290,6 +290,10 @@ impl Settings {
         self.seek_step = self.seek_step.max(1);
         self.volume_step = self.volume_step.clamp(1, 100);
         self.eq.sanitize();
+        // materiant đổi tên preset Black Pink thành deeppink (03/11/2026).
+        if self.theme_preset == "black-pink" {
+            self.theme_preset = "deeppink".into();
+        }
     }
 
     pub fn effective_language(&self) -> Language {
@@ -560,6 +564,16 @@ mod tests {
         assert!(json["eq"]["customGains"].is_array());
         assert!(json.get("sideNavCollapsed").is_some());
         assert!(json.get("customKeybindings").is_some());
+    }
+
+    #[test]
+    fn old_black_pink_key_becomes_deeppink() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = temp_file(&dir);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, r#"{"themePreset": "black-pink", "theme": "system"}"#).unwrap();
+        let s = Settings::load_from(&path);
+        assert_eq!((s.theme_preset.as_str(), s.theme), ("deeppink", ThemeChoice::System), "nền giữ riêng");
     }
 
     #[test]

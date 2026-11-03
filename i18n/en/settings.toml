@@ -24,9 +24,9 @@ volume_step_hint = "1 to 100. Used by the up and down keys and the mouse wheel."
 
 [theme_preset]
 default = "Default"
-black_pink = "Black pink"
-rose_red = "Rose red"
-rebecca_purple = "Rebecca purple"
+deeppink = "Deeppink"
+rose_red = "Rose & Red"
+rebecca_purple = "Rebecca Purple"
 
 [eq]
 title = "Equalizer"
