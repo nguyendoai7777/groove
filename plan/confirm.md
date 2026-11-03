@@ -429,3 +429,13 @@ Trình phát thu nhỏ (`views::pip`): cửa sổ 420 × 140, mở từ nút c�
   Đóng. Vòng tròn đường kính bằng bề ngang nút như nút icon của materiant, không loang tới góc ô vuông. PiP không có nút cửa
   sổ riêng (nút quay lại là nút icon đã có ripple).
 - [volume-compact] Thanh âm lượng dùng `Slider::compact()` (rãnh 2 px, núm 10 px như thanh EQ / bass) — `.rail(3.4).thumb(10.)` cho cùng dày với thanh tua — vì sao: chủ dự án lấy tỉ lệ thanh EQ làm mẫu; thanh tua và PiP là canvas không có núm nên không đổi.
+
+## layout-style
+
+Settings → Chung → "Kiểu chia vùng": thẻ bo tròn (mặc định) / chia lưới (`Settings::layout_style`, `views::layout`).
+
+- [layout-style] Kiểu lưới chỉ đổi **vùng** (cột trái, thanh trên, ba cột Now Playing, đầu trang thư viện / danh sách bài, tab Settings): sát nhau, đường kẻ 1 px màu `border`. Thứ là **nội dung** (bìa, thẻ album, thẻ hành động, hộp dòng thời gian, bảng EQ, nút, hộp thoại) giữ bo góc ở cả hai kiểu — làm phẳng hết — app Claude desktop cũng giữ bo cho ô nhập, nút; bìa vuông góc nhìn như lỗi cắt.
+- [layout-style] Cột trái giữ nền mờ (D-10) ở kiểu lưới — đổi về nền đặc như nội dung cho "liền một khối" — mờ là tính năng riêng, đường kẻ dọc đã tách vùng rõ.
+- [layout-style] Đường dưới header cột trái nối liền đường dưới thanh trên (cùng 36 px) thành một vạch ngang suốt cửa sổ — chỉ kẻ dưới thanh trên — giống ảnh app Claude chủ dự án gửi.
+- [layout-style] PiP không theo kiểu này — áp cả PiP — PiP là một khối nhỏ, không có vùng nào để chia.
+- [layout-style] Đổi kiểu gọi `refresh_windows` (như đổi ngôn ngữ) thay vì cho từng view `cached` nghe cài đặt — `observe` → `notify` từng view — một chỗ, không sót view `cached` mới thêm sau; đổi cài đặt khác vẫn không dựng lại view `cached` (test `app::tests::layout_style_change_rebuilds_the_cached_page`).

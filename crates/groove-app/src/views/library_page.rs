@@ -47,6 +47,7 @@ use crate::icons::GrooveIcon;
 use crate::library_ctl;
 use crate::route::Route;
 use crate::views::category_card::{CARD_EXTRA_HEIGHT, CARD_RADIUS, CategoryCard};
+use crate::views::layout;
 use crate::views::metadata::dialog::MetadataDialog;
 use crate::views::song_list::{SongList, SongListEvent};
 
@@ -740,7 +741,8 @@ impl Render for LibraryPage {
         };
         let root = root.child(self.header(&c)).child(self.banners(&c, cx));
         let root = if self.is_playlists() { root } else { root.child(self.tabs(cx)) };
-        root.child(div().h(px(12.)).flex_none()).child(body)
+        // Kiểu lưới: đường kẻ tách đầu trang (tiêu đề, thẻ hành động, tab) khỏi lưới (`views::layout`).
+        root.children(layout::hline(cx)).child(div().h(px(12.)).flex_none()).child(body)
     }
 }
 

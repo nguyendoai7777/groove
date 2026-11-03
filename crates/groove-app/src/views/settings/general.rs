@@ -1,11 +1,11 @@
 //! groove-gd1_24: tab Cài đặt chung (đặc tả 1.10): giao diện — nền sáng / tối / hệ thống (nút segmented), bảng màu (preset của materiant, dạng thẻ như
-//! trang theme của gallery), font chữ (D-20), cả ba áp ngay, Huỷ trả về —, bước tua, bước âm lượng, trình phát mặc định
+//! trang theme của gallery), kiểu chia vùng (thẻ bo góc / chia lưới, `views::layout`), font chữ (D-20), cả bốn áp ngay, Huỷ trả về —, bước tua, bước âm lượng, trình phát mặc định
 //! (gd2_01). Bảng EQ ở tab riêng (`EqPanel`).
 //!
 //! Hai bước áp ngay như EQ (người dùng thấy tác dụng ở phím tua, bánh xe ngay khi gõ); Huỷ do hộp trả về giá trị lúc mở.
 //! Ô trống hay ngoài khoảng chưa phải giá trị: bỏ qua, ô tự kẹp lại khi mất focus.
 
-use groove_core::settings::{Settings, ThemeChoice, UiFont};
+use groove_core::settings::{LayoutStyle, Settings, ThemeChoice, UiFont};
 use groove_core::t;
 use materiant::button::segmented::SegmentedButtons;
 use materiant::field::FieldLabel;
@@ -101,6 +101,13 @@ fn theme_choice_label(choice: ThemeChoice) -> &'static str {
     }
 }
 
+fn layout_style_label(style: LayoutStyle) -> &'static str {
+    match style {
+        LayoutStyle::Cards => t!("settings.general.layout_cards"),
+        LayoutStyle::Grid => t!("settings.general.layout_grid"),
+    }
+}
+
 /// Nhãn ô (cùng kiểu nhãn của `Select`) trên một nhóm chọn không có nhãn riêng.
 fn labeled(label: &'static str, body: impl IntoElement) -> impl IntoElement {
     div().flex().flex_col().child(FieldLabel::new(label).weight(FontWeight::NORMAL)).child(body)
@@ -120,6 +127,16 @@ impl Render for GeneralPanel {
                 let choice = THEME_CHOICES[*ix];
                 if app::settings(cx).theme != choice {
                     app::update_settings(cx, |s| s.theme = choice);
+                }
+            });
+        // Kiểu chia vùng (`views::layout`): áp ngay, `app` làm mới cả view `cached`.
+        let layout = SegmentedButtons::new("settings-layout-style")
+            .items(LayoutStyle::ALL.map(layout_style_label))
+            .selected(LayoutStyle::ALL.iter().position(|s| *s == settings.layout_style))
+            .on_change(|ix, _, cx| {
+                let style = LayoutStyle::ALL[*ix];
+                if app::settings(cx).layout_style != style {
+                    app::update_settings(cx, |s| s.layout_style = style);
                 }
             });
         // Tên font là tên riêng, hiện nguyên văn ở cả hai ngôn ngữ; mỗi mục vẽ bằng chính font của nó thì đẹp hơn nhưng
@@ -152,6 +169,7 @@ impl Render for GeneralPanel {
             .child(div().child(t!("settings.general.appearance")))
             .child(labeled(t!("settings.general.mode"), mode))
             .child(labeled(t!("settings.general.theme_preset"), picker))
+            .child(labeled(t!("settings.general.layout"), layout))
             .child(font)
             .child(div().child(t!("settings.general.steps")))
             .child(
