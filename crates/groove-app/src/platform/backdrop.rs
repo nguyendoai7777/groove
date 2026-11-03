@@ -3,7 +3,7 @@
 //! Windows (acrylic), macOS (`NSVisualEffectView`) luôn mờ ⇒ cột trái nền alpha 0,88 (`translucent_surface`).
 //! gpui-pre-linux 0.3.10 chỉ xin mờ qua `org_kde_kwin_blur` trên Wayland (KWin có; GNOME / Mutter — GNOME 50 không quảng bá
 //! giao thức mờ nào —, wlroots không có), X11 không xin gì: ở đó `Blurred` chỉ là trong suốt trơn, chữ cửa sổ phía sau lộ
-//! rõ. Không có mờ thì cột trái đục hơn: alpha 0,94 như khối nổi trên Linux (D-10, chủ dự án chốt 03/11/2026).
+//! rõ. Không có mờ thì cột trái đục hơn: alpha 0,94 (`FLOATING_SURFACE_ALPHA` Linux, nền trong suốt app tự chọn — D-10).
 
 use materiant::gpui_kit::{App, Hsla};
 use materiant::style::FLOATING_SURFACE_ALPHA;
