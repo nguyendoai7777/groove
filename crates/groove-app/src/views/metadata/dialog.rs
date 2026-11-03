@@ -61,7 +61,8 @@ enum Phase {
 
 /// Đệm của nội dung cuộn trong hộp (như đệm header / footer của `Dialog::divided`).
 const BODY_PADDING_X: f32 = 24.;
-const BODY_PADDING_Y: f32 = 16.;
+/// Đệm dưới của thân; không đệm trên: hàng tab nằm sát đường kẻ dưới header.
+const BODY_PADDING_BOTTOM: f32 = 16.;
 
 const MODES: [WriteMode; 3] = [WriteMode::CleanKeepKnown, WriteMode::Clean, WriteMode::Merge];
 const TAB_COMMON: usize = 0;
@@ -752,7 +753,7 @@ impl Render for MetadataDialog {
                     .flex_shrink(1.)
                     .min_h_0()
                     .px(px(BODY_PADDING_X))
-                    .py(px(BODY_PADDING_Y))
+                    .pb(px(BODY_PADDING_BOTTOM))
                     .overflow_y_scroll()
                     // Ctrl+V trên ô bìa dán ảnh; ngoài ô, hoặc clipboard không có ảnh, thì ô nhập tự dán chữ.
                     .capture_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {

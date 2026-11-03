@@ -95,7 +95,6 @@ groove_icons! {
     Edit => "edit",
     LyricsBubble => "lyrics-bubble",
     HelpCircle => "help-circle",
-    DefaultCover => "default-cover",
     Command => "command",
     Artist => "artist",
     Action => "action",
