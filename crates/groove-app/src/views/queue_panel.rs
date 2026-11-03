@@ -20,10 +20,11 @@ use materiant::gpui_kit::{
 };
 use materiant::list::{Align, VirtualList, VirtualListHandle};
 use materiant::scroll::TRACK_THICKNESS;
-use materiant::theme::{ActiveTheme, Neutral};
+use materiant::theme::ActiveTheme;
 
 use crate::player::{self, Player};
 use crate::views::bars_overlay;
+use crate::views::layout::SurfaceExt;
 use crate::views::playing_bars::PlayingBars;
 use crate::views::song_row::{display_artist, display_title};
 
@@ -401,10 +402,7 @@ impl Render for QueuePanel {
             .flex()
             .flex_col()
             .overflow_hidden()
-            .rounded_2xl()
-            .border_1()
-            .border_color(c.border.opacity(0.5))
-            .bg(c.layer(Neutral::N100).opacity(0.4))
+            .region_surface(cx)
             .child(header)
             .child(body)
     }

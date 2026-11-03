@@ -35,6 +35,7 @@ use crate::app::{self, ShellEvent, Slot};
 use crate::player::{self, Player, PlayerEvent};
 use crate::route::Route;
 use crate::views::cover_image::{CoverImage, CoverKind, PlaceholderLook, parse_color};
+use crate::views::layout;
 use crate::views::lyrics_dialog::TextDialog;
 use crate::views::lyrics_panel::{LyricsPanel, LyricsPanelEvent};
 use crate::views::marquee::Marquee;
@@ -325,9 +326,13 @@ impl Render for NowPlaying {
             ))
         });
 
+        // Kiểu thẻ: ba khung cách nhau và cách mép một khe. Kiểu lưới: sát nhau, đường kẻ ngăn cột, cột trái tự đệm
+        // (bìa, tên bài không có thẻ bao) — `views::layout`.
+        let gap = px(layout::gap(cx));
         let left = column(LEFT_COLUMN)
             .flex()
             .flex_col()
+            .when(layout::is_grid(cx), |d| d.p(px(layout::CARD_GAP)))
             .child(div().w_full().aspect_square().flex_none().rounded(COVER_RADIUS).child(self.cover(cx)))
             .child(
                 div()
@@ -353,10 +358,12 @@ impl Render for NowPlaying {
                 div()
                     .size_full()
                     .flex()
-                    .gap_4()
-                    .p_4()
+                    .gap(gap)
+                    .p(gap)
                     .child(left)
+                    .children(layout::vline(cx))
                     .child(div().flex_1().min_w_0().h_full().child(self.lyrics_panel.clone().cached(full())))
+                    .children(layout::vline(cx))
                     .child(right),
             )
             .children(self.lyrics_dialog.clone())

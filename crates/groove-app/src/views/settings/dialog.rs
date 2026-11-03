@@ -13,7 +13,7 @@
 //!
 //! Hộp nằm trong cây của khung như bảng lệnh (`Slot::Settings`), dựng một lần ở `install`.
 
-use groove_core::settings::{EqSettings, Settings, ThemeChoice, UiFont};
+use groove_core::settings::{EqSettings, LayoutStyle, Settings, ThemeChoice, UiFont};
 use groove_core::t;
 use materiant::button::Button;
 use materiant::effect::ripple::{RippleConfig, RippleExt};
@@ -84,6 +84,7 @@ struct Snapshot {
     theme: ThemeChoice,
     theme_preset: String,
     font: UiFont,
+    layout_style: LayoutStyle,
     seek_step: u32,
     volume_step: u8,
     eq: EqSettings,
@@ -95,6 +96,7 @@ impl Snapshot {
             theme: settings.theme,
             theme_preset: settings.theme_preset.clone(),
             font: settings.font,
+            layout_style: settings.layout_style,
             seek_step: settings.seek_step,
             volume_step: settings.volume_step,
             eq: settings.eq.clone(),
@@ -202,7 +204,7 @@ impl SettingsDialog {
         }
     }
 
-    /// Huỷ: trả nền, bảng màu, font, bước tua, bước âm lượng, EQ về lúc mở rồi đóng. Phím tắt chưa lưu nên chỉ cần bỏ nháp.
+    /// Huỷ: trả nền, bảng màu, font, kiểu chia vùng, bước tua, bước âm lượng, EQ về lúc mở rồi đóng. Phím tắt chưa lưu nên chỉ cần bỏ nháp.
     pub fn cancel(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(snapshot) = self.opened.take() {
             self.revert(snapshot, cx);
@@ -216,6 +218,7 @@ impl SettingsDialog {
             s.theme = snapshot.theme;
             s.theme_preset = snapshot.theme_preset;
             s.font = snapshot.font;
+            s.layout_style = snapshot.layout_style;
             s.seek_step = snapshot.seek_step;
             s.volume_step = snapshot.volume_step;
         });
@@ -319,6 +322,8 @@ impl SettingsDialog {
             .gap(px(TABS_GAP))
             .h(px(height))
             .child(tabs)
+            // Kiểu lưới: đường kẻ giữa danh sách tab và nội dung (`views::layout`).
+            .children(crate::views::layout::vline(cx))
             .child(ScrollArea::new(("settings-body", self.tab.index())).vertical().flex_1().min_w_0().h_full().child(
                 div().px(px(CONTENT_PADDING)).py(px(EDGE)).debug_selector(|| "settings-content".into()).child(panel),
             ))
@@ -654,6 +659,7 @@ mod tests {
         type_seek(&rig, "45", cx);
         // Ô chọn font gọi đúng lời này (`general.rs`).
         cx.update(|_, cx| crate::app::update_settings(cx, |s| s.font = UiFont::BeVietnamPro));
+        cx.update(|_, cx| crate::app::update_settings(cx, |s| s.layout_style = LayoutStyle::Grid));
         // Ô Nền và thẻ bảng màu cũng vậy.
         cx.update(|_, cx| {
             crate::app::update_settings(cx, |s| {
@@ -672,6 +678,7 @@ mod tests {
         let after = settings(cx);
         assert_eq!(after.seek_step, 5);
         assert_eq!(after.font, UiFont::MonaSans, "font về như lúc mở");
+        assert_eq!(after.layout_style, LayoutStyle::Cards, "kiểu chia vùng về như lúc mở");
         assert_eq!(
             (after.theme, after.theme_preset.as_str()),
             (ThemeChoice::Dark, "default"),

@@ -17,6 +17,7 @@ use materiant::theme::{ActiveTheme, Neutral};
 
 use crate::icons::GrooveIcon;
 use crate::player::{self, Player};
+use crate::views::layout::SurfaceExt;
 
 /// Cao dòng trống giữa hai đoạn lời (đặc tả 1.5).
 pub const BLANK_LINE_HEIGHT: f32 = 16.;
@@ -227,10 +228,7 @@ impl Render for LyricsPanel {
             .flex()
             .flex_col()
             .overflow_hidden()
-            .rounded_2xl()
-            .border_1()
-            .border_color(c.border.opacity(0.5))
-            .bg(c.layer(Neutral::N100).opacity(0.4))
+            .region_surface(cx)
             .child(header)
             .child(content)
     }

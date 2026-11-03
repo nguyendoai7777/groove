@@ -66,6 +66,20 @@ impl UiFont {
     pub const ALL: [UiFont; 2] = [UiFont::MonaSans, UiFont::BeVietnamPro];
 }
 
+/// Kiểu chia vùng của cửa sổ (Settings → Chung). `Cards`: các khung là thẻ bo góc cách nhau bằng khe nền (mặc định, như
+/// bản cũ). `Grid`: các vùng sát nhau, không bo góc, ngăn bằng đường kẻ 1 px (kiểu app Claude desktop).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LayoutStyle {
+    #[default]
+    Cards,
+    Grid,
+}
+
+impl LayoutStyle {
+    pub const ALL: [LayoutStyle; 2] = [LayoutStyle::Cards, LayoutStyle::Grid];
+}
+
 /// Trang mở lại khi khởi động; không nhớ tham số xem danh sách (đặc tả 1.1).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -222,6 +236,7 @@ pub struct Settings {
     /// Settings → Chung. Khoá lạ (bản sau bỏ preset) thì app dùng mặc định. Nền sáng / tối vẫn theo `theme`.
     pub theme_preset: String,
     pub font: UiFont,
+    pub layout_style: LayoutStyle,
     pub volume: u8,
     pub is_muted: bool,
     /// Mức âm lượng trước khi tắt tiếng (tắt tiếng đưa `volume` về 0); bỏ tắt tiếng trả về mức này. `None` khi không nhớ gì.
@@ -245,6 +260,7 @@ impl Default for Settings {
             theme: ThemeChoice::default(),
             theme_preset: DEFAULT_THEME_PRESET.to_owned(),
             font: UiFont::default(),
+            layout_style: LayoutStyle::default(),
             volume: 75,
             is_muted: false,
             volume_before_mute: None,
@@ -490,6 +506,17 @@ mod tests {
         assert_eq!(old.font, UiFont::MonaSans);
         let json = serde_json::to_value(Settings { font: UiFont::BeVietnamPro, ..Settings::default() }).unwrap();
         assert_eq!(json["font"], "be_vietnam_pro");
+    }
+
+    /// Kiểu chia vùng mặc định thẻ bo góc; tệp cũ chưa có khoá đọc ra mặc định; `grid` đọc được và ghi lại đúng khoá.
+    #[test]
+    fn layout_style_defaults_to_cards_and_reads_grid() {
+        assert_eq!(Settings::default().layout_style, LayoutStyle::Cards);
+        let old: Settings = serde_json::from_str(r#"{"volume":40}"#).unwrap();
+        assert_eq!(old.layout_style, LayoutStyle::Cards);
+        let grid: Settings = serde_json::from_str(r#"{"layoutStyle":"grid"}"#).unwrap();
+        assert_eq!(grid.layout_style, LayoutStyle::Grid);
+        assert_eq!(serde_json::to_value(&grid).unwrap()["layoutStyle"], "grid");
     }
 
     #[test]

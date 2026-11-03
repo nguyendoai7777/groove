@@ -20,7 +20,7 @@
 use std::cell::OnceCell;
 use std::time::Duration;
 
-use groove_core::settings::{JsonSaver, Settings, ThemeChoice, UiFont};
+use groove_core::settings::{JsonSaver, LayoutStyle, Settings, ThemeChoice, UiFont};
 use groove_core::{paths, t};
 use groove_library::covers::CoverStore;
 use groove_library::metadata_ops::MetadataOps;
@@ -43,6 +43,7 @@ use crate::route::{History, Route};
 use crate::views::app_bar::{self, AppBar};
 use crate::views::bars_overlay::{self, BarsOverlay};
 use crate::views::island::{self, Island};
+use crate::views::layout;
 use crate::views::library_page;
 use crate::views::side_nav::{self, SideNav};
 
@@ -220,12 +221,18 @@ fn groove_theme(choice: ThemeChoice, font: UiFont) -> MateriantTheme {
 /// Đặt cài đặt toàn app, áp theme, và theo dõi để áp lại theme / ngôn ngữ khi chúng đổi.
 fn install_settings(settings: Settings, saver: Option<JsonSaver>, cx: &mut App) {
     apply_theme(settings.theme, &settings.theme_preset, settings.font, cx);
-    let mut applied = (settings.theme, settings.effective_language(), settings.font, settings.theme_preset.clone());
+    let mut applied = (
+        settings.theme,
+        settings.effective_language(),
+        settings.font,
+        settings.theme_preset.clone(),
+        settings.layout_style,
+    );
     let entity = cx.new(|_| settings);
     cx.observe(&entity, move |entity, cx| {
         let now = {
             let s = entity.read(cx);
-            (s.theme, s.effective_language(), s.font, s.theme_preset.clone())
+            (s.theme, s.effective_language(), s.font, s.theme_preset.clone(), s.layout_style)
         };
         if now.0 != applied.0 || now.2 != applied.2 || now.3 != applied.3 {
             apply_theme(now.0, &now.3, now.2, cx);
@@ -233,6 +240,10 @@ fn install_settings(settings: Settings, saver: Option<JsonSaver>, cx: &mut App) 
         if now.1 != applied.1 {
             groove_core::i18n::set_language(now.1);
             crate::views::pip::refresh_dock_menu(cx);
+            cx.refresh_windows();
+        } else if now.4 != applied.4 {
+            // Kiểu chia vùng (`views::layout`): view `cached` (cột trái, trang thư viện, ba khung Now Playing) không nghe cài
+            // đặt; `refresh` bỏ qua bộ đệm của chúng như khi đổi ngôn ngữ.
             cx.refresh_windows();
         }
         applied = now;
@@ -258,6 +269,11 @@ pub fn install_settings_for_test(settings: Settings, cx: &mut App) {
 /// Cài đặt hiện tại.
 pub fn settings(cx: &App) -> &Settings {
     cx.global::<SettingsStore>().entity.read(cx)
+}
+
+/// Kiểu chia vùng đang chọn (`views::layout`). Chưa có cài đặt toàn app (test của một view lẻ) ⇒ mặc định.
+pub fn layout_style(cx: &App) -> LayoutStyle {
+    cx.try_global::<SettingsStore>().map(|store| store.entity.read(cx).layout_style).unwrap_or_default()
 }
 
 /// Sửa cài đặt: thông báo cho view đang quan sát, lưu (debounce), theme / ngôn ngữ đổi thì áp ngay.
@@ -509,7 +525,13 @@ impl Render for Shell {
             .h_full()
             .flex_none()
             .child(div().absolute().top_0().left_0().w_full().h(px(side_nav::HEADER_HEIGHT)).drag_region())
-            .child(island::cached(&self.nav, |s| s.size_full()));
+            .child(island::cached(&self.nav, |s| s.size_full()))
+            // Kiểu lưới: đường dưới header cột trái nối tiếp đường dưới thanh trên (cùng cao 36 px). Phủ tuyệt đối để không
+            // đổi bố cục của cột trái `cached`.
+            .children(
+                layout::hline(cx)
+                    .map(|line| div().absolute().top(px(side_nav::HEADER_HEIGHT)).left_0().w_full().child(line)),
+            );
         let bar = div()
             .w_full()
             .h(px(app_bar::HEIGHT))
@@ -544,10 +566,18 @@ impl Render for Shell {
             .font_family(cx.theme().font_family())
             .text_size(cx.theme().font_size())
             .child(
-                div().flex_1().min_h_0().flex().child(nav).child(
-                    div().flex_1().min_w_0().flex().flex_col().bg(c.surface).child(bar).child(
-                        div().id("content").relative().flex_1().min_h_0().child(content).child(self.bars.clone()),
-                    ),
+                div().flex_1().min_h_0().flex().child(nav).children(layout::vline(cx)).child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .flex()
+                        .flex_col()
+                        .bg(c.surface)
+                        .child(bar)
+                        .children(layout::hline(cx))
+                        .child(
+                            div().id("content").relative().flex_1().min_h_0().child(content).child(self.bars.clone()),
+                        ),
                 ),
             )
             .child(
@@ -897,6 +927,50 @@ mod tests {
         for preset in theme_presets() {
             assert_ne!(preset.label, preset.key, "{} chưa có bản dịch", preset.key);
         }
+    }
+
+    /// layout-style — đổi kiểu chia vùng thì trang thư viện (nhúng `cached`, không nghe cài đặt) dựng lại theo kiểu mới; đổi
+    /// cài đặt khác (âm lượng) không dựng lại nó.
+    #[gpui::test]
+    fn layout_style_change_rebuilds_the_cached_page(cx: &mut TestAppContext) {
+        use std::cell::Cell;
+
+        struct Page {
+            renders: Rc<Cell<usize>>,
+            seen: Rc<Cell<LayoutStyle>>,
+        }
+        impl Render for Page {
+            fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+                self.renders.set(self.renders.get() + 1);
+                self.seen.set(crate::views::layout::style(cx));
+                div().size_full().children(crate::views::layout::hline(cx))
+            }
+        }
+
+        let (shell, _, cx) = open(cx, Settings::default());
+        let (renders, seen) = (Rc::new(Cell::new(0)), Rc::new(Cell::new(LayoutStyle::Grid)));
+        let page = cx.new(|_| Page { renders: renders.clone(), seen: seen.clone() });
+        shell.update(cx, |s, cx| s.set_slot(Slot::Library, page, cx));
+        let draw = |cx: &mut VisualTestContext| {
+            cx.run_until_parked();
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+        };
+        draw(cx);
+        assert_eq!(seen.get(), LayoutStyle::Cards, "mặc định thẻ");
+
+        let before = renders.get();
+        cx.update(|_, cx| update_settings(cx, |s| s.volume = 30));
+        draw(cx);
+        assert_eq!(renders.get(), before, "cài đặt khác không dựng lại trang `cached`");
+
+        cx.update(|_, cx| update_settings(cx, |s| s.layout_style = LayoutStyle::Grid));
+        draw(cx);
+        assert_eq!(seen.get(), LayoutStyle::Grid, "trang `cached` vẽ theo kiểu mới");
+        assert_eq!(renders.get(), before + 1);
+
+        cx.update(|_, cx| update_settings(cx, |s| s.layout_style = LayoutStyle::Cards));
+        draw(cx);
+        assert_eq!(seen.get(), LayoutStyle::Cards, "về lại kiểu thẻ");
     }
 
     /// cpu — hoạt ảnh lặp ở thanh phát không dựng lại trang thư viện (nhúng `cached`); trang vẫn vẽ dữ liệu mới khi nó

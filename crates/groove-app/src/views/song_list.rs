@@ -43,6 +43,7 @@ use crate::icons::GrooveIcon;
 use crate::player::{self, Player};
 use crate::views::category_card::{accent_of, cover_path, subtitle};
 use crate::views::cover_image::{CoverImage, CoverKind};
+use crate::views::layout;
 use crate::views::song_row::{ROW_HEIGHT, RowPlay, SongRow, header_row, show_artist};
 
 /// Lề hai bên của cả màn.
@@ -566,6 +567,8 @@ impl Render for SongList {
             .text_color(c.text)
             .child(glow)
             .children(header)
+            // Kiểu lưới: đường kẻ tách đầu trang khỏi bảng bài (`views::layout`).
+            .children(layout::hline(cx))
             .child(body)
     }
 }
