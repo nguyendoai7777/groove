@@ -20,6 +20,7 @@ use materiant::scroll::TRACK_THICKNESS;
 use materiant::theme::{ActiveTheme, Neutral};
 
 use crate::player::{self, Player};
+use crate::views::bars_overlay;
 use crate::views::playing_bars::PlayingBars;
 
 /// Cao một dòng đoạn (bản cũ `py-1.5` + chữ `text-sm`).
@@ -51,30 +52,50 @@ pub struct TimelineBox {
     player: Entity<Player>,
     list: VirtualListHandle,
     active: Option<usize>,
-    _observe: Subscription,
+    /// Giây đang hiện ở nhãn `vị trí / thời lượng`: nhịp 250 ms chỉ dựng lại khi nhãn hay dòng đang phát đổi.
+    shown_sec: i64,
+    _observe: [Subscription; 2],
 }
 
 impl TimelineBox {
-    pub fn new(cx: &mut Context<Self>) -> TimelineBox {
+    /// Nghe `Player` (bài, timeline, phát / dừng) và nhịp vị trí [`PlaybackClock`](crate::player::PlaybackClock). Khung này
+    /// nằm `cached` trong Now Playing: nhịp chỉ `notify` khi nhãn giây hay dòng đang phát đổi.
+    pub fn new(window: &mut Window, cx: &mut Context<Self>) -> TimelineBox {
         let player = player::player(cx);
-        let observe = cx.observe(&player, |this, player, cx| {
-            let active = {
-                let player = player.read(cx);
-                active_segment(player.timeline(), player.position_sec())
-            };
-            if active != this.active {
-                this.active = active;
-                if let Some(ix) = active {
-                    this.list.scroll_to(ix, Align::Center);
+        let clock = player.read(cx).clock().clone();
+        let observe = [
+            cx.observe(&player, |this, _, cx| {
+                this.follow(cx);
+                cx.notify();
+            }),
+            cx.observe_in(&clock, window, |this, clock, window, cx| {
+                if clock.read(cx).due(window.is_window_active()) && this.follow(cx) {
+                    cx.notify();
                 }
-            }
-            cx.notify();
-        });
-        let active = {
-            let player = player.read(cx);
-            active_segment(player.timeline(), player.position_sec())
+            }),
+        ];
+        let mut view =
+            TimelineBox { player, list: VirtualListHandle::new(), active: None, shown_sec: -1, _observe: observe };
+        view.follow(cx);
+        view
+    }
+
+    /// Theo vị trí: cuộn tới dòng đang phát khi đổi dòng. `true` khi thứ khung vẽ đổi.
+    fn follow(&mut self, cx: &mut Context<Self>) -> bool {
+        let (active, sec) = {
+            let player = self.player.read(cx);
+            let position = player.position_sec();
+            (active_segment(player.timeline(), position), position.floor() as i64)
         };
-        TimelineBox { player, list: VirtualListHandle::new(), active, _observe: observe }
+        let changed = active != self.active || sec != self.shown_sec;
+        self.shown_sec = sec;
+        if active != self.active {
+            self.active = active;
+            if let Some(ix) = active {
+                self.list.scroll_to(ix, Align::Center);
+            }
+        }
+        changed
     }
 
     #[cfg(test)]
@@ -91,6 +112,7 @@ struct Line {
 
 impl Render for TimelineBox {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        bars_overlay::forget(cx.entity_id(), cx);
         let (lines, position, duration, playing) = {
             let player = self.player.read(cx);
             let segments = player.timeline();
@@ -119,7 +141,12 @@ impl Render for TimelineBox {
             .gap_2()
             .border_b_1()
             .border_color(c.border.opacity(0.4))
-            .child(PlayingBars::new(playing).size(px(14.)))
+            // Đang chạy thì vẽ ở lớp phủ: khung này `cached` trong Now Playing.
+            .child(if playing {
+                bars_overlay::anchor(px(14.)).into_any_element()
+            } else {
+                PlayingBars::new(false).size(px(14.)).into_any_element()
+            })
             .child(div().text_sm().text_color(c.muted).child(progress_label(position, duration)));
 
         let active = self.active;

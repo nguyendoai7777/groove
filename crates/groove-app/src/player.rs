@@ -7,11 +7,13 @@
 //! # Cho task sau
 //!
 //! `player::player(cx)` trả `Entity<Player>`: đọc bằng `.read(cx)`, thao tác bằng `.update(cx, |p, cx| p.next(cx))`, nghe bằng
-//! `cx.observe` (mọi đổi trạng thái, 4 lần mỗi giây khi phát) và `cx.subscribe` ([`PlayerEvent`]). Lỗi phát chỉ phát sự kiện, chữ
-//! toast là của view sở hữu vùng i18n.
+//! `cx.observe` (đổi trạng thái: bài, phát / dừng, tua, hàng đợi, âm lượng…) và `cx.subscribe` ([`PlayerEvent`]). Vị trí chạy
+//! khi phát KHÔNG `notify` Player: nghe [`Player::clock`] ([`PlaybackClock`], 4 lần mỗi giây), chỉ view vẽ vị trí (thanh tua,
+//! nhãn giờ) và media session cần nó. Lỗi phát chỉ phát sự kiện, chữ toast là của view sở hữu vùng i18n.
 
 use std::collections::HashSet;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 
 use futures::StreamExt;
@@ -24,9 +26,10 @@ use groove_core::session::{SAVE_INTERVAL, Session};
 use groove_core::settings::{EqSettings, Settings};
 use groove_core::timeline::{self, Segment};
 use groove_library::actor::{LibraryEvent, LibraryResult};
+use groove_library::covers::{self, CoverSize};
 use groove_library::store::Library;
-use groove_library::tags::{self, CoverArt, ScannedTrack};
-use materiant::gpui_kit::{App, AppContext, Context, Entity, EventEmitter, Global, Task};
+use groove_library::tags::{self, ScannedTrack};
+use materiant::gpui_kit::{App, AppContext, Context, Entity, EventEmitter, Global, RenderImage, Task};
 
 use crate::app;
 use crate::session_sync::{self, SessionSync};
@@ -56,6 +59,24 @@ pub enum PlayerEvent {
 }
 
 impl EventEmitter<PlayerEvent> for Player {}
+
+/// Nhịp vị trí khi đang phát (cpu, 03/11/2026): tách khỏi `Player` để 4 lần mỗi giây chỉ đánh thức ai thật sự vẽ vị trí. Trước
+/// đây nhịp `notify` chính `Player`, mọi view nghe nó (thanh phát, lời bài, hàng đợi, dòng thời gian, bảng lệnh) dựng lại 4 lần
+/// mỗi giây dù không đổi gì. Tua, đổi bài vẫn `notify` `Player`: ai vẽ vị trí nghe cả hai.
+pub struct PlaybackClock {
+    ticks: u64,
+}
+
+impl PlaybackClock {
+    /// Nhịp này có đáng vẽ lại không: cửa sổ active thì mọi nhịp (4 lần / giây); cửa sổ nền (vẫn nhìn thấy) mỗi giây một lần —
+    /// nhãn giờ chỉ đổi theo giây, thanh tua nhích vài pixel.
+    pub fn due(&self, window_active: bool) -> bool {
+        window_active || self.ticks.is_multiple_of(BACKGROUND_EVERY)
+    }
+}
+
+/// Cửa sổ nền: cứ ngần này nhịp mới vẽ lại vị trí một lần.
+const BACKGROUND_EVERY: u64 = 4;
 
 /// Bài hiện tại đang ở đâu trên đường tới engine.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -118,8 +139,9 @@ pub struct Player {
     /// `lyrics`, `timeline_text` đã là của bài đang chọn (nạp xong), không phải trống vì còn đang nạp.
     text_loaded: bool,
     timeline: Vec<Segment>,
-    /// Bìa đọc từ thẻ, chỉ cho tệp ngoài (N6); bài thư viện dùng `cover_hash`.
-    external_cover: Option<CoverArt>,
+    /// Bìa đọc từ thẻ, chỉ cho tệp ngoài (N6); bài thư viện dùng `cover_hash`. Đã giải mã, thu về 512 px ở luồng nền, một bản
+    /// dùng chung cho thanh phát và Now Playing; thay hay bỏ thì nhả khỏi atlas GPU ([`release_cover`]).
+    external_cover: Option<Arc<RenderImage>>,
     loaded_duration_sec: f64,
 
     /// 0 là không có `Load` nào đang hiệu lực: sự kiện nào cũng bị bỏ.
@@ -140,6 +162,9 @@ pub struct Player {
     load_task: Option<Task<()>>,
     text_task: Option<Task<()>>,
     tick_task: Option<Task<()>>,
+    clock: Entity<PlaybackClock>,
+    /// `engine.is_playing()` ở nhịp trước: luồng âm thanh đổi cờ sau lệnh một chút, nhịp thấy đổi thì `notify` (nút Play / Pause).
+    seen_playing: bool,
     _tasks: Vec<Task<()>>,
 }
 
@@ -197,12 +222,19 @@ impl Player {
                 load_task: None,
                 text_task: None,
                 tick_task: None,
+                clock: cx.new(|_| PlaybackClock { ticks: 0 }),
+                seen_playing: false,
                 _tasks: tasks,
             }
         }))
     }
 
     // ---- Đọc ----
+
+    /// Nhịp vị trí khi phát; xem [`PlaybackClock`].
+    pub fn clock(&self) -> &Entity<PlaybackClock> {
+        &self.clock
+    }
 
     pub fn queue(&self) -> &Queue {
         &self.queue
@@ -254,7 +286,7 @@ impl Player {
         &self.timeline
     }
 
-    pub fn external_cover(&self) -> Option<&CoverArt> {
+    pub fn external_cover(&self) -> Option<&Arc<RenderImage>> {
         self.external_cover.as_ref()
     }
 
@@ -570,7 +602,7 @@ impl Player {
             autoplay: self.wants_playback,
         });
         self.song = Some(song);
-        self.clear_text();
+        self.clear_text(cx);
         self.load_text(cx);
         cx.emit(PlayerEvent::TrackChanged);
         if self.wants_playback {
@@ -583,18 +615,26 @@ impl Player {
     fn lookup_failed(&mut self, kind: AudioErrorKind, cx: &mut Context<Self>) {
         self.engine.send(AudioCmd::Pause);
         self.song = None;
-        self.clear_text();
+        self.clear_text(cx);
         cx.emit(PlayerEvent::TrackChanged);
         self.on_track_failed(kind, cx);
     }
 
-    fn clear_text(&mut self) {
+    fn clear_text(&mut self, cx: &mut Context<Self>) {
+        self.release_cover(cx);
         self.text_task = None;
         self.lyrics = None;
         self.timeline_text = None;
         self.text_loaded = false;
         self.timeline.clear();
-        self.external_cover = None;
+    }
+
+    /// Nhả bìa nhúng khỏi atlas GPU của mọi cửa sổ. Hoãn tới cuối lượt: lúc đang cập nhật một cửa sổ, `drop_image` không với tới
+    /// atlas của cửa sổ đó.
+    fn release_cover(&mut self, cx: &mut Context<Self>) {
+        if let Some(image) = self.external_cover.take() {
+            cx.defer(move |cx| cx.drop_image(image, None));
+        }
     }
 
     /// Lyrics, timeline của bài đang chọn (S16). Tệp ngoài đọc từ thẻ ở nền, kèm bìa (N6).
@@ -614,18 +654,22 @@ impl Player {
             }
             (TrackRef::External(_), _) => {
                 let path = song.path.clone();
-                let read = cx.background_spawn(async move { tags::read_track(&path) });
+                let read = cx.background_spawn(async move {
+                    let mut scanned = tags::read_track(&path)?;
+                    let cover = scanned.cover.take().and_then(|art| embedded_cover(&art.data));
+                    Ok::<_, tags::TagError>((scanned, cover))
+                });
                 self.text_task = Some(cx.spawn(async move |this, cx| {
                     let scanned = read.await.map_err(|err| log::debug!("external tags: {err}")).ok();
-                    let Some(scanned) = scanned else { return };
-                    let _ = this.update(cx, |this, cx| this.apply_external_tags(scanned, cx));
+                    let Some((scanned, cover)) = scanned else { return };
+                    let _ = this.update(cx, |this, cx| this.apply_external_tags(scanned, cover, cx));
                 }));
             }
             (TrackRef::Library(_), None) => {}
         }
     }
 
-    fn apply_external_tags(&mut self, scanned: ScannedTrack, cx: &mut Context<Self>) {
+    fn apply_external_tags(&mut self, scanned: ScannedTrack, cover: Option<Arc<RenderImage>>, cx: &mut Context<Self>) {
         let Some(song) = &mut self.song else { return };
         let fields = scanned.fields;
         song.title = fields.title;
@@ -635,7 +679,8 @@ impl Player {
         if song.duration_sec <= 0.0 {
             song.duration_sec = scanned.duration_ms as f64 / 1000.0;
         }
-        self.external_cover = scanned.cover;
+        self.release_cover(cx);
+        self.external_cover = cover;
         self.set_text(fields.lyrics, fields.timeline);
         cx.emit(PlayerEvent::TrackChanged);
         cx.notify();
@@ -783,7 +828,7 @@ impl Player {
         self.load = LoadState::Idle;
         self.load_task = None;
         self.song = None;
-        self.clear_text();
+        self.clear_text(cx);
         self.loaded_duration_sec = 0.0;
         cx.emit(PlayerEvent::TrackChanged);
     }
@@ -884,7 +929,15 @@ impl Player {
             loop {
                 cx.background_executor().timer(TICK).await;
                 let keep_going = this.update(cx, |this, cx| {
-                    cx.notify();
+                    this.clock.update(cx, |clock, cx| {
+                        clock.ticks += 1;
+                        cx.notify();
+                    });
+                    let playing = this.engine.is_playing();
+                    if playing != this.seen_playing {
+                        this.seen_playing = playing;
+                        cx.notify();
+                    }
                     this.ticks_since_save += 1;
                     if this.ticks_since_save >= save_every {
                         this.ticks_since_save = 0;
@@ -923,6 +976,16 @@ fn settings_prefs(source: &SettingsSource, cx: &App) -> AudioPrefs {
         #[cfg(test)]
         SettingsSource::Local(settings) => AudioPrefs::of(settings),
     }
+}
+
+/// Bìa nhúng thành ảnh GPUI vẽ được (BGRA), cạnh dài như bìa lớn của thư viện. Chạy ở luồng nền.
+fn embedded_cover(data: &[u8]) -> Option<Arc<RenderImage>> {
+    let mut pixels = covers::decode_preview(data, CoverSize::Large.pixels())?;
+    // GPUI giữ điểm ảnh dạng BGRA (như `Image::to_image_data`).
+    for pixel in pixels.pixels_mut() {
+        pixel.0.swap(0, 2);
+    }
+    Some(Arc::new(RenderImage::new(vec![image::Frame::new(pixels)])))
 }
 
 /// Âm lượng khi bỏ tắt tiếng mà không nhớ mức cũ (tệp settings cũ chưa có `volumeBeforeMute`).
@@ -1166,6 +1229,50 @@ mod tests {
 
     fn loaded(p: &Player) -> bool {
         matches!(p.load, LoadState::Loaded { .. })
+    }
+
+    /// cpu — nhịp vị trí khi phát chỉ `notify` [`PlaybackClock`]; `Player` chỉ `notify` khi trạng thái đổi (dừng, đổi bài…),
+    /// nên view chỉ đọc trạng thái không dựng lại 4 lần mỗi giây.
+    #[gpui::test]
+    fn position_ticks_notify_the_clock_not_the_player(cx: &mut TestAppContext) {
+        use std::cell::Cell;
+
+        let rig = rig(cx, |_, _| {});
+        let path = rig.wav("a");
+        let id = rig.song(&path);
+        rig.update(cx, |p, cx| p.play_list(lib(id), vec![lib(id)], cx));
+        rig.until(cx, "playing", |p| p.is_playing() && p.position_sec() > 0.1);
+        // Nhịp đầu ghi nhận `is_playing` (luồng âm thanh đổi cờ sau lệnh).
+        cx.executor().advance_clock(TICK);
+        cx.run_until_parked();
+
+        let (states, ticks) = (Rc::new(Cell::new(0)), Rc::new(Cell::new(0)));
+        let clock = rig.player.read_with(cx, |p, _| p.clock().clone());
+        cx.update(|cx| {
+            let states = states.clone();
+            cx.observe(&rig.player, move |_, _| states.set(states.get() + 1)).detach();
+            let ticks = ticks.clone();
+            cx.observe(&clock, move |_, _| ticks.set(ticks.get() + 1)).detach();
+        });
+        for _ in 0..8 {
+            let _ = rig.fake.pull(480);
+            cx.executor().advance_clock(TICK);
+            cx.run_until_parked();
+        }
+        assert!(ticks.get() >= 8, "đồng hồ nhận mọi nhịp: {}", ticks.get());
+        assert_eq!(states.get(), 0, "nhịp không `notify` Player");
+
+        rig.update(cx, |p, cx| p.pause(cx));
+        cx.run_until_parked();
+        assert!(states.get() >= 1, "dừng vẫn báo Player");
+    }
+
+    #[test]
+    fn background_windows_redraw_the_position_once_a_second() {
+        let due = |ticks: u64, active: bool| PlaybackClock { ticks }.due(active);
+        assert!((1..=8).all(|t| due(t, true)), "cửa sổ active: mọi nhịp");
+        let shown: Vec<u64> = (1..=8).filter(|t| due(*t, false)).collect();
+        assert_eq!(shown, vec![4, 8], "cửa sổ nền: mỗi giây (4 nhịp) một lần");
     }
 
     /// C1 (N8): Next ở bài cuối dừng thật, về 0, bài vẫn chọn; Play sau đó phát lại từ đầu.

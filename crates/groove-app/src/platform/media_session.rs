@@ -7,7 +7,9 @@
 //! Windows, Linux gọi souvlaki trên luồng `media-session`: `set_metadata` của Windows đọc tệp bìa bằng `join()` chặn luồng (N7), và
 //! gọi WinRT trên UI thread có thể chạy lồng wndproc của GPUI. macOS gọi trên main thread, ảnh bìa souvlaki tự nạp ở hàng đợi nền.
 
+use std::cell::RefCell;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use futures::StreamExt;
@@ -332,12 +334,19 @@ fn follow_player(
     for update in tracker.update(snapshot(player.read(cx), covers.as_ref()), Instant::now()) {
         sink(update);
     }
-    cx.observe(player, move |player, cx| {
+    // Nghe cả trạng thái lẫn nhịp vị trí (`Player` không `notify` theo nhịp): media session phải thấy vị trí trôi khi phát.
+    let state = Rc::new(RefCell::new((tracker, sink, covers)));
+    let clock = player.read(cx).clock().clone();
+    let follow = move |player: Entity<Player>, cx: &mut App| {
+        let (tracker, sink, covers) = &mut *state.borrow_mut();
         for update in tracker.update(snapshot(player.read(cx), covers.as_ref()), Instant::now()) {
             sink(update);
         }
-    })
-    .detach();
+    };
+    let on_tick = follow.clone();
+    let ticked = player.clone();
+    cx.observe(player, follow).detach();
+    cx.observe(&clock, move |_, cx| on_tick(ticked.clone(), cx)).detach();
 }
 
 /// Media session và nút taskbar cho cửa sổ chính. Gọi một lần trong `app::run`, sau `commands::install`.

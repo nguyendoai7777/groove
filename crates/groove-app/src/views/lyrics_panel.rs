@@ -67,6 +67,8 @@ pub struct LyricsPanel {
     player: Entity<Player>,
     scroll: ScrollHandle,
     shown: Option<TrackRef>,
+    /// Thân đã vẽ: `Player` báo đổi (âm lượng, phát / dừng…) mà thân không đổi thì không dựng lại khung `cached` của lời.
+    body: Body,
     _observe: Subscription,
 }
 
@@ -80,11 +82,19 @@ impl LyricsPanel {
             if now != this.shown {
                 this.shown = now;
                 this.scroll.set_offset(point(px(0.), px(0.)));
+                cx.notify();
             }
-            cx.notify();
+            let body = this.body(cx);
+            if body != this.body {
+                this.body = body;
+                cx.notify();
+            }
         });
         let shown = player.read(cx).current_track().cloned();
-        LyricsPanel { player, scroll: ScrollHandle::new(), shown, _observe: observe }
+        let mut panel =
+            LyricsPanel { player, scroll: ScrollHandle::new(), shown, body: Body::NoSong, _observe: observe };
+        panel.body = panel.body(cx);
+        panel
     }
 
     fn button(

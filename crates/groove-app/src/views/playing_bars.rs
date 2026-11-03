@@ -122,6 +122,15 @@ pub fn bar_bounds(bounds: Bounds<Pixels>, scale: [f32; BARS]) -> [Bounds<Pixels>
     })
 }
 
+/// Vẽ bốn thanh trong khung `bounds` ở thời điểm `elapsed_ms` của [`Phase`]. Dùng chung với `bars_overlay`.
+pub fn paint_bars(bounds: Bounds<Pixels>, elapsed_ms: f32, color: Hsla, window: &mut Window) {
+    let scale: [f32; BARS] = std::array::from_fn(|ix| bar_scale(ix, elapsed_ms));
+    let radius = bounds.size.width / VIEW * (BAR_W / 2.);
+    for bar in bar_bounds(bounds, scale) {
+        window.paint_quad(fill(bar, color).corner_radii(radius));
+    }
+}
+
 /// Bốn thanh là entity riêng (cpu, 03/11/2026), như `marquee::MarqueeView`: mỗi khung chỉ `notify` view này; view chủ
 /// (danh sách, hàng đợi) chỉ bẩn theo đường tổ tiên, không `notify` (không kéo các phần `cached` nghe chủ dựng lại).
 pub struct BarsView {
@@ -159,11 +168,7 @@ impl Render for BarsView {
             |_, _, _| {},
             move |bounds, _, window, cx| {
                 let elapsed = cx.global::<Phase>().elapsed_ms(cx.background_executor().now());
-                let scale: [f32; BARS] = std::array::from_fn(|ix| bar_scale(ix, elapsed));
-                let radius = bounds.size.width / VIEW * (BAR_W / 2.);
-                for bar in bar_bounds(bounds, scale) {
-                    window.paint_quad(fill(bar, color).corner_radii(radius));
-                }
+                paint_bars(bounds, elapsed, color, window);
             },
         )
         .flex_none()

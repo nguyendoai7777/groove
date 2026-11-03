@@ -24,7 +24,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use groove_audio::engine::AudioErrorKind;
-use groove_core::model::RepeatMode;
+use groove_core::model::{RepeatMode, Song};
 use groove_core::t;
 use groove_library::covers::{CoverSize, CoverStore};
 use materiant::button::IconButton;
@@ -32,8 +32,8 @@ use materiant::effect::ripple::{RippleConfig, RippleExt, RippleTrigger};
 use materiant::gpui_kit::base::Disableable;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    AnyElement, AnyWindowHandle, App, ClickEvent, Context, Entity, FocusHandle, FontWeight, Image, ImageFormat,
-    IntoElement, ParentElement, Render, ScrollEvent, Styled, Subscription, Window, black, div, px, relative,
+    AnyElement, AnyWindowHandle, App, ClickEvent, Context, Entity, FocusHandle, FontWeight, IntoElement, ParentElement,
+    Render, RenderImage, ScrollEvent, StyleRefinement, Styled, Subscription, Window, black, div, px, relative,
 };
 use materiant::overlay::tooltip::TooltipExt;
 use materiant::slider::Slider;
@@ -50,7 +50,7 @@ use crate::route::Route;
 use crate::views::cover_image::{CoverImage, CoverKind, PlaceholderLook};
 use crate::views::island::{self, Island};
 use crate::views::marquee::Marquee;
-use crate::views::seek_bar::{SLIDER_SCALE, SeekBar};
+use crate::views::seek_bar::{self, SLIDER_SCALE, SeekBar};
 use play_morph::PlayMorph;
 
 /// Cạnh bìa = chiều cao thanh (`app::PLAYER_BAR_HEIGHT`).
@@ -131,6 +131,29 @@ fn app_prefs(cx: &App) -> (u8, bool) {
 }
 
 type PrefsFn = fn(&App) -> (u8, bool);
+
+/// Thứ thanh phát và ba phần `cached` của nó đọc từ `Player` / cài đặt. `Player` báo đổi mà thứ này không đổi (tua, hàng đợi,
+/// EQ…) thì không `notify`: mỗi lần `notify` dựng lại cả bìa, cụm nút, âm lượng.
+#[derive(PartialEq)]
+struct BarState {
+    song: Option<Song>,
+    playing: bool,
+    shuffle: bool,
+    repeat: RepeatMode,
+    prefs: (u8, bool),
+}
+
+impl BarState {
+    fn of(player: &Player, prefs: PrefsFn, cx: &App) -> BarState {
+        BarState {
+            song: player.current_song().cloned(),
+            playing: player.is_playing(),
+            shuffle: player.queue().shuffle(),
+            repeat: player.queue().repeat(),
+            prefs: prefs(cx),
+        }
+    }
+}
 type PlayerAction = fn(&mut Player, &mut Context<Player>);
 
 pub struct PlayerBar {
@@ -139,8 +162,8 @@ pub struct PlayerBar {
     covers: Option<CoverStore>,
     cache: Entity<LruImageCache>,
     prefs: PrefsFn,
-    /// Bìa của tệp ngoài, dựng một lần mỗi lần đổi bài: băm cả ảnh mỗi lần vẽ (4 lần / giây) là phí.
-    external: Option<Arc<Image>>,
+    /// Bìa của tệp ngoài, đã giải mã sẵn ở `Player` (một bản dùng chung với Now Playing).
+    external: Option<Arc<RenderImage>>,
     /// Hình icon Play / Pause đang chuyển (chung cho nút giữa thanh và nút trên bìa).
     morph: PlayMorph,
     play_focus: FocusHandle,
@@ -149,6 +172,8 @@ pub struct PlayerBar {
     play_ripple: RippleTrigger,
     cover_play_ripple: RippleTrigger,
     /// Phần `cached` (cpu): bìa, cụm điều khiển + thanh tua, âm lượng.
+    /// Lần `notify` gần nhất vẽ theo trạng thái này.
+    state: BarState,
     cover_island: Entity<Island<PlayerBar>>,
     center_island: Entity<Island<PlayerBar>>,
     volume_island: Entity<Island<PlayerBar>>,
@@ -167,10 +192,16 @@ impl PlayerBar {
         cx: &mut Context<Self>,
     ) -> PlayerBar {
         let player = player::player(cx);
-        let seek = cx.new(SeekBar::new);
+        let seek = cx.new(|cx| SeekBar::new(window, cx));
         let cache = LruImageCache::new(COVER_CACHE, cx);
         let subscriptions = vec![
-            cx.observe(&player, |_, _, cx| cx.notify()),
+            cx.observe(&player, |this, player, cx| {
+                let now = BarState::of(player.read(cx), this.prefs, cx);
+                if now != this.state {
+                    this.state = now;
+                    cx.notify();
+                }
+            }),
             cx.subscribe_in(&player, window, |this, _, event: &PlayerEvent, window, cx| match event {
                 PlayerEvent::TrackChanged => this.refresh_external(cx),
                 PlayerEvent::TrackFailed { title, kind, gave_up, .. } => {
@@ -183,6 +214,7 @@ impl PlayerBar {
             }),
         ];
         let morph = PlayMorph::new(player.read(cx).is_playing());
+        let state = BarState::of(player.read(cx), prefs, cx);
         let mut bar = PlayerBar {
             player,
             seek,
@@ -195,6 +227,7 @@ impl PlayerBar {
             cover_play_focus: cx.focus_handle(),
             play_ripple: RippleTrigger::default(),
             cover_play_ripple: RippleTrigger::default(),
+            state,
             cover_island: Island::new(PlayerBar::cover_part, cx),
             center_island: Island::new(PlayerBar::center_part, cx),
             volume_island: Island::new(PlayerBar::volume_part, cx),
@@ -210,9 +243,7 @@ impl PlayerBar {
     }
 
     fn refresh_external(&mut self, cx: &mut Context<Self>) {
-        self.external = self.player.read(cx).external_cover().and_then(|cover| {
-            Some(Arc::new(Image::from_bytes(ImageFormat::from_mime_type(&cover.mime)?, cover.data.clone())))
-        });
+        self.external = self.player.read(cx).external_cover().cloned();
         cx.notify();
     }
 
@@ -371,16 +402,16 @@ impl PlayerBar {
             .into_any_element()
     }
 
-    /// Giữa: năm nút điều khiển, dưới là thanh tua (`Island`, nhúng `cached`).
+    /// Giữa: năm nút điều khiển (`Island`, nhúng `cached`). Thanh tua ở dưới là view `cached` riêng: nhịp vị trí 4 lần / giây
+    /// chỉ dựng lại nó, không dựng lại cụm nút.
     fn center_part(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let enabled = self.is_enabled(cx);
         div()
             .size_full()
             .flex()
-            .flex_col()
+            .items_center()
             .justify_center()
-            .child(div().mb_1().child(self.controls(enabled, window, cx)))
-            .child(self.seek.clone())
+            .child(self.controls(enabled, window, cx))
             .into_any_element()
     }
 
@@ -480,7 +511,23 @@ impl Render for PlayerBar {
 
         let cover = island::cached(&self.cover_island, |s| s.size(px(COVER_SIZE)).flex_none());
         let left = div().w(relative(0.3)).min_w_0().flex().items_center().gap_3().child(cover).child(text);
-        let center = island::cached(&self.center_island, |s| s.flex_1().min_w_0().max_w(px(640.)).h_full());
+        let center = div()
+            .flex_1()
+            .min_w_0()
+            .max_w(px(640.))
+            .h_full()
+            .flex()
+            .flex_col()
+            .justify_center()
+            .child(island::cached(&self.center_island, |s| s.w_full().h(px(PLAY_BOX)).flex_none()))
+            .child(
+                div()
+                    .mt_1()
+                    .w_full()
+                    .h(px(seek_bar::HIT_HEIGHT))
+                    .flex_none()
+                    .child(self.seek.clone().cached(StyleRefinement::default().size_full())),
+            );
         let right = island::cached(&self.volume_island, |s| s.w(relative(0.3)).min_w_0().h_full());
 
         let bar = div()

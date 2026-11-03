@@ -2637,6 +2637,7 @@ dependencies = [
  "groove-core",
  "groove-library",
  "id3",
+ "image",
  "interprocess",
  "log",
  "materiant",

@@ -27,9 +27,9 @@ use groove_library::metadata_ops::MetadataOps;
 use groove_library::store::Library;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    self, AnyElement, AnyView, App, AppContext, Bounds, Context, DisplayId, Entity, EventEmitter, FontWeight, Global,
-    IntoElement, Render, SharedString, StyleRefinement, Styled, Window, WindowBounds, WindowDecorations, WindowOptions,
-    div, px, size,
+    self, AnyElement, AnyView, App, AppContext, Bounds, Context, DisplayId, Entity, EntityId, EventEmitter, FontWeight,
+    Global, IntoElement, Render, SharedString, StyleRefinement, Styled, Window, WindowBounds, WindowDecorations,
+    WindowOptions, div, px, size,
 };
 use materiant::style::StyledExt;
 use materiant::theme::picker::{ThemePreset, builtin_presets};
@@ -41,6 +41,7 @@ use crate::dev::{self, DevArgs};
 use crate::icons;
 use crate::route::{History, Route};
 use crate::views::app_bar::{self, AppBar};
+use crate::views::bars_overlay::{self, BarsOverlay};
 use crate::views::island::{self, Island};
 use crate::views::library_page;
 use crate::views::side_nav::{self, SideNav};
@@ -345,6 +346,10 @@ pub struct Shell {
     bar: Entity<Island<Shell>>,
     /// Bề rộng cột trái của khung đang vẽ (đang nội suy khi thu / mở).
     nav_width: f32,
+    /// Lớp phủ vẽ thanh nhảy của view nội dung `cached` (`views::bars_overlay`).
+    bars: Entity<BarsOverlay>,
+    /// View nội dung của khung trước: đổi thì anchor của view cũ hết hiệu lực.
+    content_view: Option<EntityId>,
 }
 
 impl EventEmitter<ShellEvent> for Shell {}
@@ -362,6 +367,8 @@ impl Shell {
             nav: Island::new(Shell::nav_part, cx),
             bar: Island::new(Shell::bar_part, cx),
             nav_width: side_nav::EXPANDED_WIDTH,
+            bars: cx.new(|_| BarsOverlay),
+            content_view: None,
         }
     }
 
@@ -502,6 +509,11 @@ impl Render for Shell {
             .drag_region()
             .child(island::cached(&self.bar, |s| s.size_full()));
 
+        let content_view = self.slots.get(content_slot(route)).map(AnyView::entity_id);
+        if content_view != self.content_view {
+            self.content_view = content_view;
+            bars_overlay::forget_all(cx);
+        }
         let content = match (content_slot(route), self.slots.get(content_slot(route))) {
             // Trang thư viện không có hoạt ảnh lặp ngoài thanh nhảy của bài đang phát: nhúng `cached`, khung của chữ chạy
             // ở thanh phát không dựng lại lưới / danh sách.
@@ -525,14 +537,9 @@ impl Render for Shell {
             .text_size(cx.theme().font_size())
             .child(
                 div().flex_1().min_h_0().flex().child(nav).child(
-                    div()
-                        .flex_1()
-                        .min_w_0()
-                        .flex()
-                        .flex_col()
-                        .bg(c.surface)
-                        .child(bar)
-                        .child(div().id("content").flex_1().min_h_0().child(content)),
+                    div().flex_1().min_w_0().flex().flex_col().bg(c.surface).child(bar).child(
+                        div().id("content").relative().flex_1().min_h_0().child(content).child(self.bars.clone()),
+                    ),
                 ),
             )
             .child(
@@ -934,5 +941,71 @@ mod tests {
         frames(3, cx);
         let ink = cx.debug_bounds("side-nav-ink").expect("vạch đã vẽ");
         assert_eq!(ink.origin.y, px(crate::views::side_nav::HEADER_HEIGHT + 2. * crate::views::side_nav::ITEM_HEIGHT));
+    }
+
+    /// cpu — thanh nhảy trong trang `cached` vẽ ở lớp phủ: khung của nó không dựng lại trang; hàng thôi phát hay đổi màn thì
+    /// lớp phủ không vẽ ở chỗ cũ và thôi xin khung.
+    #[gpui::test]
+    fn bars_in_a_cached_page_animate_on_the_overlay_without_rebuilding_the_page(cx: &mut TestAppContext) {
+        use std::cell::Cell;
+        use std::time::Duration;
+
+        use crate::views::bars_overlay;
+
+        struct Page {
+            playing: bool,
+            renders: Rc<Cell<usize>>,
+        }
+        impl Render for Page {
+            fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+                bars_overlay::forget(cx.entity_id(), cx);
+                self.renders.set(self.renders.get() + 1);
+                div().size_full().when(self.playing, |d| d.child(bars_overlay::anchor(px(14.))))
+            }
+        }
+
+        let (shell, _, cx) = open(cx, Settings::default());
+        let renders = Rc::new(Cell::new(0));
+        let page = cx.new(|_| Page { playing: true, renders: renders.clone() });
+        shell.update(cx, |s, cx| s.set_slot(Slot::Library, page.clone(), cx));
+        cx.update(|window, _| window.activate_window());
+        // Số khung đã xin được giao.
+        let frames = |n: usize, cx: &mut VisualTestContext| {
+            let mut delivered = 0;
+            for _ in 0..n {
+                cx.executor().advance_clock(Duration::from_millis(16));
+                delivered += cx.update(|window, cx| {
+                    let delivered = window.simulate_next_frame(cx);
+                    window.draw(cx).clear(cx);
+                    delivered
+                });
+                cx.run_until_parked();
+            }
+            delivered
+        };
+        frames(2, cx);
+        let before = renders.get();
+        assert_eq!(cx.update(|_, cx| bars_overlay::count(cx)), 1, "hàng đang phát đặt anchor");
+        assert!(frames(20, cx) >= 20, "lớp phủ xin khung mỗi nhịp");
+        assert_eq!(renders.get(), before, "khung của thanh nhảy không dựng lại trang `cached`");
+        assert_eq!(cx.update(|_, cx| bars_overlay::count(cx)), 1, "trang dùng lại từ cache vẫn giữ anchor");
+
+        page.update(cx, |p, cx| {
+            p.playing = false;
+            cx.notify();
+        });
+        frames(2, cx);
+        assert_eq!(cx.update(|_, cx| bars_overlay::count(cx)), 0, "hàng thôi phát: anchor cũ bị bỏ");
+        assert_eq!(frames(5, cx), 0, "không còn thanh chạy thì không xin khung");
+
+        page.update(cx, |p, cx| {
+            p.playing = true;
+            cx.notify();
+        });
+        frames(2, cx);
+        assert_eq!(cx.update(|_, cx| bars_overlay::count(cx)), 1);
+        shell.update(cx, |s, cx| s.navigate(Route::NowPlaying, cx));
+        frames(2, cx);
+        assert_eq!(cx.update(|_, cx| bars_overlay::count(cx)), 0, "đổi màn: anchor của trang cũ hết hiệu lực");
     }
 }
