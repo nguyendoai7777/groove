@@ -555,7 +555,7 @@ impl LibraryPage {
     fn failure_panel(&self, failure: &OpenFailure, c: &ThemeColors, cx: &mut Context<Self>) -> gpui::Div {
         match failure {
             OpenFailure::TooNew { .. } => centered_message(
-                GrooveIcon::DefaultCover,
+                GrooveIcon::Album,
                 t!("library.open_error.too_new.title"),
                 t!("library.open_error.too_new.hint"),
                 c,
@@ -563,7 +563,7 @@ impl LibraryPage {
             OpenFailure::LegacyFailed { .. } => {
                 let busy = self.busy;
                 centered_message(
-                    GrooveIcon::DefaultCover,
+                    GrooveIcon::Album,
                     t!("library.open_error.legacy_failed.title"),
                     t!("library.open_error.legacy_failed.hint"),
                     c,
@@ -595,7 +595,7 @@ impl LibraryPage {
                 )
             }
             OpenFailure::NotLibrary(_) | OpenFailure::Other(_) => centered_message(
-                GrooveIcon::DefaultCover,
+                GrooveIcon::Album,
                 t!("library.open_error.other.title"),
                 t!("library.open_error.other.hint"),
                 c,
@@ -716,7 +716,7 @@ impl Render for LibraryPage {
         }
         if self.library.is_none() {
             return root.child(self.header(&c)).child(centered_message(
-                GrooveIcon::DefaultCover,
+                GrooveIcon::Album,
                 t!("library.open_error.unavailable.title"),
                 t!("library.open_error.unavailable.hint"),
                 &c,

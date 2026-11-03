@@ -542,10 +542,10 @@ impl Render for SongList {
                 .child(div().text_size(px(12.)).text_color(c.muted).child(t!("song_list.loading.title")))
                 .into_any_element(),
             Status::Failed => {
-                centered_message(GrooveIcon::DefaultCover, t!("song_list.error.title"), t!("song_list.error.hint"), &c)
+                centered_message(GrooveIcon::Album, t!("song_list.error.title"), t!("song_list.error.hint"), &c)
             }
             Status::Gone => {
-                centered_message(GrooveIcon::DefaultCover, t!("song_list.gone.title"), t!("song_list.gone.hint"), &c)
+                centered_message(GrooveIcon::Album, t!("song_list.gone.title"), t!("song_list.gone.hint"), &c)
             }
             Status::Ready if self.songs.is_empty() => {
                 centered_message(GrooveIcon::Song, t!("song_list.empty.title"), t!("song_list.empty.hint"), &c)

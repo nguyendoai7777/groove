@@ -1,12 +1,12 @@
 //! groove-gd1_21: cột giữa Now Playing, lời bài hát (đặc tả 1.5, 1.7).
 //!
-//! Đầu cột: tiêu đề, ba nút Metadata, Timeline, Sửa / Thêm lời (chỉ hiện khi có bài). Thân: không có bài, có lời (các dòng
+//! Đầu cột: tiêu đề, ba nút tonal Metadata, Timeline, Sửa / Thêm lời (chỉ hiện khi có bài). Thân: không có bài, có lời (các dòng
 //! canh giữa, cuộn được, dòng trống cao [`BLANK_LINE_HEIGHT`]) hoặc chưa có lời. Panel không sửa gì: nút bấm phát
 //! [`LyricsPanelEvent`] cho `NowPlaying` mở hộp thoại (task 19, 20). Đổi bài thì cuộn về đầu.
 
 use groove_core::model::TrackRef;
 use groove_core::t;
-use materiant::button::Button;
+use materiant::button::{Button, Size};
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
     App, ClickEvent, Context, Entity, EventEmitter, FontWeight, IntoElement, ParentElement, Render, ScrollHandle,
@@ -15,6 +15,7 @@ use materiant::gpui_kit::{
 use materiant::scroll::ScrollArea;
 use materiant::theme::{ActiveTheme, Neutral};
 
+use crate::icons::GrooveIcon;
 use crate::player::{self, Player};
 
 /// Cao dòng trống giữa hai đoạn lời (đặc tả 1.5).
@@ -90,12 +91,17 @@ impl LyricsPanel {
         &self,
         id: &'static str,
         label: &'static str,
+        icon: GrooveIcon,
         event: LyricsPanelEvent,
         cx: &mut Context<Self>,
     ) -> impl IntoElement + use<> {
         let this = cx.entity();
+        // Viên thuốc tonal nhỏ, icon trái 14 px như ba nút của `now-playing.vue`.
         Button::new(id, label)
-            .outlined()
+            .tonal()
+            .size(Size::Sm)
+            .icon(icon)
+            .rounded_full()
             .on_click(move |_: &ClickEvent, _: &mut Window, cx: &mut App| this.update(cx, |_, cx| cx.emit(event)))
     }
 
@@ -149,16 +155,18 @@ impl Render for LyricsPanel {
                         .child(self.button(
                             "np-metadata",
                             t!("now_playing.actions.metadata"),
+                            GrooveIcon::Album,
                             LyricsPanelEvent::Metadata,
                             cx,
                         ))
                         .child(self.button(
                             "np-timeline",
                             t!("now_playing.actions.timeline"),
+                            GrooveIcon::Loop,
                             LyricsPanelEvent::Timeline,
                             cx,
                         ))
-                        .child(self.button("np-lyrics", edit, LyricsPanelEvent::Lyrics, cx)),
+                        .child(self.button("np-lyrics", edit, GrooveIcon::Edit, LyricsPanelEvent::Lyrics, cx)),
                 )
             });
 

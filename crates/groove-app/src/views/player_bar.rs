@@ -47,7 +47,7 @@ use crate::app::{self, Slot};
 use crate::icons::GrooveIcon;
 use crate::player::{self, Player, PlayerEvent};
 use crate::route::Route;
-use crate::views::cover_image::{self, CoverImage, CoverKind};
+use crate::views::cover_image::{CoverImage, CoverKind, PlaceholderLook};
 use crate::views::island::{self, Island};
 use crate::views::marquee::Marquee;
 use crate::views::seek_bar::{SLIDER_SCALE, SeekBar};
@@ -221,8 +221,12 @@ impl PlayerBar {
             let hash = song.cover_hash.as_deref()?;
             Some(self.covers.as_ref()?.path(hash, CoverSize::Small))
         });
-        // Bìa nhúng của tệp ngoài cũng bo góc như bìa thư viện (trước đây vuông).
-        CoverImage::new(path, CoverKind::Album, None, &self.cache).embedded(self.external.clone()).into_any_element()
+        // Vuông như `audio-controller.vue` (khung `overflow-hidden`, không bo góc).
+        CoverImage::new(path, CoverKind::Album, None, &self.cache)
+            .embedded(self.external.clone())
+            .radius(px(0.))
+            .look(PlaceholderLook::Thumb(px(COVER_SIZE)))
+            .into_any_element()
     }
 
     /// Nút Play / Pause như `toggle-play.vue`: không nền, không đổi màu khi rê; icon màu chữ biến hình theo [`PlayMorph`].
@@ -352,8 +356,6 @@ impl PlayerBar {
                     .flex()
                     .items_center()
                     .justify_center()
-                    // Lớp rê bo đúng góc của bìa: GPUI không cắt con theo bo góc của cha.
-                    .rounded(cover_image::RADIUS)
                     .bg(black().opacity(0.4))
                     .invisible()
                     .group_hover("player-cover", |style| style.visible())
