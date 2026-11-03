@@ -163,6 +163,8 @@ fn apply_theme(choice: ThemeChoice, cx: &mut App) {
 fn groove_theme(choice: ThemeChoice) -> MateriantTheme {
     MateriantTheme {
         mode: Some(theme_mode(choice)),
+        // Mona Sans nhúng (materiant `font`), không theo font hệ thống: Ubuntu Sans biến thiên làm lệch dấu tiếng Việt.
+        font_family: Some(materiant::font::MONA_SANS.into()),
         label_weight: Some(FontWeight::NORMAL.0),
         title_weight: Some(FontWeight::NORMAL.0),
         ..Default::default()
@@ -481,6 +483,7 @@ impl Render for Shell {
             .flex()
             .flex_col()
             .text_ink(cx)
+            .font_family(cx.theme().font_family())
             .text_size(cx.theme().font_size())
             .child(
                 div().flex_1().min_h_0().flex().child(nav).child(

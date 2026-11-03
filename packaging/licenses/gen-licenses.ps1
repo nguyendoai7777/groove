@@ -26,6 +26,10 @@ $extra = @(
     @{
         Name = 'Lucide'; Version = 'icons used by the materiant library'; License = 'ISC'
         Url = 'https://lucide.dev'; Text = '../../../materiant/assets/icons/LICENSE-lucide'
+    },
+    @{
+        Name = 'Mona Sans'; Version = 'font embedded by the materiant library'; License = 'OFL-1.1'
+        Url = 'https://github.com/github/mona-sans'; Text = '../../../materiant/assets/fonts/mona-sans/OFL.txt'
     }
 )
 # Nhãn được phép ngoài danh sách D-2: chỉ đúng thành phần G-2 đã chấp nhận.

@@ -348,3 +348,8 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 
 - [settings-eq-nav] Thanh dải EQ giữ vẽ bằng `canvas` của groove (`eq_bands`), đổi sang đúng dáng thanh Bass boost dựng đứng: rãnh và phần tô cùng 2 px, núm 10 px, vầng 22 px (dùng chung hằng số với thanh bass) — hoặc thêm chiều dọc cho `materiant::slider` (rail 4 px, núm 16 px cố định, sẽ dày hơn thanh bass mà chủ dự án lấy làm mẫu, và phải viết lại bàn phím một điểm dừng Tab cho mười dải). Bỏ hẳn đường cong nối các núm, xoá `eq_curve.rs`. Chưa nhìn trên màn thật.
 - [settings-eq-nav] Cột tab của hộp Settings dùng lại `side_nav::NavInk` (mở `pub`) + `materiant::tabs::InkBar` dọc 3 px; hàng cao 40 px (cột trái chính 42 px), không icon, không bo góc, không khe giữa hàng — giữ mỗi hàng một điểm dừng Tab như trước (↑ ↓ Home End), thêm vòng focus như hàng của cột trái.
+
+## ui-font (03/11/2026)
+
+- [ui-font] Groove dùng Mona Sans (chủ dự án hỏi Mona Sans rồi đặt tệp vào materiant), Be Vietnam Pro nhúng ở materiant nhưng groove không bật — hoặc Be Vietnam Pro (thiết kế cho tiếng Việt). Đổi: `groove_theme` một dòng `font_family` + feature trong `Cargo.toml`.
+- [ui-font] Nguyên nhân lệch dấu chưa chứng minh bằng mắt: dữ liệu tên bài là Unicode dựng sẵn (`ọ` = U+1ECD), font hệ thống Ubuntu Sans là font biến thiên; đã đo GPUI Linux nhận đúng họ Mona Sans và chọn đúng tệp theo độ đậm, hết cảnh báo `.SystemUIFont`. Dấu có về đúng chỗ không: chờ chủ dự án xem.
