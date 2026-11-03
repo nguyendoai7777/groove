@@ -13,6 +13,7 @@ use std::rc::Rc;
 
 use groove_core::t;
 use materiant::button::IconButton;
+use materiant::effect::ripple::{RippleConfig, RippleExt};
 // `#[derive(IntoElement)]` trỏ crate `gpui`; bản không test chỉ có `materiant::gpui_kit`.
 use materiant::gpui_kit as gpui;
 use materiant::gpui_kit::prelude::*;
@@ -108,7 +109,7 @@ impl CaptionPaint {
     }
 }
 
-/// Nút cửa sổ rộng 36 px, cao bằng thanh, icon 20 px. Bấm gọi [`window_controls`] (phóng to bấm lần hai là khôi phục).
+/// Nút cửa sổ rộng 36 px, cao bằng thanh, icon 20 px, ripple từ tâm. Bấm gọi [`window_controls`] (phóng to bấm lần hai là khôi phục).
 fn caption(id: &'static str, caption: Caption, icon: GrooveIcon, label: &'static str, cx: &App) -> impl IntoElement {
     let paint = CaptionPaint::resolve(caption, cx.theme().colors().text);
     div()
@@ -123,6 +124,8 @@ fn caption(id: &'static str, caption: Caption, icon: GrooveIcon, label: &'static
         .justify_center()
         .hover(move |s| s.bg(paint.hover_bg))
         .active(move |s| s.bg(paint.active_bg))
+        // Ripple loang từ tâm như nút icon của materiant; màu theo icon lúc rê (Đóng: trắng trên nền đỏ).
+        .ripple(RippleConfig::centered().color(paint.hover_icon))
         .on_click(move |_, window, _| match caption {
             Caption::Minimize => window_controls::minimize(window),
             Caption::Maximize => window_controls::toggle_maximize(window),
