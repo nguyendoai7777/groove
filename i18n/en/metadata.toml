@@ -26,7 +26,6 @@ copyright = "Copyright"
 bpm = "BPM"
 grouping = "Grouping"
 comment = "Comment"
-compilation = "Compilation of various artists"
 
 [cover]
 hint = "Click to choose an image, drop one here, or paste while hovering this box"
@@ -41,7 +40,7 @@ read_failed = "Could not read the image file"
 
 [group]
 apply = "Apply to all {count} songs in this list"
-hint = "Covers album, album artist, genre, year, compilation and cover. Other songs are never fully cleaned."
+hint = "Covers album, album artist, genre, year and cover. Other songs are never fully cleaned."
 
 [name_error]
 empty = "The file name cannot be empty"

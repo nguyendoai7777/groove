@@ -149,6 +149,7 @@ pub struct MetadataDialog {
     view: Option<MetadataView>,
     form: Option<Form>,
     cover: Option<Entity<CoverPane>>,
+    /// Cờ tuyển tập đọc từ tệp. Hộp không cho sửa (chủ dự án bỏ ô, 03/11/2026), lưu thì ghi lại đúng như cũ.
     compilation: bool,
     apply_group: bool,
     saving: bool,
@@ -317,11 +318,6 @@ impl MetadataDialog {
 
     pub fn set_apply_group(&mut self, apply: bool, cx: &mut Context<Self>) {
         self.apply_group = apply && self.can_apply_to_group();
-        cx.notify();
-    }
-
-    pub fn set_compilation(&mut self, value: bool, cx: &mut Context<Self>) {
-        self.compilation = value;
         cx.notify();
     }
 
@@ -494,15 +490,7 @@ impl MetadataDialog {
             .children(self.field_pair(Field::Composer, Field::Publisher))
             .children(self.field_pair(Field::Copyright, Field::Bpm))
             .child(form.field(Field::Grouping).clone())
-            .child(form.comment.clone())
-            .child(
-                Checkbox::new("metadata-compilation")
-                    .label(t!("metadata.field.compilation"))
-                    .checked(if self.compilation { CheckState::Checked } else { CheckState::Unchecked })
-                    .on_change(cx.listener(|this, state: &CheckState, _, cx| {
-                        this.set_compilation(*state == CheckState::Checked, cx);
-                    })),
-            );
+            .child(form.comment.clone());
         Some(div().flex().gap_5().items_start().child(cover.clone()).child(fields).into_any_element())
     }
 
@@ -1124,6 +1112,18 @@ mod tests {
         let ids: Vec<&str> = tag.frames().map(|f| f.id()).collect();
         assert!(!ids.contains(&"TSSE") && !ids.contains(&"TRCK"), "{ids:?}");
         assert!(tag.extended_texts().any(|t| t.description == "REPLAYGAIN_TRACK_GAIN"), "{ids:?}");
+    }
+
+    /// Không còn ô tuyển tập: lưu giữ nguyên cờ có sẵn trong tệp.
+    #[::gpui::test]
+    fn save_keeps_the_compilation_flag_of_the_file(cx: &mut TestAppContext) {
+        let env = env();
+        let path = env.mp3("Song", &[("TIT2", "T"), ("TCMP", "1")]);
+        let (rig, cx) = open_dialog(cx, &env, TrackRef::External(path.clone()), None);
+        rig.set(Field::Title, "New", cx);
+        rig.save(cx);
+        let fields = tags::read_track(&path).unwrap().fields;
+        assert_eq!((fields.title.as_deref(), fields.compilation), (Some("New"), Some(true)));
     }
 
     /// C13 — bố cục: vẽ được, lưu hai lần liên tiếp bị chặn.
