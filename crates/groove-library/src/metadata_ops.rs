@@ -23,7 +23,7 @@ use crate::db::migrate::CoverRecord;
 use crate::db::queries::{self, QueryError, SongText};
 use crate::indexer::{TrackRow, apply_scanned_track};
 use crate::store::Library;
-use crate::tags::{self, CoverArt, CoverEdit, FileStamp, MetadataEdit, RawFrame, TagError, TagFields, WriteMode};
+use crate::tags::{self, CoverArt, CoverEdit, FileStamp, MetadataEdit, TagError, TagFields, WriteMode};
 
 /// Trần tên tệp của hệ tệp là 255 byte, chừa chỗ cho đuôi bản tạm để lần ghi sau không hỏng.
 const MAX_NAME_BYTES: usize = 255 - tags::TEMP_SUFFIX.len();
@@ -120,7 +120,6 @@ pub struct MetadataView {
     pub fields: TagFields,
     pub cover: Option<CoverArt>,
     pub duration_ms: u64,
-    pub raw_frames: Vec<RawFrame>,
     pub stamp: FileStamp,
 }
 
@@ -177,7 +176,7 @@ fn non_empty(value: &Option<String>) -> Option<&str> {
     value.as_deref().map(str::trim).filter(|text| !text.is_empty())
 }
 
-/// Bài cuối rời album (ví dụ Fix grouping đổi `group_key`) thì album bị dọn: bìa người dùng chọn đi theo sang album mới.
+/// Bài cuối rời album (ví dụ sửa album cho cả nhóm đổi `group_key`) thì album bị dọn: bìa người dùng chọn đi theo sang album mới.
 fn carry_custom_cover(conn: &Connection, old: Option<i64>, new: Option<i64>) -> LibraryResult<()> {
     let (Some(old), Some(new)) = (old, new) else {
         return Ok(());
@@ -320,10 +319,6 @@ impl OpsState {
             },
         };
         let scanned = tags::read_track(&path)?;
-        let raw_frames = tags::read_raw_frames(&path).unwrap_or_else(|e| {
-            log::warn!("cannot read raw frames of {}: {e}", path.display());
-            Vec::new()
-        });
         let mut fields = scanned.fields;
         if let TrackRef::Library(id) = track {
             let text = self.library.song_text(id).wait()?.unwrap_or_default();
@@ -342,7 +337,6 @@ impl OpsState {
             fields,
             cover: scanned.cover,
             duration_ms: scanned.duration_ms,
-            raw_frames,
             stamp: scanned.stamp,
         })
     }

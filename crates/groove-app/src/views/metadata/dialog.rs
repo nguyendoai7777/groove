@@ -15,7 +15,7 @@ use groove_library::actor::LibraryError;
 use groove_library::metadata_ops::{
     BulkReport, FileNameError, MetadataError, MetadataOps, MetadataResult, MetadataView, SavedTrack, validate_file_name,
 };
-use groove_library::tags::{TagError, TagFields, WriteMode};
+use groove_library::tags::{TagError, WriteMode};
 use materiant::button::Button;
 use materiant::checkbox::{CheckState, Checkbox};
 use materiant::field::FieldEvent;
@@ -26,17 +26,12 @@ use materiant::gpui_kit::{
 };
 use materiant::icon::{Icon, IconName};
 use materiant::overlay::dialog::{Dialog, DialogHandle};
-use materiant::select::{Select, SelectItem};
 use materiant::style::Accent;
 use materiant::tabs::{TabItem, Tabs};
 use materiant::theme::{ActiveTheme, Neutral};
 
 use super::cover_pane::{CoverPane, CoverPaneEvent};
-use super::fields::{
-    Field, Form, apply_grouping_fix, edit_for_track, group_edit, name_error_text, needs_grouping_fix,
-    strip_known_extension,
-};
-use super::raw_frames::{RawFrames, junk_count};
+use super::fields::{Field, Form, edit_for_track, group_edit, name_error_text, strip_known_extension};
 
 /// Dialog mở từ một mục có nhiều bài (đặc tả 1.8: ô áp cho cả nhóm chỉ hiện khi mục có trên một bài).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -64,10 +59,8 @@ const BODY_PADDING_X: f32 = 24.;
 /// Đệm dưới của thân; không đệm trên: hàng tab nằm sát đường kẻ dưới header.
 const BODY_PADDING_BOTTOM: f32 = 16.;
 
-const MODES: [WriteMode; 3] = [WriteMode::CleanKeepKnown, WriteMode::Clean, WriteMode::Merge];
 const TAB_COMMON: usize = 0;
 const TAB_DETAILS: usize = 1;
-const TAB_RAW: usize = 2;
 
 /// Chữ báo cáo lô.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -163,7 +156,6 @@ pub struct MetadataDialog {
     cover: Option<Entity<CoverPane>>,
     compilation: bool,
     tab: usize,
-    mode: WriteMode,
     apply_group: bool,
     saving: bool,
     /// Đã có ít nhất một lần lưu xong (nút Huỷ thành Đóng).
@@ -214,7 +206,6 @@ impl MetadataDialog {
             cover: None,
             compilation: false,
             tab: TAB_COMMON,
-            mode: WriteMode::default(),
             apply_group: false,
             saving: false,
             saved: false,
@@ -315,18 +306,8 @@ impl MetadataDialog {
     }
 
     #[cfg(test)]
-    pub fn view_data(&self) -> Option<&MetadataView> {
-        self.view.as_ref()
-    }
-
-    #[cfg(test)]
     pub fn cover_pane(&self) -> Option<&Entity<CoverPane>> {
         self.cover.as_ref()
-    }
-
-    #[cfg(test)]
-    pub fn mode(&self) -> WriteMode {
-        self.mode
     }
 
     #[cfg(test)]
@@ -341,11 +322,6 @@ impl MetadataDialog {
 
     // ---- Sửa ----
 
-    pub fn set_mode(&mut self, mode: WriteMode, cx: &mut Context<Self>) {
-        self.mode = mode;
-        cx.notify();
-    }
-
     pub fn set_apply_group(&mut self, apply: bool, cx: &mut Context<Self>) {
         self.apply_group = apply && self.can_apply_to_group();
         cx.notify();
@@ -356,6 +332,7 @@ impl MetadataDialog {
         cx.notify();
     }
 
+    #[cfg(test)]
     pub fn set_field(&mut self, field: Field, value: &str, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(form) = &self.form {
             form.set_value(field, value, window, cx);
@@ -369,25 +346,6 @@ impl MetadataDialog {
         let Some(form) = &self.form else { return };
         form.filename.update(cx, |field, cx| field.set_value(text.to_owned(), window, cx));
         self.filename_typed(text, window, cx);
-    }
-
-    /// Album có nhưng nghệ sĩ album trống (đang hiện cảnh báo).
-    pub fn grouping_warning(&self, cx: &App) -> bool {
-        self.current_fields(cx).is_some_and(|fields| needs_grouping_fix(&fields))
-    }
-
-    /// Fix grouping: nghệ sĩ album = album, bật tuyển tập, bật áp cho nhóm nếu có.
-    pub fn fix_grouping(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(mut fields) = self.current_fields(cx) else { return };
-        apply_grouping_fix(&mut fields);
-        self.set_field(Field::AlbumArtist, fields.album_artist.as_deref().unwrap_or_default(), window, cx);
-        self.compilation = true;
-        self.apply_group = self.can_apply_to_group();
-        cx.notify();
-    }
-
-    fn current_fields(&self, cx: &App) -> Option<TagFields> {
-        self.form.as_ref().map(|form| form.collect(self.compilation, cx))
     }
 
     // ---- Lưu ----
@@ -406,11 +364,13 @@ impl MetadataDialog {
         let cover_edit = cover.read(cx).edit();
         let edit = edit_for_track(&fields, cover_edit.clone());
         let new_name = form.new_file_name(cx);
-        let mode = self.mode;
-        let group = (self.apply_group && self.can_apply_to_group()).then_some(self.scope).flatten().map(|scope| {
-            let bulk_mode = if mode == WriteMode::Merge { WriteMode::Merge } else { WriteMode::CleanKeepKnown };
-            (scope.category, group_edit(&view.fields, &fields, cover_edit), bulk_mode)
-        });
+        // Chủ dự án chốt một cách ghi: làm sạch hết, chỉ giữ khung của app và khung chỉnh âm thanh (`tags`, mục 4). Bài
+        // khác trong nhóm chỉ nhận vài trường nên phải giữ trường riêng của chúng: `CleanKeepKnown`.
+        let mode = WriteMode::Clean;
+        let group = (self.apply_group && self.can_apply_to_group())
+            .then_some(self.scope)
+            .flatten()
+            .map(|scope| (scope.category, group_edit(&view.fields, &fields, cover_edit), WriteMode::CleanKeepKnown));
         let (ops, track) = (self.ops.clone(), self.track.clone());
         self.saving = true;
         self.error = None;
@@ -486,13 +446,6 @@ impl MetadataDialog {
 
     // ---- Vẽ ----
 
-    fn title(&self) -> String {
-        match self.view.as_ref().map(|view| junk_count(&view.raw_frames)).filter(|&count| count > 0) {
-            Some(count) => t!("metadata.title_junk", count = count),
-            None => t!("metadata.title").to_owned(),
-        }
-    }
-
     fn field_pair(&self, a: Field, b: Field) -> Option<AnyElement> {
         let form = self.form.as_ref()?;
         Some(
@@ -530,26 +483,6 @@ impl MetadataDialog {
                     .when(!form.extension.is_empty(), |row| row.child(chip)),
             )
             .when_some(self.name_error.clone(), |col, text| col.child(inline_note(text, c.danger, IconName::Warning)));
-        let warning = self.grouping_warning(cx).then(|| {
-            div()
-                .flex()
-                .flex_wrap()
-                .items_center()
-                .gap_2()
-                // Chữ cảnh báo trên nền hộp: `ink` của màu cảnh báo (cam `#c2410c` trần trên nền tối chỉ ~3,3 : 1).
-                .child(inline_note(
-                    t!("metadata.grouping.warning").to_owned(),
-                    Accent::Warning.tokens(cx).ink,
-                    IconName::Warning,
-                ))
-                .child(
-                    Button::new("metadata-fix-grouping", t!("metadata.grouping.fix"))
-                        .outlined()
-                        .warning()
-                        .size(materiant::button::Size::Sm)
-                        .on_click(cx.listener(|this, _, window, cx| this.fix_grouping(window, cx))),
-                )
-        });
         let fields = div()
             .flex()
             .flex_col()
@@ -561,7 +494,6 @@ impl MetadataDialog {
             .child(form.field(Field::Artist).clone())
             .child(form.field(Field::Album).clone())
             .child(form.field(Field::AlbumArtist).clone())
-            .children(warning)
             .children(self.field_pair(Field::TrackNo, Field::TrackTotal))
             .children(self.field_pair(Field::DiscNo, Field::DiscTotal));
         Some(div().flex().gap_5().items_start().child(cover.clone()).child(fields).into_any_element())
@@ -591,35 +523,9 @@ impl MetadataDialog {
         )
     }
 
-    fn render_raw(&self) -> Option<AnyElement> {
-        let view = self.view.as_ref()?;
-        let is_mp3 = view.filename.to_ascii_lowercase().ends_with(".mp3");
-        Some(RawFrames::new(view.raw_frames.clone(), is_mp3).into_any_element())
-    }
-
-    fn render_options(&self, cx: &mut Context<Self>) -> AnyElement {
+    fn render_group(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
         let c = cx.theme().colors().clone();
-        let mode_ix = MODES.iter().position(|mode| *mode == self.mode).unwrap_or(0);
-        let hint = match self.mode {
-            WriteMode::CleanKeepKnown => t!("metadata.mode.clean_keep_hint"),
-            WriteMode::Clean => t!("metadata.mode.clean_hint"),
-            WriteMode::Merge => t!("metadata.mode.merge_hint"),
-        };
-        let select = Select::new("metadata-mode")
-            .label_weight(materiant::gpui_kit::FontWeight::NORMAL)
-            .selected_weight(materiant::gpui_kit::FontWeight::NORMAL)
-            .label(t!("metadata.mode.label"))
-            .items([
-                SelectItem::new(t!("metadata.mode.clean_keep")),
-                SelectItem::new(t!("metadata.mode.clean")),
-                SelectItem::new(t!("metadata.mode.merge")),
-            ])
-            .selected(Some(mode_ix))
-            .w(px(320.))
-            .on_change(cx.listener(|this, ix: &usize, _, cx| {
-                this.set_mode(MODES.get(*ix).copied().unwrap_or_default(), cx);
-            }));
-        let group = self.scope.filter(|scope| scope.songs > 1).map(|scope| {
+        self.scope.filter(|scope| scope.songs > 1).map(|scope| {
             div()
                 .flex()
                 .flex_col()
@@ -633,14 +539,8 @@ impl MetadataDialog {
                         })),
                 )
                 .child(div().text_sm().text_color(c.muted).child(t!("metadata.group.hint")))
-        });
-        div()
-            .flex()
-            .flex_col()
-            .gap_3()
-            .child(div().flex().flex_col().gap_1().child(select).child(div().text_sm().text_color(c.muted).child(hint)))
-            .children(group)
-            .into_any_element()
+                .into_any_element()
+        })
     }
 
     fn render_messages(&self, cx: &App) -> Option<AnyElement> {
@@ -676,7 +576,6 @@ impl MetadataDialog {
             .font_weight(materiant::gpui_kit::FontWeight::NORMAL)
             .tab(TabItem::new(t!("metadata.tab.common")))
             .tab(TabItem::new(t!("metadata.tab.details")))
-            .tab(TabItem::new(t!("metadata.tab.raw")))
             .selected(self.tab)
             .on_change(cx.listener(|this, ix: &usize, _, cx| {
                 this.tab = *ix;
@@ -684,7 +583,6 @@ impl MetadataDialog {
             }));
         let content = match self.tab {
             TAB_DETAILS => self.render_details(cx),
-            TAB_RAW => self.render_raw(),
             _ => self.render_common(cx),
         };
         div()
@@ -693,7 +591,7 @@ impl MetadataDialog {
             .gap_4()
             .child(tabs)
             .children(content)
-            .child(self.render_options(cx))
+            .children(self.render_group(cx))
             .children(self.render_messages(cx))
             .into_any_element()
     }
@@ -723,7 +621,7 @@ impl Render for MetadataDialog {
         let save_label = if self.saving { t!("metadata.saving") } else { t!("metadata.save") };
         Dialog::new("metadata-dialog", &self.handle)
             .max_width(px(900.))
-            .title(self.title())
+            .title(t!("metadata.title"))
             .title_weight(materiant::gpui_kit::FontWeight::NORMAL)
             .divided(true)
             // D-16: vùng cuộn chạm mép hộp và hai đường kẻ, đệm nằm trong nội dung cuộn.
@@ -1049,9 +947,9 @@ mod tests {
         }
     }
 
-    /// C1 — mở bài ngoài thư viện: đọc từ tệp, ô hiện đúng giá trị, tên tệp tách đuôi, đếm khung rác ở tiêu đề.
+    /// C1 — mở bài ngoài thư viện: đọc từ tệp, ô hiện đúng giá trị, tên tệp tách đuôi.
     #[::gpui::test]
-    fn opens_from_the_file_and_shows_values_and_junk(cx: &mut TestAppContext) {
+    fn opens_from_the_file_and_shows_values(cx: &mut TestAppContext) {
         let env = env();
         let path = env.mp3("Song", &[("TIT2", "Hello"), ("TPE1", "Me"), ("TALB", "Alb"), ("TSSE", "lavf")]);
         let (rig, cx) = open_dialog(cx, &env, TrackRef::External(path), None);
@@ -1062,11 +960,7 @@ mod tests {
             let form = d.form.as_ref().unwrap();
             assert_eq!(form.stem(cx), "Song");
             assert_eq!(form.extension, ".mp3");
-            assert_eq!(junk_count(&d.view_data().unwrap().raw_frames), 1);
-            assert!(d.title().contains('1'), "tiêu đề báo số khung rác: {}", d.title());
-            assert!(d.grouping_warning(cx), "có album, thiếu nghệ sĩ album");
             assert!(!d.can_apply_to_group());
-            assert_eq!(d.mode(), WriteMode::CleanKeepKnown, "chế độ ghi mặc định");
         });
     }
 
@@ -1156,34 +1050,6 @@ mod tests {
         assert!(rig.events.borrow().is_empty());
     }
 
-    /// C8 — Fix grouping: nghệ sĩ album = album, bật tuyển tập, bật áp cho nhóm khi mở từ mục nhiều bài.
-    #[::gpui::test]
-    fn fix_grouping_fills_album_artist_and_turns_on_the_group(cx: &mut TestAppContext) {
-        let env = env();
-        let a = env.mp3("a", &[("TALB", "Abbey")]);
-        let b = env.mp3("b", &[("TALB", "Abbey")]);
-        let (ida, _idb) = (env.index(&a), env.index(&b));
-        let folder = env.folder_of(ida);
-        let scope = GroupScope { category: CategoryRef::Folder(folder), songs: 2 };
-        let (rig, cx) = open_dialog(cx, &env, TrackRef::Library(ida), Some(scope));
-        rig.dialog.read_with(cx, |d, cx| {
-            assert!(d.grouping_warning(cx));
-            assert!(d.can_apply_to_group() && !d.applies_to_group());
-        });
-        rig.dialog.update_in(cx, |d, window, cx| d.fix_grouping(window, cx));
-        assert_eq!(rig.value(Field::AlbumArtist, cx), "Abbey");
-        rig.dialog.read_with(cx, |d, cx| {
-            assert!(!d.grouping_warning(cx));
-            assert!(d.applies_to_group() && d.compilation);
-        });
-        rig.save(cx);
-        for path in [&a, &b] {
-            let fields = tags::read_track(path).unwrap().fields;
-            assert_eq!(fields.album_artist.as_deref(), Some("Abbey"), "{}", path.display());
-            assert_eq!(fields.compilation, Some(true));
-        }
-    }
-
     /// C9 — áp cho nhóm: chỉ trường đã đổi sang bài khác, tiêu đề riêng còn nguyên; ô áp chỉ hiện với mục > 1 bài.
     #[::gpui::test]
     fn applies_only_changed_fields_to_the_rest_of_the_group(cx: &mut TestAppContext) {
@@ -1201,10 +1067,7 @@ mod tests {
         let (rig, cx) = open_dialog(cx, &env, TrackRef::Library(ida), Some(scope));
         assert_eq!(rig.value(Field::Genre, cx), "Rock", "ô ở tab chưa vẽ vẫn mang giá trị của tệp");
         rig.set(Field::Album, "Shared", cx);
-        rig.dialog.update_in(cx, |d, _, cx| {
-            d.set_apply_group(true, cx);
-            d.set_mode(WriteMode::Clean, cx);
-        });
+        rig.dialog.update_in(cx, |d, _, cx| d.set_apply_group(true, cx));
         rig.save(cx);
         let (file_a, file_b) = (tags::read_track(&a).unwrap().fields, tags::read_track(&b).unwrap().fields);
         assert_eq!(file_a.album.as_deref(), Some("Shared"));
@@ -1276,29 +1139,31 @@ mod tests {
         assert!(tags::read_track(&path).unwrap().cover.is_none());
     }
 
-    /// C12 — mở ở chế độ Merge giữ khung lạ, chế độ mặc định bỏ.
+    /// C12 — lưu luôn làm sạch: khung lạ mất, ReplayGain còn; ô số để trống không ghi 0.
     #[::gpui::test]
-    fn write_mode_decides_whether_junk_frames_survive(cx: &mut TestAppContext) {
+    fn save_cleans_junk_but_keeps_replaygain_and_blank_numbers(cx: &mut TestAppContext) {
         let env = env();
-        let kept = env.mp3("kept", &[("TIT2", "T"), ("TSSE", "x")]);
-        let cleaned = env.mp3("cleaned", &[("TIT2", "T"), ("TSSE", "x")]);
-        let (rig, cx) = open_dialog(cx, &env, TrackRef::External(kept.clone()), None);
-        rig.dialog.update_in(cx, |d, _, cx| d.set_mode(WriteMode::Merge, cx));
+        let path = env.mp3("Song", &[("TIT2", "T"), ("TSSE", "x"), ("TRCK", "0/0")]);
+        use id3::TagLike;
+        let mut tag = id3::Tag::read_from_path(&path).unwrap();
+        tag.add_frame(id3::frame::ExtendedText { description: "REPLAYGAIN_TRACK_GAIN".into(), value: "-3 dB".into() });
+        tag.write_to_path(&path, id3::Version::Id3v23).unwrap();
+        let (rig, cx) = open_dialog(cx, &env, TrackRef::External(path.clone()), None);
+        assert_eq!(rig.value(Field::TrackNo, cx), "", "0 đọc thành trống");
         rig.save(cx);
-        let (rig, cx) = open_dialog(cx, &env, TrackRef::External(cleaned.clone()), None);
-        rig.save(cx);
-        let junk = |p: &Path| junk_count(&tags::read_raw_frames(p).unwrap());
-        assert_eq!(junk(&kept), 1, "Merge giữ khung lạ");
-        assert_eq!(junk(&cleaned), 0, "mặc định làm sạch");
+        let tag = id3::Tag::read_from_path(&path).unwrap();
+        let ids: Vec<&str> = tag.frames().map(|f| f.id()).collect();
+        assert!(!ids.contains(&"TSSE") && !ids.contains(&"TRCK"), "{ids:?}");
+        assert!(tag.extended_texts().any(|t| t.description == "REPLAYGAIN_TRACK_GAIN"), "{ids:?}");
     }
 
-    /// C13 — bố cục: cả ba tab vẽ được, lưu hai lần liên tiếp bị chặn.
+    /// C13 — bố cục: cả hai tab vẽ được, lưu hai lần liên tiếp bị chặn.
     #[::gpui::test]
     fn renders_every_tab_and_ignores_a_second_save_while_saving(cx: &mut TestAppContext) {
         let env = env();
         let path = env.mp3("Song", &[("TIT2", "T"), ("TSSE", "x")]);
         let (rig, cx) = open_dialog(cx, &env, TrackRef::External(path), None);
-        for tab in [TAB_COMMON, TAB_DETAILS, TAB_RAW] {
+        for tab in [TAB_COMMON, TAB_DETAILS] {
             rig.dialog.update(cx, |d, cx| {
                 d.tab = tab;
                 cx.notify();

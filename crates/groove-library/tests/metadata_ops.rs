@@ -436,7 +436,6 @@ fn read_comes_from_the_file_and_falls_back_to_the_database_for_text() {
     assert_eq!(view.fields.timeline.as_deref(), Some("0:01 DB"));
     assert_eq!((view.path, view.filename.as_str()), (path, "a.mp3"));
     assert!(view.duration_ms > 0);
-    assert!(view.raw_frames.iter().any(|frame| frame.id == "TIT2"));
     assert!(matches!(env.ops.read(TrackRef::Library(999)).wait(), Err(MetadataError::SongNotFound(999))));
 }
 

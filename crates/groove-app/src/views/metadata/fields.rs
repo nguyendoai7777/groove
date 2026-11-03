@@ -155,21 +155,6 @@ pub fn name_error_text(error: &FileNameError) -> String {
     }
 }
 
-fn blank(value: &Option<String>) -> bool {
-    value.as_deref().is_none_or(|text| text.trim().is_empty())
-}
-
-/// Album có mà nghệ sĩ album trống: bài dễ bị tách khỏi album ở trình phát khác (đặc tả 1.8, `:365-381`).
-pub fn needs_grouping_fix(fields: &TagFields) -> bool {
-    !blank(&fields.album) && blank(&fields.album_artist)
-}
-
-/// Fix grouping: nghệ sĩ album = album, bật tuyển tập.
-pub fn apply_grouping_fix(fields: &mut TagFields) {
-    fields.album_artist = fields.album.clone();
-    fields.compilation = Some(true);
-}
-
 /// Phần sửa của một bài: mọi trường của form (kể cả rỗng, để xoá). Lyrics, timeline để `None`: dialog này không sửa.
 pub fn edit_for_track(form: &TagFields, cover: CoverEdit) -> MetadataEdit {
     MetadataEdit {
@@ -261,6 +246,7 @@ impl Form {
         self.field(field).read(cx).value(cx).to_string()
     }
 
+    #[cfg(test)]
     pub fn set_value(&self, field: Field, value: &str, window: &mut Window, cx: &mut App) {
         self.field(field).update(cx, |entity, cx| entity.set_value(value.to_owned(), window, cx));
     }
@@ -311,19 +297,6 @@ mod tests {
         assert_eq!(new_file_name("Song", ".mp3", "Song.mp3"), None);
         assert_eq!(new_file_name(" Song ", ".mp3", "Song.mp3"), None, "khoảng trắng hai đầu bị cắt");
         assert_eq!(new_file_name("Other", ".mp3", "Song.mp3").as_deref(), Some("Other.mp3"));
-    }
-
-    #[test]
-    fn grouping_warning_and_fix() {
-        let mut fields = TagFields { album: Some("Abbey".into()), ..TagFields::default() };
-        assert!(needs_grouping_fix(&fields));
-        apply_grouping_fix(&mut fields);
-        assert_eq!(fields.album_artist.as_deref(), Some("Abbey"));
-        assert_eq!(fields.compilation, Some(true));
-        assert!(!needs_grouping_fix(&fields));
-        assert!(!needs_grouping_fix(&TagFields::default()), "không album thì không cảnh báo");
-        let spaces = TagFields { album: Some("A".into()), album_artist: Some("  ".into()), ..TagFields::default() };
-        assert!(needs_grouping_fix(&spaces));
     }
 
     #[test]
