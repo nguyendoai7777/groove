@@ -34,7 +34,7 @@ use materiant::virtual_grid::LruImageCache;
 use crate::app::{self, ShellEvent, Slot};
 use crate::player::{self, Player, PlayerEvent};
 use crate::route::Route;
-use crate::views::cover_image::{CoverImage, CoverKind, parse_color};
+use crate::views::cover_image::{CoverImage, CoverKind, PlaceholderLook, parse_color};
 use crate::views::lyrics_dialog::TextDialog;
 use crate::views::lyrics_panel::{LyricsPanel, LyricsPanelEvent};
 use crate::views::marquee::Marquee;
@@ -283,6 +283,7 @@ impl NowPlaying {
         CoverImage::new(path, CoverKind::Album, self.accent, &self.cache)
             .embedded(self.external.clone())
             .radius(COVER_RADIUS)
+            .look(PlaceholderLook::Hero)
             .into_any_element()
     }
 }

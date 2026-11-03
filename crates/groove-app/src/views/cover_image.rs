@@ -2,7 +2,7 @@
 //!
 //! Ảnh nạp qua `LruImageCache` dùng chung của màn (`cache.load(Resource::Path)`): `img` trần giữ ảnh đã giải mã suốt đời
 //! app, xem `materiant/plan/completed/gd5/materiant-gd5_04_virtual-grid.md` mục 9. Không có tệp (chưa có bìa, thư mục cache
-//! bị xoá, tệp hỏng) thì vẽ placeholder: album là nền trung tính + icon bìa mặc định, thư mục là gradient màu chủ đạo +
+//! bị xoá, tệp hỏng) thì vẽ placeholder: album là nền trung tính + icon đĩa (`cli.svg#Album` như bản web), thư mục là gradient màu chủ đạo +
 //! icon thư mục, playlist là màu của playlist + icon album.
 //!
 //! ui-audit (02/11/2026): GPUI không cắt con theo bo góc (`overflow_hidden` chỉ cắt hình chữ nhật), nên ảnh trong khung bo
@@ -45,9 +45,8 @@ impl CoverKind {
 
     fn icon(self) -> GrooveIcon {
         match self {
-            CoverKind::Album => GrooveIcon::DefaultCover,
+            CoverKind::Album | CoverKind::Playlist => GrooveIcon::Album,
             CoverKind::Folder => GrooveIcon::Folder,
-            CoverKind::Playlist => GrooveIcon::Album,
         }
     }
 }
@@ -64,6 +63,18 @@ pub enum CoverSource {
     Embedded(Arc<Image>),
 }
 
+/// Dáng placeholder của bìa album theo chỗ đặt, như bản web (`music-card.vue`, `now-playing.vue`, `audio-controller.vue`).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub enum PlaceholderLook {
+    /// Thẻ, danh sách: nền `bg-placeholder`, icon 64 px.
+    #[default]
+    Card,
+    /// Bìa lớn Now Playing: gradient `border-hover` → `bg-item`, icon 64 px.
+    Hero,
+    /// Bìa nhỏ thanh phát cạnh `.0`: không nền, icon lấp khung trừ đệm 8 px (`p-2`).
+    Thumb(Pixels),
+}
+
 /// Bo góc mặc định của bìa (`rounded-lg`).
 pub const RADIUS: Pixels = px(8.);
 
@@ -77,6 +88,7 @@ pub struct CoverImage {
     cache: Entity<LruImageCache>,
     radius: Pixels,
     zoom: f32,
+    look: PlaceholderLook,
 }
 
 impl CoverImage {
@@ -86,7 +98,15 @@ impl CoverImage {
         accent: Option<Hsla>,
         cache: &Entity<LruImageCache>,
     ) -> CoverImage {
-        CoverImage { source: path.map(CoverSource::Path), kind, accent, cache: cache.clone(), radius: RADIUS, zoom: 1. }
+        CoverImage {
+            source: path.map(CoverSource::Path),
+            kind,
+            accent,
+            cache: cache.clone(),
+            radius: RADIUS,
+            zoom: 1.,
+            look: PlaceholderLook::Card,
+        }
     }
 
     /// Ảnh nhúng trong tệp nhạc ngoài thư viện; không có thì như [`CoverImage::new`] với `path`.
@@ -103,6 +123,12 @@ impl CoverImage {
         self
     }
 
+    /// Dáng placeholder khi chưa có bìa (chỉ ảnh hưởng bìa album).
+    pub fn look(mut self, look: PlaceholderLook) -> CoverImage {
+        self.look = look;
+        self
+    }
+
     /// Phóng ảnh quanh tâm (1 = vừa khung); phần tràn bị cắt theo khung, góc vẫn bo.
     pub fn zoom(mut self, zoom: f32) -> CoverImage {
         self.zoom = zoom.max(1.);
@@ -111,21 +137,42 @@ impl CoverImage {
 }
 
 /// Khung placeholder, dựng lại được từ giá trị `Copy`.
-fn placeholder(kind: CoverKind, accent: Option<Hsla>, radius: Pixels, c: &materiant::theme::ThemeColors) -> AnyElement {
-    let (background, ink) = match kind {
-        CoverKind::Album => (div().bg(c.neutral(Neutral::N200)), c.muted),
-        CoverKind::Folder => {
+fn placeholder(
+    kind: CoverKind,
+    look: PlaceholderLook,
+    accent: Option<Hsla>,
+    radius: Pixels,
+    c: &materiant::theme::ThemeColors,
+) -> AnyElement {
+    // `text-theme-text-disabled` của bản web: zinc-500 trên nền tối, zinc-400 trên nền sáng — bậc giữa của dải trung tính.
+    let disabled = c.neutral(Neutral::N500);
+    let (background, ink) = match (kind, look) {
+        (CoverKind::Album, PlaceholderLook::Card) => (div().bg(c.neutral(Neutral::N200)), disabled),
+        (CoverKind::Album, PlaceholderLook::Hero) => (
+            div().bg(linear_gradient(
+                135.,
+                linear_color_stop(c.neutral(Neutral::N300), 0.),
+                linear_color_stop(c.neutral(Neutral::N100), 1.),
+            )),
+            disabled,
+        ),
+        (CoverKind::Album, PlaceholderLook::Thumb(_)) => (div(), disabled),
+        (CoverKind::Folder, _) => {
             let base = accent.unwrap_or(c.primary);
             (
                 div().bg(linear_gradient(135., linear_color_stop(base, 0.), linear_color_stop(base.opacity(0.55), 1.))),
                 c.on_primary,
             )
         }
-        CoverKind::Playlist => {
+        (CoverKind::Playlist, _) => {
             // Playlist chưa ghi màu theo màu nhấn của theme (G-4).
             let base = accent.unwrap_or(c.primary);
             (div().bg(base), materiant::theme::color::on_color(base.into()).into())
         }
+    };
+    let icon = match (kind, look) {
+        (CoverKind::Album, PlaceholderLook::Thumb(edge)) => edge - px(16.),
+        _ => px(64.),
     };
     background
         .size_full()
@@ -133,7 +180,7 @@ fn placeholder(kind: CoverKind, accent: Option<Hsla>, radius: Pixels, c: &materi
         .flex()
         .items_center()
         .justify_center()
-        .child(Icon::new(kind.icon()).size(px(56.)).color(ink.opacity(0.9)))
+        .child(Icon::new(kind.icon()).size(icon).color(ink.opacity(0.9)))
         .into_any_element()
 }
 
@@ -185,7 +232,7 @@ impl RenderOnce for CoverImage {
                 .size_full(),
             ),
             // Đang nạp, lỗi, chưa có bìa: placeholder cùng bo góc. Nạp xong cache tự xin vẽ lại.
-            None => frame.child(placeholder(self.kind, self.accent, radius, &colors)),
+            None => frame.child(placeholder(self.kind, self.look, self.accent, radius, &colors)),
         }
     }
 }
