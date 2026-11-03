@@ -26,6 +26,7 @@ use materiant::gpui_kit::{
 };
 use materiant::icon::{Icon, IconName};
 use materiant::overlay::dialog::{Dialog, DialogHandle};
+use materiant::scroll::ScrollArea;
 use materiant::style::Accent;
 use materiant::theme::{ActiveTheme, Neutral};
 
@@ -448,8 +449,8 @@ impl MetadataDialog {
     }
 
     /// Một trang, không chia tab: bìa bên trái, mọi ô bên phải.
-    fn render_form(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
-        let (form, cover) = (self.form.as_ref()?, self.cover.as_ref()?);
+    fn render_fields(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let form = self.form.as_ref()?;
         let c = cx.theme().colors().clone();
         let chip = div()
             .self_end()
@@ -491,7 +492,7 @@ impl MetadataDialog {
             .children(self.field_pair(Field::Copyright, Field::Bpm))
             .child(form.field(Field::Grouping).clone())
             .child(form.comment.clone());
-        Some(div().flex().gap_5().items_start().child(cover.clone()).child(fields).into_any_element())
+        Some(fields.into_any_element())
     }
 
     fn render_group(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
@@ -547,7 +548,7 @@ impl MetadataDialog {
             .flex()
             .flex_col()
             .gap_4()
-            .children(self.render_form(cx))
+            .children(self.render_fields(cx))
             .children(self.render_group(cx))
             .children(self.render_messages(cx))
             .into_any_element()
@@ -573,6 +574,7 @@ impl Render for MetadataDialog {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.note_closed(cx);
         let body = self.render_body(cx);
+        let cover = self.cover.clone().filter(|_| matches!(self.phase, Phase::Ready));
         let ready = self.is_ready();
         let cancel_label = if self.saved { t!("common.close") } else { t!("metadata.cancel") };
         let save_label = if self.saving { t!("metadata.saving") } else { t!("metadata.save") };
@@ -606,12 +608,8 @@ impl Render for MetadataDialog {
                 div()
                     .id("metadata-body")
                     .flex()
-                    .flex_col()
                     .flex_shrink(1.)
                     .min_h_0()
-                    .px(px(BODY_PADDING_X))
-                    .py(px(BODY_PADDING_Y))
-                    .overflow_y_scroll()
                     // Ctrl+V trên ô bìa dán ảnh; ngoài ô, hoặc clipboard không có ảnh, thì ô nhập tự dán chữ.
                     .capture_key_down(cx.listener(|this, event: &KeyDownEvent, _, cx| {
                         let keystroke = &event.keystroke;
@@ -625,7 +623,18 @@ impl Render for MetadataDialog {
                             cx.stop_propagation();
                         }
                     }))
-                    .child(body),
+                    // Ô bìa ghim bên trái, chỉ phần trường nhập cuộn (thanh cuộn nổi sát mép phải hộp, D-16).
+                    .children(cover.map(|cover| {
+                        div().flex_none().pl(px(BODY_PADDING_X)).py(px(BODY_PADDING_Y)).child(cover)
+                    }))
+                    .child(
+                        ScrollArea::new("metadata-scroll")
+                            .vertical()
+                            .flex_1()
+                            .min_w_0()
+                            .padding_x(px(BODY_PADDING_X))
+                            .child(div().py(px(BODY_PADDING_Y)).child(body)),
+                    ),
             )
     }
 }
