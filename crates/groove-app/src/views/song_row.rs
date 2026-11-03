@@ -28,7 +28,8 @@ pub const ROW_HEIGHT: f32 = 44.;
 const ROW_PADDING_Y: f32 = 12.;
 /// Cao một hàng chữ của dòng: ô `#` cao đúng chừng này để số / bars / Play nằm ngang hàng chữ đầu.
 const LINE_HEIGHT: f32 = ROW_HEIGHT - 2. * ROW_PADDING_Y;
-pub const INDEX_WIDTH: f32 = 48.;
+/// Cột `#`: vừa 4 chữ số cỡ 12 px (danh sách tối đa 9999 bài — chủ dự án 03/11/2026), cũng đủ thanh nhảy 14 px.
+pub const INDEX_WIDTH: f32 = 32.;
 pub const DURATION_WIDTH: f32 = 96.;
 /// Cột nghệ sĩ ẩn dưới bề ngang cửa sổ này (bản cũ `hidden md:table-cell`, `md` = 768 px của Tailwind).
 pub const ARTIST_MIN_WINDOW_WIDTH: f32 = 768.;
