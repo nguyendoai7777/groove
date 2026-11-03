@@ -18,7 +18,7 @@ use groove_core::model::CategoryRef;
 use materiant::gpui_kit as gpui;
 use materiant::gpui_kit::{
     AnyElement, App, Bounds, Corners, Entity, Hsla, Image, ImageCache, IntoElement, ParentElement, Pixels, RenderImage,
-    RenderOnce, Resource, Rgba, Styled, Window, canvas, div, linear_color_stop, linear_gradient, px,
+    RenderOnce, Resource, Rgba, Styled, Window, canvas, div, linear_color_stop, linear_gradient, px, relative, svg,
 };
 use materiant::icon::Icon;
 use materiant::theme::{ActiveTheme, Neutral};
@@ -170,18 +170,25 @@ fn placeholder(
             (div().bg(base), materiant::theme::color::on_color(base.into()).into())
         }
     };
-    let icon = match (kind, look) {
-        (CoverKind::Album, PlaceholderLook::Thumb(edge)) => edge - px(16.),
-        _ => px(64.),
-    };
-    background
-        .size_full()
-        .rounded(radius)
-        .flex()
-        .items_center()
-        .justify_center()
-        .child(Icon::new(kind.icon()).size(icon).color(ink.opacity(0.9)))
-        .into_any_element()
+    let frame = background.size_full().rounded(radius).flex().items_center().justify_center();
+    match (kind, look) {
+        // Chủ dự án: đĩa ở bìa lớn to gấp 3 (192 px, kẹp 70 % khung khi cửa sổ hẹp), vẽ bằng bản nét mảnh để nét không
+        // phình theo cỡ.
+        (CoverKind::Album, PlaceholderLook::Hero) => frame.child(
+            svg()
+                .path(GrooveIcon::AlbumThin.path())
+                .flex_none()
+                .size(px(192.))
+                .max_w(relative(0.7))
+                .max_h(relative(0.7))
+                .text_color(ink.opacity(0.9)),
+        ),
+        (CoverKind::Album, PlaceholderLook::Thumb(edge)) => {
+            frame.child(Icon::new(kind.icon()).size(edge - px(16.)).color(ink.opacity(0.9)))
+        }
+        _ => frame.child(Icon::new(kind.icon()).size(px(64.)).color(ink.opacity(0.9))),
+    }
+    .into_any_element()
 }
 
 /// Vùng vẽ ảnh: `object-fit: cover` trong `frame` rồi phóng `zoom` quanh tâm khung.
