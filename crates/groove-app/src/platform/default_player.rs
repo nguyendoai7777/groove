@@ -95,8 +95,11 @@ mod sys {
         text.encode_utf16().chain(Some(0)).collect()
     }
 
+    /// Bản debug: taskbar gom riêng, không gom vào lối tắt của bản đã cài (dev-app-id, 03/11/2026).
+    const DEV_APP_USER_MODEL_ID: &str = "GrooveX.Player.Dev";
+
     pub fn set_process_identity() {
-        let id = wide(APP_USER_MODEL_ID);
+        let id = wide(if cfg!(debug_assertions) { DEV_APP_USER_MODEL_ID } else { APP_USER_MODEL_ID });
         // SAFETY: chuỗi kết thúc NUL, sống tới hết lời gọi; hàm chép giá trị.
         let hr = unsafe { SetCurrentProcessExplicitAppUserModelID(id.as_ptr()) };
         if hr < 0 {
