@@ -4,7 +4,8 @@
 //! lại khi cửa sổ đổi. Không đặt vị trí sau khi mở vì GPUI không có lệnh dời cửa sổ, và mở rồi mới dời thì thấy cửa sổ nhảy.
 //!
 //! - **Lưu**: mỗi lần đổi vị trí, cỡ, phóng to thì sửa `Settings::window` trong bộ nhớ; `JsonSaver` gom lần ghi đĩa và xả khi
-//!   thoát. Nút đóng trên thanh trên đi `remove_window`, không qua `on_window_should_close`, nên không thể chỉ lưu lúc đóng.
+//!   thoát. Không chỉ lưu lúc đóng: nút đóng trên thanh trên ở nền khác Windows đi `remove_window`, không qua
+//!   `on_window_should_close`.
 //! - **Mở**: hình học quyết định, id màn chỉ để ưu tiên. Trên Windows `DisplayId` là `HMONITOR`, đổi sau khi khởi động lại,
 //!   nên id không thấy chưa có nghĩa là màn đã mất. Vùng kéo trên cùng còn nằm trên một màn thì giữ, không thì về giữa màn chính.
 //! - **Wayland** không cho đặt vị trí: chỉ giữ cỡ.

@@ -16,6 +16,10 @@
 # In: số cửa sổ, RAM (working set, private) và CPU trung bình từ mốc trước (% của một nhân) ở mỗi mốc, dòng log WARN / ERROR,
 # `foreground_unchanged`. `-Seed <exe>` chạy `<exe> <thư mục dữ liệu tạm> [-Songs]` trước khi mở app; `-Songs <n>` thêm n bài vào
 # thư viện tạm (đo với thư viện có bài).
+#
+# `-Clicks "max,max,min,close"`: bấm nút cửa sổ ở góc trên phải bằng thông điệp Win32 như khi rê + nhấp chuột thật
+# (`WM_MOUSEMOVE` → `WM_NCHITTEST` → `WM_NC*` hoặc `WM_LBUTTON*` theo kết quả hit-test), rồi in hit-test và trạng thái
+# thật `IsIconic` / `IsZoomed` sau mỗi lần bấm. Sau `min` script tự `SW_RESTORE` để bấm tiếp.
 param(
     [Parameter(Mandatory)][string]$Exe,
     [int]$Seconds = 15,
@@ -24,7 +28,10 @@ param(
     [string]$Seed = "",
     [int]$Songs = 0,
     # Mở cửa sổ ở trạng thái active (bỏ `--background`): cửa sổ vẫn nằm trên desktop ẩn, không giành focus của desktop đang dùng.
-    [switch]$Active
+    [switch]$Active,
+    [string]$Clicks = "",
+    # Rê trên nút bao lâu (ms) trước khi nhấp — đủ lâu thì tooltip đã hiện.
+    [int]$Hover = 150
 )
 $ErrorActionPreference = "Stop"
 
@@ -54,6 +61,42 @@ public static class HiddenDesktop {
     [DllImport("user32")] public static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
     [DllImport("user32")] public static extern bool PrintWindow(IntPtr hwnd, IntPtr hdc, uint flags);
     [DllImport("user32")] public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32")] public static extern bool IsIconic(IntPtr hwnd);
+    [DllImport("user32")] public static extern bool IsZoomed(IntPtr hwnd);
+    [DllImport("user32")] public static extern bool IsWindow(IntPtr hwnd);
+    [DllImport("user32")] public static extern bool ShowWindowAsync(IntPtr hwnd, int cmd);
+    [DllImport("user32")] public static extern bool GetClientRect(IntPtr hwnd, out RECT rect);
+    [DllImport("user32")] public static extern bool ClientToScreen(IntPtr hwnd, ref POINT point);
+    [DllImport("user32")] public static extern uint GetDpiForWindow(IntPtr hwnd);
+    [DllImport("user32")] public static extern bool PostMessageW(IntPtr hwnd, uint msg, IntPtr wparam, IntPtr lparam);
+    [DllImport("user32")] public static extern IntPtr SendMessageTimeoutW(IntPtr hwnd, uint msg, IntPtr wparam, IntPtr lparam,
+        uint flags, uint timeout, out IntPtr result);
+    [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X, Y; }
+    static IntPtr Pack(int x, int y) { return (IntPtr)(((y & 0xffff) << 16) | (x & 0xffff)); }
+
+    // Rê tới điểm (x, y) trong vùng client rồi nhấp trái như chuột thật: GPUI cập nhật hit-test theo WM_MOUSEMOVE, OS hỏi
+    // WM_NCHITTEST, rồi gửi WM_NC* (nút tiêu đề, vùng kéo) hoặc WM_LBUTTON* (HTCLIENT). Trả mã hit-test.
+    public static int Click(IntPtr h, int x, int y, int hover) {
+        IntPtr r;
+        var p = new POINT { X = x, Y = y };
+        ClientToScreen(h, ref p);
+        PostMessageW(h, 0x0200, IntPtr.Zero, Pack(x, y)); // WM_MOUSEMOVE
+        System.Threading.Thread.Sleep(hover);
+        SendMessageTimeoutW(h, 0x0084, IntPtr.Zero, Pack(p.X, p.Y), 2, 2000, out r); // WM_NCHITTEST
+        int ht = (int)r;
+        if (ht == 1) { // HTCLIENT
+            PostMessageW(h, 0x0201, (IntPtr)1, Pack(x, y));
+            System.Threading.Thread.Sleep(60);
+            PostMessageW(h, 0x0202, IntPtr.Zero, Pack(x, y));
+        } else {
+            PostMessageW(h, 0x00A0, (IntPtr)ht, Pack(p.X, p.Y)); // WM_NCMOUSEMOVE
+            System.Threading.Thread.Sleep(60);
+            PostMessageW(h, 0x00A1, (IntPtr)ht, Pack(p.X, p.Y)); // WM_NCLBUTTONDOWN
+            System.Threading.Thread.Sleep(60);
+            PostMessageW(h, 0x00A2, (IntPtr)ht, Pack(p.X, p.Y)); // WM_NCLBUTTONUP
+        }
+        return ht;
+    }
     [DllImport("kernel32", CharSet = CharSet.Unicode, SetLastError = true)]
     public static extern bool CreateProcessW(string app, StringBuilder cmd, IntPtr pa, IntPtr ta, bool inherit, uint flags,
         IntPtr env, string cwd, ref STARTUPINFO si, out PROCESS_INFORMATION pi);
@@ -128,6 +171,26 @@ try {
         Measure-Now "t=${t}s"
     }
     $win = [HiddenDesktop]::Windows($desktop, $proc.Id)
+    if ($Clicks -and $win.Count) {
+        $h = $win[0]
+        # Tâm nút tính từ mép phải, theo px logic (nút rộng 36, thanh cao 36); y = 24 tránh dải kéo giãn mép trên.
+        $offset = @{ min = 90; max = 54; close = 18 }
+        $names = @{ 1 = "HTCLIENT"; 2 = "HTCAPTION"; 8 = "HTMINBUTTON"; 9 = "HTMAXBUTTON"; 20 = "HTCLOSE"; 12 = "HTTOP"; 14 = "HTTOPRIGHT" }
+        foreach ($c in $Clicks.Split(",")) {
+            $scale = [HiddenDesktop]::GetDpiForWindow($h) / 96.0
+            $client = New-Object HiddenDesktop+RECT
+            [void][HiddenDesktop]::GetClientRect($h, [ref]$client)
+            $x = [int]($client.R - $offset[$c] * $scale); $y = [int](24 * $scale)
+            $ht = [HiddenDesktop]::Click($h, $x, $y, $Hover)
+            Start-Sleep -Milliseconds 700
+            $alive = [HiddenDesktop]::IsWindow($h)
+            "click {0} at {1},{2}: hit_test={3} minimized={4} maximized={5} window_alive={6}" -f $c, $x, $y,
+                $(if ($names.ContainsKey($ht)) { $names[$ht] } else { $ht }),
+                ($alive -and [HiddenDesktop]::IsIconic($h)), ($alive -and [HiddenDesktop]::IsZoomed($h)), $alive
+            if ($alive -and [HiddenDesktop]::IsIconic($h)) { [void][HiddenDesktop]::ShowWindowAsync($h, 9); Start-Sleep -Milliseconds 500 } # SW_RESTORE
+        }
+        $win = [HiddenDesktop]::Windows($desktop, $proc.Id)
+    }
     if ($Shot -and $win.Count) {
         $rect = New-Object HiddenDesktop+RECT
         [void][HiddenDesktop]::GetWindowRect($win[0], [ref]$rect)
