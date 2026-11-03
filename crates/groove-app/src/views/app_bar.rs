@@ -1,12 +1,12 @@
 //! groove-gd1_03: thanh trên cao 36 px (đặc tả 1.1).
 //!
 //! Nút lùi theo lịch sử (mờ khi không lùi được); ô tìm giữa rộng 40 % bấm để mở bảng lệnh, kèm chip `Ctrl` `K`; thu nhỏ,
-//! phóng to / khôi phục, đóng kiểu nút tiêu đề Windows ([`caption`]: rê xám nhạt, Đóng rê đỏ `#c42b1c` icon trắng). Vùng
-//! trống kéo được cửa sổ, nhấp đúp phóng to / khôi phục (OS lo qua `HTCAPTION`); phần tử bấm được `occlude` để không kéo
-//! theo.
+//! phóng to / khôi phục, đóng như bản web ([`caption`]: icon `Minus`, `ArrowsExpand` / `ArrowsCompress`, `Close` 20 px trong ô
+//! 36 px; rê xám nhạt, Đóng rê đỏ `red-600` icon trắng). Vùng trống kéo được cửa sổ, nhấp đúp phóng to / khôi phục (OS lo
+//! qua `HTCAPTION`); phần tử bấm được `occlude` để không kéo theo.
 //!
-//! chrome-nav (02/11/2026): thu nhỏ / phóng to từng không chạy vì gọi `minimize_window` / `zoom_window` từ `on_click` của
-//! GPUI; `zoom_window` của gpui-pre-windows chỉ `SW_MAXIMIZE`, không bao giờ khôi phục. Nay nút là vùng điều khiển của OS.
+//! window-buttons (03/11/2026): nút cửa sổ là nút bấm thường gọi [`window_controls`], không còn vùng `WindowControlArea`
+//! cho OS hit-test (bấm trên màn thật không ăn) — lý do ở đầu module đó.
 
 use std::rc::Rc;
 
@@ -16,8 +16,7 @@ use materiant::button::IconButton;
 use materiant::gpui_kit as gpui;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    App, ClickEvent, Hsla, IntoElement, ParentElement, RenderOnce, Styled, Window, WindowControlArea, div, px,
-    relative, svg, white,
+    App, ClickEvent, Hsla, IntoElement, ParentElement, RenderOnce, Styled, Window, div, px, relative, svg, white,
 };
 use materiant::icon::Icon;
 use materiant::kbd::Kbd;
@@ -27,15 +26,16 @@ use materiant::theme::{ActiveTheme, Neutral};
 use materiant::window::DragRegionExt;
 
 use crate::icons::GrooveIcon;
+use crate::platform::window_controls;
 
 pub const HEIGHT: f32 = 36.;
 /// Ô tìm rộng 40 % thanh, canh giữa.
 const SEARCH_WIDTH: f32 = 0.4;
-const CONTROL_WIDTH: f32 = 46.;
+/// Nút cửa sổ như `icon-btn` của bản web: ô 36 px (`w-9`), icon 20 px (`sm`).
+const CONTROL_WIDTH: f32 = 36.;
 /// Nút Lùi tròn 32 px cách mép trái bằng khoảng nó cách mép trên / dưới thanh 36 px.
 const BACK_INSET: f32 = 2.;
-/// Icon nút cửa sổ: 10 px nét 1 px như Segoe Fluent Icons.
-const CAPTION_ICON: f32 = 10.;
+const CAPTION_ICON: f32 = 20.;
 
 type Handler = Rc<dyn Fn(&mut Window, &mut App)>;
 
@@ -67,18 +67,19 @@ pub enum Caption {
 }
 
 impl Caption {
-    /// Vùng điều khiển cửa sổ báo cho OS qua hit-test (Windows: `HTMINBUTTON`, `HTMAXBUTTON`, `HTCLOSE`).
-    fn area(self) -> WindowControlArea {
+    /// Icon như bản web (`app-bar.vue`): phóng to `ArrowsExpand`, đang phóng to thì `ArrowsCompress` (khôi phục).
+    pub fn icon(self, maximized: bool) -> GrooveIcon {
         match self {
-            Caption::Minimize => WindowControlArea::Min,
-            Caption::Maximize => WindowControlArea::Max,
-            Caption::Close => WindowControlArea::Close,
+            Caption::Minimize => GrooveIcon::Minus,
+            Caption::Maximize if maximized => GrooveIcon::ArrowsCompress,
+            Caption::Maximize => GrooveIcon::ArrowsExpand,
+            Caption::Close => GrooveIcon::Close,
         }
     }
 }
 
-/// Đỏ của nút Đóng khi rê chuột (Windows 11 `#c42b1c`), chữ trắng.
-pub const CLOSE_HOVER: u32 = 0xc42b1c;
+/// Đỏ của nút Đóng khi rê chuột: `hover:bg-red-600` của bản web, icon trắng.
+pub const CLOSE_HOVER: u32 = 0xdc2626;
 
 /// Màu một nút cửa sổ như Windows: thu nhỏ / phóng to rê là lớp xám mờ theo màu chữ, nhấn nhạt hơn; Đóng rê nền đỏ, icon
 /// trắng, nhấn đỏ hơi trong.
@@ -107,11 +108,7 @@ impl CaptionPaint {
     }
 }
 
-/// Nút cửa sổ rộng 46 px, cao bằng thanh, icon nét mảnh 10 px.
-///
-/// Windows: nút là vùng `WindowControlArea` — OS nhận nhấp như nút tiêu đề thật (`HTMINBUTTON`…): thu nhỏ, phóng to / khôi
-/// phục (`SW_NORMAL` khi đang phóng to), đóng, Snap Layouts của Windows 11 khi rê nút phóng to. Không gắn `on_click`: GPUI
-/// nhận nhấp trước, phần tử nào dừng sự kiện là OS bỏ qua. Nền khác: `on_click` gọi thẳng API cửa sổ của GPUI.
+/// Nút cửa sổ rộng 36 px, cao bằng thanh, icon 20 px. Bấm gọi [`window_controls`] (phóng to bấm lần hai là khôi phục).
 fn caption(id: &'static str, caption: Caption, icon: GrooveIcon, label: &'static str, cx: &App) -> impl IntoElement {
     let paint = CaptionPaint::resolve(caption, cx.theme().colors().text);
     div()
@@ -124,15 +121,12 @@ fn caption(id: &'static str, caption: Caption, icon: GrooveIcon, label: &'static
         .flex()
         .items_center()
         .justify_center()
-        .window_control_area(caption.area())
         .hover(move |s| s.bg(paint.hover_bg))
         .active(move |s| s.bg(paint.active_bg))
-        .when(!cfg!(target_os = "windows"), |d| {
-            d.on_click(move |_, window, _| match caption {
-                Caption::Minimize => window.minimize_window(),
-                Caption::Maximize => window.zoom_window(),
-                Caption::Close => window.remove_window(),
-            })
+        .on_click(move |_, window, _| match caption {
+            Caption::Minimize => window_controls::minimize(window),
+            Caption::Maximize => window_controls::toggle_maximize(window),
+            Caption::Close => window_controls::close(window),
         })
         .child(
             svg()
@@ -201,11 +195,7 @@ impl RenderOnce for AppBar {
                 .child(Kbd::new("Ctrl+K").mac_symbols(mac))
         };
 
-        let (toggle_icon, toggle_label) = if self.maximized {
-            (GrooveIcon::WindowRestore, t!("shell.app_bar.restore"))
-        } else {
-            (GrooveIcon::WindowMaximize, t!("shell.app_bar.maximize"))
-        };
+        let toggle_label = if self.maximized { t!("shell.app_bar.restore") } else { t!("shell.app_bar.maximize") };
 
         div()
             .id("app-bar")
@@ -228,15 +218,21 @@ impl RenderOnce for AppBar {
                     .child(caption(
                         "app-bar-minimize",
                         Caption::Minimize,
-                        GrooveIcon::WindowMinimize,
+                        Caption::Minimize.icon(self.maximized),
                         t!("shell.app_bar.minimize"),
                         cx,
                     ))
-                    .child(caption("app-bar-maximize", Caption::Maximize, toggle_icon, toggle_label, cx))
+                    .child(caption(
+                        "app-bar-maximize",
+                        Caption::Maximize,
+                        Caption::Maximize.icon(self.maximized),
+                        toggle_label,
+                        cx,
+                    ))
                     .child(caption(
                         "app-bar-close",
                         Caption::Close,
-                        GrooveIcon::WindowClose,
+                        Caption::Close.icon(self.maximized),
                         t!("shell.app_bar.close"),
                         cx,
                     )),
@@ -248,9 +244,9 @@ impl RenderOnce for AppBar {
 mod tests {
     use super::*;
 
-    /// Như nút tiêu đề Windows: Đóng rê đỏ `#c42b1c` icon trắng; thu nhỏ / phóng to rê xám nhạt, giữ màu icon, nhấn nhạt hơn rê.
+    /// Đóng rê đỏ `red-600` icon trắng như bản web; thu nhỏ / phóng to rê xám nhạt, giữ màu icon, nhấn nhạt hơn rê.
     #[test]
-    fn caption_paint_matches_windows() {
+    fn caption_paint_matches_web() {
         let text: Hsla = hex(0xf5f5f5).into();
         let close = CaptionPaint::resolve(Caption::Close, text);
         assert_eq!(close.hover_bg, Hsla::from(hex(CLOSE_HOVER)));
@@ -262,8 +258,16 @@ mod tests {
             assert!(p.hover_bg.a > 0. && p.hover_bg.a < 0.15, "xám nhạt: {:?}", p.hover_bg);
             assert!(p.active_bg.a < p.hover_bg.a);
         }
-        assert_eq!(Caption::Minimize.area(), WindowControlArea::Min);
-        assert_eq!(Caption::Maximize.area(), WindowControlArea::Max);
-        assert_eq!(Caption::Close.area(), WindowControlArea::Close);
+    }
+
+    /// Icon như `app-bar.vue` của bản web: `Minus`, `ArrowsExpand` / `ArrowsCompress` theo trạng thái phóng to, `Close`.
+    #[test]
+    fn caption_icons_match_web() {
+        for maximized in [false, true] {
+            assert_eq!(Caption::Minimize.icon(maximized), GrooveIcon::Minus);
+            assert_eq!(Caption::Close.icon(maximized), GrooveIcon::Close);
+        }
+        assert_eq!(Caption::Maximize.icon(false), GrooveIcon::ArrowsExpand);
+        assert_eq!(Caption::Maximize.icon(true), GrooveIcon::ArrowsCompress);
     }
 }

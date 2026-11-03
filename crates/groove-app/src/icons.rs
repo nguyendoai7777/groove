@@ -61,11 +61,6 @@ groove_icons! {
     /// Nút thu / mở cột trái: khung có vách trái, mũi tên trong khung.
     SidebarCollapse => "sidebar-collapse",
     SidebarExpand => "sidebar-expand",
-    /// Nút cửa sổ nét mảnh 1 px kiểu Windows, vẽ ở 10 px.
-    WindowMinimize => "window-minimize",
-    WindowMaximize => "window-maximize",
-    WindowRestore => "window-restore",
-    WindowClose => "window-close",
     ArrowsExpand => "arrows-expand",
     ArrowsCompress => "arrows-compress",
     Search => "search",

@@ -109,10 +109,11 @@ bash packaging/macos/build-macos.sh                           # .app, .dmg, ký 
 bash packaging/linux/build-deb.sh                             # .deb, libasound là phụ thuộc (G-2); chạy trên Ubuntu
 ```
 
-`pwsh tools/measure-hidden.ps1 -Exe <groove.exe> [-Keys …] [-Shot ảnh.png] [-Seed <exe>] [-Active]`: chạy app thật trong desktop Win32 ẩn, không hiện ở
+`pwsh tools/measure-hidden.ps1 -Exe <groove.exe> [-Keys …] [-Shot ảnh.png] [-Seed <exe>] [-Active] [-Clicks min,max,close]`: chạy app thật trong desktop Win32 ẩn, không hiện ở
 màn nào, không giành focus, dữ liệu tạm; in RAM, số cửa sổ, tiêu đề, dòng WARN / ERROR. Từ chối exe không đọc
 `GROOVE_DATA_DIR` (bản phát hành thật sẽ mở thư viện thật); đo gần bản phát hành thì build release với
-`CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=true`. Không có nền mờ, con trỏ, taskbar thật; xem ảnh xong xoá.
+`CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=true`. Không có nền mờ, con trỏ, taskbar thật; xem ảnh xong xoá. `-Clicks` bấm nút cửa sổ
+bằng thông điệp Win32 như chuột thật, in hit-test và `IsIconic` / `IsZoomed` thật sau mỗi lần bấm (`-Hover <ms>` rê trước khi bấm).
 
 `tools/run.ps1`: màn phụ, không focus, phím đưa thẳng vào GPUI, chụp đúng cửa sổ, in RAM, `foreground_unchanged`; dữ liệu ở
 thư mục tạm; máy chỉ một màn thì từ chối (không đè màn đang dùng), muốn thử thật truyền `-Display primary`. `--display` chọn
