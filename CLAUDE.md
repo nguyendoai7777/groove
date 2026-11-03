@@ -152,6 +152,8 @@ màn không có thì thoát, không rơi về màn mặc định. Xem ảnh xong
 - **AppData ảo hoá MSIX**: exe chạy từ app Claude trên Windows ghi vào `LocalCache` của gói. Không thấy DB cũ ở đó không có
   nghĩa là máy không có DB.
 - `notify` dùng bản 8 + `notify-debouncer-full` 0.5, không phải bản `-rc` mà `cargo info` đưa ra.
+- **`blocking` ghim 1.6.2 trong `Cargo.lock`** (zbus, smol của GPUI Linux kéo vào): 1.7.0 gộp điều kiện thoát thành `thread_count > thread_limit && timed_out` (trần 500) nên luồng `blocking-N` rảnh không bao giờ thoát, thức 2 lần / s mãi. Đo lúc nghỉ: 1.7.0 có 1–2 luồng × 61 lần thức / 30 s, 1.6.2 không còn luồng nào. `cargo update` đừng nâng lên 1.7.x khi upstream chưa sửa.
+- **souvlaki vá ở `vendor/souvlaki`** (`[patch.crates-io]`, 0.9.3, MIT): MPRIS bản `use_zbus` chờ lệnh bằng `loop { recv_timeout(10 ms) }`, luồng `media-session` thức 100 lần / s cả lúc nghỉ; bản vá chờ `recv()` chặn. Nâng souvlaki ⇒ soát lại vòng này rồi mới gỡ bản vá. Test chặn cả hai bẫy này: `platform::media_session::tests::idle_mpris_service_does_not_tick`.
 - Dòng ERROR `directx_devices.rs:82 ... 0x887A002D` lúc chạy debug chỉ là thiếu lớp debug DXGI, không phải lỗi.
 - Trên desktop ẩn còn `unable to get cursor position: Access is denied` và `taskbar list init: 0x80004001`: do desktop ẩn.
 - `GROOVE_DATA_DIR` kéo theo cả chỗ tìm DB Tauri cũ (`paths::legacy_db`): chạy thử không bao giờ đọc DB thật.
