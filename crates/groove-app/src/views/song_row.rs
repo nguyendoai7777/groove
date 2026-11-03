@@ -118,24 +118,48 @@ impl SongRow {
     }
 }
 
-/// Ô của một cột: lề cân hai bên. Chữ dài xuống dòng, không cắt "…" (chủ dự án 03/11/2026, như Apple Music).
+/// Ô của một cột chữ: lề cân hai bên. Chữ dài xuống dòng, không cắt "…" (chủ dự án 03/11/2026, như Apple Music).
 fn cell() -> gpui::Div {
     div().px(px(CELL_PADDING)).min_w_0()
 }
 
-/// Dòng tiêu đề cột (`#`, tiêu đề, thời lượng, nghệ sĩ) cùng bố cục với [`SongRow`].
+/// Bốn cột của bảng bài — nguồn bề rộng duy nhất cho cả dòng tiêu đề cột ([`header_row`]) lẫn dòng bài ([`SongRow`]),
+/// để hai bên không lệch nhau. Đệm hai mép bảng là của danh sách (`VirtualList::padding_x`); dòng tiêu đề lùi đúng số đó.
+mod column {
+    use super::*;
+
+    /// `#`: số / thanh nhảy / Play canh giữa, không đệm.
+    pub fn index() -> gpui::Div {
+        div().w(px(INDEX_WIDTH)).flex_none().flex().justify_center()
+    }
+
+    pub fn title() -> gpui::Div {
+        cell().flex_1()
+    }
+
+    pub fn duration() -> gpui::Div {
+        cell().w(px(DURATION_WIDTH)).flex_none()
+    }
+
+    pub fn artist() -> gpui::Div {
+        cell().flex_1()
+    }
+}
+
+/// Dòng tiêu đề cột (`#`, tiêu đề, thời lượng, nghệ sĩ): cùng các cột [`column`] với [`SongRow`].
 pub fn header_row(show_artist: bool, c: &ThemeColors) -> AnyElement {
-    let label = |text: &'static str| cell().text_size(px(12.)).text_color(c.muted.opacity(0.8)).child(text);
+    let muted = c.muted.opacity(0.8);
+    let label = |column: gpui::Div, text: &'static str| column.text_size(px(12.)).text_color(muted).child(text);
     div()
         .flex_none()
         .w_full()
         .h(px(36.))
         .flex()
         .items_center()
-        .child(label(t!("song_list.column.index")).w(px(INDEX_WIDTH)).flex_none().text_center())
-        .child(label(t!("song_list.column.title")).flex_1())
-        .child(label(t!("song_list.column.duration")).w(px(DURATION_WIDTH)).flex_none())
-        .when(show_artist, |row| row.child(label(t!("song_list.column.artist")).flex_1()))
+        .child(label(column::index(), t!("song_list.column.index")))
+        .child(label(column::title(), t!("song_list.column.title")))
+        .child(label(column::duration(), t!("song_list.column.duration")))
+        .when(show_artist, |row| row.child(label(column::artist(), t!("song_list.column.artist"))))
         .into_any_element()
 }
 
@@ -143,8 +167,7 @@ impl SongRow {
     fn index_cell(&self, c: &ThemeColors) -> impl IntoElement + use<> {
         let accent = c.primary_ink;
         let hover_icon = || Icon::new(GrooveIcon::Play).size(px(12.)).color(accent);
-        let stack =
-            div().w(px(INDEX_WIDTH)).flex_none().h(px(LINE_HEIGHT)).relative().flex().items_center().justify_center();
+        let stack = column::index().h(px(LINE_HEIGHT)).relative().items_center();
         let rest = |child: AnyElement| {
             div()
                 .absolute()
@@ -211,9 +234,9 @@ impl RenderOnce for SongRow {
                 })
             })
             .child(index)
-            .child(cell().flex_1().text_color(title_color).child(self.title))
-            .child(cell().w(px(DURATION_WIDTH)).flex_none().text_color(c.muted).child(self.duration))
-            .when(self.show_artist, |row| row.child(cell().flex_1().text_color(c.muted).child(self.artist)))
+            .child(column::title().text_color(title_color).child(self.title))
+            .child(column::duration().text_color(c.muted).child(self.duration))
+            .when(self.show_artist, |row| row.child(column::artist().text_color(c.muted).child(self.artist)))
     }
 }
 
