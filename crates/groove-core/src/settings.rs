@@ -234,6 +234,8 @@ pub struct Settings {
     pub custom_keybindings: Option<Vec<KeyBinding>>,
     pub side_nav_collapsed: bool,
     pub window: Option<WindowPlacement>,
+    /// Vị trí cửa sổ trình phát thu nhỏ (PiP); `maximized` luôn `false` vì PiP không đổi cỡ.
+    pub pip_window: Option<WindowPlacement>,
 }
 
 impl Default for Settings {
@@ -253,6 +255,7 @@ impl Default for Settings {
             custom_keybindings: None,
             side_nav_collapsed: false,
             window: None,
+            pip_window: None,
         }
     }
 }

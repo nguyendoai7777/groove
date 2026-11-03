@@ -88,6 +88,10 @@ groove_icons! {
     VolumeMin => "volume-min",
     VolumeMedium => "volume-medium",
     VolumeMax => "volume-max",
+    /// Trình phát thu nhỏ (PiP): khung có ô nhỏ ở góc dưới phải.
+    Pip => "pip",
+    /// Nút của cửa sổ PiP: quay lại cửa sổ chính (mũi tên ra khỏi khung).
+    PipExit => "pip-exit",
     // Thẻ, menu, hộp thoại, bảng lệnh.
     Folder => "folder",
     /// Nét 1,5 (mảnh hơn icon khác): hiện chỉ nút Delete trên lớp phủ của thẻ dùng.

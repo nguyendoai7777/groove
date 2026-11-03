@@ -19,7 +19,7 @@ use materiant::gpui_kit::{
 use crate::app::{self, Shell};
 
 /// Trùng tên `packaging/linux/groove.desktop`: dock Linux ghép cửa sổ với icon theo `app_id`.
-const APP_ID: &str = "groove";
+pub const APP_ID: &str = "groove";
 /// Cao của vùng kéo cửa sổ (thanh trên, đặc tả 1.1).
 const DRAG_STRIP_HEIGHT: f32 = 36.;
 /// Phần vùng kéo tối thiểu phải nằm trên màn để người dùng còn nắm được cửa sổ.
@@ -71,7 +71,35 @@ fn track<V: 'static>(cx: &mut App, save: fn(WindowPlacement, &mut App)) {
     .detach();
 }
 
-fn current(window: &Window, cx: &App) -> WindowPlacement {
+/// Chỗ mở lại cửa sổ cỡ cố định `size` (trình phát thu nhỏ) theo vị trí đã lưu: luật như cửa sổ chính (vùng kéo trên cùng còn
+/// trên một màn). `None` khi chưa lưu, số vô nghĩa, vị trí không còn trên màn nào, hoặc nền không đặt được vị trí (Wayland):
+/// người gọi tự chọn chỗ.
+pub fn restore_fixed(
+    saved: Option<&WindowPlacement>,
+    size: Size<Pixels>,
+    cx: &App,
+) -> Option<(Bounds<Pixels>, Option<DisplayId>)> {
+    let saved = WindowPlacement { width: size.width.as_f32(), height: size.height.as_f32(), ..saved?.clone() };
+    let displays: Vec<_> = cx.displays().iter().map(|d| (u64::from(d.id()), d.bounds())).collect();
+    let planned = plan_fixed(&saved, &displays, can_position(), size)?;
+    Some((Bounds::new(planned.origin?, planned.size), planned.display.map(DisplayId::from)))
+}
+
+fn plan_fixed(
+    saved: &WindowPlacement,
+    displays: &[(u64, Bounds<Pixels>)],
+    positionable: bool,
+    size: Size<Pixels>,
+) -> Option<Planned> {
+    if !positionable {
+        return None;
+    }
+    // Không có màn chính dự phòng: vị trí không giữ được thì `origin` là `None`, người gọi đặt chỗ mặc định của nó.
+    plan(saved, displays, None, true, size).filter(|planned| planned.origin.is_some())
+}
+
+/// Vị trí hiện tại của `window` để lưu (bounds khi không phóng to, màn đang chứa).
+pub fn current(window: &Window, cx: &App) -> WindowPlacement {
     let display_id = window.display(cx).map(|d| u64::from(d.id()));
     placement_of(window.window_bounds(), display_id)
 }
@@ -188,6 +216,19 @@ mod tests {
 
     fn plan_on_two(placement: &WindowPlacement) -> Planned {
         plan(placement, &two_displays(), Some(1), true, min()).unwrap()
+    }
+
+    /// pip — cửa sổ cỡ cố định: về đúng chỗ đã lưu; ra ngoài mọi màn hay Wayland thì
+    /// để người gọi tự chọn chỗ.
+    #[test]
+    fn fixed_window_returns_to_its_place_or_lets_the_caller_choose() {
+        let pip = size(px(420.), px(140.));
+        let planned = plan_fixed(&saved(2500., 1200., 420., 140., Some(2)), &two_displays(), true, pip).unwrap();
+        assert_eq!(planned.origin, Some(point(px(2500.), px(1200.))));
+        assert_eq!(planned.display, Some(2));
+        assert_eq!(planned.size, pip);
+        assert!(plan_fixed(&saved(9000., 9000., 420., 140., Some(2)), &two_displays(), true, pip).is_none());
+        assert!(plan_fixed(&saved(10., 10., 420., 140., Some(1)), &two_displays(), false, pip).is_none(), "Wayland");
     }
 
     /// C1 — màn còn, vùng kéo trong màn: về đúng chỗ, đúng màn.

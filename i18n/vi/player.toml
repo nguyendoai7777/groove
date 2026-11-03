@@ -13,6 +13,13 @@ repeat_one = "Lặp lại một bài"
 mute = "Tắt tiếng"
 unmute = "Bật tiếng"
 volume = "Âm lượng"
+pip = "Trình phát thu nhỏ"
+pip_close = "Đóng trình phát thu nhỏ"
+
+[pip]
+# Tên cửa sổ PiP (taskbar, Alt+Tab).
+window_title = "Trình phát thu nhỏ – Groove X"
+back = "Quay lại cửa sổ chính"
 
 [toast]
 unknown_track = "bài hát này"

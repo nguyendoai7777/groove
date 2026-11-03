@@ -13,3 +13,9 @@ Categories=AudioVideo;Audio;Player;
 Keywords=music;audio;player;mp3;flac;nhạc;
 MimeType=audio/mpeg;audio/flac;audio/x-flac;audio/wav;audio/x-wav;audio/mp4;audio/x-m4a;audio/x-m4r;audio/ogg;audio/x-vorbis+ogg;
 StartupWMClass=groove
+Actions=pip;
+
+[Desktop Action pip]
+Name=Picture in picture
+Name[vi]=Trình phát thu nhỏ
+Exec=groove --pip

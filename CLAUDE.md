@@ -23,7 +23,7 @@ bản Tauri vẫn là bản chạy được duy nhất đã kiểm:
 | `crates/groove-core` | lib | `paths`, `i18n`, `logging`, `model`, `settings`, `session`, `queue`, `timeline`, `keymap`, `cli` | UI, âm thanh, SQLite |
 | `crates/groove-library` | lib | `db/{schema,migrate,queries}`, `actor`, `store`, `tags`, `fixtures`, `covers`, `scanner`, `indexer`, `watcher`, `reconcile`, `metadata_ops`, `legacy_ls` | UI |
 | `crates/groove-audio` | lib | `engine`, `decoder`, `output`, `dsp` | UI, SQLite |
-| `crates/groove-app` | bin `groove` | `app`, `route`, `icons`, `player`, `session_sync`, `library_ctl`, `commands`, `instance`, `open_paths`, `window_state`, `dev`, `platform/{media_session,taskbar_windows}`, `views/*` | — |
+| `crates/groove-app` | bin `groove` | `app`, `route`, `icons`, `player`, `session_sync`, `library_ctl`, `commands`, `instance`, `open_paths`, `window_state`, `dev`, `platform/{media_session,taskbar_windows,always_on_top}`, `views/*` | — |
 
 Viết tắt trong task: `core`, `library`, `audio`, `app`, `views` = `crates/groove-core/src`, `crates/groove-library/src`,
 `crates/groove-audio/src`, `crates/groove-app/src`, `crates/groove-app/src/views`.
@@ -89,7 +89,7 @@ Danh sách chung: `materiant/CLAUDE.md` mục "Soát trước khi xong một com
     trạng thái trực tiếp (GPUI `notify` luôn view chủ), không `request_animation_frame` trong `render` của view chủ;
   - đường từ gốc tới hoạt ảnh (Shell → thanh phát / Now Playing) nhúng thường; nhánh nặng bên cạnh nhúng `cached`: cột trái, thanh
     trên (`Island<Shell>`), trang thư viện, bìa / cụm điều khiển / âm lượng của thanh phát (`Island<PlayerBar>`), ba khung
-    của Now Playing. View `cached` mà bẩn thì GPUI dựng lại CẢ cây con (kể cả `cached` bên trong);
+    của Now Playing, bìa / cụm nút của PiP (`Island<PipView>`, `views::pip`). View `cached` mà bẩn thì GPUI dựng lại CẢ cây con (kể cả `cached` bên trong);
   - view `cached` chỉ dựng lại khi chính nó (hay view con) `notify`: thứ nó đọc trong `render` phải có `observe` → `notify`
     (`Island` nghe chủ, chủ nghe `Player`…). Theme, ngôn ngữ, đổi cỡ, rê chuột, focus thì GPUI tự làm mới cả cửa sổ;
   - cần cỡ xác định: `.cached(style)` bố cục theo `style`, không đo nội dung — gốc của view con lấp đúng khung (`size_full`).

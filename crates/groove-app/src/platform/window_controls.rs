@@ -22,6 +22,11 @@ pub fn toggle_maximize(window: &Window) {
     window.zoom_window();
 }
 
+#[cfg(windows)]
+pub fn hwnd(window: &Window) -> Option<windows_sys::Win32::Foundation::HWND> {
+    sys::hwnd(window)
+}
+
 pub fn close(window: &mut Window) {
     #[cfg(windows)]
     if let Some(hwnd) = sys::hwnd(window) {

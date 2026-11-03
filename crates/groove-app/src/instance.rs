@@ -42,13 +42,17 @@ pub struct ForwardMessage {
     pub paths: Vec<PathBuf>,
     #[serde(default)]
     pub cwd: PathBuf,
+    /// Menu dock: mở trình phát thu nhỏ, không đưa cửa sổ chính lên. Phiên chính bản cũ bỏ qua trường này.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub pip: bool,
 }
 
 impl ForwardMessage {
     /// Dòng để gửi, kèm `\n`. Quá trần thì bỏ các tệp cuối: phát được phần lớn còn hơn không phát gì. Tên không phải Unicode
     /// không đi được qua JSON nên bị bỏ, phiên đầu vẫn mở được chúng từ `argv`.
     fn encode(&self) -> io::Result<Vec<u8>> {
-        let mut kept = ForwardMessage { paths: Vec::with_capacity(self.paths.len()), cwd: self.cwd.clone() };
+        let mut kept =
+            ForwardMessage { paths: Vec::with_capacity(self.paths.len()), cwd: self.cwd.clone(), pip: self.pip };
         let mut size = serde_json::to_vec(&kept).map_err(io::Error::other)?.len() as u64 + 1;
         for path in &self.paths {
             let Ok(json) = serde_json::to_vec(path) else { continue };
@@ -274,7 +278,9 @@ fn receive(stream: Stream, sink: &UnboundedSender<OpenRequest>) {
     match read_message(&stream) {
         Ok(message) => {
             let paths = open_paths::resolve(message.paths, &message.cwd);
-            let _ = sink.unbounded_send(OpenRequest { paths, activate: true });
+            // Menu dock "Trình phát thu nhỏ" chỉ mở PiP, cửa sổ chính để yên (như lúc bấm nút PiP).
+            let pip = message.pip;
+            let _ = sink.unbounded_send(OpenRequest { paths, activate: !pip, pip });
             // Phiên sau đã thoát vì hết hạn thì ghi lỗi, không sao: yêu cầu đã vào kênh.
             let mut writer = &stream;
             let _ = writer.write_all(ACK).and_then(|()| writer.flush());
@@ -299,7 +305,7 @@ pub fn forward_to_primary() -> bool {
     };
     let args: Vec<OsString> = std::env::args_os().collect();
     let cwd = std::env::current_dir().unwrap_or_default();
-    let message = ForwardMessage { paths: open_paths::positional_args(&args), cwd };
+    let message = ForwardMessage { paths: open_paths::positional_args(&args), cwd, pip: open_paths::wants_pip(&args) };
     match forward_or_claim(&endpoint, &message, CLAIM_PATIENCE) {
         Outcome::Forwarded => true,
         Outcome::Standalone => false,
@@ -561,11 +567,21 @@ mod tests {
 
     #[test]
     fn wire_format_matches_the_spec() {
-        let message = ForwardMessage { paths: vec!["a.mp3".into()], cwd: "dir".into() };
+        let message = ForwardMessage { paths: vec!["a.mp3".into()], cwd: "dir".into(), ..Default::default() };
         let line = message.encode().unwrap();
         assert_eq!(line, b"{\"paths\":[\"a.mp3\"],\"cwd\":\"dir\"}\n");
         assert_eq!(read_message(Cursor::new(line)).unwrap(), message);
         assert_eq!(read_message(Cursor::new(b"{}\n".to_vec())).unwrap(), ForwardMessage::default());
+    }
+
+    /// pip — menu dock gửi `"pip": true`; không có cờ thì dòng giữ nguyên dạng cũ, phiên chính bản cũ vẫn đọc được.
+    #[test]
+    fn pip_flag_travels_and_stays_optional() {
+        let message = ForwardMessage { pip: true, ..Default::default() };
+        let line = message.encode().unwrap();
+        assert_eq!(line, b"{\"paths\":[],\"cwd\":\"\",\"pip\":true}\n");
+        assert_eq!(read_message(Cursor::new(line)).unwrap(), message);
+        assert!(!read_message(Cursor::new(b"{\"paths\":[]}\n".to_vec())).unwrap().pip);
     }
 
     #[test]
@@ -580,7 +596,7 @@ mod tests {
     #[test]
     fn encode_stays_under_the_limit() {
         let paths: Vec<PathBuf> = (0..100_000).map(|i| PathBuf::from(format!("C:/Nhạc/bài số {i}.mp3"))).collect();
-        let line = ForwardMessage { paths: paths.clone(), cwd: "C:/".into() }.encode().unwrap();
+        let line = ForwardMessage { paths: paths.clone(), cwd: "C:/".into(), ..Default::default() }.encode().unwrap();
         assert!(line.len() as u64 <= MAX_LINE);
         let decoded = read_message(Cursor::new(line)).unwrap();
         assert!(decoded.paths.len() > 1_000);
@@ -615,7 +631,7 @@ mod tests {
         send_raw(&endpoint, &vec![b'x'; MAX_LINE as usize + 10]);
         let cwd = absolute("groove-cwd");
         let paths = vec![PathBuf::from("BÀI.MP3"), absolute("virus.exe"), absolute("noext")];
-        let line = ForwardMessage { paths, cwd: cwd.clone() }.encode().unwrap();
+        let line = ForwardMessage { paths, cwd: cwd.clone(), ..Default::default() }.encode().unwrap();
         send_raw(&endpoint, &line);
         let request = next_request(&mut receiver);
         assert!(request.activate);
@@ -628,7 +644,7 @@ mod tests {
     fn empty_open_only_activates() {
         let endpoint = Endpoint::for_test("empty");
         let mut receiver = serve_channel(&endpoint);
-        let message = ForwardMessage { paths: Vec::new(), cwd: absolute("x") };
+        let message = ForwardMessage { paths: Vec::new(), cwd: absolute("x"), ..Default::default() };
         assert!(matches!(forward_or_claim(&endpoint, &message, CLAIM_PATIENCE), Outcome::Forwarded));
         let request = next_request(&mut receiver);
         assert!(request.activate && request.paths.is_empty());
@@ -645,7 +661,11 @@ mod tests {
             .map(|i| {
                 let (endpoint, start, sender) = (endpoint.clone(), start.clone(), sender.clone());
                 thread::spawn(move || {
-                    let message = ForwardMessage { paths: vec![absolute(&format!("{i}.mp3"))], cwd: absolute("x") };
+                    let message = ForwardMessage {
+                        paths: vec![absolute(&format!("{i}.mp3"))],
+                        cwd: absolute("x"),
+                        ..Default::default()
+                    };
                     start.wait();
                     match forward_or_claim(&endpoint, &message, Duration::from_secs(10)) {
                         Outcome::Forwarded => false,
@@ -670,7 +690,7 @@ mod tests {
     fn child_process_body() {
         let Some(tag) = std::env::var_os(CHILD_TAG) else { return };
         let endpoint = Endpoint { id: tag.into_string().unwrap(), check_server: false };
-        let message = ForwardMessage { paths: vec!["con.flac".into()], cwd: absolute("child") };
+        let message = ForwardMessage { paths: vec!["con.flac".into()], cwd: absolute("child"), ..Default::default() };
         assert!(matches!(forward_or_claim(&endpoint, &message, CLAIM_PATIENCE), Outcome::Forwarded));
     }
 

@@ -11,6 +11,7 @@ pub mod lyrics_panel;
 pub mod marquee;
 pub mod metadata;
 pub mod now_playing;
+pub mod pip;
 pub mod player_bar;
 pub mod playing_bars;
 pub mod playlist_dialog;

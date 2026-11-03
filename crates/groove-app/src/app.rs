@@ -27,9 +27,9 @@ use groove_library::metadata_ops::MetadataOps;
 use groove_library::store::Library;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    self, AnyElement, AnyView, App, AppContext, Bounds, Context, DisplayId, Entity, EntityId, EventEmitter, FontWeight,
-    Global, IntoElement, Render, SharedString, StyleRefinement, Styled, Window, WindowBounds, WindowDecorations,
-    WindowOptions, div, px, size,
+    self, AnyElement, AnyView, AnyWindowHandle, App, AppContext, Bounds, Context, DisplayId, Entity, EntityId,
+    EventEmitter, FontWeight, Global, IntoElement, Render, SharedString, StyleRefinement, Styled, Window, WindowBounds,
+    WindowDecorations, WindowOptions, div, px, size,
 };
 use materiant::style::StyledExt;
 use materiant::theme::picker::{ThemePreset, builtin_presets};
@@ -70,13 +70,6 @@ pub fn run(dev: DevArgs) {
     crate::open_paths::run_app(gpui_kit::application().with_assets(icons::Assets), move |cx: &mut App| {
         materiant::init(cx);
         install_settings(settings, saver, cx);
-        // Đóng cửa sổ là thoát app, không có khay (đặc tả 1.1).
-        cx.on_window_closed(|cx, _| {
-            if cx.windows().is_empty() {
-                cx.quit();
-            }
-        })
-        .detach();
 
         let display_id = dev.display_id(cx);
         let start = Route::from_start_page(self::settings(cx).last_active_route);
@@ -95,6 +88,15 @@ pub fn run(dev: DevArgs) {
             }
         };
         cx.set_global(ShellHandle(shell));
+        cx.set_global(MainWindow(handle));
+        // Đóng cửa sổ chính là thoát app, không có khay (đặc tả 1.1); trình phát thu nhỏ còn mở cũng đóng theo.
+        let main_id = handle.window_id();
+        cx.on_window_closed(move |cx, closed| {
+            if closed == main_id || cx.windows().is_empty() {
+                cx.quit();
+            }
+        })
+        .detach();
         if !dev.background {
             cx.activate(true);
         }
@@ -115,6 +117,11 @@ pub fn run(dev: DevArgs) {
         crate::views::now_playing::install(handle, cx);
         // Task 24: hộp Settings vào `Slot::Settings`, nghe `ShellEvent::OpenSettings`; cần player và thư viện ở trên.
         crate::views::settings::dialog::install(handle, cx);
+        // pip: trình phát thu nhỏ, menu dock; cần player ở trên. Mở ngay khi chạy bằng `--pip` (menu dock lúc app chưa chạy).
+        crate::views::pip::install(cx);
+        if crate::open_paths::wants_pip(&std::env::args_os().collect::<Vec<_>>()) {
+            crate::views::pip::open(cx);
+        }
         dev::replay(handle, dev.keys, cx);
     });
 }
@@ -225,6 +232,7 @@ fn install_settings(settings: Settings, saver: Option<JsonSaver>, cx: &mut App) 
         }
         if now.1 != applied.1 {
             groove_core::i18n::set_language(now.1);
+            crate::views::pip::refresh_dock_menu(cx);
             cx.refresh_windows();
         }
         applied = now;
@@ -570,6 +578,25 @@ impl Global for ShellHandle {}
 #[cfg(test)]
 pub fn set_shell_for_test(shell: Entity<Shell>, cx: &mut App) {
     cx.set_global(ShellHandle(shell));
+}
+
+/// `Global` trỏ tới cửa sổ chính (cửa sổ PiP là cửa sổ thứ hai).
+struct MainWindow(AnyWindowHandle);
+
+impl Global for MainWindow {}
+
+/// Cửa sổ chính. `None` trong test không mở cửa sổ chính.
+pub fn main_window(cx: &App) -> Option<AnyWindowHandle> {
+    cx.try_global::<MainWindow>().map(|main| main.0)
+}
+
+/// Đưa cửa sổ chính lên trước. `activate_window` của GPUI khôi phục cửa sổ đang thu nhỏ (Windows: `IsIconic` + `SW_RESTORE`,
+/// S22); Wayland không có token kích hoạt thì compositor chỉ báo cửa sổ cần chú ý (đặc tả 5.5).
+pub fn bring_main_to_front(cx: &mut App) {
+    cx.activate(true);
+    if let Some(window) = main_window(cx) {
+        let _ = window.update(cx, |_, window, _| window.activate_window());
+    }
 }
 
 pub fn shell(cx: &App) -> Entity<Shell> {
