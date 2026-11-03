@@ -337,3 +337,9 @@ Session thêm gạch bằng `Edit` chèn vào mục của task mình (không `Wr
 
 - [linux-chrome] Linux không có mờ (ngoài Wayland + KWin) thì cột trái alpha 0,94 như khối nổi Linux (D-10), cửa sổ vẫn `Blurred` (= trong suốt trơn); Wayland + KWin giữ 0,88 + mờ (`platform::backdrop`). Chủ dự án chốt 03/11/2026 sau khi thử bản đục: "không làm được thì đưa về trong suốt 0,94". GNOME 50 trên máy công ty không quảng bá giao thức mờ nào (đã liệt kê global Wayland), nên không app nào xin mờ được ở đó; muốn mờ thật trên GNOME phải nhờ extension (Blur my Shell).
 - [linux-chrome] Nhấp đúp vùng kéo ở macOS / Linux sửa ở `materiant::window::DragRegionExt::drag_region` (dùng chung mọi app) chứ không riêng groove: lần nhấn thứ hai (`click_count >= 2`) gọi `titlebar_double_click` (macOS, theo cài đặt hệ thống) / `zoom_window` (Linux, chỉ cửa sổ đổi cỡ được) thay vì `start_window_move`. Windows không đổi (OS lo qua `HTCAPTION`).
+
+## card-hover (03/11/2026)
+
+- [card-hover] "Nút hover hơi xám, opacity 0,85" hiểu là: nền nút lúc rê nhích một bậc trung tính (`neutral(N200)` → `neutral(N300)`) với độ đục 0,85 (lúc nghỉ giữ 0,8 như bản web), nền rê 9 % của `IconButton` tắt (màu gốc trong suốt, `.ink` giữ màu icon) — trước đó hai lớp chồng thành mảng xám đặc — hoặc làm mờ cả nút 0,85 (icon cũng mờ, khó đọc trên bìa sáng). Chưa nhìn trên màn thật.
+- [card-hover] Nút 36 px (32 + 4), icon 22 px, nét icon 2 → 1,5: Play thêm biến thể `PlayThin` (Play dùng ở danh sách bài, thanh phát), Delete chỉ thẻ dùng nên làm mảnh ngay tệp `delete.svg` — hoặc tạo `DeleteThin` riêng.
+- [card-hover] Bỏ phóng bìa 1,05 khi rê, xoá luôn `CoverImage::zoom` (không chỗ nào khác dùng, Now Playing không phóng).

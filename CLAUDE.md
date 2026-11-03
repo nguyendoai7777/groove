@@ -87,7 +87,7 @@ Danh sách chung: `materiant/CLAUDE.md` mục "Soát trước khi xong một com
   - cần cỡ xác định: `.cached(style)` bố cục theo `style`, không đo nội dung — gốc của view con lấp đúng khung (`size_full`).
   Test mẫu: `app::tests::animation_frames_reuse_the_cached_page_but_data_changes_still_show`, `views::island::tests`.
 - **Ảnh bìa**: `views::cover_image::CoverImage` cho cả bìa thư viện lẫn bìa nhúng (`.embedded`), `.radius(…)` bằng bo góc của khung
-  chứa, phóng bằng `.zoom(…)`; lớp phủ trên bìa tự bo cùng bán kính.
+  chứa (không phóng khi rê); lớp phủ trên bìa tự bo cùng bán kính.
 - **Xem bằng mắt ở desktop ẩn**: `tools/measure-hidden.ps1 -Seed <seed_data.exe>` có sẵn một bài tên dài đang mở (không phát) để
   thanh phát không khoá và tên chạy; `-Songs <n>` thêm n bài vào thư viện tạm (đo với thư viện có bài); `-Active` mở cửa sổ ở
   trạng thái active; dòng mốc in cả `cpu=` (% một nhân). Không gõ `space` trong `-Keys` (phát ra loa). CPU so trước / sau thì

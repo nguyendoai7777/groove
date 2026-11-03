@@ -5,8 +5,8 @@
 //! vụ (phát, hộp xác nhận, xoá) là của task 17.
 //!
 //! Hover như `music-card.vue`: viền accent 2 px, nền thẻ 40% lên 60%, quầng bóng accent `0 0 20px <accent>40` tỏa ra ngoài
-//! viền, lớp phủ hiện dần 300 ms, bìa phóng 1,05 trong 500 ms
-//! (`with_animation`, chỉ chạy lúc đổi trạng thái). Số đo: `p-3 rounded-xl border-2`, bìa `rounded-lg`, chữ `mt-3`, dòng phụ
+//! viền, lớp phủ hiện dần 300 ms (`with_animation`, chỉ chạy lúc đổi trạng thái). Bỏ phóng bìa 1,05 của bản web (chủ dự án
+//! 03/11/2026). Số đo: `p-3 rounded-xl border-2`, bìa `rounded-lg`, chữ `mt-3`, dòng phụ
 //! `mt-1`. Không làm được: `backdrop-blur` của lớp phủ.
 //!
 //! Thẻ lấp kín ô của lưới (`cell_padding(0)`, `cell_radius(CARD_RADIUS)`): nền rê / chọn và ripple của ô trùng khít mép ngoài
@@ -56,11 +56,14 @@ const PADDING: f32 = 12.;
 /// hơn ô 2 × (`BORDER` + `PADDING`) = 28 px; cao ô vì thế dư vài px so với viền + đệm + bìa + chữ, phần dư nằm cuối thẻ.
 pub const CARD_EXTRA_HEIGHT: f32 = 2. * BORDER + TEXT_GAP + SUBTITLE_GAP + TITLE_HEIGHT + SUBTITLE_HEIGHT + 2. + 4.;
 
-/// Chuyển của `transition-all duration-300` (thẻ, lớp phủ) và `duration-500` (phóng bìa) bản cũ.
+/// Chuyển của `transition-all duration-300` (thẻ, lớp phủ) bản cũ.
 const FADE: Duration = Duration::from_millis(300);
-const ZOOM: Duration = Duration::from_millis(500);
-/// `group-hover:scale-105`.
-const ZOOM_SCALE: f32 = 1.05;
+/// Nút tròn trên lớp phủ: cạnh nút (32 của `Size::Md` + 4 theo chủ dự án 03/11/2026), icon giữ tỉ lệ ~62 % như `IconButton`.
+const ACTION_EDGE: f32 = 36.;
+const ACTION_ICON: f32 = 22.;
+/// Độ đục nền nút lúc nghỉ (`bg-theme-bg-placeholder/80` bản cũ) và lúc rê (chủ dự án: hơi xám, 0,85).
+const ACTION_REST_ALPHA: f32 = 0.8;
+const ACTION_HOVER_ALPHA: f32 = 0.85;
 
 type Handler = Rc<dyn Fn(CategoryRef, &mut Window, &mut App)>;
 
@@ -196,7 +199,6 @@ impl RenderOnce for CategoryCard {
 
         let state_entity = window.use_keyed_state(group.clone(), cx, |_, _| HoverState::default());
         let state = *state_entity.read(cx);
-        let has_image = cover_path(&self.summary, self.covers.as_ref()).is_some();
         let surface = c.surface;
         let (on_open, on_play, on_delete) = (self.on_open, self.on_play, self.on_delete);
         // Nút trong lớp phủ không được lọt nhấp lên thẻ (sẽ mở danh sách): `stop_propagation` trong `on_click`. Không dùng
@@ -204,17 +206,24 @@ impl RenderOnce for CategoryCard {
         let action =
             |button_id: (&'static str, i64), icon: GrooveIcon, label: &'static str, danger: bool, run: Handler| {
                 let ink = if danger { c.danger } else { c.text };
-                // `bg-theme-bg-placeholder/80` + viền `border-theme-border/50` của bản cũ, tròn.
+                // `bg-theme-bg-placeholder/80` + viền `border-theme-border/50` của bản cũ, tròn. Rê: nền nhích một bậc xám, đục
+                // 0,85 — khung bọc tự đổi nền; nền rê của `IconButton` tắt (màu gốc trong suốt, `.ink` giữ màu icon) để hai
+                // lớp không chồng thành mảng xám đặc.
                 div()
                     .rounded_full()
-                    .bg(c.neutral(Neutral::N200).opacity(0.8))
+                    .bg(c.neutral(Neutral::N200).opacity(ACTION_REST_ALPHA))
+                    .hover(|s| s.bg(c.neutral(Neutral::N300).opacity(ACTION_HOVER_ALPHA)))
                     .border_1()
                     .border_color(c.border.opacity(0.5))
                     .debug_selector(move || format!("{}-{}", button_id.0, button_id.1))
                     .child(
                         IconButton::new((button_id.0, button_id.1 as usize), icon)
                             .accessibility_label(label)
-                            .color(ink)
+                            .color(gpui::transparent_black())
+                            .ink(ink)
+                            .w(px(ACTION_EDGE))
+                            .h(px(ACTION_EDGE))
+                            .icon_size(px(ACTION_ICON))
                             .rounded_full()
                             .on_click(move |_: &ClickEvent, window, cx| {
                                 cx.stop_propagation();
@@ -233,18 +242,12 @@ impl RenderOnce for CategoryCard {
             .justify_center()
             .gap_4()
             .bg(c.surface.opacity(0.75))
-            .child(action(("card-play", id), GrooveIcon::Play, t!("library.card.play_all"), false, on_play))
+            .child(action(("card-play", id), GrooveIcon::PlayThin, t!("library.card.play_all"), false, on_play))
             .child(action(("card-delete", id), GrooveIcon::Delete, t!("library.card.delete"), true, on_delete));
 
         let overlay =
             animated(overlay, SharedString::from(format!("{group}-overlay-{}", state.seq)), state, FADE, |el, p| {
                 if p <= 0. { el.invisible() } else { el.opacity(p) }
-            });
-        // Bìa phóng 1,05: ảnh vẽ lớn hơn khung quanh tâm và bị cắt ngay lúc vẽ theo khung bo góc (`CoverImage::zoom`).
-        // Trước đây phóng cả phần tử: `overflow_hidden` chỉ cắt chữ nhật nên bốn góc ảnh lòi ra vuông.
-        let cover =
-            animated(cover, SharedString::from(format!("{group}-cover-{}", state.seq)), state, ZOOM, move |el, p| {
-                el.zoom(if has_image { 1. + (ZOOM_SCALE - 1.) * p } else { 1. })
             });
 
         let card = div()
