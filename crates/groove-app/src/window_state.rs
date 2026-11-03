@@ -56,7 +56,7 @@ pub fn restore(mut options: WindowOptions, cx: &mut App) -> WindowOptions {
     }
     track::<Shell>(cx, |placement, cx| {
         if app::settings(cx).window.as_ref() != Some(&placement) {
-            app::update_settings(cx, |s| s.window = Some(placement));
+            app::store_settings_quietly(cx, |s| s.window = Some(placement));
         }
     });
     options

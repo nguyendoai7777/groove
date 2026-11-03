@@ -135,6 +135,7 @@ pub fn open(cx: &mut App) {
                 cx.notify();
             });
             let _ = handle.update(cx, |_, window, cx| {
+                crate::platform::move_loop::install(window);
                 if !crate::platform::always_on_top::keep_on_top(window, cx) {
                     log::info!("pip: always on top is up to the window manager on this platform");
                 }
@@ -240,7 +241,7 @@ impl PipView {
             cx.observe_window_bounds(window, |_, window, cx| {
                 let placement = crate::window_state::current(window, cx);
                 if app::settings(cx).pip_window.as_ref() != Some(&placement) {
-                    app::update_settings(cx, |s| s.pip_window = Some(placement));
+                    app::store_settings_quietly(cx, |s| s.pip_window = Some(placement));
                 }
             }),
         ];

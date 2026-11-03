@@ -90,6 +90,12 @@ pub fn run(dev: DevArgs) {
         };
         cx.set_global(ShellHandle(shell));
         cx.set_global(MainWindow(handle));
+        // drag-lag: kéo cửa sổ không vẽ lại cả cây mỗi nhịp (`platform::move_loop`); acrylic giật khi kéo trên Windows 10 ⇒
+        // blur-behind (`platform::backdrop`).
+        let _ = handle.update(cx, |_, window, _| {
+            crate::platform::move_loop::install(window);
+            crate::platform::backdrop::smooth_blur(window);
+        });
         // Đóng cửa sổ chính là thoát app, không có khay (đặc tả 1.1); trình phát thu nhỏ còn mở cũng đóng theo.
         let main_id = handle.window_id();
         cx.on_window_closed(move |cx, closed| {
@@ -276,7 +282,22 @@ pub fn layout_style(cx: &App) -> LayoutStyle {
     cx.try_global::<SettingsStore>().map(|store| store.entity.read(cx).layout_style).unwrap_or_default()
 }
 
-/// Sửa cài đặt: thông báo cho view đang quan sát, lưu (debounce), theme / ngôn ngữ đổi thì áp ngay.
+/// Như [`update_settings`] nhưng không báo view nào: cho giá trị không vẽ lên đâu (vị trí cửa sổ). Dời cửa sổ báo bounds mỗi
+/// `WM_MOVE`; nếu `notify` thì `Shell` (nghe cài đặt) dựng và vẽ lại cả khung mỗi nhịp kéo, giữa vòng dời cửa sổ của OS —
+/// kéo giật (drag-lag).
+pub fn store_settings_quietly(cx: &mut App, change: impl FnOnce(&mut Settings)) {
+    let entity = cx.global::<SettingsStore>().entity.clone();
+    entity.update(cx, |settings, _| {
+        change(settings);
+        settings.sanitize();
+    });
+    let store = cx.global::<SettingsStore>();
+    if let Some(saver) = &store.saver {
+        saver.save(store.entity.read(cx));
+    }
+}
+
+/// Sửa cài đặt: thông báo cho view đang quan sát, lưu (debounce), theme / ngôn ngữ / kiểu chia vùng đổi thì áp ngay.
 pub fn update_settings(cx: &mut App, change: impl FnOnce(&mut Settings)) {
     let entity = cx.global::<SettingsStore>().entity.clone();
     entity.update(cx, |settings, cx| {
