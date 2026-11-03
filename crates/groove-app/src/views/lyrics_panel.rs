@@ -28,6 +28,8 @@ pub enum LyricsPanelEvent {
     Metadata,
     Timeline,
     Lyrics,
+    /// Mở hàng đợi trong drawer (chỉ khi cửa sổ hẹp).
+    Queue,
 }
 
 /// Trạng thái thân cột.
@@ -70,6 +72,7 @@ pub struct LyricsPanel {
     shown: Option<TrackRef>,
     /// Thân đã vẽ: `Player` báo đổi (âm lượng, phát / dừng…) mà thân không đổi thì không dựng lại khung `cached` của lời.
     body: Body,
+    queue_button: bool,
     _observe: Subscription,
 }
 
@@ -92,8 +95,14 @@ impl LyricsPanel {
             }
         });
         let shown = player.read(cx).current_track().cloned();
-        let mut panel =
-            LyricsPanel { player, scroll: ScrollHandle::new(), shown, body: Body::NoSong, _observe: observe };
+        let mut panel = LyricsPanel {
+            player,
+            scroll: ScrollHandle::new(),
+            shown,
+            body: Body::NoSong,
+            queue_button: false,
+            _observe: observe,
+        };
         panel.body = panel.body(cx);
         panel
     }
@@ -125,6 +134,14 @@ impl LyricsPanel {
             .bg(c.layer(Neutral::N200).opacity(0.5))
             .border_color(c.border.opacity(0.3))
             .on_click(move |_: &ClickEvent, _: &mut Window, cx: &mut App| this.update(cx, |_, cx| cx.emit(event)))
+    }
+
+    /// Hiện nút mở hàng đợi (Now Playing hẹp, cột hàng đợi đã ẩn).
+    pub fn set_queue_button(&mut self, show: bool, cx: &mut Context<Self>) {
+        if self.queue_button != show {
+            self.queue_button = show;
+            cx.notify();
+        }
     }
 
     fn body(&self, cx: &App) -> Body {
@@ -165,7 +182,7 @@ impl Render for LyricsPanel {
             .pt_2()
             .pb_2()
             .child(div().text_lg().font_weight(FontWeight::NORMAL).child(t!("now_playing.lyrics.title")))
-            .when(has_song, |row| {
+            .when(has_song || self.queue_button, |row| {
                 let edit =
                     if has_text { t!("now_playing.actions.edit_lyrics") } else { t!("now_playing.actions.add_lyrics") };
                 row.child(
@@ -174,21 +191,34 @@ impl Render for LyricsPanel {
                         .flex_wrap()
                         .items_center()
                         .gap_2()
-                        .child(self.button(
-                            "np-metadata",
-                            t!("now_playing.actions.metadata"),
-                            GrooveIcon::Album,
-                            LyricsPanelEvent::Metadata,
-                            cx,
-                        ))
-                        .child(self.button(
-                            "np-timeline",
-                            t!("now_playing.actions.timeline"),
-                            GrooveIcon::Loop,
-                            LyricsPanelEvent::Timeline,
-                            cx,
-                        ))
-                        .child(self.button("np-lyrics", edit, GrooveIcon::Edit, LyricsPanelEvent::Lyrics, cx)),
+                        .when(has_song, |group| {
+                            group
+                                .child(self.button(
+                                    "np-metadata",
+                                    t!("now_playing.actions.metadata"),
+                                    GrooveIcon::Album,
+                                    LyricsPanelEvent::Metadata,
+                                    cx,
+                                ))
+                                .child(self.button(
+                                    "np-timeline",
+                                    t!("now_playing.actions.timeline"),
+                                    GrooveIcon::Loop,
+                                    LyricsPanelEvent::Timeline,
+                                    cx,
+                                ))
+                                .child(self.button("np-lyrics", edit, GrooveIcon::Edit, LyricsPanelEvent::Lyrics, cx))
+                        })
+                        // Cửa sổ hẹp: cột hàng đợi ẩn, nút này mở nó trong drawer phải.
+                        .when(self.queue_button, |group| {
+                            group.child(self.button(
+                                "np-queue",
+                                t!("now_playing.actions.queue"),
+                                GrooveIcon::NowPlaying,
+                                LyricsPanelEvent::Queue,
+                                cx,
+                            ))
+                        }),
                 )
             });
 

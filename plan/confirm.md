@@ -439,3 +439,10 @@ Settings → Chung → "Kiểu chia vùng": thẻ bo tròn (mặc định) / chi
 - [layout-style] Đường dưới header cột trái nối liền đường dưới thanh trên (cùng 36 px) thành một vạch ngang suốt cửa sổ — chỉ kẻ dưới thanh trên — giống ảnh app Claude chủ dự án gửi.
 - [layout-style] PiP không theo kiểu này — áp cả PiP — PiP là một khối nhỏ, không có vùng nào để chia.
 - [layout-style] Đổi kiểu gọi `refresh_windows` (như đổi ngôn ngữ) thay vì cho từng view `cached` nghe cài đặt — `observe` → `notify` từng view — một chỗ, không sót view `cached` mới thêm sau; đổi cài đặt khác vẫn không dựng lại view `cached` (test `app::tests::layout_style_change_rebuilds_the_cached_page`).
+
+## nowplaying-drawer
+
+- [nowplaying-drawer] Bản web không có responsive / drawer cho Now Playing (cột hàng đợi chỉ `shrink-0`), nên ngưỡng và chỗ nút tự chọn: màn Now Playing (đo bề ngang thật lúc `prepaint`, không đoán từ cửa sổ trừ cột trái) hẹp hơn `NARROW_WIDTH` 1024 px thì ẩn cột hàng đợi; ở 1024 cột lời còn ~376 px, vừa tiêu đề + ba nút một hàng (ảnh chủ dự án: màn ~860 px là chật).
+- [nowplaying-drawer] Ẩn cột hàng đợi chứ không ẩn cột trái: bìa + tên + dòng thời gian là phần nhìn của màn, hàng đợi là thứ mở khi cần. Nút "Hàng đợi" (icon Now Playing) cùng hàng, cùng dáng ba nút của khung lời, hiện cả khi chưa có bài.
+- [nowplaying-drawer] Drawer là `Dialog::drawer` mới của materiant (cc3d2bb): bám mép phải, cao hết cửa sổ, không bo góc, rộng 340 px (= trần cột hàng đợi), trượt + mờ 160 ms; Esc, bấm nền, bẫy Tab như hộp thường. Không tiêu đề / nút ✕ của hộp: `QueuePanel` tự có tiêu đề + số bài; trong drawer bỏ khung thẻ (hợp cả kiểu thẻ lẫn lưới) và vẽ thanh nhảy tại chỗ vì lớp phủ `bars_overlay` nằm dưới hộp thoại.
+- [nowplaying-drawer] Rộng ra lại khi drawer đang mở thì drawer đóng, cột hiện lại. Test rig Now Playing đổi 1000 → 1200 px để các test cũ vẫn ở bố cục ba cột.
