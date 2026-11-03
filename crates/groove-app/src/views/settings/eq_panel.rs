@@ -4,8 +4,8 @@
 //! lưu cài đặt rồi gửi engine; DSP tự trượt 10 ms nên kéo liên tục được). Bảng giữ thêm một bản `EqSettings` để vẽ: cùng một
 //! phép đổi chạy trên bản đó và trên player, nên hai bên khớp mà view không phải đọc ngược cài đặt trong lúc kéo.
 //!
-//! Thanh dải và thanh bass tự vẽ bằng `canvas` (xem `eq_bands`): `materiant::slider` chỉ có chiều ngang và cố định rail 4 px,
-//! núm 16 px, vầng 34 px, không ra được rãnh 2 px, núm 10 px của bản web. Bàn phím: bảng có một điểm dừng Tab, ← → chọn dải, ↑ ↓ đổi 0,5 dB,
+//! Thanh dải và thanh bass tự vẽ bằng `canvas` (xem `eq_bands`): mười dải là một điểm dừng Tab, ← → chọn dải — khác một
+//! `materiant::slider` mỗi dải (nay đã có `.vertical()` và `.compact()` rãnh 2 px, núm 10 px như bản web). Bàn phím: bảng có một điểm dừng Tab, ← → chọn dải, ↑ ↓ đổi 0,5 dB,
 //! PageUp / PageDown 5 dB, Home / End về hai đầu.
 //!
 //! Luật EQ (kẹp, thành `Custom`, bass boost) nằm ở `groove_core::settings::EqSettings`; ở đây không viết lại.

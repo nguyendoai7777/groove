@@ -52,7 +52,7 @@ use crate::views::cover_image::{CoverImage, CoverKind, PlaceholderLook};
 use crate::views::island::{self, Island};
 use crate::views::marquee::Marquee;
 use crate::views::pip;
-use crate::views::seek_bar::{self, SLIDER_SCALE, SeekBar};
+use crate::views::seek_bar::{self, SeekBar};
 use play_morph::PlayMorph;
 
 /// Cạnh bìa = chiều cao thanh (`app::PLAYER_BAR_HEIGHT`).
@@ -524,7 +524,8 @@ impl PlayerBar {
                             .step(1.)
                             .value(f32::from(volume))
                             .w(px(VOLUME_WIDTH))
-                            .scale(SLIDER_SCALE)
+                            // Rãnh 2 px, núm 10 px như thanh EQ / bass: núm 16 px mặc định to quá so với rãnh mảnh.
+                            .compact()
                             .accessibility_label(t!("player.bar.volume"))
                             .disabled(!enabled)
                             .on_change(move |value: &f32, _, cx| {

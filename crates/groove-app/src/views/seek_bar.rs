@@ -28,8 +28,8 @@ use crate::player::{self, Player};
 
 /// Khe giữa hai khúc.
 pub const GAP: f32 = 2.;
-/// Tỉ lệ cỡ của thanh tua và thanh âm lượng so với mặc định của materiant (4 / 6 px): mảnh hơn để nhìn thanh thoát, hai
-/// thanh cùng một kiểu. Thanh âm lượng truyền số này vào `Slider::scale`.
+/// Tỉ lệ cỡ của thanh tua so với rail mặc định của materiant (4 / 6 px): mảnh hơn để nhìn thanh thoát. Thanh tua không có
+/// núm; thanh âm lượng (`materiant::slider`) dùng cỡ `compact` (rãnh 2 px, núm 10 px).
 pub const SLIDER_SCALE: f32 = 0.85;
 /// Bề dày thanh lúc nghỉ / khi rê vào thanh / khúc đang rê.
 pub const REST: f32 = 4. * SLIDER_SCALE;
