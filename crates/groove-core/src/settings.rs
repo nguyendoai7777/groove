@@ -40,6 +40,9 @@ pub const DEFAULT_KEYBINDINGS: &[(&str, &str)] = &[
     ("g p", "go_to_now_playing"),
 ];
 
+/// Preset bảng màu mặc định (theme gốc của materiant, màu nhấn deeppink — G-4).
+pub const DEFAULT_THEME_PRESET: &str = "default";
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ThemeChoice {
@@ -215,6 +218,9 @@ pub struct Settings {
     /// `None`: chưa chọn, theo OS.
     pub language: Option<Language>,
     pub theme: ThemeChoice,
+    /// Khoá preset bảng màu của materiant (`materiant::theme::picker::ThemePreset::key`: `default`, `black-pink`…), chọn ở
+    /// Settings → Chung. Khoá lạ (bản sau bỏ preset) thì app dùng mặc định. Nền sáng / tối vẫn theo `theme`.
+    pub theme_preset: String,
     pub font: UiFont,
     pub volume: u8,
     pub is_muted: bool,
@@ -235,6 +241,7 @@ impl Default for Settings {
         Settings {
             language: None,
             theme: ThemeChoice::default(),
+            theme_preset: DEFAULT_THEME_PRESET.to_owned(),
             font: UiFont::default(),
             volume: 75,
             is_muted: false,
@@ -515,6 +522,7 @@ mod tests {
         let path = temp_file(&dir);
         let mut s = Settings { language: Some(Language::Vi), volume: 40, is_muted: true, ..Settings::default() };
         s.theme = ThemeChoice::System;
+        s.theme_preset = "rose-red".into();
         s.seek_step = 10;
         s.volume_step = 7;
         s.eq.set_band(3, 2.5);
@@ -545,6 +553,7 @@ mod tests {
         assert_eq!(json["volumeStep"], 2);
         assert_eq!(json["language"], "en");
         assert_eq!(json["theme"], "dark");
+        assert_eq!(json["themePreset"], "default");
         assert_eq!(json["lastActiveRoute"], "now_playing");
         assert_eq!(json["eq"]["preset"], "bass_strong");
         assert!(json["eq"]["bassBoost"].is_number());
@@ -562,6 +571,7 @@ mod tests {
         let s = Settings::load_from(&path);
         assert_eq!(s.volume, 30);
         assert_eq!(s.seek_step, 5);
+        assert_eq!(s.theme_preset, DEFAULT_THEME_PRESET, "cấu hình cũ chưa có themePreset");
     }
 
     #[test]

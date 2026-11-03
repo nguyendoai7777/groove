@@ -32,7 +32,8 @@ use materiant::gpui_kit::{
     div, px, size,
 };
 use materiant::style::StyledExt;
-use materiant::theme::{ActiveTheme, MateriantTheme, ThemeMode, set_theme};
+use materiant::theme::picker::{ThemePreset, builtin_presets};
+use materiant::theme::{ActiveTheme, MateriantTheme, ThemeMode, reset_theme, set_theme};
 use materiant::toast::ToastViewport;
 use materiant::window::DragRegionExt;
 
@@ -156,8 +157,38 @@ fn theme_mode(choice: ThemeChoice) -> ThemeMode {
 /// Màu nhấn là primary mặc định của materiant (deeppink, như fastcast — G-4); view đọc `cx.theme().colors().primary`, không
 /// ghim mã màu. Chữ một độ đậm (G-6): nhãn và tiêu đề của mọi component materiant về normal ngay ở theme, view không phải
 /// truyền `*_weight(NORMAL)` từng chỗ.
-fn apply_theme(choice: ThemeChoice, font: UiFont, cx: &mut App) {
+///
+/// `set_theme` cộng dồn ⇒ dựng lại từ mặc định mỗi lần: preset bảng màu (Settings → Chung) rồi bản vá của groove, để đổi
+/// preset không giữ sót màu của preset trước. Nền sáng / tối luôn theo `choice`, kể cả preset ghim nền (black-pink).
+fn apply_theme(choice: ThemeChoice, preset: &str, font: UiFont, cx: &mut App) {
+    reset_theme(cx);
+    set_theme(&theme_preset(preset).theme, cx);
     set_theme(&groove_theme(choice, font), cx);
+}
+
+/// Các preset bảng màu chọn được, nhãn đã dịch; thứ tự như gallery của materiant.
+pub fn theme_presets() -> Vec<ThemePreset> {
+    builtin_presets()
+        .into_iter()
+        .map(|preset| {
+            let label = match preset.key.as_ref() {
+                "default" => t!("settings.theme_preset.default"),
+                "black-pink" => t!("settings.theme_preset.black_pink"),
+                "rose-red" => t!("settings.theme_preset.rose_red"),
+                "rebecca-purple" => t!("settings.theme_preset.rebecca_purple"),
+                // Preset mới của materiant chưa có bản dịch: hiện khoá.
+                _ => return preset,
+            };
+            preset.label(label)
+        })
+        .collect()
+}
+
+/// Preset theo khoá đã lưu; khoá lạ ⇒ mặc định.
+fn theme_preset(key: &str) -> ThemePreset {
+    let mut presets = builtin_presets();
+    let ix = presets.iter().position(|p| p.key == key).unwrap_or(0);
+    presets.swap_remove(ix)
 }
 
 /// Họ font nhúng (materiant `font`, D-20) của lựa chọn trong Settings.
@@ -181,16 +212,16 @@ fn groove_theme(choice: ThemeChoice, font: UiFont) -> MateriantTheme {
 
 /// Đặt cài đặt toàn app, áp theme, và theo dõi để áp lại theme / ngôn ngữ khi chúng đổi.
 fn install_settings(settings: Settings, saver: Option<JsonSaver>, cx: &mut App) {
-    apply_theme(settings.theme, settings.font, cx);
-    let mut applied = (settings.theme, settings.effective_language(), settings.font);
+    apply_theme(settings.theme, &settings.theme_preset, settings.font, cx);
+    let mut applied = (settings.theme, settings.effective_language(), settings.font, settings.theme_preset.clone());
     let entity = cx.new(|_| settings);
     cx.observe(&entity, move |entity, cx| {
         let now = {
             let s = entity.read(cx);
-            (s.theme, s.effective_language(), s.font)
+            (s.theme, s.effective_language(), s.font, s.theme_preset.clone())
         };
-        if now.0 != applied.0 || now.2 != applied.2 {
-            apply_theme(now.0, now.2, cx);
+        if now.0 != applied.0 || now.2 != applied.2 || now.3 != applied.3 {
+            apply_theme(now.0, &now.3, now.2, cx);
         }
         if now.1 != applied.1 {
             groove_core::i18n::set_language(now.1);
@@ -797,6 +828,39 @@ mod tests {
         cx.update(|_, cx| update_settings(cx, |s| s.theme = ThemeChoice::Light));
         assert_eq!(cx.update(|_, cx| cx.theme().mode()), ThemeMode::Light);
         assert!(!cx.update(|_, cx| cx.theme().is_dark()));
+    }
+
+    /// Bảng màu: đổi preset là áp ngay, dựng lại từ mặc định (không sót màu preset trước), nền vẫn theo ô Nền kể cả preset
+    /// ghim tối, giữ font / độ đậm của groove; khoá lạ ⇒ mặc định.
+    #[gpui::test]
+    fn theme_preset_applies_on_top_of_the_default(cx: &mut TestAppContext) {
+        use materiant::gpui_kit::Hsla;
+        use materiant::theme::{BLACK_PINK_THEME, REBECCA_PURPLE_THEME};
+        let (_, _, cx) = open(cx, Settings { theme: ThemeChoice::Light, ..Settings::default() });
+        let primary = |cx: &mut VisualTestContext| cx.update(|_, cx| cx.theme().colors().primary);
+        let default_light = primary(cx);
+
+        cx.update(|_, cx| update_settings(cx, |s| s.theme_preset = "rebecca-purple".into()));
+        assert_eq!(primary(cx), Hsla::from(REBECCA_PURPLE_THEME.primary.unwrap().resolve(false)));
+        assert_eq!(cx.update(|_, cx| cx.theme().label_weight()), FontWeight::NORMAL, "bản vá groove áp sau preset");
+
+        cx.update(|_, cx| update_settings(cx, |s| s.theme_preset = "black-pink".into()));
+        assert!(!cx.update(|_, cx| cx.theme().is_dark()), "black-pink ghim tối nhưng ô Nền là Sáng");
+        let surface = cx.update(|_, cx| cx.theme().colors().surface);
+        assert_eq!(surface, Hsla::from(BLACK_PINK_THEME.surface.unwrap().resolve(false)));
+
+        cx.update(|_, cx| update_settings(cx, |s| s.theme_preset = "no-such-preset".into()));
+        assert_eq!(primary(cx), default_light, "khoá lạ ⇒ mặc định");
+        let seeds_default =
+            cx.update(|_, cx| materiant::theme::picker::matching_preset(&builtin_presets(), cx.theme().seeds()));
+        assert_eq!(seeds_default, Some(0), "không sót màu của preset trước");
+    }
+
+    #[test]
+    fn every_preset_has_a_translated_label() {
+        for preset in theme_presets() {
+            assert_ne!(preset.label, preset.key, "{} chưa có bản dịch", preset.key);
+        }
     }
 
     /// cpu — hoạt ảnh lặp ở thanh phát không dựng lại trang thư viện (nhúng `cached`); trang vẫn vẽ dữ liệu mới khi nó

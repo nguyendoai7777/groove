@@ -9,12 +9,24 @@ keybindings = "Phím tắt"
 library = "Thư viện"
 
 [general]
+appearance = "Giao diện"
+mode = "Nền"
+mode_light = "Sáng"
+mode_dark = "Tối"
+mode_system = "Theo hệ thống"
+theme_preset = "Bảng màu"
 font = "Phông chữ"
 steps = "Bước tua và âm lượng"
 seek_step = "Bước tua (giây)"
 seek_step_hint = "Từ 1 trở lên. Dùng cho phím tua và nút tua."
 volume_step = "Bước âm lượng"
 volume_step_hint = "Từ 1 đến 100. Dùng cho phím lên, xuống và bánh xe."
+
+[theme_preset]
+default = "Mặc định"
+black_pink = "Đen hồng"
+rose_red = "Hồng đỏ"
+rebecca_purple = "Tím"
 
 [eq]
 title = "Equalizer"
