@@ -5,7 +5,10 @@
 //! 1. Nhóm album theo `TPE2`, nên giữ `TPE2` nhất quán và `TCMP` cho iTunes.
 //! 2. Windows đọc ID3v2.3 tốt hơn v2.4, nên luôn ghi v2.3.
 //! 3. `ID3v1`, `APE` còn sót làm trường đã xoá hiện lại, nên chế độ clean bỏ cả hai cùng khung sắp xếp `TSO*`.
-//! 4. [`APP_FRAMES`] là dữ liệu của app, mọi chế độ ghi đều giữ (N2).
+//! 4. [`APP_FRAMES`] là dữ liệu của app, mọi chế độ ghi đều giữ (N2). Khung chỉnh âm thanh lúc phát (ReplayGain, Sound
+//!    Check, độ trễ gapless, `RVA2`…) cũng vậy: làm sạch thẻ không được làm bài nghe khác đi.
+//! 6. Số 0 ở số thứ tự, tổng, năm, BPM là "không có": đọc thành trống, ghi thì xoá khung. Trình sửa thẻ khác tự điền 0 vào
+//!    ô trống, làm các player sắp xếp theo đó thay vì theo tên.
 //! 5. Ghi trên bản tạm, đọc lại kiểm tra rồi mới thay tệp gốc (N3).
 //!
 //! MP3 và WAV đi qua `id3` (WAV vì `lofty` không cho đặt `TXXX` qua thẻ chung); FLAC, OGG, M4A, M4R đi qua `lofty`.
@@ -37,6 +40,9 @@ pub const APP_FRAMES: &[&str] = &[TIMELINE];
 pub const TEMP_SUFFIX: &str = ".groove-tmp";
 
 const TIMELINE: &str = "TIMELINE";
+
+/// Khung ID3 chỉnh âm thanh lúc phát: âm lượng tương đối, EQ, vang.
+const SOUND_FRAME_IDS: &[&str] = &["RVA2", "RVAD", "EQU2", "EQUA", "RVRB"];
 const MP4_FREEFORM_MEAN: &str = "com.apple.iTunes";
 
 /// Trần khi đọc tệp bất kỳ (S25).
@@ -45,7 +51,6 @@ const MAX_MULTILINE_CHARS: usize = 1024 * 1024;
 const MAX_COVER_BYTES: usize = 32 * 1024 * 1024;
 /// Mặc định của lofty là 16 MiB: bìa lớn hơn làm cả tệp đọc lỗi.
 const LOFTY_ALLOCATION_LIMIT: usize = 2 * MAX_COVER_BYTES;
-const RAW_VALUE_CHARS: usize = 200;
 /// Thời lượng lệch quá mức này sau khi ghi tức là đã phá phần âm thanh.
 const DURATION_TOLERANCE_MS: u64 = 1_000;
 
@@ -83,7 +88,8 @@ pub enum WriteMode {
     /// Đọc trường đã biết, phủ phần sửa, ghi thẻ mới: bỏ rác, giữ giá trị riêng từng tệp.
     #[default]
     CleanKeepKnown,
-    /// Thẻ mới chỉ gồm phần sửa, [`APP_FRAMES`] và bìa nếu [`CoverEdit::Keep`]. Lyrics không truyền là mất.
+    /// Thẻ mới chỉ gồm phần sửa, [`APP_FRAMES`], khung âm thanh và bìa nếu [`CoverEdit::Keep`]. Lyrics không truyền là mất.
+    /// Hộp sửa thẻ luôn ghi chế độ này.
     Clean,
     /// Chỉ đụng trường có trong phần sửa, giữ mọi thứ khác.
     Merge,
@@ -149,11 +155,23 @@ impl TagFields {
         )
     }
 
-    /// Làm sạch phần sửa, giữ nghĩa `None` và `Some("")`.
+    /// Ô số: số thứ tự, tổng của bài và đĩa, năm, BPM.
+    fn numbers_mut(&mut self) -> [&mut Option<String>; 6] {
+        [
+            &mut self.track_no,
+            &mut self.track_total,
+            &mut self.disc_no,
+            &mut self.disc_total,
+            &mut self.year,
+            &mut self.bpm,
+        ]
+    }
+
+    /// Làm sạch phần sửa, giữ nghĩa `None` và `Some("")`. Số 0 ở ô số là xoá.
     fn normalized(&self) -> TagFields {
         let line = |v: &Option<String>| v.as_deref().map(clean);
         let multi = |v: &Option<String>| v.as_deref().map(clean_multiline);
-        TagFields {
+        let mut fields = TagFields {
             title: line(&self.title),
             artist: line(&self.artist),
             album: line(&self.album),
@@ -173,7 +191,13 @@ impl TagFields {
             lyrics: multi(&self.lyrics),
             timeline: multi(&self.timeline),
             compilation: self.compilation,
+        };
+        for value in fields.numbers_mut() {
+            if value.as_deref().is_some_and(is_zero) {
+                *value = Some(String::new());
+            }
         }
+        fields
     }
 }
 
@@ -227,17 +251,6 @@ pub struct ScannedTrack {
     pub cover: Option<CoverArt>,
     pub duration_ms: u64,
     pub stamp: FileStamp,
-}
-
-/// Một khung đúng như trong tệp, cho tab Raw Frames. Nhãn hiển thị do UI tra theo `id` qua i18n.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RawFrame {
-    pub id: String,
-    /// Mô tả của `TXXX`.
-    pub description: Option<String>,
-    pub value: String,
-    /// `false` là khung chế độ clean sẽ bỏ: UI tô vàng, đếm khung rác.
-    pub known: bool,
 }
 
 /// Có phải bản tạm khi ghi thẻ không; watcher dùng để bỏ qua.
@@ -309,6 +322,29 @@ fn is_app_frame(description: &str) -> bool {
     APP_FRAMES.iter().any(|name| description.eq_ignore_ascii_case(name))
 }
 
+/// Khoá tự do (`TXXX`, `COMM`, Vorbis comment, freeform MP4) mang âm lượng hay gapless: ReplayGain, MP3Gain (kể cả dữ liệu
+/// hoàn tác), R128 của Opus, Sound Check (`iTunNORM`) và độ trễ bộ mã hoá (`iTunSMPB`) của iTunes.
+fn is_sound_key(name: &str) -> bool {
+    let upper = name.trim().to_ascii_uppercase();
+    ["REPLAYGAIN_", "MP3GAIN_", "R128_"].iter().any(|prefix| upper.starts_with(prefix))
+        || upper == "ITUNNORM"
+        || upper == "ITUNSMPB"
+}
+
+fn is_sound_frame(frame: &id3::Frame) -> bool {
+    match frame.content() {
+        id3::Content::ExtendedText(t) => is_sound_key(&t.description),
+        id3::Content::Comment(c) => is_sound_key(&c.description),
+        _ => SOUND_FRAME_IDS.contains(&frame.id()),
+    }
+}
+
+/// `0`, `00`, `0000`: ô số trình khác tự điền khi để trống.
+fn is_zero(value: &str) -> bool {
+    let value = value.trim();
+    !value.is_empty() && value.chars().all(|c| c == '0')
+}
+
 /// Mime theo byte đầu của ảnh, thay cho dò chuỗi trong `data:` URI của bản cũ.
 fn sniff_image_mime(data: &[u8]) -> Option<&'static str> {
     match data {
@@ -336,60 +372,6 @@ fn capped_cover(mime: String, data: &[u8], path: &Path) -> Option<CoverArt> {
 /// Đọc một tệp: thẻ, bìa, thời lượng, dấu tệp. Tệp có âm thanh mà thẻ hỏng vẫn `Ok` với trường trống.
 pub fn read_track(path: &Path) -> Result<ScannedTrack, TagError> {
     guarded(path, || read_track_inner(path))
-}
-
-/// Mọi khung trong tệp, đúng thứ tự, cho tab Raw Frames. Định dạng không dùng `id3` trả danh sách rỗng.
-pub fn read_raw_frames(path: &Path) -> Result<Vec<RawFrame>, TagError> {
-    guarded(path, || {
-        let mut reader = open_reader(path)?;
-        if !uses_id3(detect_format(&mut reader, path)?) {
-            return Ok(Vec::new());
-        }
-        let Some(tag) = read_id3(&mut reader, path) else {
-            return Ok(Vec::new());
-        };
-        Ok(tag.frames().map(raw_frame).collect())
-    })
-}
-
-fn raw_frame(frame: &id3::Frame) -> RawFrame {
-    let id = frame.id().to_string();
-    let description = frame.content().extended_text().map(|t| t.description.clone());
-    let value = match frame.content() {
-        id3::Content::Picture(p) => format!("<{} · {} bytes>", p.mime_type, p.data.len()),
-        id3::Content::ExtendedText(t) => clean_multiline(&t.value),
-        other => clean_multiline(&other.to_string()),
-    };
-    let value = if value.chars().count() > RAW_VALUE_CHARS {
-        format!("{}…", value.chars().take(RAW_VALUE_CHARS).collect::<String>())
-    } else {
-        value
-    };
-    let known = is_known_frame(&id) || description.as_deref().is_some_and(is_app_frame);
-    RawFrame { id, description, value, known }
-}
-
-fn is_known_frame(id: &str) -> bool {
-    matches!(
-        id,
-        "TIT2"
-            | "TPE1"
-            | "TPE2"
-            | "TALB"
-            | "TRCK"
-            | "TPOS"
-            | "TYER"
-            | "TCON"
-            | "TCOM"
-            | "TPUB"
-            | "TCOP"
-            | "TBPM"
-            | "TIT1"
-            | "TCMP"
-            | "COMM"
-            | "USLT"
-            | "APIC"
-    )
 }
 
 fn guarded<T>(path: &Path, work: impl FnOnce() -> Result<T, TagError>) -> Result<T, TagError> {
@@ -474,6 +456,12 @@ fn read_track_inner(path: &Path) -> Result<ScannedTrack, TagError> {
             (fields, cover)
         }
     };
+    let mut fields = fields;
+    for value in fields.numbers_mut() {
+        if value.as_deref().is_some_and(is_zero) {
+            *value = None;
+        }
+    }
     Ok(ScannedTrack { fields, cover, duration_ms, stamp })
 }
 
@@ -482,7 +470,8 @@ fn fields_from_id3(tag: &id3::Tag) -> TagFields {
     let text = |id: &str| raw(id).and_then(read_line);
     let (track_no, track_total) = split_positional(raw("TRCK"));
     let (disc_no, disc_total) = split_positional(raw("TPOS"));
-    let comment = tag.comments().next().and_then(|c| read_multiline(&c.text));
+    // `COMM` của iTunes (`iTunNORM`, `iTunSMPB`) là số liệu âm thanh, không phải ghi chú.
+    let comment = tag.comments().find(|c| !is_sound_key(&c.description)).and_then(|c| read_multiline(&c.text));
     let lyrics = tag.lyrics().next().and_then(|l| read_multiline(&l.text));
     let timeline = tag
         .extended_texts()
@@ -590,6 +579,47 @@ fn read_app_value(reader: &mut BufReader<File>, path: &Path, format: FileType, n
         _ => None,
     };
     raw.as_deref().and_then(read_multiline)
+}
+
+/// Khoá thẻ mới phải mang theo khi làm sạch: khung của app và khoá âm thanh, đúng tên như trong tệp.
+fn read_kept_values(reader: &mut BufReader<File>, path: &Path, format: FileType) -> Vec<(String, String)> {
+    if rewind(reader, path).is_err() {
+        return Vec::new();
+    }
+    let options = ParseOptions::new().read_properties(false).read_cover_art(false);
+    let vorbis = |comments: &VorbisComments| -> Vec<(String, String)> {
+        comments.items().map(|(key, value)| (key.to_string(), value.to_string())).collect()
+    };
+    let pairs = match format {
+        FileType::Flac => FlacFile::read_from(reader, options).ok().and_then(|f| f.vorbis_comments().map(vorbis)),
+        FileType::Vorbis => VorbisFile::read_from(reader, options).ok().map(|f| vorbis(f.vorbis_comments())),
+        FileType::Opus => OpusFile::read_from(reader, options).ok().map(|f| vorbis(f.vorbis_comments())),
+        FileType::Mp4 => Mp4File::read_from(reader, options).ok().and_then(|file| {
+            let ilst = file.ilst()?;
+            let pairs = ilst
+                .into_iter()
+                .filter_map(|atom| {
+                    let AtomIdent::Freeform { mean, name } = atom.ident() else { return None };
+                    if mean != MP4_FREEFORM_MEAN {
+                        return None;
+                    }
+                    let value = atom.data().find_map(|d| match d {
+                        AtomData::UTF8(v) | AtomData::UTF16(v) => Some(v.clone()),
+                        _ => None,
+                    })?;
+                    Some((name.to_string(), value))
+                })
+                .collect();
+            Some(pairs)
+        }),
+        _ => None,
+    };
+    pairs
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|(name, _)| is_app_frame(name) || is_sound_key(name))
+        .filter_map(|(name, value)| read_multiline(&value).map(|value| (name, value)))
+        .collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -759,6 +789,8 @@ fn write_id3(
     old: Option<id3::Tag>,
 ) -> Result<(), TagError> {
     let effective = effective_fields(&edit.fields, mode, &before.fields);
+    let sound: Vec<id3::Frame> =
+        old.iter().flat_map(|tag| tag.frames()).filter(|f| is_sound_frame(f)).cloned().collect();
 
     let mut tag = id3::Tag::new();
     if mode.strips() {
@@ -855,6 +887,13 @@ fn write_id3(
         }
         if !timeline.is_empty() {
             tag.add_frame(id3::frame::ExtendedText { description: TIMELINE.into(), value: timeline.clone() });
+        }
+    }
+
+    // Thẻ mới không có, còn sửa ghi chú thì xoá mọi `COMM` kể cả Sound Check: trả khung âm thanh về sau cùng.
+    for frame in sound {
+        if !tag.frames().any(|f| *f == frame) {
+            tag.add_frame(frame);
         }
     }
 
@@ -977,18 +1016,11 @@ fn write_lofty(
     let effective = effective_fields(&edit.fields, mode, &before.fields);
     let mut reader = open_reader(temp)?;
     let parse = |e: lofty::error::FileParseError| TagError::Read { path: temp.to_path_buf(), message: e.to_string() };
-    // Thẻ mới làm mất khung của app nên đọc trước; Merge đã có `companion_tag`.
-    let mut app_values: Vec<(&str, String)> = Vec::new();
-    if mode.strips() {
-        for name in APP_FRAMES {
-            if let Some(value) = read_app_value(&mut reader, temp, format, name) {
-                app_values.push((name, value));
-            }
-        }
-    }
+    // Thẻ mới làm mất khung của app và khoá âm thanh nên đọc trước; Merge đã có `companion_tag`.
+    let mut app_values = if mode.strips() { read_kept_values(&mut reader, temp, format) } else { Vec::new() };
     if let Some(timeline) = &effective.timeline {
         app_values.retain(|(name, _)| !name.eq_ignore_ascii_case(TIMELINE));
-        app_values.push((TIMELINE, timeline.clone()));
+        app_values.push((TIMELINE.to_string(), timeline.clone()));
     }
     rewind(&mut reader, temp)?;
 
@@ -1039,21 +1071,25 @@ fn write_lofty(
     saved.map_err(|e| TagError::Write { path: temp.to_path_buf(), message: e.to_string() })
 }
 
-fn set_comment_values(comments: &mut VorbisComments, values: &[(&str, String)]) {
-    for (name, value) in values {
+/// Xoá hết các khoá trước rồi mới thêm: một khoá có thể mang nhiều giá trị.
+fn set_comment_values(comments: &mut VorbisComments, values: &[(String, String)]) {
+    for (name, _) in values {
         let _ = comments.remove(name).count();
+    }
+    for (name, value) in values {
         if !value.is_empty() {
-            comments.insert((*name).to_string(), value.clone());
+            comments.insert(name.clone(), value.clone());
         }
     }
 }
 
-fn set_ilst_values(ilst: &mut Ilst, values: &[(&str, String)]) {
+fn set_ilst_values(ilst: &mut Ilst, values: &[(String, String)]) {
+    for (name, _) in values {
+        let _ = ilst.remove(&mp4_ident(name)).count();
+    }
     for (name, value) in values {
-        let ident = mp4_ident(name);
-        let _ = ilst.remove(&ident).count();
         if !value.is_empty() {
-            ilst.insert(Atom::new(ident, AtomData::UTF8(value.clone())));
+            ilst.insert(Atom::new(mp4_ident(name), AtomData::UTF8(value.clone())));
         }
     }
 }
@@ -1157,7 +1193,7 @@ mod tests {
     }
 
     fn frame_ids(path: &Path) -> Vec<String> {
-        read_raw_frames(path).unwrap().into_iter().map(|f| f.id).collect()
+        id3::Tag::read_from_path(path).unwrap().frames().map(|f| f.id().to_string()).collect()
     }
 
     fn id3_version(path: &Path) -> u8 {
@@ -1177,6 +1213,9 @@ mod tests {
     }
 
     fn write_app_values(path: &Path, format: FileType, values: &[(&str, String)]) {
+        let values: Vec<(String, String)> =
+            values.iter().map(|(name, value)| (name.to_string(), value.clone())).collect();
+        let values = values.as_slice();
         let mut reader = open_reader(path).unwrap();
         match format {
             FileType::Flac => {
@@ -1318,7 +1357,7 @@ mod tests {
     }
 
     #[test]
-    fn txxx_timeline_written_by_the_old_app_is_kept_and_not_junk() {
+    fn txxx_timeline_written_by_the_old_app_is_kept() {
         let dir = tmp();
         let path = fixtures::write_mp3_with_frames(dir.path(), "old", &[("TIT2", "Bài"), ("TSSE", "LAME")]).unwrap();
         // Bản Tauri ghi v2.4 (S5), không qua `tags`.
@@ -1326,12 +1365,6 @@ mod tests {
         tag.add_frame(id3::frame::ExtendedText { description: "TIMELINE".into(), value: "0:10 Cũ".into() });
         tag.add_frame(id3::frame::ExtendedText { description: "RUBBISH".into(), value: "x".into() });
         tag.write_to_path(&path, id3::Version::Id3v24).unwrap();
-
-        let frames = read_raw_frames(&path).unwrap();
-        let known =
-            |description: &str| frames.iter().find(|f| f.description.as_deref() == Some(description)).unwrap().known;
-        assert!(known("TIMELINE"), "inspector không được gắn rác");
-        assert!(!known("RUBBISH"));
 
         for mode in [WriteMode::CleanKeepKnown, WriteMode::Clean] {
             let album = fields_edit(TagFields { album: Some("A".into()), ..Default::default() });
@@ -1362,6 +1395,97 @@ mod tests {
             write_tags(&path, &title_edit("T"), WriteMode::Clean).unwrap();
             let mut reader = open_reader(&path).unwrap();
             assert_eq!(read_app_value(&mut reader, &path, format, "MYFIELD"), None, "{kind:?} Clean phải bỏ");
+        }
+    }
+
+    /// Làm sạch không làm bài nghe khác đi: ReplayGain, Sound Check, `RVA2` còn nguyên, rác vẫn bỏ; `iTunNORM` không
+    /// bị đọc thành ghi chú, sửa ghi chú không xoá nó.
+    #[test]
+    fn clean_keeps_sound_frames_on_mp3() {
+        let dir = tmp();
+        let path = fixtures::write_mp3_with_frames(dir.path(), "gain", &[("TIT2", "T"), ("TSSE", "LAME")]).unwrap();
+        let mut tag = id3::Tag::read_from_path(&path).unwrap();
+        tag.add_frame(id3::frame::ExtendedText {
+            description: "REPLAYGAIN_TRACK_GAIN".into(),
+            value: "-6.20 dB".into(),
+        });
+        tag.add_frame(id3::frame::ExtendedText { description: "RUBBISH".into(), value: "x".into() });
+        tag.add_frame(id3::frame::Comment {
+            lang: "eng".into(),
+            description: "iTunNORM".into(),
+            text: " 0000044E".into(),
+        });
+        let rva2 = id3::Content::Unknown(id3::frame::Unknown {
+            data: vec![0, 1, 0xFC, 0x00, 0],
+            version: id3::Version::Id3v24,
+        });
+        tag.add_frame(id3::Frame::with_content("RVA2", rva2));
+        tag.write_to_path(&path, id3::Version::Id3v24).unwrap();
+        assert_eq!(read_track(&path).unwrap().fields.comment, None, "iTunNORM không phải ghi chú");
+
+        for mode in [WriteMode::Clean, WriteMode::CleanKeepKnown, WriteMode::Merge] {
+            let edit = fields_edit(TagFields { comment: Some("Hay".into()), ..Default::default() });
+            write_tags(&path, &edit, mode).unwrap();
+            let tag = id3::Tag::read_from_path(&path).unwrap();
+            let gain =
+                tag.extended_texts().find(|t| t.description == "REPLAYGAIN_TRACK_GAIN").map(|t| t.value.as_str());
+            assert_eq!(gain, Some("-6.20 dB"), "{mode:?}");
+            assert!(tag.comments().any(|c| c.description == "iTunNORM"), "{mode:?}");
+            assert!(tag.get("RVA2").is_some(), "{mode:?}");
+            assert_eq!(read_track(&path).unwrap().fields.comment.as_deref(), Some("Hay"), "{mode:?}");
+            if mode != WriteMode::Merge {
+                assert!(!frame_ids(&path).contains(&"TSSE".to_string()), "{mode:?}");
+                assert!(tag.extended_texts().all(|t| t.description != "RUBBISH"), "{mode:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn clean_keeps_sound_keys_on_lofty_formats() {
+        let dir = tmp();
+        for kind in [AudioKind::Flac, AudioKind::Ogg, AudioKind::M4a] {
+            let path = fixtures::write_sample(dir.path(), "gain", kind).unwrap();
+            let mut reader = open_reader(&path).unwrap();
+            let format = detect_format(&mut reader, &path).unwrap();
+            drop(reader);
+            let values = [("REPLAYGAIN_TRACK_GAIN", "-6.20 dB".to_string()), ("MYFIELD", "rác".to_string())];
+            write_app_values(&path, format, &values);
+
+            write_tags(&path, &title_edit("T"), WriteMode::Clean).unwrap();
+            let mut reader = open_reader(&path).unwrap();
+            let gain = read_app_value(&mut reader, &path, format, "REPLAYGAIN_TRACK_GAIN");
+            assert_eq!(gain.as_deref(), Some("-6.20 dB"), "{kind:?}");
+            assert_eq!(read_app_value(&mut reader, &path, format, "MYFIELD"), None, "{kind:?}");
+        }
+    }
+
+    /// Số 0 trình khác tự điền đọc thành trống; ô số để trống hay gõ 0 thì xoá khung, không ghi 0.
+    #[test]
+    fn zero_numbers_read_as_blank_and_are_never_written() {
+        let dir = tmp();
+        let path = fixtures::write_mp3_with_frames(
+            dir.path(),
+            "zero",
+            &[("TIT2", "T"), ("TRCK", "0/0"), ("TPOS", "0"), ("TYER", "0000"), ("TBPM", "0")],
+        )
+        .unwrap();
+        let fields = read_track(&path).unwrap().fields;
+        assert_eq!(
+            (fields.track_no, fields.track_total, fields.disc_no, fields.disc_total, fields.year, fields.bpm),
+            (None, None, None, None, None, None)
+        );
+
+        let edit = fields_edit(TagFields {
+            title: Some("T".into()),
+            track_no: Some("0".into()),
+            track_total: Some(String::new()),
+            year: Some("0".into()),
+            ..Default::default()
+        });
+        for mode in [WriteMode::Clean, WriteMode::Merge] {
+            write_tags(&path, &edit, mode).unwrap();
+            let ids = frame_ids(&path);
+            assert!(!ids.contains(&"TRCK".to_string()) && !ids.contains(&"TYER".to_string()), "{mode:?}: {ids:?}");
         }
     }
 

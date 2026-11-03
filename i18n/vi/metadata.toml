@@ -1,7 +1,6 @@
 # Vùng metadata: khoá viết không tiền tố, tra bằng t!("metadata.<khoá>").
 
 title = "Sửa thông tin bài hát"
-title_junk = "Sửa thông tin bài hát ({count} khung thừa trong tệp)"
 loading = "Đang đọc thẻ từ tệp..."
 load_failed = "Không đọc được thẻ của bài này"
 close_label = "Đóng"
@@ -12,7 +11,6 @@ cancel = "Huỷ"
 [tab]
 common = "Chung"
 details = "Chi tiết"
-raw = "Khung thô"
 
 [field]
 filename = "Tên tệp"
@@ -45,57 +43,9 @@ unsupported = "Tệp này không phải ảnh JPEG, PNG, WebP, GIF hay BMP"
 too_large = "Ảnh lớn hơn 32 MB"
 read_failed = "Không đọc được tệp ảnh"
 
-[grouping]
-warning = "Có album nhưng chưa có nghệ sĩ album, nên bài có thể bị tách khỏi album ở các trình phát khác"
-fix = "Sửa nhóm album"
-
-[mode]
-label = "Cách ghi thẻ"
-clean_keep = "Làm sạch, giữ thông tin đã biết"
-clean = "Làm sạch hoàn toàn"
-merge = "Gộp vào thẻ hiện có"
-clean_keep_hint = "Bỏ khung thừa, giữ các trường đã biết của tệp. Nên dùng."
-clean_hint = "Thẻ mới chỉ gồm phần trong biểu mẫu. Mọi thứ khác trong tệp bị xoá."
-merge_hint = "Giữ nguyên mọi thứ khác trong tệp, kể cả khung thừa."
-
 [group]
 apply = "Áp cho cả {count} bài trong mục này"
 hint = "Gồm album, nghệ sĩ album, thể loại, năm, tuyển tập và bìa. Bài khác không bao giờ bị làm sạch hoàn toàn."
-
-[raw]
-empty = "Tệp này không có khung nào để hiện"
-only_mp3 = "Chỉ tệp MP3 mới hiện danh sách khung"
-junk = "Khung thừa: sẽ bị bỏ khi làm sạch"
-column_id = "Khung"
-column_name = "Tên"
-column_value = "Giá trị"
-
-[frame]
-TIT2 = "Tiêu đề"
-TPE1 = "Nghệ sĩ"
-TPE2 = "Nghệ sĩ album"
-TALB = "Album"
-TRCK = "Số bài"
-TPOS = "Số đĩa"
-TYER = "Năm"
-TDRC = "Ngày ghi âm"
-TCON = "Thể loại"
-TCOM = "Nhạc sĩ"
-TPUB = "Nhà phát hành"
-TCOP = "Bản quyền"
-TBPM = "BPM"
-TIT1 = "Nhóm"
-TCMP = "Tuyển tập"
-TLEN = "Độ dài"
-TSSE = "Phần mềm mã hoá"
-TENC = "Người mã hoá"
-USLT = "Lời bài hát"
-COMM = "Ghi chú"
-APIC = "Ảnh bìa"
-TXXX = "Văn bản tuỳ ý"
-PRIV = "Dữ liệu riêng"
-UFID = "Mã định danh tệp"
-POPM = "Đánh giá"
 
 [name_error]
 empty = "Tên tệp không được để trống"

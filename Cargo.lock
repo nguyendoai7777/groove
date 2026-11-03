@@ -2636,6 +2636,7 @@ dependencies = [
  "groove-audio",
  "groove-core",
  "groove-library",
+ "id3",
  "interprocess",
  "log",
  "materiant",
