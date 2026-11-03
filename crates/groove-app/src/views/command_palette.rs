@@ -3,7 +3,7 @@
 //! Dialog 600 px phía trên cửa sổ, mở bằng `ShellEvent::OpenSearch` (ô tìm, `Ctrl+K`). Ô nhập, nhãn chế độ (Tìm kiếm /
 //! Chế độ lệnh), danh sách nhóm theo loại, chân trang gợi ý phím.
 //!
-//! - **Trống**: ba thao tác nhanh `commands::QUICK_ACTIONS`; chọn thì chạy rồi đóng.
+//! - **Trống**: ba thao tác nhanh `commands::QUICK_ACTIONS`, không tiêu đề nhóm (chủ dự án bỏ); chọn thì chạy rồi đóng.
 //! - **Có chữ**: tìm sau 250 ms, tối đa 50 bài. `Library::search` bỏ lượt cũ (`Superseded`, im lặng), kết quả có `seq` nhỏ
 //!   hơn cái đang hiện cũng bỏ (S18). Chọn bài là `commands::play_search_result`, **không đóng** bảng.
 //! - **Bắt đầu bằng `/`**: lọc `cli::COMMANDS`; Tab điền lệnh; Enter đi qua `cli::resolve` (dòng đang chọn thắng chữ gõ,
@@ -285,7 +285,6 @@ impl CommandPalette {
     fn rebuild(&mut self) {
         self.rows.clear();
         if self.query.trim().is_empty() {
-            self.rows.push(Row::Header(t!("palette.group.quick")));
             self.rows.extend(QUICK_ACTIONS.iter().map(|command| Row::Quick(*command)));
         } else if self.is_cli() {
             let specs = cli::filter(&self.query);
@@ -903,14 +902,9 @@ mod tests {
         let mut rig = rig(cx);
         assert_eq!(
             rig.rows(),
-            [
-                Row::Header(t!("palette.group.quick")),
-                Row::Quick(Command::PlayRandom),
-                Row::Quick(Command::GoToLibrary),
-                Row::Quick(Command::GoToNowPlaying)
-            ]
+            [Row::Quick(Command::PlayRandom), Row::Quick(Command::GoToLibrary), Row::Quick(Command::GoToNowPlaying)]
         );
-        assert_eq!(rig.state(|p, _| p.selected), Some(1));
+        assert_eq!(rig.state(|p, _| p.selected), Some(0));
         rig.press("down");
         rig.press("enter");
         assert_eq!(*rig.ran.borrow(), [Command::GoToLibrary]);
@@ -921,12 +915,12 @@ mod tests {
     #[gpui::test]
     fn arrows_wrap(cx: &mut TestAppContext) {
         let mut rig = rig(cx);
-        for expected in [2, 3, 1] {
+        for expected in [1, 2, 0] {
             rig.press("down");
             assert_eq!(rig.state(|p, _| p.selected), Some(expected));
         }
         rig.press("up");
-        assert_eq!(rig.state(|p, _| p.selected), Some(3));
+        assert_eq!(rig.state(|p, _| p.selected), Some(2));
     }
 
     /// C3 — gõ chữ: tìm sau debounce, Enter phát bài và KHÔNG đóng bảng.
@@ -1050,7 +1044,7 @@ mod tests {
         assert!(!rig.is_open());
         rig.open();
         assert_eq!(rig.state(|p, _| p.query().to_owned()), "");
-        assert_eq!(rig.rows().len(), 4);
+        assert_eq!(rig.rows().len(), 3);
         assert_eq!(rig.state(|p, cx| p.field.read(cx).value(cx).to_string()), "");
     }
 }
