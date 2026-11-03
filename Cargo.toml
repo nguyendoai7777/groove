@@ -48,3 +48,8 @@ debug = "line-tables-only"
 
 [profile.dev.package."*"]
 debug = false
+
+# Bản vá GPUI của materiant (inspector Ctrl+Shift+I chỉ ở bản debug cần `Window::inspector_ancestor_sources`):
+# `materiant/CLAUDE.md`, mục "GPUI vá ở vendor/gpui-pre". Thiếu khối này thì materiant không biên dịch.
+[patch.crates-io]
+gpui-pre = { path = "../materiant/vendor/gpui-pre" }
