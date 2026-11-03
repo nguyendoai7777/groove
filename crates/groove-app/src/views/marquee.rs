@@ -13,6 +13,9 @@
 //! ui-audit (02/11/2026): tên chỉ chạy khi cửa sổ đang active (đang được nhìn, có focus); cửa sổ nền, thu nhỏ thì dừng tại
 //! chỗ như khi rê chuột, active lại chạy tiếp từ đó.
 //!
+//! marquee-pause (03/11/2026): nhạc dừng thì tên cũng dừng tại chỗ (`Marquee::paused`), phát tiếp chạy tiếp từ đó; lúc đứng
+//! yên không xin khung nào nên cửa sổ không vẽ lại.
+//!
 //! cpu (03/11/2026): mỗi khung từng dựng lại CẢ cửa sổ (~45 % một nhân, desktop ẩn, release). Giờ phần chạy là view riêng
 //! [`MarqueeView`] và view chủ giữ phần nặng `cached` (`views::island`): ~8 %, phần lớn là GPUI phát lại cảnh + DirectX.
 //!
@@ -84,13 +87,15 @@ pub struct MarqueeView {
     box_width: f32,
     text_width: f32,
     hovered: bool,
+    paused: bool,
     text: SharedString,
     clock: Clock,
 }
 
 impl MarqueeView {
     /// Chủ gọi mỗi lần vẽ, không `notify`: view con nhúng thường vẽ ngay sau chủ trong cùng khung.
-    fn set(&mut self, id: ElementId, text: SharedString) {
+    fn set(&mut self, id: ElementId, text: SharedString, paused: bool) {
+        self.paused = paused;
         if self.text != text {
             // Bài mới chạy lại từ đầu dòng.
             self.text = text;
@@ -104,11 +109,18 @@ impl MarqueeView {
 pub struct Marquee {
     id: ElementId,
     text: SharedString,
+    paused: bool,
 }
 
 impl Marquee {
     pub fn new(id: impl Into<ElementId>, text: impl Into<SharedString>) -> Marquee {
-        Marquee { id: id.into(), text: text.into() }
+        Marquee { id: id.into(), text: text.into(), paused: false }
+    }
+
+    /// Dừng tại chỗ (nhạc đang dừng); `false` chạy tiếp từ chỗ đã dừng.
+    pub fn paused(mut self, paused: bool) -> Marquee {
+        self.paused = paused;
+        self
     }
 }
 
@@ -117,7 +129,7 @@ impl RenderOnce for Marquee {
         // Trạng thái khoá chỉ giữ tay cầm của view chạy; tay cầm không bao giờ `notify` nên view chủ không bị kéo theo.
         let view =
             window.use_keyed_state(self.id.clone(), cx, |_, cx| cx.new(|_| MarqueeView::default())).read(cx).clone();
-        view.update(cx, |v, _| v.set(self.id, self.text));
+        view.update(cx, |v, _| v.set(self.id, self.text, self.paused));
         view
     }
 }
@@ -126,7 +138,7 @@ impl Render for MarqueeView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let now = cx.background_executor().now();
         let animate = overflows(self.text_width, self.box_width) && !cx.reduce_motion();
-        let running = animate && !self.hovered && window.is_window_active();
+        let running = animate && !self.hovered && !self.paused && window.is_window_active();
         if running {
             self.clock.run(now);
             // Khung kế theo nhịp màn hình; xin lúc dựng: chỉ view này và đường tổ tiên vẽ lại.

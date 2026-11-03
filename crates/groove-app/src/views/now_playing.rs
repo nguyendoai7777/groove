@@ -306,6 +306,7 @@ fn full() -> StyleRefinement {
 impl Render for NowPlaying {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let c = cx.theme().colors().clone();
+        let playing = self.player.read(cx).is_playing();
         let (title, artist) = match self.player.read(cx).current_song() {
             Some(song) => (
                 song.display_title().to_owned(),
@@ -332,7 +333,7 @@ impl Render for NowPlaying {
                     .flex_none()
                     .text_xl()
                     .font_weight(FontWeight::NORMAL)
-                    .child(Marquee::new("now-playing-title", title)),
+                    .child(Marquee::new("now-playing-title", title).paused(!playing)),
             )
             .child(div().flex_none().truncate().text_color(c.muted).child(artist))
             .child(div().w_full().flex_1().min_h_0().mt_4().child(self.timeline_box.clone().cached(full())));
