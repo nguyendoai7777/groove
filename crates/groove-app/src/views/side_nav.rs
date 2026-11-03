@@ -39,7 +39,7 @@ pub const EXPANDED_WIDTH: f32 = 230.;
 pub const COLLAPSED_WIDTH: f32 = 56.;
 pub const HEADER_HEIGHT: f32 = 36.;
 pub const ITEM_HEIGHT: f32 = 42.;
-const ACTIVE_BAR: f32 = 3.;
+pub const ACTIVE_BAR: f32 = 3.;
 /// Nút thu / mở: tròn 28 px, icon 18 px; SVG vẽ trên lưới 18 đơn vị, nét 1 px canh nửa điểm ảnh cho sắc, mảnh (chủ dự án).
 const TOGGLE_SIZE: f32 = 28.;
 const ICON_SIZE: f32 = 18.;
@@ -200,20 +200,20 @@ impl RenderOnce for SideNav {
 }
 
 /// Màu một hàng theo bản web (`side-nav.vue`): đang chọn = icon accent-light + chữ trắng (độ đậm normal, G-6); còn lại =
-/// muted, hover sáng lên text-secondary, nền và vạch trái nhạt.
+/// muted, hover sáng lên text-secondary, nền và vạch trái nhạt. Cột tab của hộp Settings dùng chung (`settings::dialog`).
 #[derive(Clone, Copy)]
-struct NavInk {
-    icon: Hsla,
-    label: Hsla,
-    hover: Hsla,
-    bar: Hsla,
-    hover_bar: Hsla,
-    active_bg: Hsla,
-    hover_bg: Hsla,
+pub struct NavInk {
+    pub icon: Hsla,
+    pub label: Hsla,
+    pub hover: Hsla,
+    pub bar: Hsla,
+    pub hover_bar: Hsla,
+    pub active_bg: Hsla,
+    pub hover_bg: Hsla,
 }
 
 impl NavInk {
-    fn resolve(active: bool, cx: &App) -> NavInk {
+    pub fn resolve(active: bool, cx: &App) -> NavInk {
         let theme = cx.theme();
         let c = theme.colors();
         let dark = theme.is_dark();
