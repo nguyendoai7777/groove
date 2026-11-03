@@ -1,10 +1,10 @@
 //! window-buttons (03/11/2026): ba nút cửa sổ tự vẽ của thanh trên (thu nhỏ, phóng to / khôi phục, đóng).
 //!
-//! Nút là phần tử bấm thường của GPUI (`on_click`), không phải vùng `WindowControlArea` để OS hit-test: chủ dự án bấm trên màn
-//! thật thì thu nhỏ / phóng to không ăn qua đường `HTMINBUTTON` / `HTMAXBUTTON` của gpui-pre-windows (hit-test dựa vào vị trí
-//! chuột GPUI nhớ từ lần di chuột trước), trong khi nút bấm thường của app luôn chạy. `zoom_window` của gpui-pre-windows chỉ
-//! `SW_MAXIMIZE`, nên Windows gọi thẳng `ShowWindowAsync` để bấm lần hai khôi phục cỡ cũ; đóng gửi `WM_CLOSE` như nút tiêu
-//! đề thật (đi qua `on_window_should_close`). Nền khác: API cửa sổ của GPUI.
+//! Nút là phần tử bấm thường của GPUI (`on_click`), không phải vùng `WindowControlArea` để OS hit-test: thanh trên nhúng
+//! `cached`, mà gpui-pre 0.3.10 không chép vùng `WindowControlArea` khi dùng lại khung của view `cached` — trên màn thật
+//! (có hoạt ảnh, rê chuột) `HTMINBUTTON` / `HTMAXBUTTON` mất, bấm không ăn. Nút bấm thường đi đường mọi nút khác của app.
+//! `zoom_window` của gpui-pre-windows chỉ `SW_MAXIMIZE`, nên Windows gọi thẳng `ShowWindowAsync` để bấm lần hai khôi phục cỡ
+//! cũ; đóng gửi `WM_CLOSE` như nút tiêu đề thật (đi qua `on_window_should_close`). Nền khác: API cửa sổ của GPUI.
 
 use materiant::gpui_kit::Window;
 

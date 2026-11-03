@@ -29,7 +29,7 @@ use materiant::style::ActiveTokens;
 use materiant::tabs::InkBar;
 use materiant::theme::color::hex;
 use materiant::theme::{ActiveTheme, Neutral};
-use materiant::window::{DragRegionExt, translucent_surface};
+use materiant::window::translucent_surface;
 
 use crate::icons::GrooveIcon;
 use crate::route::Route;
@@ -150,7 +150,8 @@ impl RenderOnce for SideNav {
                 )
             })
             .when(!wide, |d| d.justify_center())
-            .drag_region()
+            // Vùng kéo cửa sổ của header nằm ở `Shell` (dải sau cột trái): cột trái nhúng `cached`, vùng điều khiển cửa sổ
+            // của view `cached` mất khi GPUI dùng lại khung trước.
             .child(toggle);
 
         let items: Vec<AnyElement> = Route::NAV
