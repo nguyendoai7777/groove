@@ -216,3 +216,23 @@ fn audio_files_use_the_padded_file_icon() {
         .collect();
     assert_eq!(sizes, [16, 20, 24, 32, 48, 64, 256]);
 }
+
+/// deb-metainfo: App Center lấy nhà phát hành / giấy phép từ AppStream; metainfo trỏ đúng tệp `.desktop`, icon, gói.
+#[test]
+fn appstream_metainfo_matches_the_desktop_entry() {
+    let metainfo = read("packaging/linux/groove-x.metainfo.xml");
+    for needle in [
+        "<launchable type=\"desktop-id\">groove.desktop</launchable>",
+        "<icon type=\"stock\">groove</icon>",
+        "<pkgname>groove-x</pkgname>",
+        "<binary>groove</binary>",
+        "<project_license>LicenseRef-proprietary</project_license>",
+        "<developer id=",
+        "@VERSION@",
+    ] {
+        assert!(metainfo.contains(needle), "{needle}");
+    }
+    let build = read("packaging/linux/build-deb.sh");
+    assert!(build.contains("packaging/linux/groove-x.metainfo.xml"));
+    assert!(!build.contains("noreply@groove-x.invalid"), "Maintainer thật, không phải địa chỉ giả");
+}

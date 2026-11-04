@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AppStream (deb-metainfo, 04/11/2026): App Center / GNOME Software lấy tên, nhà phát hành, giấy phép của app đã cài từ đây;
+     thiếu tệp này thì hiện "Unknown publisher", "License unknown". Cùng nhà phát hành với fastcast. `build-deb.sh` thay
+     @VERSION@, @DATE@. -->
+<component type="desktop-application">
+  <id>com.mrdxd.groovex</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LicenseRef-proprietary</project_license>
+  <name>Groove X</name>
+  <summary>Play and organize your local music library</summary>
+  <summary xml:lang="vi">Phát và sắp xếp thư viện nhạc trên máy</summary>
+  <developer id="com.fastcast">
+    <name>z0 team, sandtechs jsc.</name>
+  </developer>
+  <description>
+    <p>Groove X plays MP3, FLAC, WAV, M4A and OGG files from the folders you choose, with albums, playlists, lyrics, timelines and an equalizer.</p>
+  </description>
+  <launchable type="desktop-id">groove.desktop</launchable>
+  <icon type="stock">groove</icon>
+  <pkgname>groove-x</pkgname>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Audio</category>
+    <category>Player</category>
+  </categories>
+  <provides>
+    <binary>groove</binary>
+  </provides>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="@VERSION@" date="@DATE@"/>
+  </releases>
+</component>
