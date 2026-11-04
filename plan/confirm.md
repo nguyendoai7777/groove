@@ -476,3 +476,8 @@ Settings → Chung → "Kiểu chia vùng": thẻ bo tròn (mặc định) / chi
   2. Rê sát mép trái / phải / dưới thấy con trỏ đổi cỡ, kéo đổi cỡ được; góc dưới kéo chéo được.
   3. Đóng rồi mở lại: cửa sổ đúng chỗ, đúng cỡ (không nhỏ dần / trôi).
   4. Phóng to: nội dung không tràn khỏi màn; khôi phục về đúng cỡ cũ.
+## file-icon
+
+- [file-icon] Tệp nhạc đã liên kết dùng icon riêng `assets/app/groove-file.ico` = resource thứ hai của exe (`groove.exe,1` trong `DefaultIcon` của mỗi ProgID `GrooveX.<đuôi>`); icon exe, `Applications\groove.exe`, Capabilities vẫn `,0`. Bản Tauri dùng icon exe cho tệp (lấp kín ô 16 px — chính cái chủ dự án thấy to).
+- [file-icon] Hình nằm ~75–78 % ô, lề trong suốt: 16 → 12 px, 20 → 16, 24 → 18, 32 → 26, 48 → 38, 64 → 50, 256 → 200. Khung 16 / 20 / 24 vẽ lại bằng hình học canh lưới (vành gradient dày hơn bản gốc, chuyển màu khúc giữa để còn cam / tím, bỏ chữ G dưới 1 px); khung ≥ 32 thu từ khung 256 nên giữ chữ G. Dựng lại: `pwsh tools/make-file-icon.ps1`.
+- [file-icon] Kiểm tay (chủ dự án): cài lại bằng bản cài mới (`pwsh packaging/windows/build-installer.ps1` rồi chạy setup) — bộ cài ghi lại `DefaultIcon` và báo Explorer; nếu Explorer vẫn hiện icon cũ thì `ie4uinit -show` (Windows 10/11) hoặc đăng xuất / vào lại. Không đổi liên kết mặc định trên máy: chỉ cần Groove X đã là app mặc định từ trước.
