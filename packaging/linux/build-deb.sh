@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Dựng `<out>/groove-x_<version>_<arch>.deb` (groove-gd1_27, gd2_01). Chạy trên Ubuntu / Debian.
+# Dựng `<out>/groovex_<version>_<arch>.deb` (groove-gd1_27, gd2_01). Chạy trên Ubuntu / Debian.
 #   sudo apt install libasound2-dev dpkg-dev
 #   bash packaging/linux/build-deb.sh                  # bản phát hành: thiếu trang giấy phép là dừng
 #   bash packaging/linux/build-deb.sh --draft          # bản thử: thiếu thì cảnh báo, tên có `-draft`
@@ -44,7 +44,7 @@ mkdir -p "$out"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 root="$work/root"
-mkdir -p "$root/DEBIAN" "$root/usr/bin" "$root/usr/share/applications" "$root/usr/share/doc/groove-x"
+mkdir -p "$root/DEBIAN" "$root/usr/bin" "$root/usr/share/applications" "$root/usr/share/doc/groovex"
 install -m 0755 "$exe" "$root/usr/bin/groove"
 # Chuẩn desktop entry cấm CR: checkout từ Windows có thể là CRLF.
 tr -d '\r' < "$repo/packaging/linux/groove.desktop" > "$root/usr/share/applications/groove.desktop"
@@ -54,11 +54,11 @@ if command -v desktop-file-validate >/dev/null 2>&1; then
 fi
 # AppStream: App Center hiện tên, nhà phát hành, giấy phép từ đây (thiếu thì "Unknown publisher").
 install -d "$root/usr/share/metainfo"
-tr -d '\r' < "$repo/packaging/linux/groove-x.metainfo.xml" \
-  | sed -e "s|@VERSION@|$version|" -e "s|@DATE@|$(date +%Y-%m-%d)|" > "$root/usr/share/metainfo/com.mrdxd.groovex.metainfo.xml"
-chmod 0644 "$root/usr/share/metainfo/com.mrdxd.groovex.metainfo.xml"
+tr -d '\r' < "$repo/packaging/linux/groovex.metainfo.xml" \
+  | sed -e "s|@VERSION@|$version|" -e "s|@DATE@|$(date +%Y-%m-%d)|" > "$root/usr/share/metainfo/com.sandtechs.desktop.groovex.metainfo.xml"
+chmod 0644 "$root/usr/share/metainfo/com.sandtechs.desktop.groovex.metainfo.xml"
 if command -v appstreamcli >/dev/null 2>&1; then
-  appstreamcli validate --no-net --explain "$root/usr/share/metainfo/com.mrdxd.groovex.metainfo.xml" || echo "⚠ metainfo chưa qua appstreamcli validate" >&2
+  appstreamcli validate --no-net --explain "$root/usr/share/metainfo/com.sandtechs.desktop.groovex.metainfo.xml" || echo "⚠ metainfo chưa qua appstreamcli validate" >&2
 fi
 # Icon hicolor mọi cỡ trong `packaging/linux/icons/<cỡ>.png` (gd2_01): menu, "Mở bằng", thanh tác vụ không phải co ảnh 256.
 for icon in "$repo"/packaging/linux/icons/*x*.png; do
@@ -73,7 +73,7 @@ if ! command -v cargo-about >/dev/null 2>&1; then
   echo "==> Cài cargo-about (trang giấy phép)"
   cargo install cargo-about --locked --features cli || echo "⚠ Cài cargo-about không xong." >&2
 fi
-licenses="$root/usr/share/doc/groove-x"
+licenses="$root/usr/share/doc/groovex"
 if command -v cargo-about >/dev/null 2>&1 && command -v pwsh >/dev/null 2>&1; then
   pwsh -NoProfile -File "$repo/packaging/licenses/gen-licenses.ps1" -Out "$licenses"
 elif command -v cargo-about >/dev/null 2>&1 && command -v node >/dev/null 2>&1; then
@@ -84,8 +84,8 @@ else
   echo "Không có trang giấy phép: cần cargo-about + pwsh hoặc node (bản thử: --draft)." >&2
   exit 1
 fi
-cat > "$root/usr/share/doc/groove-x/copyright" <<'EOF'
-Groove X is proprietary software. Third-party licenses: /usr/share/doc/groove-x/third-party.html
+cat > "$root/usr/share/doc/groovex/copyright" <<'EOF'
+Groovex is proprietary software. Copyright © 2026 Sandtechs (z0 team, sandtechs jsc.), https://sandtechs.com. Third-party licenses: /usr/share/doc/groovex/third-party.html
 The ALSA library (libasound, LGPL-2.1-or-later) is not part of this package: it is a dependency installed by the system.
 EOF
 
@@ -104,21 +104,28 @@ depends="libasound2 | libasound2t64${depends:+, $depends}"
 
 size="$(du -sk "$root/usr" | cut -f1)"
 cat > "$root/DEBIAN/control" <<EOF
-Package: groove-x
+Package: groovex
 Version: $version
 Section: sound
 Priority: optional
 Architecture: $arch
-Maintainer: Groove X <nguyendoai7777@gmail.com>
+Maintainer: Groovex <nguyendoai7777@gmail.com>
+Homepage: https://sandtechs.com
 Installed-Size: $size
 Depends: $depends
 Recommends: desktop-file-utils, hicolor-icon-theme
-Description: Groove X music player
- Plays and organizes your local music library.
+Replaces: groove-x
+Conflicts: groove-x
+Provides: groove-x
+Description: Groovex music player, a replacement for Microsoft's Groove Music
+ Groovex plays and organizes the music on your computer: MP3, FLAC, WAV, M4A and
+ OGG from the folders you choose, with albums, playlists, lyrics, timelines, an
+ equalizer and a mini player. For Windows, macOS and Linux (Ubuntu). Video
+ playback is coming.
 EOF
 
 suffix=""
 [ -z "$draft" ] || suffix="-draft"
-deb="$out/groove-x_${version}_${arch}${suffix}.deb"
+deb="$out/groovex_${version}_${arch}${suffix}.deb"
 dpkg-deb --build --root-owner-group "$root" "$deb"
 printf '\nXong: %s (%s)\nDepends: %s\n%s' "$deb" "$(du -h "$deb" | cut -f1)" "$depends" "$warnings"

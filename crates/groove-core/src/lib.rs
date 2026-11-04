@@ -1,4 +1,4 @@
-//! Nền của Groove X: không UI. Mọi `mod` khai sẵn ở groove-gd1_01, task sau không sửa tệp này.
+//! Nền của Groovex: không UI. Mọi `mod` khai sẵn ở groove-gd1_01, task sau không sửa tệp này.
 
 pub mod cli;
 pub mod i18n;

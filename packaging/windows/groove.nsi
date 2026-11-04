@@ -1,4 +1,4 @@
-# Bản cài Windows của Groove X (groove-gd1_27, groove-gd2_01). Dựng bằng `packaging/windows/build-installer.ps1`, không gọi tay:
+# Bản cài Windows của Groovex (groove-gd1_27, groove-gd2_01). Dựng bằng `packaging/windows/build-installer.ps1`, không gọi tay:
 # script truyền VERSION, VERSION4, STAGE, ICON, OUTFILE qua /D và đọc tệp này với /INPUTCHARSET UTF8.
 #
 # Cài theo người dùng, không cần admin, không ký (ký là dịch vụ trả phí; SmartScreen sẽ cảnh báo). Chỉ ghi HKCU.
@@ -27,36 +27,39 @@ RequestExecutionLevel user
 !include "MUI2.nsh"
 !include "Sections.nsh"
 
-!define APP_NAME "Groove X"
+!define APP_NAME "Groovex"
+; D-21: nhà phát hành, trang chủ chung mọi app (`crates/groove-app/build.rs` cùng giá trị).
+!define PUBLISHER "z0 team, sandtechs jsc."
+!define HOMEPAGE "https://sandtechs.com"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\GrooveX"
 !define UNINST_EXE "uninstall.exe"
 !define CLASSES "Software\Classes"
 !define PROG_PREFIX "GrooveX."
 # ProgID chung của bản gd1_27; cài đè thì dọn.
 !define OLD_PROG_ID "GrooveX.AudioFile"
-!define CLIENT_KEY "Software\Clients\Media\Groove X"
+!define CLIENT_KEY "Software\Clients\Media\Groovex"
 !define CAPABILITIES "${CLIENT_KEY}\Capabilities"
 !define REGISTERED_APPS "Software\RegisteredApplications"
-!define AUMID "GrooveX.Player"
-!define DEFAULT_APPS_URI "ms-settings:defaultapps?registeredAppUser=Groove%20X"
-!define START_LINK "$SMPROGRAMS\Groove X.lnk"
-!define DESKTOP_LINK "$DESKTOP\Groove X.lnk"
+!define AUMID "Sandtechs.Groovex"
+!define DEFAULT_APPS_URI "ms-settings:defaultapps?registeredAppUser=Groovex"
+!define START_LINK "$SMPROGRAMS\Groovex.lnk"
+!define DESKTOP_LINK "$DESKTOP\Groovex.lnk"
 # 250 ms mỗi lượt: chờ tối đa 5 s.
 !define LOCK_ROUNDS 20
 
 Name "${APP_NAME}"
 OutFile "${OUTFILE}"
-InstallDir "$LOCALAPPDATA\Programs\Groove X"
+InstallDir "$LOCALAPPDATA\Programs\Groovex"
 InstallDirRegKey HKCU "${UNINST_KEY}" "InstallLocation"
-BrandingText "Groove X ${VERSION}"
+BrandingText "Groovex ${VERSION}"
 
 VIProductVersion "${VERSION4}"
-VIAddVersionKey /LANG=0 "ProductName" "Groove X"
-VIAddVersionKey /LANG=0 "CompanyName" "Groove X"
+VIAddVersionKey /LANG=0 "ProductName" "Groovex"
+VIAddVersionKey /LANG=0 "CompanyName" "${PUBLISHER}"
 VIAddVersionKey /LANG=0 "ProductVersion" "${VERSION}"
 VIAddVersionKey /LANG=0 "FileVersion" "${VERSION}"
-VIAddVersionKey /LANG=0 "FileDescription" "Groove X setup"
-VIAddVersionKey /LANG=0 "LegalCopyright" "Copyright (C) Groove X"
+VIAddVersionKey /LANG=0 "FileDescription" "Groovex setup"
+VIAddVersionKey /LANG=0 "LegalCopyright" "Copyright © 2026 Sandtechs"
 
 !define MUI_ICON "${ICON}"
 !define MUI_UNICON "${ICON}"
@@ -80,18 +83,18 @@ VIAddVersionKey /LANG=0 "LegalCopyright" "Copyright (C) Groove X"
 !insertmacro MUI_LANGUAGE "English"
 !insertmacro MUI_LANGUAGE "Vietnamese"
 
-LangString run_groove ${LANG_ENGLISH} "Open Groove X"
-LangString run_groove ${LANG_VIETNAMESE} "Mở Groove X"
-LangString make_default ${LANG_ENGLISH} "Make Groove X the default music player"
-LangString make_default ${LANG_VIETNAMESE} "Đặt Groove X làm trình phát nhạc mặc định"
-LangString still_running ${LANG_ENGLISH} "Groove X is still running. Close it, then choose Retry."
-LangString still_running ${LANG_VIETNAMESE} "Groove X vẫn đang chạy. Hãy đóng nó rồi chọn Retry."
-LangString remove_data ${LANG_ENGLISH} "Also delete your Groove X library and settings?$\n$\nYour music files are never deleted. Choose No to keep them for a later install."
-LangString remove_data ${LANG_VIETNAMESE} "Xoá luôn thư viện và cài đặt của Groove X?$\n$\nTệp nhạc của bạn không bao giờ bị xoá. Chọn No để giữ lại cho lần cài sau."
-LangString app_description ${LANG_ENGLISH} "Play and organize your music"
-LangString app_description ${LANG_VIETNAMESE} "Phát và sắp xếp nhạc của bạn"
-LangString sec_app ${LANG_ENGLISH} "Groove X (required)"
-LangString sec_app ${LANG_VIETNAMESE} "Groove X (bắt buộc)"
+LangString run_groove ${LANG_ENGLISH} "Open Groovex"
+LangString run_groove ${LANG_VIETNAMESE} "Mở Groovex"
+LangString make_default ${LANG_ENGLISH} "Make Groovex the default music player"
+LangString make_default ${LANG_VIETNAMESE} "Đặt Groovex làm trình phát nhạc mặc định"
+LangString still_running ${LANG_ENGLISH} "Groovex is still running. Close it, then choose Retry."
+LangString still_running ${LANG_VIETNAMESE} "Groovex vẫn đang chạy. Hãy đóng nó rồi chọn Retry."
+LangString remove_data ${LANG_ENGLISH} "Also delete your Groovex library and settings?$\n$\nYour music files are never deleted. Choose No to keep them for a later install."
+LangString remove_data ${LANG_VIETNAMESE} "Xoá luôn thư viện và cài đặt của Groovex?$\n$\nTệp nhạc của bạn không bao giờ bị xoá. Chọn No để giữ lại cho lần cài sau."
+LangString app_description ${LANG_ENGLISH} "Music player, a replacement for Microsoft's Groove Music"
+LangString app_description ${LANG_VIETNAMESE} "Ứng dụng nghe nhạc thay thế cho Groove của Microsoft"
+LangString sec_app ${LANG_ENGLISH} "Groovex (required)"
+LangString sec_app ${LANG_VIETNAMESE} "Groovex (bắt buộc)"
 LangString sec_desktop ${LANG_ENGLISH} "Desktop shortcut"
 LangString sec_desktop ${LANG_VIETNAMESE} "Lối tắt trên Desktop"
 # Tên loại tệp: "<tên> (MP3)". NSIS coi LangString rỗng là chưa đặt, nên không ghép trước / sau theo ngôn ngữ.
@@ -262,19 +265,20 @@ Section "$(sec_app)" SecMain
   # Bản gd1_27 dùng một ProgID chung.
   DeleteRegKey HKCU "${CLASSES}\${OLD_PROG_ID}"
 
-  WriteRegStr HKCU "${CLASSES}\Applications\groove.exe" "FriendlyAppName" "Groove X"
+  WriteRegStr HKCU "${CLASSES}\Applications\groove.exe" "FriendlyAppName" "Groovex"
   WriteRegStr HKCU "${CLASSES}\Applications\groove.exe\DefaultIcon" "" "$INSTDIR\groove.exe,0"
   WriteRegStr HKCU "${CLASSES}\Applications\groove.exe\shell\open\command" "" '"$INSTDIR\groove.exe" "%1"'
-  WriteRegStr HKCU "${CAPABILITIES}" "ApplicationName" "Groove X"
+  WriteRegStr HKCU "${CAPABILITIES}" "ApplicationName" "Groovex"
   WriteRegStr HKCU "${CAPABILITIES}" "ApplicationDescription" "$(app_description)"
   WriteRegStr HKCU "${CAPABILITIES}" "ApplicationIcon" "$INSTDIR\groove.exe,0"
   !insertmacro AssociateAll
   WriteRegStr HKCU "${REGISTERED_APPS}" "${APP_NAME}" "${CAPABILITIES}"
   !insertmacro NotifyShell
 
-  WriteRegStr HKCU "${UNINST_KEY}" "DisplayName" "Groove X"
+  WriteRegStr HKCU "${UNINST_KEY}" "DisplayName" "Groovex"
   WriteRegStr HKCU "${UNINST_KEY}" "DisplayVersion" "${VERSION}"
-  WriteRegStr HKCU "${UNINST_KEY}" "Publisher" "Groove X"
+  WriteRegStr HKCU "${UNINST_KEY}" "Publisher" "${PUBLISHER}"
+  WriteRegStr HKCU "${UNINST_KEY}" "URLInfoAbout" "${HOMEPAGE}"
   WriteRegStr HKCU "${UNINST_KEY}" "DisplayIcon" "$INSTDIR\groove.exe,0"
   WriteRegStr HKCU "${UNINST_KEY}" "InstallLocation" "$INSTDIR"
   WriteRegStr HKCU "${UNINST_KEY}" "UninstallString" '"$INSTDIR\${UNINST_EXE}"'

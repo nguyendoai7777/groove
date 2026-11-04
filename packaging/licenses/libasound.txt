@@ -1,9 +1,9 @@
-Groove X on Linux plays audio through the ALSA library (libasound), licensed under the GNU Lesser
+Groovex on Linux plays audio through the ALSA library (libasound), licensed under the GNU Lesser
 General Public License, version 2.1 or later.
 
-Groove X links to it dynamically and does not include it: the library is installed and updated
+Groovex links to it dynamically and does not include it: the library is installed and updated
 separately by your operating system, the Debian package only declares it as a dependency. You can
 replace it with any compatible version. Its source code and license text are available from the
 ALSA project at the address above, and from your distribution.
 
-Groove X for Windows and macOS does not use this library.
+Groovex for Windows and macOS does not use this library.

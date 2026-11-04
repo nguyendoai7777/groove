@@ -45,8 +45,8 @@ hint = "Create a new playlist to group your songs together."
 
 # Opening the library failed. Technical detail goes to the log only, never the raw error.
 [open_error.too_new]
-title = "The library was created by a newer Groove X"
-hint = "Please update the app. Groove X will not open or overwrite this data."
+title = "The library was created by a newer Groovex"
+hint = "Please update the app. Groovex will not open or overwrite this data."
 
 [open_error.legacy_failed]
 title = "Could not convert the library from the old version"
@@ -60,5 +60,5 @@ hint = "The library file could not be read. Details are in the log file."
 
 [open_error.unavailable]
 title = "The library is not ready"
-hint = "Groove X could not start the library reader. Please reopen the app."
+hint = "Groovex could not start the library reader. Please reopen the app."
 

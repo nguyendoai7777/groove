@@ -18,7 +18,7 @@ pip_close = "Đóng trình phát thu nhỏ"
 
 [pip]
 # Tên cửa sổ PiP (taskbar, Alt+Tab).
-window_title = "Trình phát thu nhỏ – Groove X"
+window_title = "Trình phát thu nhỏ – Groovex"
 back = "Quay lại cửa sổ chính"
 
 [toast]

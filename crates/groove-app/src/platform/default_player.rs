@@ -85,18 +85,18 @@ mod sys {
     use super::{Outcome, PROBE_EXTENSION, Status};
 
     /// Trùng `AUMID` trong `packaging/windows/groove.nsi` (lối tắt Start Menu, Desktop): `tests/packaging.rs` soát.
-    pub const APP_USER_MODEL_ID: &str = "GrooveX.Player";
+    pub const APP_USER_MODEL_ID: &str = "Sandtechs.Groovex";
     /// Tên giá trị trong `HKCU\Software\RegisteredApplications`, bộ cài ghi.
-    const REGISTERED_NAME: &str = "Groove X";
+    const REGISTERED_NAME: &str = "Groovex";
     /// Windows 11 mở thẳng trang của app; Windows 10 bỏ qua tham số và mở trang Default apps chung (ô Trình phát nhạc).
-    pub const DEFAULT_APPS_URI: &str = "ms-settings:defaultapps?registeredAppUser=Groove%20X";
+    pub const DEFAULT_APPS_URI: &str = "ms-settings:defaultapps?registeredAppUser=Groovex";
 
     fn wide(text: &str) -> Vec<u16> {
         text.encode_utf16().chain(Some(0)).collect()
     }
 
     /// Bản debug: taskbar gom riêng, không gom vào lối tắt của bản đã cài (dev-app-id, 03/11/2026).
-    const DEV_APP_USER_MODEL_ID: &str = "GrooveX.Player.Dev";
+    const DEV_APP_USER_MODEL_ID: &str = "Sandtechs.Groovex.Dev";
 
     pub fn set_process_identity() {
         let id = wide(if cfg!(debug_assertions) { DEV_APP_USER_MODEL_ID } else { APP_USER_MODEL_ID });
@@ -262,7 +262,7 @@ mod sys {
     use super::{Outcome, PROBE_EXTENSION, Status};
 
     /// Trùng `CFBundleIdentifier` của `packaging/macos/Info.plist`.
-    const BUNDLE_ID: &str = "com.mrdxd.groovex";
+    const BUNDLE_ID: &str = "com.sandtechs.desktop.groovex";
     /// `kLSRolesAll`.
     const ROLES_ALL: u32 = 0xFFFF_FFFF;
 
@@ -299,7 +299,7 @@ mod sys {
         unsafe { owned(UTTypeCreatePreferredIdentifierForTag(cf(&class), cf(&tag), std::ptr::null())) }
     }
 
-    /// Bundle của app khi chạy từ `Groove X.app`; exe trần không có.
+    /// Bundle của app khi chạy từ `Groovex.app`; exe trần không có.
     fn own_bundle_id() -> Option<Retained<NSString>> {
         NSBundle::mainBundle().bundleIdentifier().filter(|id| id.to_string() == BUNDLE_ID)
     }
@@ -315,7 +315,7 @@ mod sys {
     }
 
     pub fn make_default() -> Result<Outcome, String> {
-        let me = own_bundle_id().ok_or_else(|| "not running from Groove X.app".to_owned())?;
+        let me = own_bundle_id().ok_or_else(|| "not running from Groovex.app".to_owned())?;
         for ext in AUDIO_EXTENSIONS {
             let uti = uti(ext).ok_or_else(|| format!("no type for .{ext}"))?;
             // SAFETY: hai chuỗi sống tới hết lời gọi.
@@ -347,7 +347,7 @@ mod tests {
 
     #[test]
     fn mime_list_comes_from_the_desktop_entry() {
-        let entry = "[Desktop Entry]\nName=Groove X\nMimeType=audio/mpeg;audio/flac; ;\nExec=groove %F\n";
+        let entry = "[Desktop Entry]\nName=Groovex\nMimeType=audio/mpeg;audio/flac; ;\nExec=groove %F\n";
         assert_eq!(desktop_mime_types(entry), ["audio/mpeg", "audio/flac"]);
         assert!(desktop_mime_types("[Desktop Entry]\nName=x\n").is_empty());
     }
@@ -380,7 +380,7 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn windows_uri_names_the_registered_app() {
-        assert!(sys::DEFAULT_APPS_URI.ends_with("registeredAppUser=Groove%20X"));
-        assert_eq!(sys::APP_USER_MODEL_ID, "GrooveX.Player");
+        assert!(sys::DEFAULT_APPS_URI.ends_with("registeredAppUser=Groovex"));
+        assert_eq!(sys::APP_USER_MODEL_ID, "Sandtechs.Groovex");
     }
 }

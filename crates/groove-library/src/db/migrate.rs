@@ -24,10 +24,10 @@ pub enum MigrateError {
     #[error("{} has schema version {found}, this build supports up to {SCHEMA_VERSION}", path.display())]
     TooNew { path: PathBuf, found: i32 },
     /// Tệp có bảng nhưng không có `user_version`: không phải thư viện của ta, không đụng vào.
-    #[error("{} is not a Groove X library", .0.display())]
+    #[error("{} is not a Groovex library", .0.display())]
     NotLibrary(PathBuf),
     /// Tệp cũ đọc được nhưng thiếu bảng của bản Tauri.
-    #[error("{} is not a legacy Groove X database", .0.display())]
+    #[error("{} is not a legacy Groovex database", .0.display())]
     NotLegacy(PathBuf),
     /// Chuyển đổi hỏng, `library.db` chưa được tạo, tệp cũ nguyên vẹn. Gọi lại lần sau được, hoặc `open_fresh` để bỏ qua.
     #[error("could not migrate {}: {source}", path.display())]

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Dựng `<out>/Groove X.app` + `groove-x-<version>-<arch>.dmg`, ký ad-hoc (groove-gd1_27). Chạy trên Mac. Không dùng Developer ID: đó là
+# Dựng `<out>/Groovex.app` + `groovex-<version>-<arch>.dmg`, ký ad-hoc (groove-gd1_27). Chạy trên Mac. Không dùng Developer ID: đó là
 # dịch vụ trả phí, chủ dự án quyết; lần đầu mở thì Gatekeeper cảnh báo, chuột phải > Open.
 #   bash packaging/macos/build-macos.sh                # bản phát hành: thiếu trang giấy phép là dừng
 #   bash packaging/macos/build-macos.sh --draft        # bản thử: thiếu thì cảnh báo, tên `.dmg` có `-draft`
@@ -39,7 +39,7 @@ if [ -z "$skip_build" ]; then
 fi
 
 [ -n "$out" ] || out="$repo/dist/macos-$arch"
-app="$out/Groove X.app"
+app="$out/Groovex.app"
 resources="$app/Contents/Resources"
 rm -rf "$out"
 mkdir -p "$app/Contents/MacOS" "$resources"
@@ -61,17 +61,17 @@ else
 fi
 
 # Ký từ trong ra ngoài, không `--deep`.
-codesign --force --sign - --identifier com.mrdxd.groovex.groove "$app/Contents/MacOS/groove"
-codesign --force --sign - --identifier com.mrdxd.groovex "$app"
+codesign --force --sign - --identifier com.sandtechs.desktop.groovex.groove "$app/Contents/MacOS/groove"
+codesign --force --sign - --identifier com.sandtechs.desktop.groovex "$app"
 codesign --verify --deep --strict "$app"
 
 suffix=""
 [ -z "$draft" ] || suffix="-draft"
-dmg="$out/groove-x-$version-$arch$suffix.dmg"
+dmg="$out/groovex-$version-$arch$suffix.dmg"
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
 cp -R "$app" "$stage/"
 ln -s /Applications "$stage/Applications"
-hdiutil create -quiet -volname "Groove X $version" -srcfolder "$stage" -format UDZO -ov "$dmg"
+hdiutil create -quiet -volname "Groovex $version" -srcfolder "$stage" -format UDZO -ov "$dmg"
 
 printf '\nXong: %s (%s)\n%s\n%s' "$dmg" "$(du -h "$dmg" | cut -f1)" "$app" "$warnings"

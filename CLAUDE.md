@@ -1,4 +1,4 @@
-# groove — trình phát nhạc Groove X
+# groove — trình phát nhạc Groovex
 
 Repo git riêng trong workspace `xdesktop` (luật chung, quyết định D-* / G-*: `../CLAUDE.md`, `../docs/decisions.md`).
 Đã viết lại từ Tauri + Vue sang Rust + GPUI + materiant (G-1): mọi task GĐ1 đã gộp, trừ task 28 (đọc localStorage cũ, tuỳ

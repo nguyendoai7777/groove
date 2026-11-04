@@ -1,12 +1,15 @@
 //! groove-gd1_27: nhúng icon vào exe Windows. OS khác lấy icon từ gói (`packaging/`).
 //! groove-gd2_01: thêm VERSIONINFO (tên sản phẩm, mô tả, nhà phát hành, phiên bản lấy từ `Cargo.toml`): Explorer, Task Manager,
-//! "Mở bằng" hiện "Groove X" thay vì "groove.exe".
+//! "Mở bằng" hiện "Groovex" thay vì "groove.exe".
 //! file-icon (04/11/2026): icon thứ hai `groove-file.ico` (`groove.exe,1`) cho tệp nhạc đã liên kết: cùng hình, nhỏ hơn, có lề
 //! trong suốt (`tools/make-file-icon.ps1`) — icon app lấp kín ô 16 px của Explorer, trông to hơn icon tệp khác.
 
 use std::path::PathBuf;
 
-const PRODUCT: &str = "Groove X";
+const PRODUCT: &str = "Groovex";
+/// D-21: nhà phát hành, bản quyền chung mọi app (cùng `packaging/windows/groove.nsi`, `tests/packaging.rs` soát).
+const COMPANY: &str = "z0 team, sandtechs jsc.";
+const COPYRIGHT: &str = "Copyright © 2026 Sandtechs";
 
 fn main() {
     println!("cargo:rerun-if-changed=assets/app/groove.ico");
@@ -36,12 +39,13 @@ fn version() -> (u16, u16, u16, String) {
 }
 
 /// id nhỏ nhất là icon Explorer, taskbar hiện cho exe; id 2 là icon tệp (chỉ số 1 trong `DefaultIcon`, đếm theo thứ tự id).
-/// Chuỗi trong `.rc` thoát `\` và `"`.
+/// `code_page(65001)`: tệp ghi UTF-8, `©` của bản quyền không thành ký tự lạ. Chuỗi trong `.rc` thoát `\` và `"`.
 fn resource_script(icon: &str, file_icon: &str, (major, minor, patch, text): &(u16, u16, u16, String)) -> String {
     let escape = |path: &str| path.replace('\\', "\\\\").replace('"', "\"\"");
     let (icon, file_icon) = (escape(icon), escape(file_icon));
     format!(
-        r#"1 ICON "{icon}"
+        r#"#pragma code_page(65001)
+1 ICON "{icon}"
 2 ICON "{file_icon}"
 
 1 VERSIONINFO
@@ -57,11 +61,11 @@ BEGIN
   BEGIN
     BLOCK "040904b0"
     BEGIN
-      VALUE "CompanyName", "{PRODUCT}"
+      VALUE "CompanyName", "{COMPANY}"
       VALUE "FileDescription", "{PRODUCT}"
       VALUE "FileVersion", "{text}"
       VALUE "InternalName", "groove"
-      VALUE "LegalCopyright", "Copyright (C) {PRODUCT}"
+      VALUE "LegalCopyright", "{COPYRIGHT}"
       VALUE "OriginalFilename", "groove.exe"
       VALUE "ProductName", "{PRODUCT}"
       VALUE "ProductVersion", "{text}"
