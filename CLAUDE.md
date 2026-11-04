@@ -158,7 +158,9 @@ màn không có thì thoát, không rơi về màn mặc định. Xem ảnh xong
   CPU (bản debug). `platform::move_loop` giữ `WM_MOVE` trong vòng dời của OS, thả chuột mới báo một lần — cửa sổ mới phải
   `move_loop::install`. Giá trị không vẽ lên đâu (vị trí cửa sổ) ghi bằng `app::store_settings_quietly`, không `update_settings`
   (cái sau `notify` `Shell`). Nền `Blurred` (acrylic) giật khi kéo trên Windows 10 / 11 trước 22H2: `backdrop::smooth_blur` đổi
-  sang blur-behind như bản Tauri, vùng mờ khít vùng client (đặt lại mỗi `WM_SIZE`), tắt bóng DWM. Kiểm tay:
+  sang blur-behind như bản Tauri, vùng mờ khít vùng client (đặt lại mỗi `WM_SIZE`), tắt bóng DWM, bỏ viền đổi cỡ vô hình (accent
+  phủ cả khung) và tự hit-test 6 px mép trong; sau khi đổi khung phải cho GPUI đo lại `border_offset` (`WM_SETTINGCHANGE`), không thì
+  cỡ cửa sổ lưu lại trôi mỗi lần mở. `-Clicks rects` in khung / client. Kiểm tay:
   `GROOVE_BLUR=acrylic` giữ acrylic, `GROOVE_WINDOW_SHADOW=on` giữ bóng.
 
 - **Bản Tauri để đối soát — không xoá**: `src-tauri/target/x86_64-pc-windows-msvc/release/groovex.exe` (exe tự chứa giao diện) và

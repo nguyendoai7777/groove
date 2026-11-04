@@ -460,6 +460,28 @@ Settings → Chung → "Kiểu chia vùng": thẻ bo tròn (mặc định) / chi
 - [nowplaying-drawer] Drawer là `Dialog::drawer` mới của materiant (cc3d2bb): bám mép phải, cao hết cửa sổ, không bo góc, rộng 480 px (đủ tiêu đề + ba nút một hàng), trượt + mờ 160 ms; Esc, bấm nền, bẫy Tab như hộp thường. Chứa chính `LyricsPanel` (cả ba nút Metadata / Timeline / Sửa lời); trong drawer bỏ khung thẻ (hợp cả kiểu thẻ lẫn lưới). Hộp Metadata mở từ drawer đè lên drawer đúng tầng (đã chụp).
 - [nowplaying-drawer] Rộng ra lại khi drawer đang mở thì drawer đóng, cột hiện lại. Test rig Now Playing đổi 1000 → 1200 px để các test cũ vẫn ở bố cục ba cột.
 
+## blur-frame
+
+- Sau `blur-region` vẫn còn dải mờ 8–10 px dưới cửa sổ: accent blur-behind phủ cả khung, `hRgnBlur` không cắt được viền đổi cỡ
+  vô hình. Chọn bỏ hẳn viền (`WM_NCCALCSIZE` khi không phóng to: client = khung) thay vì `SetWindowRgn` (cũng phải tự hit-test, lại
+  cắt cả phần GPUI vẽ khi phóng to). Kéo mép đổi cỡ: 6 px mép trong trái / phải / dưới (`HTLEFT`, `HTRIGHT`, `HTBOTTOM`, hai góc
+  dưới); mép trên GPUI lo như cũ. Đánh đổi: 6 px sát mép đó không còn nhận chuột của nội dung (thanh cuộn sát mép phải vẫn bấm
+  được phần còn lại).
+- GPUI giữ độ dày viền đo lúc tạo (`border_offset`) để đổi qua lại cỡ đã lưu; viền nay bằng 0 nên sau khi đổi khung gửi
+  `WM_SETTINGCHANGE` (`SPI_SETWORKAREA`) cho nó đo lại. Đo desktop ẩn: mở ở (300, 200, 900 × 600) → khung = client = 900 × 600, lưu
+  lại đúng (300, 200, 900 × 600), phóng to rồi khôi phục vẫn 900 × 600; hit-test mép đúng, phóng to thì mép là `HTCLIENT`.
+- Chủ dự án kiểm trên màn thật (`pwsh start.ps1 groove`, log có dòng `backdrop: blur-behind on, invisible resize border removed`
+  là đã chạy bản này):
+  1. Không còn dải mờ dưới / trái / phải cửa sổ.
+  2. Rê sát mép trái / phải / dưới thấy con trỏ đổi cỡ, kéo đổi cỡ được; góc dưới kéo chéo được.
+  3. Đóng rồi mở lại: cửa sổ đúng chỗ, đúng cỡ (không nhỏ dần / trôi).
+  4. Phóng to: nội dung không tràn khỏi màn; khôi phục về đúng cỡ cũ.
+## file-icon
+
+- [file-icon] Tệp nhạc đã liên kết dùng icon riêng `assets/app/groove-file.ico` = resource thứ hai của exe (`groove.exe,1` trong `DefaultIcon` của mỗi ProgID `GrooveX.<đuôi>`); icon exe, `Applications\groove.exe`, Capabilities vẫn `,0`. Bản Tauri dùng icon exe cho tệp (lấp kín ô 16 px — chính cái chủ dự án thấy to).
+- [file-icon] Hình nằm ~75–78 % ô, lề trong suốt: 16 → 12 px, 20 → 16, 24 → 18, 32 → 26, 48 → 38, 64 → 50, 256 → 200. Khung 16 / 20 / 24 vẽ lại bằng hình học canh lưới (vành gradient dày hơn bản gốc, chuyển màu khúc giữa để còn cam / tím, bỏ chữ G dưới 1 px); khung ≥ 32 thu từ khung 256 nên giữ chữ G. Dựng lại: `pwsh tools/make-file-icon.ps1`.
+- [file-icon] Kiểm tay (chủ dự án): cài lại bằng bản cài mới (`pwsh packaging/windows/build-installer.ps1` rồi chạy setup) — bộ cài ghi lại `DefaultIcon` và báo Explorer; nếu Explorer vẫn hiện icon cũ thì `ie4uinit -show` (Windows 10/11) hoặc đăng xuất / vào lại. Không đổi liên kết mặc định trên máy: chỉ cần Groove X đã là app mặc định từ trước.
+
 ## banner-anim
 
 - [banner-anim] Đầu danh sách bài thu / nở 300 ms ease-in-out như web (bìa 160 → 80, tên 36 → 20 px, khe 24 → 16, dòng loại và nút Play all co về 0 + mờ dần, dòng phụ đổi nội dung ở giữa chừng). Banner phủ lên bảng (nền đặc + bản sao quầng accent, D-10), bảng nằm trong `Island` `cached` khung cố định — banner đẩy bảng mỗi khung như web — khung bảng đổi mỗi khung thì GPUI dựng lại danh sách mỗi khung.

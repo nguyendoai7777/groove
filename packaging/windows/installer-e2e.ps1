@@ -147,7 +147,8 @@ try {
     Check 'page names libasound' ($page.Contains('data-component="ALSA library (libasound)"'))
     Check 'no libasound file' (-not (Get-ChildItem $installed -Recurse -Filter 'libasound*'))
 
-    Check 'exe has an icon' ([GrooveE2e.Native]::ExtractIconExW($exe, -1, [IntPtr]::Zero, [IntPtr]::Zero, 0) -ge 1)
+    # Hai icon: app (0) và tệp nhạc (1, `DefaultIcon` của ProgID).
+    Check 'exe has the app and file icons' ([GrooveE2e.Native]::ExtractIconExW($exe, -1, [IntPtr]::Zero, [IntPtr]::Zero, 0) -ge 2)
     $info = (Get-Item $exe).VersionInfo
     Check 'exe ProductName, FileDescription, CompanyName' (
         $info.ProductName -eq $appName -and $info.FileDescription -eq $appName -and $info.CompanyName -eq $appName)
@@ -169,7 +170,7 @@ try {
         $progId = "GrooveX.$ext"
         $key = "$classes\$progId"
         Check "$progId open command" ((Get-Value "$key\shell\open\command" '') -eq $command)
-        Check "$progId icon, AppUserModelID" ((Get-Value "$key\DefaultIcon" '') -eq "$exe,0" -and (Get-Value $key 'AppUserModelID') -eq $aumid)
+        Check "$progId icon, AppUserModelID" ((Get-Value "$key\DefaultIcon" '') -eq "$exe,1" -and (Get-Value $key 'AppUserModelID') -eq $aumid)
         Check "$progId type name" ((Get-Assoc $progId 3) -like "*$($extensions[$ext])*")
         Check ".$ext in OpenWithProgids" (Test-Value "$classes\.$ext\OpenWithProgids" $progId)
         Check ".$ext in Capabilities" ((Get-Value "$capabilities\FileAssociations" ".$ext") -eq $progId)
