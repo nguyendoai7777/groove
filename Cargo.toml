@@ -2,7 +2,7 @@
 [workspace]
 resolver = "3"
 members = ["crates/*"]
-exclude = ["src-tauri"]
+exclude = ["src-tauri", "vendor/souvlaki"]
 
 [workspace.package]
 version = "0.2.0"
@@ -54,3 +54,5 @@ debug = false
 # `materiant/CLAUDE.md`, mục "GPUI vá ở vendor/gpui-pre". Thiếu khối này thì materiant không biên dịch.
 [patch.crates-io]
 gpui-pre = { path = "../materiant/vendor/gpui-pre" }
+# MPRIS của souvlaki 0.9.3 thức 100 lần / s lúc nghỉ (vòng recv_timeout 10 ms): CLAUDE.md, mục Bẫy.
+souvlaki = { path = "vendor/souvlaki" }

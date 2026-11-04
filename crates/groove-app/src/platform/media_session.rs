@@ -514,6 +514,58 @@ mod tests {
         assert_eq!(file_url("/tmp/nhạc"), "file:///tmp/nh%E1%BA%A1c");
     }
 
+    /// Linux, nghỉ: luồng MPRIS của souvlaki (bản vá `vendor/souvlaki`) không thức theo nhịp, luồng `blocking-N` mà zbus kéo
+    /// vào thoát hết (`blocking` 1.7.0 giữ chúng thức 2 lần / s ⇒ `Cargo.lock` ghim 1.6.2). Đỏ nếu `cargo update` hay gỡ
+    /// bản vá đưa nhịp thức về. Máy không có bus phiên thì luồng MPRIS chết ngay, test qua mà không đo được gì.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn idle_mpris_service_does_not_tick() {
+        fn threads() -> Vec<(String, u64)> {
+            let tasks = std::fs::read_dir("/proc/self/task").unwrap();
+            tasks
+                .flatten()
+                .filter_map(|task| {
+                    let comm = std::fs::read_to_string(task.path().join("comm")).ok()?;
+                    let status = std::fs::read_to_string(task.path().join("status")).ok()?;
+                    let wakes = status
+                        .lines()
+                        .filter(|line| line.contains("ctxt_switches"))
+                        .filter_map(|line| line.split_whitespace().last()?.parse::<u64>().ok())
+                        .sum();
+                    Some((comm.trim().to_owned(), wakes))
+                })
+                .collect()
+        }
+        let wakes_of =
+            |name: &str| threads().iter().filter(|(comm, _)| comm == name).map(|(_, wakes)| wakes).sum::<u64>();
+
+        // Luồng souvlaki không đặt tên: Linux cho nó tên của luồng tạo ra nó.
+        let spawner = std::thread::Builder::new().name("mpris-idle".into());
+        let controls = spawner
+            .spawn(|| {
+                let config = PlatformConfig { dbus_name: "groovex.idletest", display_name: DISPLAY_NAME, hwnd: None };
+                let mut controls = MediaControls::new(config).unwrap();
+                controls.attach(|_| {}).unwrap();
+                controls
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+        std::thread::sleep(Duration::from_millis(500));
+        let before = wakes_of("mpris-idle");
+        std::thread::sleep(Duration::from_secs(1));
+        let woke = wakes_of("mpris-idle") - before;
+        assert!(woke < 10, "the MPRIS thread woke {woke} times in 1 s while idle");
+
+        // `blocking` 1.6.2 thả luồng rảnh sau 500 ms.
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while threads().iter().any(|(comm, _)| comm.starts_with("blocking-")) {
+            assert!(Instant::now() < deadline, "a `blocking` thread stays alive while idle");
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        drop(controls);
+    }
+
     #[cfg(windows)]
     #[test]
     fn windows_cover_url_stays_a_plain_path() {
