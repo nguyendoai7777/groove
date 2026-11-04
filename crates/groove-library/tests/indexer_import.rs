@@ -157,6 +157,45 @@ fn import_indexes_files_under_their_direct_parent() {
     assert_eq!(ids(&fx, "SELECT COUNT(*) FROM songs WHERE tags_read_at IS NULL"), [0]);
 }
 
+/// Tệp qua hai trình sửa thẻ (hai thẻ ID3v2 nối tiếp, thẻ sau quá 1 KiB) và tệp khai thiếu kích thước thẻ: bản Tauri đọc được
+/// thì bản này cũng phải index được, không thành "failed".
+#[test]
+fn files_with_two_id3_tags_or_a_short_tag_size_are_indexed() {
+    let fx = fixture();
+    let long = "c".repeat(3000);
+    let double = groove_library::fixtures::write_mp3_double_id3(
+        &fx.music,
+        "double",
+        &[("TIT2", "Full House - Bi Rain"), ("TALB", "K Pop")],
+        &[("TIT2", "Why"), ("TPE1", "ATD Softs Production"), ("TCOP", long.as_str())],
+    )
+    .unwrap();
+    let short = groove_library::fixtures::write_mp3_short_tag_size(
+        &fx.music,
+        "short",
+        &[("TIT2", "Rise"), ("TPE1", "Katy Perry"), ("TCOM", long.as_str())],
+        2500,
+    )
+    .unwrap();
+
+    let report = fx.indexer.import(&fx.music).wait().unwrap();
+    assert_eq!((report.tally.added, report.tally.failed.len()), (2, 0), "{:?}", report.tally.failed);
+    for (path, title, artist) in
+        [(double, "Full House - Bi Rain", "ATD Softs Production"), (short, "Rise", "Katy Perry")]
+    {
+        let track = fx.library.track_for_path(path).wait().unwrap();
+        let song = fx.library.song(track).wait().unwrap().unwrap();
+        assert_eq!(song.title.as_deref(), Some(title));
+        assert_eq!(song.artist.as_deref(), Some(artist));
+        assert!(song.duration_sec > 0.5, "{title}: {}", song.duration_sec);
+    }
+    assert_eq!(ids(&fx, "SELECT COUNT(*) FROM songs WHERE tags_read_at IS NULL"), [0]);
+
+    // Đường "Read N songs again": đọc lại cả hai, không bài nào "failed".
+    let tally = fx.indexer.rescan().wait().unwrap();
+    assert_eq!((tally.read(), tally.failed.len()), (2, 0), "{:?}", tally.failed);
+}
+
 #[test]
 fn a_parent_root_swallows_its_child() {
     let fx = fixture();

@@ -53,6 +53,11 @@ const MAX_COVER_BYTES: usize = 32 * 1024 * 1024;
 const LOFTY_ALLOCATION_LIMIT: usize = 2 * MAX_COVER_BYTES;
 /// Thời lượng lệch quá mức này sau khi ghi tức là đã phá phần âm thanh.
 const DURATION_TOLERANCE_MS: u64 = 1_000;
+/// Rác tối đa lofty được dò qua để tìm khung MPEG đầu (mặc định 1 KiB). Tệp có thẻ ID3 khai thiếu kích thước để lại đuôi thẻ
+/// (thường là bìa) trước khung âm thanh.
+const MAX_JUNK_BYTES: usize = 8 * 1024 * 1024;
+/// Số thẻ ID3v2 nối tiếp ở đầu tệp được đọc; quá số này coi như phần còn lại không phải thẻ.
+const MAX_LEADING_ID3: usize = 8;
 
 #[derive(Debug, thiserror::Error)]
 pub enum TagError {
@@ -396,14 +401,60 @@ fn rewind(reader: &mut BufReader<File>, path: &Path) -> Result<(), TagError> {
 }
 
 /// Nhận định dạng theo nội dung, không theo đuôi: `.mp3` thật ra là M4A vẫn đi đúng nhánh.
+///
+/// lofty chỉ bỏ qua một thẻ ID3v2 rồi tìm khung MPEG trong 1 KiB. Không ra thì bỏ qua mọi thẻ ID3v2 nối tiếp (tệp qua hai
+/// trình sửa thẻ) và dò rác xa hơn (thẻ khai thiếu kích thước); vẫn không ra mới theo đuôi tệp, như bản Tauri (`Probe::open`).
 fn detect_format(reader: &mut BufReader<File>, path: &Path) -> Result<FileType, TagError> {
+    let io_err = |source: io::Error| TagError::Io { path: path.to_path_buf(), source };
     rewind(reader, path)?;
-    let guessed = Probe::new(&mut *reader)
-        .guess_file_type()
-        .map_err(|source| TagError::Io { path: path.to_path_buf(), source })?
-        .file_type();
+    let guessed = Probe::new(&mut *reader).guess_file_type().map_err(io_err)?.file_type();
+    let guessed = match guessed {
+        Some(format) => Some(format),
+        None => {
+            let audio_start = leading_id3_spans(reader).map_err(io_err)?.last().map_or(0, |span| span.end);
+            reader.seek(SeekFrom::Start(audio_start)).map_err(io_err)?;
+            let options = ParseOptions::new().max_junk_bytes(MAX_JUNK_BYTES);
+            let after_tags = Probe::new(&mut *reader).options(options).guess_file_type().map_err(io_err)?.file_type();
+            after_tags.or_else(|| FileType::from_path(path))
+        }
+    };
     rewind(reader, path)?;
     guessed.ok_or_else(|| TagError::UnsupportedFormat(path.to_path_buf()))
+}
+
+/// Vị trí các thẻ ID3v2 nằm liền nhau ở đầu tệp, kể cả footer của v2.4. Rỗng khi tệp không mở đầu bằng thẻ.
+fn leading_id3_spans(reader: &mut BufReader<File>) -> io::Result<Vec<std::ops::Range<u64>>> {
+    let len = reader.get_ref().metadata()?.len();
+    let mut spans = Vec::new();
+    let mut at = 0;
+    while spans.len() < MAX_LEADING_ID3 && at + 10 <= len {
+        reader.seek(SeekFrom::Start(at))?;
+        let mut header = [0u8; 10];
+        reader.read_exact(&mut header)?;
+        let syncsafe = header[6..10].iter().all(|b| b & 0x80 == 0);
+        if &header[..3] != b"ID3" || !(2..=4).contains(&header[3]) || !syncsafe {
+            break;
+        }
+        let size = header[6..10].iter().fold(0u64, |acc, b| (acc << 7) | u64::from(*b));
+        let footer = if header[3] == 4 && header[5] & 0x10 != 0 { 10 } else { 0 };
+        let end = (at + 10 + size + footer).min(len);
+        spans.push(at..end);
+        at = end;
+    }
+    Ok(spans)
+}
+
+/// Khung chiếm cùng một chỗ trong thẻ: thẻ chỉ giữ được một trong hai.
+fn same_slot(a: &id3::Frame, b: &id3::Frame) -> bool {
+    use id3::Content;
+    a.id() == b.id()
+        && match (a.content(), b.content()) {
+            (Content::ExtendedText(x), Content::ExtendedText(y)) => x.description == y.description,
+            (Content::Comment(x), Content::Comment(y)) => x.lang == y.lang && x.description == y.description,
+            (Content::Lyrics(x), Content::Lyrics(y)) => x.lang == y.lang && x.description == y.description,
+            (Content::Picture(x), Content::Picture(y)) => x.picture_type == y.picture_type,
+            _ => true,
+        }
 }
 
 fn uses_id3(format: FileType) -> bool {
@@ -411,18 +462,37 @@ fn uses_id3(format: FileType) -> bool {
 }
 
 /// Thẻ `id3`, nhận cả thẻ đọc được một phần. `None` khi không có.
+///
+/// Nhiều thẻ nối tiếp ở đầu tệp thì gộp lại: thẻ trước là bản sửa sau (trình sửa thẻ chèn thẻ mới trước thẻ cũ) nên thắng,
+/// khung chỉ thẻ sau có thì lấy thẻ sau.
 fn read_id3(reader: &mut BufReader<File>, path: &Path) -> Option<id3::Tag> {
-    rewind(reader, path).ok()?;
-    let result = id3::Tag::read_from2(&mut *reader);
-    match result {
-        Ok(tag) => Some(tag),
-        Err(e) => {
-            if !matches!(e.kind, id3::ErrorKind::NoTag) {
-                log::warn!("damaged ID3 tag in {}: {e}", path.display());
+    let spans = leading_id3_spans(reader).unwrap_or_default();
+    let starts: Vec<u64> = if spans.is_empty() { vec![0] } else { spans.iter().map(|span| span.start).collect() };
+    let mut merged: Option<id3::Tag> = None;
+    for start in starts {
+        reader.seek(SeekFrom::Start(start)).ok()?;
+        let tag = match id3::Tag::read_from2(&mut *reader) {
+            Ok(tag) => Some(tag),
+            Err(e) => {
+                if !matches!(e.kind, id3::ErrorKind::NoTag) {
+                    log::warn!("damaged ID3 tag in {}: {e}", path.display());
+                }
+                e.partial_tag
             }
-            e.partial_tag
+        };
+        let Some(tag) = tag else { continue };
+        match &mut merged {
+            None => merged = Some(tag),
+            Some(merged) => {
+                for frame in tag.frames() {
+                    if !merged.frames().any(|have| same_slot(have, frame)) {
+                        merged.add_frame(frame.clone());
+                    }
+                }
+            }
         }
     }
+    merged
 }
 
 fn read_track_inner(path: &Path) -> Result<ScannedTrack, TagError> {
@@ -438,7 +508,7 @@ fn read_track_inner(path: &Path) -> Result<ScannedTrack, TagError> {
 
     rewind(&mut reader, path)?;
     // MP3, WAV đã có thẻ `id3` thì lofty chỉ cần thời lượng. Không có thì lofty đọc `ID3v1`, `APE`, `RIFF INFO`.
-    let options = ParseOptions::new().read_tags(id3_tag.is_none());
+    let options = ParseOptions::new().read_tags(id3_tag.is_none()).max_junk_bytes(MAX_JUNK_BYTES);
     let tagged = Probe::new(&mut reader)
         .set_file_type(format)
         .options(options)
@@ -651,6 +721,24 @@ impl Drop for TempFile {
     }
 }
 
+/// Chép sang bản tạm, bỏ các thẻ ID3v2 thứ hai trở đi: `read_id3` đã gộp chúng vào thẻ đầu và thẻ ghi ra chỉ thay thẻ đầu.
+/// Giữ lại thì trường vừa xoá ở thẻ mới sẽ hiện lại từ thẻ cũ phía sau.
+fn copy_for_rewrite(from: &Path, to: &Path) -> io::Result<()> {
+    let mut reader = BufReader::new(File::open(from)?);
+    let spans = leading_id3_spans(&mut reader)?;
+    if spans.len() < 2 {
+        drop(reader);
+        return fs::copy(from, to).map(|_| ());
+    }
+    let (first, last) = (&spans[0], &spans[spans.len() - 1]);
+    let mut out = io::BufWriter::new(File::create(to)?);
+    reader.seek(SeekFrom::Start(0))?;
+    io::copy(&mut (&mut reader).take(first.end), &mut out)?;
+    reader.seek(SeekFrom::Start(last.end))?;
+    io::copy(&mut reader, &mut out)?;
+    io::Write::flush(&mut out)
+}
+
 fn temp_path_for(path: &Path) -> PathBuf {
     let mut name = path.file_name().unwrap_or_default().to_os_string();
     name.push(TEMP_SUFFIX);
@@ -684,13 +772,14 @@ fn write_tags_inner(path: &Path, edit: &MetadataEdit, mode: WriteMode) -> Result
 
     let before = read_track_inner(&target)?;
     let temp = TempFile { path: temp_path_for(&target), armed: true };
-    fs::copy(&target, &temp.path).map_err(|source| TagError::Io { path: temp.path.clone(), source })?;
+    copy_for_rewrite(&target, &temp.path).map_err(|source| TagError::Io { path: temp.path.clone(), source })?;
 
     let mut reader = open_reader(&temp.path)?;
     let format = detect_format(&mut reader, &temp.path)?;
     if uses_id3(format) {
-        let old = read_id3(&mut reader, &temp.path);
         drop(reader);
+        // Từ tệp gốc: bản tạm đã bỏ các thẻ thứ hai trở đi (`copy_for_rewrite`), thẻ gộp mới đủ khung.
+        let old = read_id3(&mut open_reader(&target)?, &target);
         write_id3(&temp.path, format, &edit, mode, &before, old)?;
     } else {
         drop(reader);
@@ -1296,6 +1385,110 @@ mod tests {
             }
         }
         no_temp_left(dir.path());
+    }
+
+    /// Số thẻ ID3v2 nằm liền nhau ở đầu tệp.
+    fn leading_id3_count(path: &Path) -> usize {
+        let bytes = fs::read(path).unwrap();
+        let mut count = 0;
+        let mut at = 0;
+        while bytes.len() >= at + 10 && &bytes[at..at + 3] == b"ID3" {
+            let size = bytes[at + 6..at + 10].iter().fold(0usize, |acc, b| (acc << 7) | usize::from(b & 0x7f));
+            at += 10 + size;
+            count += 1;
+        }
+        count
+    }
+
+    fn double_id3(dir: &Path) -> PathBuf {
+        fixtures::write_mp3_double_id3(
+            dir,
+            "double",
+            &[("TIT2", "Full House - Bi Rain"), ("TALB", "K Pop")],
+            // Thẻ sau dài hơn 1 KiB, quá tầm dò rác mặc định của lofty, như tệp thật.
+            &[
+                ("TIT2", "Why - Bi (Rain)"),
+                ("TPE1", "ATD Softs Production"),
+                ("TCON", "Blues"),
+                ("TCOP", &"c".repeat(2000)),
+            ],
+        )
+        .unwrap()
+    }
+
+    /// Hai thẻ nối tiếp: định dạng vẫn nhận ra, thẻ đầu (bản sửa sau) thắng, trường chỉ thẻ sau có thì lấy thẻ sau.
+    #[test]
+    fn two_leading_id3_tags_are_read_and_merged_first_wins() {
+        let dir = tmp();
+        let path = double_id3(dir.path());
+        let scanned = read_track(&path).unwrap();
+        assert_eq!(scanned.fields.title.as_deref(), Some("Full House - Bi Rain"));
+        assert_eq!(scanned.fields.album.as_deref(), Some("K Pop"));
+        assert_eq!(scanned.fields.artist.as_deref(), Some("ATD Softs Production"));
+        assert_eq!(scanned.fields.genre.as_deref(), Some("Blues"));
+        assert!(scanned.duration_ms > 500, "thời lượng {}", scanned.duration_ms);
+    }
+
+    /// Header khai thiếu kích thước: đuôi thẻ thành rác trước khung MPEG. Vẫn đọc được phần thẻ khai đúng và thời lượng.
+    #[test]
+    fn a_tag_that_declares_too_small_a_size_still_reads() {
+        let dir = tmp();
+        let long = "x".repeat(4000);
+        let path = fixtures::write_mp3_short_tag_size(
+            dir.path(),
+            "short",
+            &[("TIT2", "Rise"), ("TPE1", "Katy Perry"), ("TCOM", long.as_str())],
+            3000,
+        )
+        .unwrap();
+        let scanned = read_track(&path).unwrap();
+        assert_eq!(scanned.fields.title.as_deref(), Some("Rise"));
+        assert_eq!(scanned.fields.artist.as_deref(), Some("Katy Perry"));
+        assert!(scanned.duration_ms > 500, "thời lượng {}", scanned.duration_ms);
+    }
+
+    /// Ghi vào tệp hai thẻ: gộp thành một thẻ, không mất trường của thẻ sau, trường vừa xoá không hiện lại, âm thanh nguyên.
+    #[test]
+    fn writing_a_double_tagged_file_leaves_one_merged_tag() {
+        let dir = tmp();
+        let path = double_id3(dir.path());
+        let edit = MetadataEdit {
+            fields: TagFields {
+                artist: Some(String::new()),
+                lyrics: Some("lời".into()),
+                timeline: Some("0:00 Intro".into()),
+                ..Default::default()
+            },
+            cover: CoverEdit::Keep,
+        };
+        write_tags(&path, &edit, WriteMode::Merge).unwrap();
+        assert_eq!(leading_id3_count(&path), 1);
+        let scanned = read_track(&path).unwrap();
+        assert_eq!(scanned.fields.title.as_deref(), Some("Full House - Bi Rain"));
+        assert_eq!(scanned.fields.genre.as_deref(), Some("Blues"), "trường của thẻ sau còn");
+        assert_eq!(scanned.fields.artist, None, "nghệ sĩ đã xoá không hiện lại từ thẻ sau");
+        assert_eq!(scanned.fields.lyrics.as_deref(), Some("lời"));
+        assert_eq!(scanned.fields.timeline.as_deref(), Some("0:00 Intro"));
+        assert!(contains(&fs::read(&path).unwrap(), &fixtures::audio_bytes(AudioKind::Mp3)));
+    }
+
+    /// Ghi vào tệp khai thiếu kích thước: không hỏng thêm, đọc lại được, âm thanh nguyên.
+    #[test]
+    fn writing_a_short_sized_tag_keeps_the_file_readable() {
+        let dir = tmp();
+        let long = "y".repeat(3000);
+        let path =
+            fixtures::write_mp3_short_tag_size(dir.path(), "short", &[("TIT2", "Rise"), ("TCOM", long.as_str())], 2500)
+                .unwrap();
+        let edit = MetadataEdit {
+            fields: TagFields { timeline: Some("0:00 Intro".into()), ..Default::default() },
+            cover: CoverEdit::Keep,
+        };
+        write_tags(&path, &edit, WriteMode::Merge).unwrap();
+        let scanned = read_track(&path).unwrap();
+        assert_eq!(scanned.fields.title.as_deref(), Some("Rise"));
+        assert_eq!(scanned.fields.timeline.as_deref(), Some("0:00 Intro"));
+        assert!(contains(&fs::read(&path).unwrap(), &fixtures::audio_bytes(AudioKind::Mp3)));
     }
 
     #[test]
