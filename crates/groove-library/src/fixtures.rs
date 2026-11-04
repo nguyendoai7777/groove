@@ -87,6 +87,54 @@ pub fn write_mp3_with_frames(dir: &Path, stem: &str, frames: &[(&str, &str)]) ->
     Ok(path)
 }
 
+fn id3_bytes(frames: &[(&str, &str)], version: id3::Version) -> io::Result<Vec<u8>> {
+    use id3::TagLike;
+
+    let mut tag = id3::Tag::new();
+    for (id, value) in frames {
+        tag.set_text(*id, *value);
+    }
+    let mut bytes = Vec::new();
+    tag.write_to(&mut bytes, version).map_err(io::Error::other)?;
+    Ok(bytes)
+}
+
+/// MP3 có hai thẻ ID3v2 nối tiếp (v2.3 rồi v2.4), như tệp đã qua hai trình sửa thẻ khác nhau: `first` là bản sửa sau,
+/// `second` là thẻ gốc.
+pub fn write_mp3_double_id3(
+    dir: &Path,
+    stem: &str,
+    first: &[(&str, &str)],
+    second: &[(&str, &str)],
+) -> io::Result<PathBuf> {
+    let path = dir.join(format!("{stem}.mp3"));
+    let mut bytes = id3_bytes(first, id3::Version::Id3v23)?;
+    bytes.extend(id3_bytes(second, id3::Version::Id3v24)?);
+    bytes.extend(mp3_audio());
+    std::fs::write(&path, bytes)?;
+    Ok(path)
+}
+
+/// MP3 có header ID3v2.3 khai kích thước nhỏ hơn thật `short_by` byte: đuôi thẻ thành rác nằm trước khung MPEG đầu.
+pub fn write_mp3_short_tag_size(
+    dir: &Path,
+    stem: &str,
+    frames: &[(&str, &str)],
+    short_by: usize,
+) -> io::Result<PathBuf> {
+    let path = dir.join(format!("{stem}.mp3"));
+    let mut bytes = id3_bytes(frames, id3::Version::Id3v23)?;
+    let real = bytes.len() - 10;
+    assert!(short_by < real, "short_by must leave a tag body");
+    let declared = (real - short_by) as u32;
+    for (i, shift) in [21, 14, 7, 0].into_iter().enumerate() {
+        bytes[6 + i] = ((declared >> shift) & 0x7f) as u8;
+    }
+    bytes.extend(mp3_audio());
+    std::fs::write(&path, bytes)?;
+    Ok(path)
+}
+
 /// Thêm đuôi ID3v1 trần, thứ làm trường đã xoá hiện lại trong Explorer.
 pub fn append_id3v1(path: &Path, title: &str, album: &str) -> io::Result<()> {
     let mut block = vec![0u8; 128];
