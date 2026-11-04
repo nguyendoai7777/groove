@@ -8,7 +8,7 @@
   mặc định nào của Windows. Máy đã cài Groovex (khoá, ProgID, lối tắt có sẵn) thì từ chối, không đụng bản đang dùng.
 
 .EXAMPLE
-  pwsh packaging/windows/installer-e2e.ps1 -Setup dist/groovex-0.2.0-setup.exe
+  pwsh packaging/windows/installer-e2e.ps1 -Setup dist/groovex_0.2.0_win_x64.exe
 #>
 param([Parameter(Mandatory)] [string] $Setup)
 $ErrorActionPreference = 'Stop'
@@ -152,7 +152,7 @@ try {
     $info = (Get-Item $exe).VersionInfo
     Check 'exe ProductName, FileDescription, CompanyName' (
         $info.ProductName -eq $appName -and $info.FileDescription -eq $appName -and $info.CompanyName -eq $appName)
-    Check 'exe version matches the setup' ($info.ProductVersion -and $Setup.Contains("-$($info.ProductVersion)-setup"))
+    Check 'exe version matches the setup' ($info.ProductVersion -and $Setup.Contains("_$($info.ProductVersion)_"))
 
     Check 'Start Menu shortcut' (Test-Path $shortcut)
     $link = (New-Object -ComObject WScript.Shell).CreateShortcut($shortcut)

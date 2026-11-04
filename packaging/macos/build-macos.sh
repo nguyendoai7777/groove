@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Dựng `<out>/Groovex.app` + `groovex-<version>-<arch>.dmg`, ký ad-hoc (groove-gd1_27). Chạy trên Mac. Không dùng Developer ID: đó là
+# Dựng `<out>/Groovex.app` + `groovex_<version>_macos_<arm64|x64>[_draft].dmg`, ký ad-hoc (groove-gd1_27). Chạy trên Mac. Không dùng Developer ID: đó là
 # dịch vụ trả phí, chủ dự án quyết; lần đầu mở thì Gatekeeper cảnh báo, chuột phải > Open.
 #   bash packaging/macos/build-macos.sh                # bản phát hành: thiếu trang giấy phép là dừng
-#   bash packaging/macos/build-macos.sh --draft        # bản thử: thiếu thì cảnh báo, tên `.dmg` có `-draft`
+#   bash packaging/macos/build-macos.sh --draft        # bản thử: thiếu thì cảnh báo, tên `.dmg` có `_draft`
 # Thêm: --arch arm64|x86_64 (mặc định kiến trúc máy), --skip-build, --out <thư mục> (mặc định dist/macos-<arch>).
 # Cần: `cargo install cargo-about --locked --features cli`, `pwsh` (`packaging/licenses/gen-licenses.ps1`).
 set -euo pipefail
@@ -41,7 +41,8 @@ fi
 [ -n "$out" ] || out="$repo/dist/macos-$arch"
 app="$out/Groovex.app"
 resources="$app/Contents/Resources"
-rm -rf "$out"
+# Chỉ xoá `.app` cũ: `--out` có thể là thư mục chung chứa bản dựng khác (release/groove).
+rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$resources"
 cp "$exe" "$app/Contents/MacOS/groove"
 cp "$repo/packaging/macos/Info.plist" "$app/Contents/Info.plist"
@@ -66,8 +67,9 @@ codesign --force --sign - --identifier com.sandtechs.desktop.groovex "$app"
 codesign --verify --deep --strict "$app"
 
 suffix=""
-[ -z "$draft" ] || suffix="-draft"
-dmg="$out/groovex-$version-$arch$suffix.dmg"
+[ -z "$draft" ] || suffix="_draft"
+# Tên tệp: {app}_{version}_{os}_{arch}[_draft].dmg, x86_64 viết là x64.
+dmg="$out/groovex_${version}_macos_${arch/x86_64/x64}$suffix.dmg"
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
 cp -R "$app" "$stage/"

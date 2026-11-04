@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Dựng `<out>/groovex_<version>_<arch>.deb` (groove-gd1_27, gd2_01). Chạy trên Ubuntu / Debian.
+# Dựng `<out>/groovex_<version>_linux_<arch>[_draft].deb` (groove-gd1_27, gd2_01). Chạy trên Ubuntu / Debian.
 #   sudo apt install libasound2-dev dpkg-dev
 #   bash packaging/linux/build-deb.sh                  # bản phát hành: thiếu trang giấy phép là dừng
-#   bash packaging/linux/build-deb.sh --draft          # bản thử: thiếu thì cảnh báo, tên có `-draft`
+#   bash packaging/linux/build-deb.sh --draft          # bản thử: thiếu thì cảnh báo, tên có `_draft`
 # Thêm: --skip-build, --out <thư mục> (mặc định dist/linux).
 #
 # G-2: `libasound` (LGPL) chỉ link động, KHÔNG chép vào gói, khai ở `Depends`. Script dừng nếu thấy nó trong gói hoặc exe không
@@ -125,7 +125,8 @@ Description: Groovex music player, a replacement for Microsoft's Groove Music
 EOF
 
 suffix=""
-[ -z "$draft" ] || suffix="-draft"
-deb="$out/groovex_${version}_${arch}${suffix}.deb"
+[ -z "$draft" ] || suffix="_draft"
+# Tên tệp: {app}_{version}_{os}_{arch}[_draft].deb
+deb="$out/groovex_${version}_linux_${arch}${suffix}.deb"
 dpkg-deb --build --root-owner-group "$root" "$deb"
 printf '\nXong: %s (%s)\nDepends: %s\n%s' "$deb" "$(du -h "$deb" | cut -f1)" "$depends" "$warnings"
