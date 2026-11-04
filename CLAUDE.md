@@ -99,6 +99,9 @@ Danh sách chung: `materiant/CLAUDE.md` mục "Soát trước khi xong một com
   - nhịp vị trí khi phát là `Player::clock()` (`PlaybackClock`), không phải `notify` của `Player`: chỉ view vẽ vị trí nghe nó
     (thanh tua `cached` riêng, TimelineBox), thưa còn mỗi giây khi cửa sổ nền (`PlaybackClock::due`). View nghe `Player` chỉ
     `notify` khi đúng thứ nó vẽ đổi (`BarState` của thanh phát, `Body` của lời bài…).
+  - chuyển ngắn (banner danh sách bài thu / nở 300 ms): `views::banner::Banner` — entity riêng xin khung chỉ khi đang chuyển,
+    phủ lên nội dung `cached` có khung cố định (khung chuyển không dựng lại bảng); test
+    `song_list::tests::banner_transition_runs_briefly_without_rebuilding_the_table`.
   Test mẫu: `app::tests::animation_frames_reuse_the_cached_page_but_data_changes_still_show`,
   `app::tests::bars_in_a_cached_page_animate_on_the_overlay_without_rebuilding_the_page`,
   `player::tests::position_ticks_notify_the_clock_not_the_player`, `views::island::tests`.
