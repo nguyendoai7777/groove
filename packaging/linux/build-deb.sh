@@ -52,6 +52,14 @@ chmod 0644 "$root/usr/share/applications/groove.desktop"
 if command -v desktop-file-validate >/dev/null 2>&1; then
   desktop-file-validate "$root/usr/share/applications/groove.desktop"
 fi
+# AppStream: App Center hiện tên, nhà phát hành, giấy phép từ đây (thiếu thì "Unknown publisher").
+install -d "$root/usr/share/metainfo"
+tr -d '\r' < "$repo/packaging/linux/groove-x.metainfo.xml" \
+  | sed -e "s|@VERSION@|$version|" -e "s|@DATE@|$(date +%Y-%m-%d)|" > "$root/usr/share/metainfo/com.mrdxd.groovex.metainfo.xml"
+chmod 0644 "$root/usr/share/metainfo/com.mrdxd.groovex.metainfo.xml"
+if command -v appstreamcli >/dev/null 2>&1; then
+  appstreamcli validate --no-net --explain "$root/usr/share/metainfo/com.mrdxd.groovex.metainfo.xml" || echo "⚠ metainfo chưa qua appstreamcli validate" >&2
+fi
 # Icon hicolor mọi cỡ trong `packaging/linux/icons/<cỡ>.png` (gd2_01): menu, "Mở bằng", thanh tác vụ không phải co ảnh 256.
 for icon in "$repo"/packaging/linux/icons/*x*.png; do
   dim="$(basename "$icon" .png)"
@@ -101,7 +109,7 @@ Version: $version
 Section: sound
 Priority: optional
 Architecture: $arch
-Maintainer: Groove X <noreply@groove-x.invalid>
+Maintainer: Groove X <nguyendoai7777@gmail.com>
 Installed-Size: $size
 Depends: $depends
 Recommends: desktop-file-utils, hicolor-icon-theme
