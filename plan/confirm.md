@@ -459,3 +459,20 @@ Settings → Chung → "Kiểu chia vùng": thẻ bo tròn (mặc định) / chi
 - [nowplaying-drawer] Nút "Lời bài" (icon bong bóng lời, cùng dáng viên thuốc của ba nút khung lời — `lyrics_panel::pill_button`) đặt dưới tên nghệ sĩ ở cột trái: gần bìa / tên bài, không chen vào tiêu đề hàng đợi. Chữ dùng lại khoá `now_playing.lyrics.title`.
 - [nowplaying-drawer] Drawer là `Dialog::drawer` mới của materiant (cc3d2bb): bám mép phải, cao hết cửa sổ, không bo góc, rộng 480 px (đủ tiêu đề + ba nút một hàng), trượt + mờ 160 ms; Esc, bấm nền, bẫy Tab như hộp thường. Chứa chính `LyricsPanel` (cả ba nút Metadata / Timeline / Sửa lời); trong drawer bỏ khung thẻ (hợp cả kiểu thẻ lẫn lưới). Hộp Metadata mở từ drawer đè lên drawer đúng tầng (đã chụp).
 - [nowplaying-drawer] Rộng ra lại khi drawer đang mở thì drawer đóng, cột hiện lại. Test rig Now Playing đổi 1000 → 1200 px để các test cũ vẫn ở bố cục ba cột.
+
+## blur-frame
+
+- Sau `blur-region` vẫn còn dải mờ 8–10 px dưới cửa sổ: accent blur-behind phủ cả khung, `hRgnBlur` không cắt được viền đổi cỡ
+  vô hình. Chọn bỏ hẳn viền (`WM_NCCALCSIZE` khi không phóng to: client = khung) thay vì `SetWindowRgn` (cũng phải tự hit-test, lại
+  cắt cả phần GPUI vẽ khi phóng to). Kéo mép đổi cỡ: 6 px mép trong trái / phải / dưới (`HTLEFT`, `HTRIGHT`, `HTBOTTOM`, hai góc
+  dưới); mép trên GPUI lo như cũ. Đánh đổi: 6 px sát mép đó không còn nhận chuột của nội dung (thanh cuộn sát mép phải vẫn bấm
+  được phần còn lại).
+- GPUI giữ độ dày viền đo lúc tạo (`border_offset`) để đổi qua lại cỡ đã lưu; viền nay bằng 0 nên sau khi đổi khung gửi
+  `WM_SETTINGCHANGE` (`SPI_SETWORKAREA`) cho nó đo lại. Đo desktop ẩn: mở ở (300, 200, 900 × 600) → khung = client = 900 × 600, lưu
+  lại đúng (300, 200, 900 × 600), phóng to rồi khôi phục vẫn 900 × 600; hit-test mép đúng, phóng to thì mép là `HTCLIENT`.
+- Chủ dự án kiểm trên màn thật (`pwsh start.ps1 groove`, log có dòng `backdrop: blur-behind on, invisible resize border removed`
+  là đã chạy bản này):
+  1. Không còn dải mờ dưới / trái / phải cửa sổ.
+  2. Rê sát mép trái / phải / dưới thấy con trỏ đổi cỡ, kéo đổi cỡ được; góc dưới kéo chéo được.
+  3. Đóng rồi mở lại: cửa sổ đúng chỗ, đúng cỡ (không nhỏ dần / trôi).
+  4. Phóng to: nội dung không tràn khỏi màn; khôi phục về đúng cỡ cũ.

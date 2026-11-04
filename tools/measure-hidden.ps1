@@ -20,10 +20,10 @@
 # `-Clicks "max,max,min,close"`: bấm nút cửa sổ ở góc trên phải bằng thông điệp Win32 như khi rê + nhấp chuột thật
 # (`WM_MOUSEMOVE` → `WM_NCHITTEST` → `WM_NC*` hoặc `WM_LBUTTON*` theo kết quả hit-test), rồi in hit-test và trạng thái
 # thật `IsIconic` / `IsZoomed` sau mỗi lần bấm. Sau `min` script tự `SW_RESTORE` để bấm tiếp. Bước `hit@x:y` chỉ rê tới điểm
-# (px logic, x âm tính từ mép phải) và in hit-test; `dbl@x:y` nhấp đúp ở đó (vùng kéo: phóng to / khôi phục). Kéo chuột:
+# (px logic, x / y âm tính từ mép phải / dưới) và in hit-test; `dbl@x:y` nhấp đúp ở đó (vùng kéo: phóng to / khôi phục). Kéo chuột:
 # `down@x:y`, `move@x:y`, `up@x:y` (nhấn / rê / thả, đi đường WM_NC* nếu hit-test không phải HTCLIENT như chuột thật);
 # `shot@<tệp.png>` chụp cửa sổ giữa các bước; `nudge@n` dời cửa sổ n lần 1 px mỗi 16 ms giữa
-# `WM_ENTERSIZEMOVE` / `WM_EXITSIZEMOVE` (như kéo) và in CPU lúc dời; `settings` in `settings.json` của dữ liệu tạm.
+# `WM_ENTERSIZEMOVE` / `WM_EXITSIZEMOVE` (như kéo) và in CPU lúc dời; `settings` in `settings.json` của dữ liệu tạm; `rects` in cỡ khung và vùng client.
 #
 # `-Pip`: chạy kèm `--pip` và bấm / chụp cửa sổ trình phát thu nhỏ thay cửa sổ chính.
 param(
@@ -254,12 +254,17 @@ try {
         $h = Target-Window $win
         # Tâm nút tính từ mép phải, theo px logic (nút rộng 36, thanh cao 36); y = 24 tránh dải kéo giãn mép trên.
         $offset = @{ min = 90; max = 54; close = 18 }
-        $names = @{ 1 = "HTCLIENT"; 2 = "HTCAPTION"; 8 = "HTMINBUTTON"; 9 = "HTMAXBUTTON"; 20 = "HTCLOSE"; 12 = "HTTOP"; 14 = "HTTOPRIGHT" }
+        $names = @{ 1 = "HTCLIENT"; 2 = "HTCAPTION"; 10 = "HTLEFT"; 11 = "HTRIGHT"; 15 = "HTBOTTOM"; 16 = "HTBOTTOMLEFT"; 17 = "HTBOTTOMRIGHT"; 13 = "HTTOPLEFT"; 8 = "HTMINBUTTON"; 9 = "HTMAXBUTTON"; 20 = "HTCLOSE"; 12 = "HTTOP"; 14 = "HTTOPRIGHT" }
         foreach ($c in $Clicks.Split(",")) {
             $scale = [HiddenDesktop]::GetDpiForWindow($h) / 96.0
             $client = New-Object HiddenDesktop+RECT
             [void][HiddenDesktop]::GetClientRect($h, [ref]$client)
             if ($c -match '^shot@(.+)$') { Take-Shot $h $Matches[1]; continue }
+            if ($c -eq "rects") {
+                $wr = New-Object HiddenDesktop+RECT; [void][HiddenDesktop]::GetWindowRect($h, [ref]$wr)
+                "rects: window={0}x{1} client={2}x{3}" -f ($wr.R - $wr.L), ($wr.B - $wr.T), $client.R, $client.B
+                continue
+            }
             if ($c -eq "settings") { Start-Sleep -Milliseconds 1500; "settings: " + (Get-Content -Raw (Join-Path $data "settings.json") -ErrorAction SilentlyContinue); continue }
             if ($c -match '^nudge@(\d+)$') {
                 # Dời cửa sổ n lần, 1 px mỗi 16 ms như lúc kéo (mỗi lần một WM_MOVE), in CPU dùng trong lúc dời.
@@ -276,18 +281,20 @@ try {
                 "{0}: cpu={1:N1}% over {2:N0} ms" -f $c, (100 * ($proc.TotalProcessorTime - $cpu0).TotalMilliseconds / $wall.ElapsedMilliseconds), $wall.ElapsedMilliseconds
                 continue
             }
-            if ($c -match '^(down|move|up)@(-?\d+):(\d+)$') {
+            if ($c -match '^(down|move|up)@(-?\d+):(-?\d+)$') {
                 $lx = [int]$Matches[2]
                 $x = if ($lx -lt 0) { [int]($client.R + $lx * $scale) } else { [int]($lx * $scale) }
-                $y = [int]([int]$Matches[3] * $scale)
+                $ly = [int]$Matches[3]
+                $y = if ($ly -lt 0) { [int]($client.B + $ly * $scale) } else { [int]($ly * $scale) }
                 $ht = [HiddenDesktop]::Drag($h, $x, $y, @{ down = 0; move = 1; up = 2 }[$Matches[1]], $Hover)
                 "{0}: hit_test={1}" -f $c, $(if ($names.ContainsKey($ht)) { $names[$ht] } else { $ht })
                 continue
             }
-            if ($c -match '^(hit|dbl)@(-?\d+):(\d+)$') {
+            if ($c -match '^(hit|dbl)@(-?\d+):(-?\d+)$') {
                 $lx = [int]$Matches[2]
                 $x = if ($lx -lt 0) { [int]($client.R + $lx * $scale) } else { [int]($lx * $scale) }
-                $y = [int]([int]$Matches[3] * $scale)
+                $ly = [int]$Matches[3]
+                $y = if ($ly -lt 0) { [int]($client.B + $ly * $scale) } else { [int]($ly * $scale) }
                 $ht = if ($Matches[1] -eq "hit") { [HiddenDesktop]::HitTest($h, $x, $y, $Hover) } else { [HiddenDesktop]::DoubleClick($h, $x, $y, $Hover) }
             } else {
                 $x = [int]($client.R - $offset[$c] * $scale); $y = [int](24 * $scale)
