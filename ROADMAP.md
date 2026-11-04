@@ -1,6 +1,6 @@
 # groove — lộ trình
 
-Viết lại trình phát nhạc Groove X từ Tauri + Vue sang Rust + GPUI + materiant (G-1). Đặc tả, lỗi cần sửa, bảng task và làn
+Viết lại trình phát nhạc Groovex từ Tauri + Vue sang Rust + GPUI + materiant (G-1). Đặc tả, lỗi cần sửa, bảng task và làn
 song song (đã làm xong, đọc qua lịch sử git): `git show 1a2480f:docs/rewrite-spec.md`. Task: `plan/groove-gd1_*.md`, trạng thái ở từng tệp task.
 
 ## GĐ1 — viết lại (02/11/2026)
@@ -27,17 +27,17 @@ Còn lại trước khi đóng GĐ1:
 
 <!-- handoff: groove-gd2_01 -->
 
-- **Đã có**: bộ cài Windows đăng ký Default apps (`Capabilities` ở `HKCUSoftwareClientsMediaGroove X`, ProgID `GrooveX.<đuôi>`),
-  lối tắt mang AppUserModelID `GrooveX.Player`; mục Settings "Trình phát mặc định" (`platform/default_player.rs`). Thêm đuôi mới
+- **Đã có**: bộ cài Windows đăng ký Default apps (`Capabilities` ở `HKCUSoftwareClientsMediaGroovex`, ProgID `GrooveX.<đuôi>`),
+  lối tắt mang AppUserModelID `Sandtechs.Groovex`; mục Settings "Trình phát mặc định" (`platform/default_player.rs`). Thêm đuôi mới
   ⇒ sửa `AUDIO_EXTENSIONS`, hai danh sách trong `groove.nsi`, `$extensions` của `installer-e2e.ps1`, `MimeType` của `.desktop`,
   `Info.plist`: `tests/packaging.rs` bắt lệch.
-- **Bẫy**: `installer-e2e.ps1` ghi HKCU thật rồi dọn và từ chối khi máy đã cài Groove X; đừng thử cài bằng tay trên máy dùng thật.
+- **Bẫy**: `installer-e2e.ps1` ghi HKCU thật rồi dọn và từ chối khi máy đã cài Groovex; đừng thử cài bằng tay trên máy dùng thật.
   LangString rỗng của NSIS bị coi là chưa đặt (`/WX` đỏ). Dựng `.deb` từ checkout Windows phải bỏ CR (đã xử lý trong script).
 - **Chờ**: hai dòng `[groove-gd2_01 · owner-qa]` ở `plan/_backlog.md`; mục 8 của `plan/groove-gd2_01_full-installer.md`.
 
 ## Sau GĐ2 (chưa lập task)
 
-- Mục chuột phải "Phát bằng Groove X" cho thư mục, verb "Thêm vào hàng đợi" (mục 8 của `groove-gd2_01`).
+- Mục chuột phải "Phát bằng Groovex" cho thư mục, verb "Thêm vào hàng đợi" (mục 8 của `groove-gd2_01`).
 
 ## Sau GĐ1 (chưa lập task)
 

@@ -15,7 +15,7 @@
 //!   (hộp Settings, task 24), `RouteChanged`. Lệnh ở `commands.rs` gọi [`open_search`]; Settings mở từ nút ở side nav.
 //! - **Cài đặt**: [`settings`] đọc, [`update_settings`] sửa + lưu debounce + áp theme / ngôn ngữ nếu đổi. Một `JsonSaver`
 //!   duy nhất cho cả app, đừng tạo cái thứ hai.
-//! - **Tiêu đề cửa sổ**: [`set_title_override`] (Now Playing đặt `<bài> - <nghệ sĩ> | Groove X`, `None` để về tên trang).
+//! - **Tiêu đề cửa sổ**: [`set_title_override`] (Now Playing đặt `<bài> - <nghệ sĩ> | Groovex`, `None` để về tên trang).
 
 use std::cell::OnceCell;
 use std::time::Duration;
@@ -466,7 +466,7 @@ impl Shell {
         }
     }
 
-    /// Tiêu đề cửa sổ: tiêu đề riêng nếu có, không thì `<trang> | Groove X`.
+    /// Tiêu đề cửa sổ: tiêu đề riêng nếu có, không thì `<trang> | Groovex`.
     pub fn title(&self) -> SharedString {
         match &self.title_override {
             Some(title) => title.clone(),
@@ -809,7 +809,7 @@ mod tests {
         let (shell, _, cx) = open(cx, settings);
         assert_eq!(route(&shell, cx), Route::Playlists);
         assert!(!shell.read_with(cx, |s, _| s.can_back()));
-        assert_eq!(shell.read_with(cx, |s, _| s.title().to_string()), "Danh sách phát | Groove X");
+        assert_eq!(shell.read_with(cx, |s, _| s.title().to_string()), "Danh sách phát | Groovex");
     }
 
     /// C3, C4 — bấm mục điều hướng đổi màn, lưu trang cuối; nút lùi quay về.
@@ -891,11 +891,11 @@ mod tests {
     fn window_title_follows_route_and_override(cx: &mut TestAppContext) {
         let (shell, _, cx) = open(cx, Settings::default());
         let title = |cx: &VisualTestContext| shell.read_with(cx, |s, _| s.title().to_string());
-        assert_eq!(title(cx), "Thư viện | Groove X");
-        shell.update(cx, |s, cx| s.set_title_override(Some("Bài - Nghệ sĩ | Groove X".into()), cx));
-        assert_eq!(title(cx), "Bài - Nghệ sĩ | Groove X");
+        assert_eq!(title(cx), "Thư viện | Groovex");
+        shell.update(cx, |s, cx| s.set_title_override(Some("Bài - Nghệ sĩ | Groovex".into()), cx));
+        assert_eq!(title(cx), "Bài - Nghệ sĩ | Groovex");
         shell.update(cx, |s, cx| s.navigate(Route::NowPlaying, cx));
-        assert_eq!(title(cx), "Đang phát | Groove X");
+        assert_eq!(title(cx), "Đang phát | Groovex");
     }
 
     /// Đổi theme trong cài đặt thì theme materiant đổi theo.

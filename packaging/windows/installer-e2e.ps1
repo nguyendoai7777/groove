@@ -5,10 +5,10 @@
   "Mở bằng" và Default apps (chỉ hỏi, không đặt) → exe bị giữ thì cài đè, gỡ dừng mã 2 → gỡ im lặng → registry, lối tắt về như cũ.
 
   Ghi HKCU của máy đang chạy rồi dọn. Không đụng `UserChoice`, không đổi liên kết mặc định, không mở Settings, không gọi hàm đặt
-  mặc định nào của Windows. Máy đã cài Groove X (khoá, ProgID, lối tắt có sẵn) thì từ chối, không đụng bản đang dùng.
+  mặc định nào của Windows. Máy đã cài Groovex (khoá, ProgID, lối tắt có sẵn) thì từ chối, không đụng bản đang dùng.
 
 .EXAMPLE
-  pwsh packaging/windows/installer-e2e.ps1 -Setup dist/groove-x-0.2.0-setup.exe
+  pwsh packaging/windows/installer-e2e.ps1 -Setup dist/groovex-0.2.0-setup.exe
 #>
 param([Parameter(Mandatory)] [string] $Setup)
 $ErrorActionPreference = 'Stop'
@@ -16,15 +16,15 @@ $Setup = (Resolve-Path $Setup).Path
 
 $classes = 'HKCU:\Software\Classes'
 $uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\GrooveX'
-$clientKey = 'HKCU:\Software\Clients\Media\Groove X'
+$clientKey = 'HKCU:\Software\Clients\Media\Groovex'
 $capabilities = "$clientKey\Capabilities"
 $registeredApps = 'HKCU:\Software\RegisteredApplications'
-$appName = 'Groove X'
-$aumid = 'GrooveX.Player'
+$appName = 'Groovex'
+$aumid = 'Sandtechs.Groovex'
 # Đuôi, tên loại tệp: khớp `AUDIO_EXTENSIONS` và `groove.nsi` (test `packaging.rs` soát hai chỗ kia).
 $extensions = [ordered]@{ mp3 = 'MP3'; flac = 'FLAC'; wav = 'WAV'; m4a = 'M4A'; m4r = 'M4R'; ogg = 'OGG' }
-$shortcut = Join-Path ([Environment]::GetFolderPath('Programs')) 'Groove X.lnk'
-$desktopShortcut = Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'Groove X.lnk'
+$shortcut = Join-Path ([Environment]::GetFolderPath('Programs')) 'Groovex.lnk'
+$desktopShortcut = Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'Groovex.lnk'
 
 function Test-Value([string] $Key, [string] $Name) {
     (Test-Path $Key) -and ((Get-Item $Key).Property -contains $Name)
@@ -37,7 +37,7 @@ $present = @(
     (Test-Path $uninstallKey), (Test-Path $clientKey), (Test-Value $registeredApps $appName), (Test-Path $shortcut),
     (Test-Path $desktopShortcut), (Test-Path "$classes\Applications\groove.exe"), (Test-Path "$classes\GrooveX.AudioFile")
 ) + @($extensions.Keys | ForEach-Object { Test-Path "$classes\GrooveX.$_" })
-if ($present -contains $true) { throw 'Groove X is installed on this machine: not touching it' }
+if ($present -contains $true) { throw 'Groovex is installed on this machine: not touching it' }
 
 function Check([string] $Name, [bool] $Ok) {
     Write-Host ("{0,-4} {1}" -f $(if ($Ok) { 'ok' } else { 'FAIL' }), $Name)
@@ -133,7 +133,7 @@ function Get-ShortcutAumid([string] $Path) {
 
 $before = Snapshot
 $dir = Join-Path ([IO.Path]::GetTempPath()) "groove-e2e-$([guid]::NewGuid().ToString('N'))"
-$installed = Join-Path $dir 'Groove X'
+$installed = Join-Path $dir 'Groovex'
 $failed = $false
 try {
     # `/D=` phải đứng cuối, không ngoặc kép, được phép có dấu cách.
@@ -165,7 +165,7 @@ try {
     Check 'Capabilities name, description, icon' (
         (Get-Value $capabilities 'ApplicationName') -eq $appName -and (Get-Value $capabilities 'ApplicationDescription') -and
         (Get-Value $capabilities 'ApplicationIcon') -eq "$exe,0")
-    Check 'RegisteredApplications' ((Get-Value $registeredApps $appName) -eq 'Software\Clients\Media\Groove X\Capabilities')
+    Check 'RegisteredApplications' ((Get-Value $registeredApps $appName) -eq 'Software\Clients\Media\Groovex\Capabilities')
     foreach ($ext in $extensions.Keys) {
         $progId = "GrooveX.$ext"
         $key = "$classes\$progId"
@@ -174,8 +174,8 @@ try {
         Check "$progId type name" ((Get-Assoc $progId 3) -like "*$($extensions[$ext])*")
         Check ".$ext in OpenWithProgids" (Test-Value "$classes\.$ext\OpenWithProgids" $progId)
         Check ".$ext in Capabilities" ((Get-Value "$capabilities\FileAssociations" ".$ext") -eq $progId)
-        Check ".$ext offers Groove X in Open with" ([GrooveE2e.Assoc]::OpenWith(".$ext") -contains $exe)
-        Check ".$ext Default apps knows Groove X" ([GrooveE2e.Assoc]::Registered(".$ext", $appName) -eq 0)
+        Check ".$ext offers Groovex in Open with" ([GrooveE2e.Assoc]::OpenWith(".$ext") -contains $exe)
+        Check ".$ext Default apps knows Groovex" ([GrooveE2e.Assoc]::Registered(".$ext", $appName) -eq 0)
     }
     Check 'uninstall entry: icon, version, publisher, size' (
         (Get-Value $uninstallKey 'DisplayIcon') -eq "$exe,0" -and (Get-Value $uninstallKey 'DisplayVersion') -eq $info.ProductVersion -and

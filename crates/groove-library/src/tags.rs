@@ -1,6 +1,6 @@
 //! groove-gd1_06: đọc ghi thẻ.
 //!
-//! Mục tiêu: thứ Groove X ghi thì mọi player khác đọc đúng, và ghi thẻ không bao giờ làm mất dữ liệu.
+//! Mục tiêu: thứ Groovex ghi thì mọi player khác đọc đúng, và ghi thẻ không bao giờ làm mất dữ liệu.
 //!
 //! 1. Nhóm album theo `TPE2`, nên giữ `TPE2` nhất quán và `TCMP` cho iTunes.
 //! 2. Windows đọc ID3v2.3 tốt hơn v2.4, nên luôn ghi v2.3.

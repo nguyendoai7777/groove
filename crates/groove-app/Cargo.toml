@@ -1,6 +1,6 @@
 [package]
 name = "groove-app"
-description = "App Groove X: GPUI + materiant"
+description = "App Groovex: GPUI + materiant"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

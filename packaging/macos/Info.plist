@@ -5,7 +5,7 @@
   <key>CFBundleDevelopmentRegion</key>
   <string>en</string>
   <key>CFBundleDisplayName</key>
-  <string>Groove X</string>
+  <string>Groovex</string>
   <key>CFBundleDocumentTypes</key>
   <array>
     <dict>
@@ -31,7 +31,7 @@
   <key>CFBundleIconFile</key>
   <string>groove</string>
   <key>CFBundleIdentifier</key>
-  <string>com.mrdxd.groovex</string>
+  <string>com.sandtechs.desktop.groovex</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleLocalizations</key>
@@ -40,7 +40,7 @@
     <string>vi</string>
   </array>
   <key>CFBundleName</key>
-  <string>Groove X</string>
+  <string>Groovex</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
@@ -54,6 +54,6 @@
   <key>NSHighResolutionCapable</key>
   <true/>
   <key>NSHumanReadableCopyright</key>
-  <string>Copyright (C) Groove X</string>
+  <string>Copyright © 2026 Sandtechs</string>
 </dict>
 </plist>

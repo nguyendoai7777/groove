@@ -1,11 +1,11 @@
 [Desktop Entry]
 Type=Application
 Version=1.5
-Name=Groove X
+Name=Groovex
 GenericName=Music Player
 GenericName[vi]=Trình phát nhạc
-Comment=Play and organize your music
-Comment[vi]=Phát và sắp xếp nhạc của bạn
+Comment=Music player, a replacement for Microsoft's Groove Music
+Comment[vi]=Ứng dụng nghe nhạc thay thế cho Groove của Microsoft
 Exec=groove %F
 Icon=groove
 Terminal=false

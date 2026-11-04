@@ -220,11 +220,11 @@ fn audio_files_use_the_padded_file_icon() {
 /// deb-metainfo: App Center lấy nhà phát hành / giấy phép từ AppStream; metainfo trỏ đúng tệp `.desktop`, icon, gói.
 #[test]
 fn appstream_metainfo_matches_the_desktop_entry() {
-    let metainfo = read("packaging/linux/groove-x.metainfo.xml");
+    let metainfo = read("packaging/linux/groovex.metainfo.xml");
     for needle in [
         "<launchable type=\"desktop-id\">groove.desktop</launchable>",
         "<icon type=\"stock\">groove</icon>",
-        "<pkgname>groove-x</pkgname>",
+        "<pkgname>groovex</pkgname>",
         "<binary>groove</binary>",
         "<project_license>LicenseRef-proprietary</project_license>",
         "<developer id=",
@@ -233,6 +233,6 @@ fn appstream_metainfo_matches_the_desktop_entry() {
         assert!(metainfo.contains(needle), "{needle}");
     }
     let build = read("packaging/linux/build-deb.sh");
-    assert!(build.contains("packaging/linux/groove-x.metainfo.xml"));
-    assert!(!build.contains("noreply@groove-x.invalid"), "Maintainer thật, không phải địa chỉ giả");
+    assert!(build.contains("packaging/linux/groovex.metainfo.xml"));
+    assert!(!build.contains("noreply@groovex.invalid"), "Maintainer thật, không phải địa chỉ giả");
 }

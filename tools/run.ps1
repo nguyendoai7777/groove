@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Chạy thử Groove X mà không làm phiền người đang dùng máy: mở ở màn phụ (máy nhà: DELL), không giành focus, phím đưa
+  Chạy thử Groovex mà không làm phiền người đang dùng máy: mở ở màn phụ (máy nhà: DELL), không giành focus, phím đưa
   thẳng vào cửa sổ GPUI, chụp đúng cửa sổ bằng PrintWindow, đọc RAM, rồi đóng. Dữ liệu ở thư mục tạm (GROOVE_DATA_DIR,
   chỉ bản debug), không đụng thư viện thật.
 
