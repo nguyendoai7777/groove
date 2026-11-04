@@ -187,3 +187,32 @@ fn license_tools_cover_the_same_targets() {
     };
     assert_eq!(targets(read("packaging/licenses/about.toml")), targets(read("deny.toml")));
 }
+
+/// file-icon: tệp nhạc đã liên kết dùng icon thứ hai của exe (`groove.exe,1`, `assets/app/groove-file.ico`) — cùng hình icon app,
+/// nhỏ hơn, có lề; đủ khung cho ô 16 px (Details) tới 256 px (Extra large), mỗi khung PNG.
+#[test]
+fn audio_files_use_the_padded_file_icon() {
+    let nsi = read("packaging/windows/groove.nsi");
+    assert!(nsi.contains(r#"${PROG_PREFIX}${EXT}\DefaultIcon" "" "$INSTDIR\groove.exe,1""#));
+    assert!(nsi.contains(r#"Applications\groove.exe\DefaultIcon" "" "$INSTDIR\groove.exe,0""#), "app vẫn icon app");
+    assert!(read("packaging/windows/installer-e2e.ps1").contains(r#"-eq "$exe,1""#));
+    let build = read("crates/groove-app/build.rs");
+    assert!(
+        build.contains(r#"1 ICON "{icon}""#) && build.contains(r#"2 ICON "{file_icon}""#),
+        "thứ tự id = chỉ số icon"
+    );
+
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets/app/groove-file.ico");
+    let ico = fs::read(&path).unwrap_or_else(|err| panic!("{}: {err}", path.display()));
+    assert_eq!(&ico[..4], &[0, 0, 1, 0], "ICONDIR kiểu icon");
+    let count = u16::from_le_bytes([ico[4], ico[5]]) as usize;
+    let sizes: Vec<u32> = (0..count)
+        .map(|i| {
+            let entry = &ico[6 + i * 16..6 + (i + 1) * 16];
+            let offset = u32::from_le_bytes(entry[12..16].try_into().unwrap()) as usize;
+            assert_eq!(&ico[offset..offset + 4], b"\x89PNG", "khung {i} là PNG");
+            if entry[0] == 0 { 256 } else { u32::from(entry[0]) }
+        })
+        .collect();
+    assert_eq!(sizes, [16, 20, 24, 32, 48, 64, 256]);
+}

@@ -459,3 +459,9 @@ Settings → Chung → "Kiểu chia vùng": thẻ bo tròn (mặc định) / chi
 - [nowplaying-drawer] Nút "Lời bài" (icon bong bóng lời, cùng dáng viên thuốc của ba nút khung lời — `lyrics_panel::pill_button`) đặt dưới tên nghệ sĩ ở cột trái: gần bìa / tên bài, không chen vào tiêu đề hàng đợi. Chữ dùng lại khoá `now_playing.lyrics.title`.
 - [nowplaying-drawer] Drawer là `Dialog::drawer` mới của materiant (cc3d2bb): bám mép phải, cao hết cửa sổ, không bo góc, rộng 480 px (đủ tiêu đề + ba nút một hàng), trượt + mờ 160 ms; Esc, bấm nền, bẫy Tab như hộp thường. Chứa chính `LyricsPanel` (cả ba nút Metadata / Timeline / Sửa lời); trong drawer bỏ khung thẻ (hợp cả kiểu thẻ lẫn lưới). Hộp Metadata mở từ drawer đè lên drawer đúng tầng (đã chụp).
 - [nowplaying-drawer] Rộng ra lại khi drawer đang mở thì drawer đóng, cột hiện lại. Test rig Now Playing đổi 1000 → 1200 px để các test cũ vẫn ở bố cục ba cột.
+
+## file-icon
+
+- [file-icon] Tệp nhạc đã liên kết dùng icon riêng `assets/app/groove-file.ico` = resource thứ hai của exe (`groove.exe,1` trong `DefaultIcon` của mỗi ProgID `GrooveX.<đuôi>`); icon exe, `Applications\groove.exe`, Capabilities vẫn `,0`. Bản Tauri dùng icon exe cho tệp (lấp kín ô 16 px — chính cái chủ dự án thấy to).
+- [file-icon] Hình nằm ~75–78 % ô, lề trong suốt: 16 → 12 px, 20 → 16, 24 → 18, 32 → 26, 48 → 38, 64 → 50, 256 → 200. Khung 16 / 20 / 24 vẽ lại bằng hình học canh lưới (vành gradient dày hơn bản gốc, chuyển màu khúc giữa để còn cam / tím, bỏ chữ G dưới 1 px); khung ≥ 32 thu từ khung 256 nên giữ chữ G. Dựng lại: `pwsh tools/make-file-icon.ps1`.
+- [file-icon] Kiểm tay (chủ dự án): cài lại bằng bản cài mới (`pwsh packaging/windows/build-installer.ps1` rồi chạy setup) — bộ cài ghi lại `DefaultIcon` và báo Explorer; nếu Explorer vẫn hiện icon cũ thì `ie4uinit -show` (Windows 10/11) hoặc đăng xuất / vào lại. Không đổi liên kết mặc định trên máy: chỉ cần Groove X đã là app mặc định từ trước.

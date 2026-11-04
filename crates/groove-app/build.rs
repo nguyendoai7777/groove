@@ -1,6 +1,8 @@
 //! groove-gd1_27: nhúng icon vào exe Windows. OS khác lấy icon từ gói (`packaging/`).
 //! groove-gd2_01: thêm VERSIONINFO (tên sản phẩm, mô tả, nhà phát hành, phiên bản lấy từ `Cargo.toml`): Explorer, Task Manager,
 //! "Mở bằng" hiện "Groove X" thay vì "groove.exe".
+//! file-icon (04/11/2026): icon thứ hai `groove-file.ico` (`groove.exe,1`) cho tệp nhạc đã liên kết: cùng hình, nhỏ hơn, có lề
+//! trong suốt (`tools/make-file-icon.ps1`) — icon app lấp kín ô 16 px của Explorer, trông to hơn icon tệp khác.
 
 use std::path::PathBuf;
 
@@ -8,14 +10,17 @@ const PRODUCT: &str = "Groove X";
 
 fn main() {
     println!("cargo:rerun-if-changed=assets/app/groove.ico");
+    println!("cargo:rerun-if-changed=assets/app/groove-file.ico");
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("windows") {
         return;
     }
     let manifest = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
     let out = PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR"));
     let icon = manifest.join("assets/app/groove.ico");
+    let file_icon = manifest.join("assets/app/groove-file.ico");
     let rc = out.join("groove.rc");
-    std::fs::write(&rc, resource_script(&icon.to_string_lossy(), &version())).expect("write groove.rc");
+    let script = resource_script(&icon.to_string_lossy(), &file_icon.to_string_lossy(), &version());
+    std::fs::write(&rc, script).expect("write groove.rc");
     embed_resource::compile(&rc, embed_resource::NONE).manifest_optional().expect("compile the Windows resources");
 }
 
@@ -30,11 +35,14 @@ fn version() -> (u16, u16, u16, String) {
     )
 }
 
-/// id nhỏ nhất là icon Explorer, taskbar hiện cho exe. Chuỗi trong `.rc` thoát `\` và `"`.
-fn resource_script(icon: &str, (major, minor, patch, text): &(u16, u16, u16, String)) -> String {
-    let icon = icon.replace('\\', "\\\\").replace('"', "\"\"");
+/// id nhỏ nhất là icon Explorer, taskbar hiện cho exe; id 2 là icon tệp (chỉ số 1 trong `DefaultIcon`, đếm theo thứ tự id).
+/// Chuỗi trong `.rc` thoát `\` và `"`.
+fn resource_script(icon: &str, file_icon: &str, (major, minor, patch, text): &(u16, u16, u16, String)) -> String {
+    let escape = |path: &str| path.replace('\\', "\\\\").replace('"', "\"\"");
+    let (icon, file_icon) = (escape(icon), escape(file_icon));
     format!(
         r#"1 ICON "{icon}"
+2 ICON "{file_icon}"
 
 1 VERSIONINFO
 FILEVERSION {major},{minor},{patch},0
