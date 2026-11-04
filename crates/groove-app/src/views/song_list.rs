@@ -4,6 +4,11 @@
 //! 15 px (hai ngưỡng để không rung); quầng accent 380 px, độ đục 0,4 phía sau. Bảng bài là `materiant::list::VirtualList`:
 //! chỉ dựng dòng trong khung nên 10 000 bài tốn như 100.
 //!
+//! banner-anim (04/11/2026): đầu danh sách là `views::banner::Banner` phủ lên đầu bảng, thu / nở mượt 300 ms. Bảng bài nằm trong
+//! `Island` `cached`, khung bắt đầu ngay dưới đầu danh sách ở trạng thái thu; trạng thái mở lùi bảng thêm phần chênh hai trạng
+//! thái (`table_part`). Bảng chỉ dời một lần ở lúc đổi trạng thái — lúc thu bù vị trí cuộn để các dòng đứng yên, banner co lại
+//! để lộ dòng bên dưới; lúc nở (đã gần đầu danh sách) các dòng xuống ngay chỗ mới, banner nở vào khoảng trống.
+//!
 //! Hành vi (đặc tả 1.2): bấm dòng bài đang phát thì đảo phát / dừng, bài khác thì phát với cả danh sách làm hàng đợi; Enter
 //! / nhấp đúp tương tự (nhấp đúp không đảo lần hai: lần nhấp đầu đã làm); chuột phải mở menu bài (`song_menu`).
 //! Thư viện đổi (`Synced`, `PlaylistsChanged`, `Moved`, `Opened`) thì nạp lại. Mọi lần đọc chạy ở nền (UI không chạm đĩa).
@@ -15,6 +20,8 @@
 //! - Nghe [`SongListEvent`] bằng `cx.subscribe`: `CategoryGone` (mục đang xem biến mất: `app::go_back`).
 //! - Nút Play all của đầu danh sách do view tự làm (player + toast khi rỗng).
 
+use std::cell::Cell;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use futures::StreamExt;
@@ -27,9 +34,9 @@ use groove_library::store::Library;
 use materiant::button::Button;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    AnyElement, App, ClickEvent, Context, Entity, EventEmitter, FocusHandle, FontWeight, IntoElement, MouseMoveEvent,
-    ParentElement, Render, ScrollEvent, SharedString, Styled, Subscription, Task, Window, div, linear_color_stop,
-    linear_gradient, px,
+    AnyElement, App, ClickEvent, Context, Div, Entity, EventEmitter, FocusHandle, FontWeight, IntoElement,
+    MouseMoveEvent, ParentElement, Render, ScrollEvent, SharedString, Styled, Subscription, Task, Window, canvas, div,
+    linear_color_stop, linear_gradient, px,
 };
 use materiant::icon::Icon;
 use materiant::list::{VirtualList, VirtualListHandle};
@@ -41,19 +48,31 @@ use materiant::virtual_grid::LruImageCache;
 
 use crate::icons::GrooveIcon;
 use crate::player::{self, Player};
+use crate::views::banner::Banner;
 use crate::views::category_card::{accent_of, cover_path, subtitle};
 use crate::views::cover_image::{CoverImage, CoverKind};
+use crate::views::island::{self, Island};
 use crate::views::layout;
 use crate::views::song_row::{ROW_HEIGHT, RowPlay, SongRow, header_row, show_artist};
 
 /// Lề hai bên của cả màn.
 const PAGE_PADDING: f32 = 24.;
-/// Đầu danh sách mở (bìa 160) và thu (bìa 80): cao cố định để hai trạng thái so được với nhau.
+/// Đầu danh sách mở (bìa 160) và thu (bìa 80): cao thấp nhất của hai trạng thái. Tên dài xuống dòng thì cao thêm; cao thật
+/// đo lúc vẽ (`BannerHeights`).
 const EXPANDED_COVER: f32 = 160.;
 const COLLAPSED_COVER: f32 = 80.;
 const HEADER_VERTICAL_PADDING: f32 = 12.;
 const EXPANDED_HEIGHT: f32 = EXPANDED_COVER + 2. * HEADER_VERTICAL_PADDING + 16.;
 const COLLAPSED_HEIGHT: f32 = COLLAPSED_COVER + 2. * HEADER_VERTICAL_PADDING;
+/// Cỡ chữ tên, khe bìa – chữ của hai trạng thái (web `text-4xl` / `text-xl`, `gap-6` / `gap-4`).
+const EXPANDED_TITLE: f32 = 36.;
+const COLLAPSED_TITLE: f32 = 20.;
+const EXPANDED_GAP: f32 = 24.;
+const COLLAPSED_GAP: f32 = 16.;
+/// Cao dòng loại (Album / Folder / Playlist) trên tên ở trạng thái mở; thu thì co về 0 và mờ dần.
+const KIND_LINE: f32 = 16.;
+/// Cao hàng nút Play all (đệm trên 12 + nút) ở trạng thái mở; thu thì co về 0 và mờ dần (web `max-h-12` → `max-h-0`).
+const PLAY_ROW: f32 = 48.;
 /// Cuộn quá ngưỡng này thì thu đầu danh sách; về dưới ngưỡng kia thì mở lại (đặc tả 1.2).
 const COLLAPSE_ABOVE: f32 = 120.;
 const EXPAND_BELOW: f32 = 15.;
@@ -94,17 +113,39 @@ fn click_action(current: Option<&TrackRef>, clicked: &TrackRef) -> ClickAction {
     if current == Some(clicked) { ClickAction::Toggle } else { ClickAction::PlayList }
 }
 
-/// Đầu danh sách thu lại hay mở ra sau khi cuộn tới `scroll_top`; `max_top` là tầm cuộn tối đa của trạng thái hiện tại.
+/// Đầu danh sách thu lại hay mở ra sau khi cuộn tới `scroll_top`; `shrink` là phần cao đầu danh sách mất đi khi thu.
 ///
-/// Thu đi làm khung danh sách cao thêm nên tầm cuộn giảm đúng chừng đó: chỉ thu khi sau khi thu vị trí cuộn vẫn còn trên
-/// ngưỡng mở lại, không thì mở rồi thu rồi mở mãi (danh sách ngắn, cuộn được chút ít).
-fn next_collapsed(collapsed: bool, scroll_top: f32, max_top: f32) -> bool {
+/// Thu làm khung bảng cao thêm `shrink` phía trên và vị trí cuộn lùi đúng chừng đó (để các dòng đứng yên): chỉ thu khi sau khi
+/// lùi vị trí cuộn vẫn còn trên ngưỡng mở lại, không thì mở rồi thu rồi mở mãi (tên dài làm đầu danh sách cao).
+fn next_collapsed(collapsed: bool, scroll_top: f32, shrink: f32) -> bool {
     if collapsed {
         scroll_top >= EXPAND_BELOW
     } else {
-        let shrink = EXPANDED_HEIGHT - COLLAPSED_HEIGHT;
-        scroll_top > COLLAPSE_ABOVE && max_top - shrink > EXPAND_BELOW + 1.
+        scroll_top > COLLAPSE_ABOVE && scroll_top - shrink > EXPAND_BELOW + 1.
     }
+}
+
+/// Cao thật (đo lúc vẽ) của đầu danh sách ở trạng thái mở và thu; chưa đo thì là cao thấp nhất.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct BannerHeights {
+    expanded: f32,
+    collapsed: f32,
+}
+
+impl Default for BannerHeights {
+    fn default() -> Self {
+        BannerHeights { expanded: EXPANDED_HEIGHT, collapsed: COLLAPSED_HEIGHT }
+    }
+}
+
+impl BannerHeights {
+    fn shrink(self) -> f32 {
+        (self.expanded - self.collapsed).max(0.)
+    }
+}
+
+fn lerp(a: f32, b: f32, t: f32) -> f32 {
+    a + (b - a) * t
 }
 
 pub struct SongList {
@@ -117,7 +158,14 @@ pub struct SongList {
     summary: Option<CategorySummary>,
     songs: Arc<Vec<Song>>,
     selected: Option<usize>,
+    /// Trạng thái đích của đầu danh sách (banner có thể còn đang chuyển tới đó).
     collapsed: bool,
+    banner: Entity<Banner<SongList>>,
+    banner_heights: Rc<Cell<BannerHeights>>,
+    /// Bảng bài (`cached`): khung chuyển của banner không dựng lại nó.
+    table: Entity<Island<SongList>>,
+    #[cfg(test)]
+    table_renders: usize,
     list: VirtualListHandle,
     focus: FocusHandle,
     /// Bài đang chọn và có đang phát không ở lần vẽ gần nhất: player báo 4 lần mỗi giây, chỉ vẽ lại khi cái này đổi.
@@ -151,6 +199,11 @@ impl SongList {
             songs: Arc::default(),
             selected: None,
             collapsed: false,
+            banner: Banner::new(SongList::banner_part, cx),
+            banner_heights: Rc::default(),
+            table: Island::new(SongList::table_part, cx),
+            #[cfg(test)]
+            table_renders: 0,
             list: VirtualListHandle::new(),
             focus: cx.focus_handle(),
             seen_playback,
@@ -195,6 +248,7 @@ impl SongList {
         self.list.remeasure();
         self.selected = None;
         self.collapsed = false;
+        self.banner.update(cx, |banner, cx| banner.jump_to(false, cx));
         self.list.scroll_to(0, materiant::list::Align::Start);
         self.reload(cx);
         cx.notify();
@@ -291,14 +345,22 @@ impl SongList {
 
     // ---- Đầu danh sách thu / mở ----
 
-    /// Đọc vị trí cuộn, thu hoặc mở đầu danh sách theo hai ngưỡng. Gọi sau mọi thứ có thể đổi vị trí cuộn.
+    /// Đọc vị trí cuộn, thu hoặc mở đầu danh sách theo hai ngưỡng. Gọi sau mọi thứ có thể đổi vị trí cuộn; chỉ làm gì khi qua
+    /// ngưỡng (cuộn từng px không `notify`).
     fn sync_header(&mut self, cx: &mut Context<Self>) {
-        let (scroll_top, max_top) = (self.list.scroll_top(), self.list.max_scroll_top());
-        let collapsed = next_collapsed(self.collapsed, scroll_top, max_top);
-        if collapsed != self.collapsed {
-            self.collapsed = collapsed;
-            cx.notify();
+        let shrink = self.banner_heights.get().shrink();
+        let collapsed = next_collapsed(self.collapsed, self.list.scroll_top(), shrink);
+        if collapsed == self.collapsed {
+            return;
         }
+        self.collapsed = collapsed;
+        if collapsed {
+            // Khung bảng cao thêm `shrink` phía trên (`table_part`): lùi vị trí cuộn chừng đó để các dòng đứng yên trên màn.
+            self.list.scroll_by(-shrink);
+        }
+        self.banner.update(cx, |banner, cx| banner.animate_to(collapsed, cx));
+        // Bảng dời một lần (đệm trên đổi); các khung chuyển sau đó chỉ vẽ lại banner.
+        cx.notify();
     }
 
     // ---- Phát ----
@@ -372,8 +434,67 @@ fn centered_message(icon: GrooveIcon, title: &'static str, hint: &'static str, c
 }
 
 impl SongList {
-    fn header(&self, c: &ThemeColors, cx: &mut Context<Self>) -> AnyElement {
-        let collapsed = self.collapsed;
+    /// Đầu danh sách ở tiến độ `p` (0 mở, 1 thu; `views::banner`). Nền đặc + bản sao quầng accent: lúc chuyển banner phủ lên
+    /// các dòng bên dưới, nền trong suốt sẽ lộ chữ chồng nhau (D-10: khối nổi nền đặc thay `backdrop-blur` của web).
+    fn banner_part(&mut self, p: f32, _: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        if self.status == Status::Gone {
+            return div().into_any_element();
+        }
+        let c = cx.theme().colors().clone();
+        let heights = self.banner_heights.clone();
+        let host = cx.entity().downgrade();
+        // Đo cao thật ở hai trạng thái đứng yên (tên dài xuống dòng): khác số đang dùng thì chủ vẽ lại bảng một lần.
+        let measure = (p == 0. || p == 1.).then(|| {
+            canvas(
+                move |bounds, _, cx| {
+                    let height = bounds.size.height.as_f32();
+                    let mut now = heights.get();
+                    let slot = if p == 0. { &mut now.expanded } else { &mut now.collapsed };
+                    if (*slot - height).abs() > 0.5 {
+                        *slot = height;
+                        heights.set(now);
+                        let host = host.clone();
+                        cx.defer(move |cx| {
+                            host.update(cx, |_, cx| cx.notify()).ok();
+                        });
+                    }
+                },
+                |_, _, _, _| {},
+            )
+            .absolute()
+            .top_0()
+            .left_0()
+            .size_full()
+        });
+        div()
+            .id("song-list-banner")
+            .relative()
+            .w_full()
+            .flex()
+            .flex_col()
+            .overflow_hidden()
+            .bg(c.surface)
+            // Rê / nhấp trên banner không lọt xuống dòng đang nằm dưới lúc chuyển; bánh xe vẫn cuộn bảng.
+            .block_mouse_except_scroll()
+            .child(self.glow(&c))
+            .child(div().relative().child(self.header(p, &c, cx)).children(measure))
+            // Kiểu lưới: đường kẻ tách đầu danh sách khỏi bảng bài (`views::layout`).
+            .children(layout::hline(cx))
+            .into_any_element()
+    }
+
+    /// Quầng accent sau đầu trang (đặc tả 1.2).
+    fn glow(&self, c: &ThemeColors) -> Div {
+        let accent = self.summary.as_ref().and_then(accent_of).unwrap_or(c.primary);
+        div().absolute().top_0().left_0().right_0().h(px(GLOW_HEIGHT)).bg(linear_gradient(
+            180.,
+            linear_color_stop(accent.opacity(GLOW_OPACITY), 0.),
+            linear_color_stop(accent.opacity(0.), 1.),
+        ))
+    }
+
+    fn header(&self, p: f32, c: &ThemeColors, cx: &mut Context<Self>) -> AnyElement {
+        let collapsed = p >= 0.5;
         let summary = self.summary.as_ref();
         let kind = CoverKind::of(self.reference);
         let accent = summary.and_then(accent_of);
@@ -386,15 +507,27 @@ impl SongList {
             .filter(|s| !matches!(s.reference, CategoryRef::Playlist(_)))
             .map(subtitle)
             .filter(|text| !text.is_empty());
-        let side = if collapsed { COLLAPSED_COVER } else { EXPANDED_COVER };
+        let side = lerp(EXPANDED_COVER, COLLAPSED_COVER, p);
 
-        let label = div().text_size(px(12.)).text_color(c.primary_ink).child(kind_label(self.reference));
+        // Dòng loại co về 0 và mờ dần (web `opacity-0 h-0`); thu hẳn thì bỏ.
+        let label = (p < 1.).then(|| {
+            div()
+                .flex_none()
+                .h(px(KIND_LINE * (1. - p)))
+                .overflow_hidden()
+                .opacity(1. - p)
+                .text_size(px(12.))
+                .text_color(c.primary_ink)
+                .child(kind_label(self.reference))
+        });
+        // Dòng phụ đổi nội dung ở giữa chừng như web (`v-if`), cỡ chữ chuyển dần.
+        let info_size = px(lerp(14., 12., p));
         let info = if collapsed {
             div()
                 .flex()
                 .items_center()
                 .gap_2()
-                .text_size(px(12.))
+                .text_size(info_size)
                 .text_color(c.muted)
                 .child(div().text_color(c.primary_ink).child(kind_label(self.reference)))
                 .child("•")
@@ -404,7 +537,7 @@ impl SongList {
                 .flex()
                 .items_center()
                 .gap_2()
-                .text_size(px(14.))
+                .text_size(info_size)
                 .text_color(c.muted)
                 .when_some(sub, |row, sub| row.child(div().min_w_0().child(sub)).child("•"))
                 .child(count_text)
@@ -417,37 +550,46 @@ impl SongList {
             .flex_col()
             .justify_end()
             .gap_1()
-            .when(!collapsed, |col| col.child(label))
+            .children(label)
             .child(
                 // Tên dài xuống dòng (không cắt "…"); khung đầu cao thêm theo chữ.
                 div()
                     .font_weight(FontWeight::NORMAL)
-                    .text_size(px(if collapsed { 20. } else { 36. }))
+                    .text_size(px(lerp(EXPANDED_TITLE, COLLAPSED_TITLE, p)))
                     .text_color(c.text)
                     .child(title),
             )
             .child(info)
-            .when(!collapsed, |col| {
+            // Hàng nút co về 0 và mờ dần (web `max-h-0 opacity-0`); đứng yên ở trạng thái mở thì không chặn cao.
+            .when(p < 1., |col| {
                 col.child(
-                    div().pt_3().flex().child(
-                        Button::new("song-list-play-all", t!("song_list.header.play_all"))
-                            .filled()
-                            .icon(GrooveIcon::Play)
-                            .disabled(count == 0)
-                            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| this.play_all(window, cx))),
-                    ),
+                    div()
+                        .flex_none()
+                        .when(p > 0., |row| row.max_h(px(PLAY_ROW * (1. - p))).overflow_hidden())
+                        .opacity(1. - p)
+                        .child(
+                            div().pt_3().flex().child(
+                                Button::new("song-list-play-all", t!("song_list.header.play_all"))
+                                    .filled()
+                                    .icon(GrooveIcon::Play)
+                                    .disabled(count == 0)
+                                    .on_click(
+                                        cx.listener(|this, _: &ClickEvent, window, cx| this.play_all(window, cx)),
+                                    ),
+                            ),
+                        ),
                 )
             });
 
         div()
             .flex_none()
-            .min_h(px(if collapsed { COLLAPSED_HEIGHT } else { EXPANDED_HEIGHT }))
+            .min_h(px(lerp(EXPANDED_HEIGHT, COLLAPSED_HEIGHT, p)))
             .w_full()
             .px(px(PAGE_PADDING))
             .py(px(HEADER_VERTICAL_PADDING))
             .flex()
             .items_end()
-            .gap(px(if collapsed { 16. } else { 24. }))
+            .gap(px(lerp(EXPANDED_GAP, COLLAPSED_GAP, p)))
             .child(div().flex_none().size(px(side)).child(CoverImage::new(cover, kind, accent, &self.cache)))
             .child(text)
             .into_any_element()
@@ -523,17 +665,19 @@ impl SongList {
     }
 }
 
-impl Render for SongList {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        // Hàng đang phát đặt anchor của `bars_overlay`; lần vẽ này ghi lại nếu hàng còn hiện.
-        crate::views::bars_overlay::forget(cx.entity_id(), cx);
+impl SongList {
+    /// Phần bảng (`Island` `cached`): bảng bài hoặc thông báo trạng thái. Trạng thái mở thì lùi xuống phần chênh của đầu danh
+    /// sách (khung bảng bắt đầu ở cao trạng thái thu).
+    fn table_part(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        #[cfg(test)]
+        {
+            self.table_renders += 1;
+        }
+        // Hàng đang phát đặt anchor của `bars_overlay` (anchor ghi theo view đang vẽ: chính `Island` này); lần vẽ này ghi lại
+        // nếu hàng còn hiện.
+        crate::views::bars_overlay::forget(self.table.entity_id(), cx);
         let c = cx.theme().colors().clone();
-        let accent = self.summary.as_ref().and_then(accent_of).unwrap_or(c.primary);
-        let glow = div().absolute().top_0().left_0().right_0().h(px(GLOW_HEIGHT)).bg(linear_gradient(
-            180.,
-            linear_color_stop(accent.opacity(GLOW_OPACITY), 0.),
-            linear_color_stop(accent.opacity(0.), 1.),
-        ));
+        let inset = if self.collapsed || self.status == Status::Gone { 0. } else { self.banner_heights.get().shrink() };
         let body = match self.status {
             Status::Loading => div()
                 .flex_1()
@@ -556,20 +700,34 @@ impl Render for SongList {
             }
             Status::Ready => self.table(window, &c, cx),
         };
-        let header = (self.status != Status::Gone).then(|| self.header(&c, cx));
+        div().size_full().flex().flex_col().pt(px(inset)).text_color(c.text).child(body).into_any_element()
+    }
+}
+
+impl Render for SongList {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let c = cx.theme().colors().clone();
+        let gone = self.status == Status::Gone;
+        // Khung bảng bắt đầu ngay dưới đầu danh sách ở trạng thái thu (cả đường kẻ của kiểu lưới); không đổi theo khung chuyển.
+        let top =
+            if gone { 0. } else { self.banner_heights.get().collapsed + if layout::is_grid(cx) { 1. } else { 0. } };
         div()
             .id("song-list")
             .relative()
             .size_full()
-            .flex()
-            .flex_col()
             .overflow_hidden()
             .text_color(c.text)
-            .child(glow)
-            .children(header)
-            // Kiểu lưới: đường kẻ tách đầu trang khỏi bảng bài (`views::layout`).
-            .children(layout::hline(cx))
-            .child(body)
+            .child(self.glow(&c))
+            .child(
+                div()
+                    .absolute()
+                    .top(px(top))
+                    .left_0()
+                    .right_0()
+                    .bottom_0()
+                    .child(island::cached(&self.table, |s| s.size_full())),
+            )
+            .when(!gone, |root| root.child(div().absolute().top_0().left_0().right_0().child(self.banner.clone())))
     }
 }
 
@@ -591,27 +749,29 @@ mod tests {
 
     #[test]
     fn header_hysteresis_collapses_at_120_and_expands_below_15() {
-        // Mở: dưới / đúng ngưỡng thì giữ, quá ngưỡng (và còn chỗ cuộn) thì thu.
-        assert!(!next_collapsed(false, 0., 5000.));
-        assert!(!next_collapsed(false, 120., 5000.));
-        assert!(next_collapsed(false, 121., 5000.));
+        let shrink = BannerHeights::default().shrink();
+        // Mở: dưới / đúng ngưỡng thì giữ, quá ngưỡng thì thu.
+        assert!(!next_collapsed(false, 0., shrink));
+        assert!(!next_collapsed(false, 120., shrink));
+        assert!(next_collapsed(false, 121., shrink));
         // Thu: còn cuộn từ 15 trở lên thì giữ, về dưới 15 thì mở.
-        assert!(next_collapsed(true, 121., 5000.));
-        assert!(next_collapsed(true, 15., 5000.));
-        assert!(!next_collapsed(true, 14.9, 5000.));
+        assert!(next_collapsed(true, 121., shrink));
+        assert!(next_collapsed(true, 15., shrink));
+        assert!(!next_collapsed(true, 14.9, shrink));
         // Vùng giữa hai ngưỡng không đổi trạng thái (không rung).
         for top in [16., 60., 119.] {
-            assert!(!next_collapsed(false, top, 5000.));
-            assert!(next_collapsed(true, top, 5000.));
+            assert!(!next_collapsed(false, top, shrink));
+            assert!(next_collapsed(true, top, shrink));
         }
     }
 
     #[test]
-    fn short_lists_never_collapse_into_a_flip_flop() {
-        // Tầm cuộn chỉ 130 px: thu đi còn 130 - 96 = 34 > 16 nên vẫn thu; 100 px thì thu xong chỉ còn 4 ⇒ không thu.
-        assert!(next_collapsed(false, 125., 130.));
-        assert!(!next_collapsed(false, 125., 100.));
-        assert!(!next_collapsed(false, 125., 0.));
+    fn a_tall_banner_never_collapses_into_a_flip_flop() {
+        // Thu lùi vị trí cuộn đúng phần cao mất đi: đầu danh sách mất 96 px ⇒ 125 - 96 = 29 > 16 vẫn thu; tên dài làm mất
+        // 115 px ⇒ còn 10 < 15, thu xong lại mở ⇒ không thu.
+        assert!(next_collapsed(false, 125., 96.));
+        assert!(!next_collapsed(false, 125., 115.));
+        assert!(next_collapsed(false, 140., 115.));
     }
 
     #[test]
@@ -905,6 +1065,60 @@ mod tests {
         });
         frame(cx);
         view.read_with(cx, |v, _| assert!(!v.collapsed, "về đầu ⇒ mở"));
+    }
+
+    /// banner-anim — qua ngưỡng thì banner chuyển vài khung rồi dừng hẳn; khung chuyển không dựng lại bảng bài (`cached`); lúc
+    /// thu các dòng đứng yên trên màn (banner co lại để lộ dòng, không kéo bảng theo).
+    #[::gpui::test]
+    fn banner_transition_runs_briefly_without_rebuilding_the_table(cx: &mut TestAppContext) {
+        let env = env();
+        let names = (0..300).map(|n| format!("song-{n:03}")).collect();
+        let id = seed(&env, names);
+        let (view, _, cx) = open(cx, &env, album(id));
+        cx.update(|window, _| window.activate_window());
+        view.update(cx, |v, _| v.list.scroll_to(100, materiant::list::Align::Start));
+        frame(cx);
+        frame(cx);
+        let row_y = |cx: &mut VisualTestContext| row_center(cx, 103).y.as_f32();
+        let before = row_y(cx);
+
+        // Khung thật: tới giờ thì gọi lại view đã xin khung, vẽ không `refresh` (view `cached` không bẩn thì dùng lại).
+        let tick = |cx: &mut VisualTestContext| -> usize {
+            cx.executor().advance_clock(Duration::from_millis(16));
+            let delivered = cx.update(|window, cx| {
+                let delivered = window.simulate_next_frame(cx);
+                window.draw(cx).clear(cx);
+                delivered
+            });
+            cx.run_until_parked();
+            delivered
+        };
+        let start = view.read_with(cx, |v, _| v.table_renders);
+        view.update(cx, |v, cx| v.sync_header(cx));
+        view.read_with(cx, |v, cx| {
+            assert!(v.collapsed && v.banner.read(cx).is_animating(), "qua ngưỡng ⇒ bắt đầu thu")
+        });
+        // Lúc đổi trạng thái bảng dời một lần: dựng lại vài lần trong hai khung đầu (đệm trên đổi, danh sách đo lại theo khung
+        // mới), rồi thôi.
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.run_until_parked();
+        let mut frames = 1;
+        assert!(tick(cx) > 0, "banner xin khung");
+        let renders = view.read_with(cx, |v, _| v.table_renders);
+        assert!(renders - start <= 3, "đổi trạng thái dựng bảng {} lần", renders - start);
+        assert!((row_y(cx) - before).abs() < 0.5, "thu: dòng đứng yên ({before} → {})", row_y(cx));
+
+        while tick(cx) > 0 {
+            frames += 1;
+            assert!(frames < 40, "chuyển phải dừng");
+        }
+        assert!((10..=25).contains(&frames), "300 ms ≈ 19 khung, chạy {frames}");
+        view.read_with(cx, |v, cx| {
+            assert!(!v.banner.read(cx).is_animating());
+            assert_eq!(v.table_renders, renders, "khung chuyển không dựng lại bảng");
+        });
+        assert!((row_y(cx) - before).abs() < 0.5, "xong vẫn đứng yên");
+        assert_eq!(tick(cx), 0, "đứng yên thì không xin khung nào nữa");
     }
 
     /// C8 — thư viện đổi thì nạp lại; mục bị xoá thì báo `CategoryGone`.
