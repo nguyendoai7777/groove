@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AppStream (deb-metainfo, 04/11/2026): App Center / GNOME Software lấy tên, nhà phát hành, giấy phép của app đã cài từ đây;
+     thiếu tệp này thì hiện "Unknown publisher", "License unknown". Nhà phát hành, trang chủ theo D-21; id = bundle id (G-9). Ảnh chụp: `packaging/screenshots/convention.md`. `build-deb.sh` thay
+     @VERSION@, @DATE@. -->
+<component type="desktop-application">
+  <id>com.sandtechs.desktop.groovex</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LicenseRef-proprietary</project_license>
+  <name>Groovex</name>
+  <summary>Music player, a replacement for Microsoft's Groove Music</summary>
+  <summary xml:lang="vi">Ứng dụng nghe nhạc thay thế cho Groove của Microsoft</summary>
+  <developer id="com.sandtechs">
+    <name>z0 team, sandtechs jsc.</name>
+  </developer>
+  <description>
+    <p>Groovex plays and organizes the music on your computer, as a replacement for Microsoft's Groove Music.</p>
+    <p>It plays MP3, FLAC, WAV, M4A and OGG from the folders you choose, with albums, playlists, lyrics, timelines, an equalizer and a mini player that stays on screen. Video playback is coming.</p>
+    <p>Available for Windows, macOS and Linux (Ubuntu).</p>
+    <p xml:lang="vi">Groovex là ứng dụng nghe nhạc trên máy, thay thế cho Groove của Microsoft.</p>
+    <p xml:lang="vi">Phát MP3, FLAC, WAV, M4A, OGG từ các thư mục bạn chọn, có album, danh sách phát, lời bài hát, timeline, bộ chỉnh âm và trình phát thu nhỏ luôn trên màn hình. Xem video: sắp có.</p>
+    <p xml:lang="vi">Hỗ trợ Windows, macOS và Linux (Ubuntu).</p>
+  </description>
+  <url type="homepage">https://sandtechs.com</url>
+  <launchable type="desktop-id">groove.desktop</launchable>
+  <icon type="stock">groove</icon>
+  <pkgname>groovex</pkgname>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Audio</category>
+    <category>Player</category>
+  </categories>
+  <provides>
+    <binary>groove</binary>
+  </provides>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="@VERSION@" date="@DATE@"/>
+  </releases>
+</component>

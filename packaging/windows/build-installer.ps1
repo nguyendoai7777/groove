@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Dựng bản cài Windows `<OutDir>/groove-x-<version>-setup.exe` (NSIS): build release → `cargo deny` + trang
+  Dựng bản cài Windows `<OutDir>/groovex_<version>_win_<x64|arm64>.exe` (NSIS): build release → `cargo deny` + trang
   giấy phép → `makensis`. Bước nào đỏ thì dừng. Không ký mã: SmartScreen sẽ cảnh báo (ký là dịch vụ trả phí, chủ dự án quyết).
 
 .EXAMPLE
@@ -61,7 +61,9 @@ try {
     Copy-Item -LiteralPath $exe -Destination $stage
     & (Join-Path $repo 'packaging/licenses/gen-licenses.ps1') -Out (Join-Path $stage 'licenses')
 
-    $setup = Join-Path $OutDir "groove-x-$version-setup.exe"
+    # Tên tệp: {app}_{version}_{os}_{arch}.exe
+    $setupArch = if ([Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq 'Arm64') { 'arm64' } else { 'x64' }
+    $setup = Join-Path $OutDir "groovex_${version}_win_$setupArch.exe"
     & $nsis /V2 /WX /INPUTCHARSET UTF8 `
         "/DVERSION=$version" "/DVERSION4=$version.0" "/DSTAGE=$stage" `
         "/DICON=$(Join-Path $repo 'crates/groove-app/assets/app/groove.ico')" "/DOUTFILE=$setup" `

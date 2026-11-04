@@ -6,7 +6,7 @@
 //!
 //! Màn này không tự ghi gì: ba nút Metadata, Timeline, Sửa / Thêm lời của `LyricsPanel` mở [`MetadataDialog`] và hai
 //! [`TextDialog`] (task 19, 20) cho bài đang phát. Hộp lyrics, timeline tự đóng khi đổi bài, lưu xong tự nạp lại bài.
-//! Tiêu đề cửa sổ là `<bài> - <nghệ sĩ> | Groove X` khi đang ở màn này.
+//! Tiêu đề cửa sổ là `<bài> - <nghệ sĩ> | Groovex` khi đang ở màn này.
 //!
 //! Responsive (chủ dự án 03/11/2026; bản web không có): màn hẹp hơn [`NARROW_WIDTH`] thì ẩn cột lời bài, cột hàng đợi giãn ra;
 //! nút Lời bài dưới tên nghệ sĩ mở chính [`LyricsPanel`] (cả ba nút Metadata, Timeline, Sửa lời) trong drawer phải
@@ -66,7 +66,7 @@ pub const NARROW_WIDTH: f32 = 1024.;
 const LYRICS_DRAWER_WIDTH: f32 = 480.;
 const COVER_CACHE: usize = 4;
 
-/// `<bài> - <nghệ sĩ> | Groove X`; bài không có nghệ sĩ thì bỏ phần `- <nghệ sĩ>`. Không có bài thì `None` (về tên trang).
+/// `<bài> - <nghệ sĩ> | Groovex`; bài không có nghệ sĩ thì bỏ phần `- <nghệ sĩ>`. Không có bài thì `None` (về tên trang).
 pub fn window_title(song: Option<&Song>) -> Option<String> {
     let song = song?;
     let app = t!("common.app_name");
@@ -498,9 +498,9 @@ mod tests {
         assert_eq!(window_title(None), None);
         assert_eq!(
             window_title(Some(&song(Some("Let It Be"), Some("The Beatles")))).unwrap(),
-            "Let It Be - The Beatles | Groove X"
+            "Let It Be - The Beatles | Groovex"
         );
-        assert_eq!(window_title(Some(&song(None, None))).unwrap(), "Bai Hat | Groove X", "tên tệp, không nghệ sĩ");
+        assert_eq!(window_title(Some(&song(None, None))).unwrap(), "Bai Hat | Groovex", "tên tệp, không nghệ sĩ");
     }
 }
 

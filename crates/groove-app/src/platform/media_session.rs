@@ -26,7 +26,7 @@ use crate::player::{Player, player};
 
 /// Tên MPRIS: `org.mpris.MediaPlayer2.groovex`; bản debug `…groovex.dev` để chạy cạnh bản đã cài không giành tên của nhau.
 const DBUS_NAME: &str = if cfg!(debug_assertions) { "groovex.dev" } else { "groovex" };
-const DISPLAY_NAME: &str = "Groove X";
+const DISPLAY_NAME: &str = "Groovex";
 /// Vị trí lệch dự đoán quá mức này là người dùng vừa tua, phải báo. Nhịp thường thì OS tự chạy đồng hồ, không báo 4 lần mỗi giây.
 const POSITION_DRIFT_SEC: f64 = 1.0;
 
@@ -172,7 +172,7 @@ fn apply(action: Action, window: AnyWindowHandle, cx: &mut App) {
 
 // ---- Gọi souvlaki ----
 
-/// URL tệp theo MPRIS và `NSURL`: `file://` + đường dẫn đã mã hoá; thư mục dữ liệu có dấu cách (`Groove X`).
+/// URL tệp theo MPRIS và `NSURL`: `file://` + đường dẫn đã mã hoá; thư mục dữ liệu có dấu cách (`Groovex`).
 #[cfg(any(not(windows), test))]
 fn file_url(path: &str) -> String {
     let mut url = String::with_capacity(path.len() + 7);

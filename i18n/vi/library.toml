@@ -10,7 +10,7 @@ folders = "Thư mục"
 
 [action.import]
 title = "Không thấy đủ nhạc?"
-hint = "Chỉ cho Groove X nơi có nhạc"
+hint = "Chỉ cho Groovex nơi có nhạc"
 
 [action.rescan]
 title = "Album hiển thị sai?"
@@ -45,12 +45,12 @@ hint = "Tạo danh sách phát mới để gom các bài hát lại với nhau."
 
 # Mở thư viện thất bại. Chi tiết kỹ thuật chỉ ghi vào log, không hiện lỗi thô.
 [open_error.too_new]
-title = "Thư viện do bản Groove X mới hơn tạo ra"
-hint = "Hãy cập nhật ứng dụng. Groove X không mở và không ghi đè dữ liệu này."
+title = "Thư viện do bản Groovex mới hơn tạo ra"
+hint = "Hãy cập nhật ứng dụng. Groovex không mở và không ghi đè dữ liệu này."
 
 [open_error.legacy_failed]
 title = "Không chuyển được thư viện của bản cũ"
-hint = "Bạn có thể thử lại. Chọn bắt đầu mới thì Groove X dùng thư viện trống và không chuyển lại dữ liệu cũ nữa, tệp cũ vẫn được giữ nguyên."
+hint = "Bạn có thể thử lại. Chọn bắt đầu mới thì Groovex dùng thư viện trống và không chuyển lại dữ liệu cũ nữa, tệp cũ vẫn được giữ nguyên."
 retry = "Thử lại"
 start_fresh = "Bắt đầu mới"
 
@@ -60,5 +60,5 @@ hint = "Tệp thư viện không đọc được. Thông tin chi tiết nằm tr
 
 [open_error.unavailable]
 title = "Thư viện chưa sẵn sàng"
-hint = "Groove X không khởi động được tiến trình đọc thư viện. Hãy mở lại ứng dụng."
+hint = "Groovex không khởi động được tiến trình đọc thư viện. Hãy mở lại ứng dụng."
 

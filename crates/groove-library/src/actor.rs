@@ -59,7 +59,7 @@ pub enum OpenFailure {
     /// viện trống: có `library.db` rồi thì không bao giờ chuyển lại nữa.
     #[error("could not migrate {}: {message}", path.display())]
     LegacyFailed { path: PathBuf, message: String },
-    #[error("{} is not a Groove X library", .0.display())]
+    #[error("{} is not a Groovex library", .0.display())]
     NotLibrary(PathBuf),
     #[error("{0}")]
     Other(String),

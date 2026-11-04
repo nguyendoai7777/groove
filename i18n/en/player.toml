@@ -18,7 +18,7 @@ pip_close = "Close picture in picture"
 
 [pip]
 # PiP window name (taskbar, Alt+Tab).
-window_title = "Picture in picture – Groove X"
+window_title = "Picture in picture – Groovex"
 back = "Back to the main window"
 
 [toast]
