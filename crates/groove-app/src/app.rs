@@ -70,6 +70,7 @@ pub fn run(dev: DevArgs) {
     // Task 25: bọc `run` để nhận tệp từ OS trước khi app chạy; bơm yêu cầu cài sau mọi khởi tạo dưới đây.
     crate::open_paths::run_app(gpui_kit::application().with_assets(icons::Assets), move |cx: &mut App| {
         materiant::init(cx);
+        devtool::init(cx);
         install_settings(settings, saver, cx);
 
         let display_id = dev.display_id(cx);

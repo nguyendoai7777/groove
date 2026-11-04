@@ -1330,6 +1330,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "devtool"
+version = "0.1.0"
+dependencies = [
+ "materiant",
+ "serde",
+]
+
+[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2630,6 +2638,7 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "crossbeam-channel",
+ "devtool",
  "embed-resource",
  "futures",
  "gpui-pre",

@@ -17,6 +17,8 @@ groove-library.workspace = true
 groove-audio.workspace = true
 # GPUI đi qua materiant (`materiant::gpui_kit`), không ghim gpui-kit lần hai (D-6).
 materiant.workspace = true
+# Ctrl+Shift+I / Ctrl+Shift+C ở bản debug (D-19, D-25); bản release crate rỗng.
+devtool.workspace = true
 anyhow.workspace = true
 crossbeam-channel.workspace = true
 futures.workspace = true

@@ -20,6 +20,8 @@ groove-audio = { path = "crates/groove-audio" }
 # `.claude/worktrees/materiant` → `materiant` (junction / symlink) để đường dẫn này trỏ đúng.
 # Font nhúng (D-20): Mona Sans (mặc định) và Be Vietnam Pro, chọn ở Settings → Chung; không theo font của máy.
 materiant = { path = "../materiant", features = ["font-mona-sans", "font-be-vietnam-pro"] }
+# Inspector kiểu DevTools (crate `devtool` trong repo materiant, D-25): chỉ bản debug, bản release rỗng.
+devtool = { path = "../materiant/devtool" }
 
 anyhow = "1"
 crossbeam-channel = "0.5"
