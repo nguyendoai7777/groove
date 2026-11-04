@@ -99,6 +99,9 @@ Danh sách chung: `materiant/CLAUDE.md` mục "Soát trước khi xong một com
   - nhịp vị trí khi phát là `Player::clock()` (`PlaybackClock`), không phải `notify` của `Player`: chỉ view vẽ vị trí nghe nó
     (thanh tua `cached` riêng, TimelineBox), thưa còn mỗi giây khi cửa sổ nền (`PlaybackClock::due`). View nghe `Player` chỉ
     `notify` khi đúng thứ nó vẽ đổi (`BarState` của thanh phát, `Body` của lời bài…).
+  - chuyển ngắn (banner danh sách bài thu / nở 300 ms): `views::banner::Banner` — entity riêng xin khung chỉ khi đang chuyển,
+    phủ lên nội dung `cached` có khung cố định (khung chuyển không dựng lại bảng); test
+    `song_list::tests::banner_transition_runs_briefly_without_rebuilding_the_table`.
   Test mẫu: `app::tests::animation_frames_reuse_the_cached_page_but_data_changes_still_show`,
   `app::tests::bars_in_a_cached_page_animate_on_the_overlay_without_rebuilding_the_page`,
   `player::tests::position_ticks_notify_the_clock_not_the_player`, `views::island::tests`.
@@ -155,7 +158,9 @@ màn không có thì thoát, không rơi về màn mặc định. Xem ảnh xong
   CPU (bản debug). `platform::move_loop` giữ `WM_MOVE` trong vòng dời của OS, thả chuột mới báo một lần — cửa sổ mới phải
   `move_loop::install`. Giá trị không vẽ lên đâu (vị trí cửa sổ) ghi bằng `app::store_settings_quietly`, không `update_settings`
   (cái sau `notify` `Shell`). Nền `Blurred` (acrylic) giật khi kéo trên Windows 10 / 11 trước 22H2: `backdrop::smooth_blur` đổi
-  sang blur-behind như bản Tauri, vùng mờ khít vùng client (đặt lại mỗi `WM_SIZE`), tắt bóng DWM. Kiểm tay:
+  sang blur-behind như bản Tauri, vùng mờ khít vùng client (đặt lại mỗi `WM_SIZE`), tắt bóng DWM, bỏ viền đổi cỡ vô hình (accent
+  phủ cả khung) và tự hit-test 6 px mép trong; sau khi đổi khung phải cho GPUI đo lại `border_offset` (`WM_SETTINGCHANGE`), không thì
+  cỡ cửa sổ lưu lại trôi mỗi lần mở. `-Clicks rects` in khung / client. Kiểm tay:
   `GROOVE_BLUR=acrylic` giữ acrylic, `GROOVE_WINDOW_SHADOW=on` giữ bóng.
 
 - **Bản Tauri để đối soát — không xoá**: `src-tauri/target/x86_64-pc-windows-msvc/release/groovex.exe` (exe tự chứa giao diện) và
@@ -165,6 +170,8 @@ màn không có thì thoát, không rơi về màn mặc định. Xem ảnh xong
 - **AppData ảo hoá MSIX**: exe chạy từ app Claude trên Windows ghi vào `LocalCache` của gói. Không thấy DB cũ ở đó không có
   nghĩa là máy không có DB.
 - `notify` dùng bản 8 + `notify-debouncer-full` 0.5, không phải bản `-rc` mà `cargo info` đưa ra.
+- **`blocking` ghim 1.6.2 trong `Cargo.lock`** (zbus, smol của GPUI Linux kéo vào): 1.7.0 gộp điều kiện thoát thành `thread_count > thread_limit && timed_out` (trần 500) nên luồng `blocking-N` rảnh không bao giờ thoát, thức 2 lần / s mãi. Đo lúc nghỉ: 1.7.0 có 1–2 luồng × 61 lần thức / 30 s, 1.6.2 không còn luồng nào. `cargo update` đừng nâng lên 1.7.x khi upstream chưa sửa.
+- **souvlaki vá ở `vendor/souvlaki`** (`[patch.crates-io]`, 0.9.3, MIT): MPRIS bản `use_zbus` chờ lệnh bằng `loop { recv_timeout(10 ms) }`, luồng `media-session` thức 100 lần / s cả lúc nghỉ; bản vá chờ `recv()` chặn. Nâng souvlaki ⇒ soát lại vòng này rồi mới gỡ bản vá. Test chặn cả hai bẫy này: `platform::media_session::tests::idle_mpris_service_does_not_tick`.
 - Dòng ERROR `directx_devices.rs:82 ... 0x887A002D` lúc chạy debug chỉ là thiếu lớp debug DXGI, không phải lỗi.
 - Trên desktop ẩn còn `unable to get cursor position: Access is denied` và `taskbar list init: 0x80004001`: do desktop ẩn.
 - `GROOVE_DATA_DIR` kéo theo cả chỗ tìm DB Tauri cũ (`paths::legacy_db`): chạy thử không bao giờ đọc DB thật.

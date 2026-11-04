@@ -16,6 +16,12 @@
 //! bằng vùng client (`DwmEnableBlurBehindWindow` + `hRgnBlur`), đặt lại mỗi `WM_SIZE` (đổi cỡ, phóng to / khôi phục), rồi đặt
 //! lại accent. Bóng DWM quanh khung (vẽ trong viền vô hình) tắt bằng `DWMWA_NCRENDERING_POLICY = DISABLED`.
 //!
+//! blur-frame (04/11/2026): accent blur-behind phủ cả khung cửa sổ, `hRgnBlur` không cắt được — viền đổi cỡ vô hình 8 px ở
+//! dưới / trái / phải vẫn thành một dải mờ quanh cửa sổ. Nay khi không phóng to, `WM_NCCALCSIZE` cho vùng client bằng cả khung
+//! (không còn viền vô hình), và subclass tự hit-test [`RESIZE_EDGE`] px mép trong trái / phải / dưới thành `HTLEFT`… để vẫn kéo
+//! mép đổi cỡ (mép trên GPUI đã tự lo). Phóng to giữ cách tính của GPUI (thụt viền để không tràn màn). Lúc cài, cửa sổ co lại
+//! đúng bằng vùng client cũ để cỡ đã lưu không lớn dần mỗi lần mở. Log `backdrop: blur-behind …` ghi lúc cài để đối chiếu.
+//!
 //! Kiểm tay trên màn thật: `GROOVE_BLUR=acrylic` giữ acrylic của GPUI (so độ mượt khi kéo), `GROOVE_WINDOW_SHADOW=on` giữ bóng.
 
 use materiant::gpui_kit::{App, Hsla};
@@ -55,15 +61,29 @@ fn env_is(name: &str, value: &str) -> bool {
 
 #[cfg(windows)]
 mod sys {
+    use windows_sys::Win32::Foundation::POINT;
     use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, RECT, WPARAM};
     use windows_sys::Win32::Graphics::Dwm::{
         DWM_BB_BLURREGION, DWM_BB_ENABLE, DWM_BLURBEHIND, DWMNCRP_DISABLED, DWMWA_NCRENDERING_POLICY,
         DwmEnableBlurBehindWindow, DwmSetWindowAttribute,
     };
+    use windows_sys::Win32::Graphics::Gdi::ScreenToClient;
     use windows_sys::Win32::Graphics::Gdi::{CreateRectRgn, DeleteObject};
     use windows_sys::Win32::System::LibraryLoader::{GetModuleHandleA, GetProcAddress};
     use windows_sys::Win32::UI::Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass};
-    use windows_sys::Win32::UI::WindowsAndMessaging::{GetClientRect, WM_NCDESTROY, WM_SIZE};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        GetClientRect, GetWindowRect, HTBOTTOM, HTBOTTOMLEFT, HTBOTTOMRIGHT, HTCLIENT, HTLEFT, HTRIGHT, IsZoomed,
+        SPI_SETWORKAREA, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SendMessageW,
+        SetWindowPos, WM_NCCALCSIZE, WM_NCDESTROY, WM_NCHITTEST, WM_SETTINGCHANGE, WM_SIZE,
+    };
+
+    #[link(name = "user32")]
+    unsafe extern "system" {
+        fn GetDpiForWindow(hwnd: HWND) -> u32;
+    }
+
+    /// Bề dày vùng kéo mép đổi cỡ bên trong cửa sổ (px logic), thay viền vô hình 8 px của Windows.
+    const RESIZE_EDGE: i32 = 6;
 
     const SUBCLASS_ID: usize = 0x626c_7572;
 
@@ -136,10 +156,68 @@ mod sys {
 
     /// Bật blur-behind vừa khít vùng client và giữ nó khít khi đổi cỡ (subclass nghe `WM_SIZE`).
     pub fn install_blur_behind(hwnd: HWND) {
-        apply(hwnd);
-        // SAFETY: subclass không giữ dữ liệu; `SetWindowSubclass` không gửi thông điệp nên không chạy lồng wndproc của GPUI.
+        // SAFETY: subclass không giữ dữ liệu; `SetWindowSubclass` không gửi thông điệp. `SetWindowPos` sau đó chạy lồng wndproc
+        // (`WM_NCCALCSIZE`, `WM_SIZE`) ngoài mọi `update` của GPUI (người gọi đang trong `handle.update` nhưng GPUI hoãn sự kiện
+        // cửa sổ tới vòng sau).
         unsafe {
+            let mut window = RECT { left: 0, top: 0, right: 0, bottom: 0 };
+            let mut client = window;
+            let measured = GetWindowRect(hwnd, &mut window) != 0 && GetClientRect(hwnd, &mut client) != 0;
             SetWindowSubclass(hwnd, Some(subclass_proc), SUBCLASS_ID, 0);
+            if measured && IsZoomed(hwnd) == 0 {
+                // Bỏ viền vô hình, khung mới = vùng client GPUI định khi đặt cỡ đã lưu: nó chia đôi phần chênh khung − client
+                // cho hai bên (`calculate_window_rect`), kể cả 8 px viền dưới thành 4 trên / 4 dưới. Đặt theo đúng cách chia đó thì
+                // cỡ và vị trí lưu lại khớp cỡ đã mở, không trôi mỗi lần mở.
+                let extra_w = (window.right - window.left) - client.right;
+                let extra_h = (window.bottom - window.top) - client.bottom;
+                SetWindowPos(
+                    hwnd,
+                    std::ptr::null_mut(),
+                    window.left + extra_w / 2,
+                    window.top + extra_h / 2,
+                    client.right,
+                    client.bottom,
+                    SWP_FRAMECHANGED | SWP_NOZORDER | SWP_NOACTIVATE,
+                );
+            } else {
+                SetWindowPos(
+                    hwnd,
+                    std::ptr::null_mut(),
+                    0,
+                    0,
+                    0,
+                    0,
+                    SWP_FRAMECHANGED | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE,
+                );
+            }
+        }
+        sync_border_offset(hwnd);
+        apply(hwnd);
+        log::info!("backdrop: blur-behind on, invisible resize border removed (build {})", build_number());
+    }
+
+    /// GPUI trừ "viền" (khung − client, đo lúc tạo) khi đổi qua lại cỡ đã lưu; viền nay là 0 nên bắt nó đo lại, không thì cỡ lưu
+    /// hụt 16 × 8 px và cửa sổ nhỏ dần mỗi lần mở. GPUI chỉ đo lại ở `WM_SETTINGCHANGE` (`wParam` ≠ 0) — `SPI_SETWORKAREA` không
+    /// đụng gì khác của nó. Gọi khi không phóng to (lúc phóng to GPUI thụt viền, đo lúc đó sẽ sai cỡ thường).
+    fn sync_border_offset(hwnd: HWND) {
+        // SAFETY: `hwnd` là cửa sổ đang sống; gọi ngoài mọi lượt xử lý của GPUI cho cửa sổ này.
+        unsafe {
+            SendMessageW(hwnd, WM_SETTINGCHANGE, SPI_SETWORKAREA as WPARAM, 0);
+        }
+    }
+
+    /// Mép đổi cỡ bên trong khung cho điểm `(x, y)` toạ độ client, `None` khi không ở mép.
+    pub fn resize_edge(x: i32, y: i32, width: i32, height: i32, edge: i32) -> Option<u32> {
+        let left = x < edge;
+        let right = x >= width - edge;
+        let bottom = y >= height - edge;
+        match (left, right, bottom) {
+            (true, _, true) => Some(HTBOTTOMLEFT),
+            (_, true, true) => Some(HTBOTTOMRIGHT),
+            (true, _, _) => Some(HTLEFT),
+            (_, true, _) => Some(HTRIGHT),
+            (_, _, true) => Some(HTBOTTOM),
+            _ => None,
         }
     }
 
@@ -157,8 +235,33 @@ mod sys {
                 RemoveWindowSubclass(hwnd, Some(subclass_proc), SUBCLASS_ID);
                 return DefSubclassProc(hwnd, message, wparam, lparam);
             }
+            match message {
+                // Không phóng to: vùng client = cả khung (giữ nguyên `rgrc[0]`). Phóng to: để GPUI thụt viền như cũ.
+                WM_NCCALCSIZE if wparam != 0 && IsZoomed(hwnd) == 0 => return 0,
+                WM_NCHITTEST if IsZoomed(hwnd) == 0 => {
+                    let hit = DefSubclassProc(hwnd, message, wparam, lparam);
+                    if hit != HTCLIENT as LRESULT {
+                        return hit;
+                    }
+                    let mut point =
+                        POINT { x: (lparam & 0xffff) as i16 as i32, y: ((lparam >> 16) & 0xffff) as i16 as i32 };
+                    let mut client = RECT { left: 0, top: 0, right: 0, bottom: 0 };
+                    if ScreenToClient(hwnd, &mut point) == 0 || GetClientRect(hwnd, &mut client) == 0 {
+                        return hit;
+                    }
+                    let edge = RESIZE_EDGE * GetDpiForWindow(hwnd) as i32 / 96;
+                    return match resize_edge(point.x, point.y, client.right, client.bottom, edge) {
+                        Some(area) => area as LRESULT,
+                        None => hit,
+                    };
+                }
+                _ => {}
+            }
             let result = DefSubclassProc(hwnd, message, wparam, lparam);
             if message == WM_SIZE {
+                if IsZoomed(hwnd) == 0 {
+                    sync_border_offset(hwnd);
+                }
                 apply(hwnd);
             }
             result
@@ -212,6 +315,20 @@ mod sys {
 
     #[cfg(test)]
     mod tests {
+        #[test]
+        fn resize_edges_inside_the_frame() {
+            use windows_sys::Win32::UI::WindowsAndMessaging::{HTBOTTOM, HTBOTTOMLEFT, HTBOTTOMRIGHT, HTLEFT, HTRIGHT};
+            let at = |x, y| super::resize_edge(x, y, 800, 600, 6);
+            assert_eq!(at(0, 300), Some(HTLEFT));
+            assert_eq!(at(5, 300), Some(HTLEFT));
+            assert_eq!(at(6, 300), None);
+            assert_eq!(at(799, 300), Some(HTRIGHT));
+            assert_eq!(at(400, 599), Some(HTBOTTOM));
+            assert_eq!(at(2, 598), Some(HTBOTTOMLEFT));
+            assert_eq!(at(797, 598), Some(HTBOTTOMRIGHT));
+            assert_eq!(at(400, 0), None, "mép trên do GPUI lo");
+        }
+
         #[test]
         fn acrylic_kept_from_windows_11_22h2() {
             assert!(super::acrylic_lags(19045), "Windows 10 22H2");

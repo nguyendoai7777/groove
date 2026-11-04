@@ -1,4 +1,5 @@
 pub mod app_bar;
+pub mod banner;
 pub mod bars_overlay;
 pub mod card_menu;
 pub mod category_card;

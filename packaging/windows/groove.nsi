@@ -132,7 +132,8 @@ FunctionEnd
 !macro AssociateExtension EXT LABEL
   WriteRegStr HKCU "${CLASSES}\${PROG_PREFIX}${EXT}" "" "$(type_name) (${LABEL})"
   WriteRegStr HKCU "${CLASSES}\${PROG_PREFIX}${EXT}" "AppUserModelID" "${AUMID}"
-  WriteRegStr HKCU "${CLASSES}\${PROG_PREFIX}${EXT}\DefaultIcon" "" "$INSTDIR\groove.exe,0"
+  # Icon tệp riêng (resource thứ hai của exe): cùng hình icon app nhưng nhỏ hơn, có lề — build.rs, tools/make-file-icon.ps1.
+  WriteRegStr HKCU "${CLASSES}\${PROG_PREFIX}${EXT}\DefaultIcon" "" "$INSTDIR\groove.exe,1"
   # Không giới hạn 15 tệp khi chọn nhiều: mỗi tệp một tiến trình, `open_paths` gộp lại.
   WriteRegStr HKCU "${CLASSES}\${PROG_PREFIX}${EXT}\shell\open" "MultiSelectModel" "Player"
   WriteRegStr HKCU "${CLASSES}\${PROG_PREFIX}${EXT}\shell\open\command" "" '"$INSTDIR\groove.exe" "%1"'
