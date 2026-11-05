@@ -5,7 +5,7 @@ Repo git riêng trong workspace `xdesktop` (luật chung, quyết định D-* / 
 chọn, chưa làm). Lộ trình: `ROADMAP.md`.
 Repo không có `docs/` (D-7): đặc tả viết lại và bảng so bản cũ đã làm xong, đọc qua lịch sử git —
 `git show 1a2480f:docs/rewrite-spec.md`, `git show 1a2480f:docs/parity.md`. Comment `đặc tả <mục>` và mã lỗi `S<n>`, `N<n>`,
-`M<n>` trong mã, task trỏ vào đặc tả đó (mục 3 là danh sách lỗi). Task: `plan/groove-gd1_*.md` (skill `run-task`), việc treo `plan/_backlog.md`, việc đã tự chọn `plan/confirm.md`.
+`M<n>` trong mã, task trỏ vào đặc tả đó (mục 3 là danh sách lỗi). Task: `plan/groove-gd1_*.md` (skill `run-task`), việc treo `plan/_backlog.md`.
 
 **Bản Rust chưa được chủ dự án nhìn trên màn thật.** Cửa sổ thật mới chạy trong desktop ẩn (`tools/measure-hidden.ps1`), nên
 bản Tauri vẫn là bản chạy được duy nhất đã kiểm:
@@ -80,11 +80,11 @@ Danh sách chung: `materiant/CLAUDE.md` mục "Soát trước khi xong một com
 - **Không cắt chữ "…"** (chủ dự án, 2026-11-03): chữ của dữ liệu (tên bài, nghệ sĩ, album, đoạn timeline, đường dẫn) xuống
   dòng như Apple Music — không `truncate` / `text_ellipsis`. Danh sách ảo dòng khác cao: `VirtualList::measured_rows()` + gọi
   `remeasure()` khi chữ đổi mà số dòng giữ nguyên; danh sách ngắn trong hộp thoại: `.fit_content().max_h(…)`. Chỗ cao cố định
-  không xuống dòng được (thanh phát) thì chạy chữ `Marquee`. Chỗ còn cắt và lý do: `plan/confirm.md` mục `wrap`.
+  không xuống dòng được (thanh phát) thì chạy chữ `Marquee`. Chỗ còn cắt: lịch sử git (`plan/confirm.md` cũ, mục `wrap`).
 - **Space là phím toàn cục** (phát / dừng): vòng focus đi qua `materiant::style::focus_visible`, kể cả nút / hàng tự dựng.
 - **Hoạt ảnh lặp** (chữ chạy `Marquee`, thanh nhảy `PlayingBars`): chỉ chạy khi cửa sổ active, dừng tại chỗ khi cửa sổ nền / thu
   nhỏ. Mỗi khung GPUI dựng lại view đang chạy hoạt ảnh và **mọi view tổ tiên**; view nhúng `cached` không bẩn thì dùng lại cả
-  cây (số đo: `plan/confirm.md` mục `cpu`). Giữ đúng bố cục `views::island`:
+  cây (số đo: lịch sử git, `plan/confirm.md` cũ mục `cpu`). Giữ đúng bố cục `views::island`:
   - hoạt ảnh lặp là entity riêng (`MarqueeView`, `BarsView`), khung của nó chỉ `notify` chính nó — không `use_keyed_state` làm
     trạng thái trực tiếp (GPUI `notify` luôn view chủ), không `request_animation_frame` trong `render` của view chủ;
   - đường từ gốc tới hoạt ảnh (Shell → thanh phát / Now Playing) nhúng thường; nhánh nặng bên cạnh nhúng `cached`: cột trái, thanh

@@ -42,5 +42,5 @@ Còn lại trước khi đóng GĐ1:
 ## Sau GĐ1 (chưa lập task)
 
 - Task 28 nếu chủ dự án muốn giữ EQ, phím tắt của bản Tauri.
-- Giao diện xoá bài mất vĩnh viễn trước hạn 30 ngày (`reconcile::forget_missing` đã có, chưa có đường vào từ UI; `plan/confirm.md`).
+- Giao diện xoá bài mất vĩnh viễn trước hạn 30 ngày (`reconcile::forget_missing` đã có, chưa có đường vào từ UI).
 - Đo RAM với thư viện thật và khi đang phát (`CLAUDE.md` mục Bẫy, Số đo RAM).
