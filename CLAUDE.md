@@ -123,6 +123,8 @@ cargo test
 cargo deny check licenses          # soát cả cây của Windows, macOS, Linux theo deny.toml
 cargo fmt --all
 cargo run -p groove-app -- --display secondary --background   # mở cửa sổ ở màn phụ, không giành focus
+bash start.sh [--no-watch]          # = bash ../start.sh groove: bản debug `groove.dev`, theo dõi mã (watch-run.mjs), scope systemd + mục "Groovex (dev)" trên Linux; chạy được từ worktree (build ../groove/target/w<N>)
+bash build.sh [-f]                  # = bash ../build.sh --project groove: bản cài máy đang chạy vào ../release/groove (Windows: pwsh build.ps1); groove chưa có plan (`--plans` rỗng)
 pwsh tools/run.ps1 -Keys "ctrl-k wait@300 shot@palette"       # build trước: cargo build -p groove-app
 pwsh packaging/windows/build-installer.ps1                    # bản cài NSIS ở dist/; cần NSIS, cargo-about
 pwsh packaging/windows/installer-e2e.ps1 -Setup <setup.exe>   # soát cài, liên kết, gỡ; ghi HKCU rồi dọn, không mở app
