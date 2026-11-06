@@ -392,6 +392,7 @@ mod tests {
     use groove_audio::output::FakeOutput;
     use groove_core::model::TrackRef;
     use groove_core::settings::{KeyBinding, default_keybindings};
+    use groove_core::test_dir::TestDir;
     use groove_library::covers::CoverStore;
     use groove_library::db::queries;
     use groove_library::fixtures::{self, AudioKind};
@@ -399,7 +400,6 @@ mod tests {
     use groove_library::store::{Library, LibraryConfig};
     use materiant::gpui_kit::SharedString;
     use materiant::gpui_kit::base::Root;
-    use tempfile::TempDir;
 
     use super::*;
     use crate::library_ctl::{LibraryCtl, PickKind, Picker};
@@ -412,7 +412,7 @@ mod tests {
 
     /// Hộp trong cửa sổ ảo, cài đặt mặc định không lưu đĩa, player với `FakeOutput`: không phát tiếng, không DB thật.
     struct Rig {
-        dir: TempDir,
+        dir: TestDir,
         fake: FakeOutput,
         dialog: Entity<SettingsDialog>,
     }
@@ -420,7 +420,7 @@ mod tests {
     fn rig(cx: &mut TestAppContext) -> (Rig, &mut VisualTestContext) {
         // Engine chạy luồng thật, đánh thức foreground task từ luồng khác.
         cx.executor().allow_parking();
-        let dir = TempDir::new().unwrap();
+        let dir = TestDir::new();
         let fake = FakeOutput::new(48_000, 2);
         cx.update(|cx| {
             materiant::init(cx);
@@ -909,13 +909,13 @@ mod tests {
     // ---- Tab Thư viện: qua `LibraryCtl` thật với thư viện tạm và hộp chọn giả ----
 
     struct Env {
-        dir: TempDir,
+        dir: TestDir,
         library: Library,
         covers: CoverStore,
     }
 
     fn env() -> Env {
-        let dir = TempDir::new().unwrap();
+        let dir = TestDir::new();
         let config = LibraryConfig { target: dir.path().join("library.db"), legacy: None };
         let covers = CoverStore::new(dir.path().join("covers"));
         let library = Library::open(config, Box::new(CoverStore::new(dir.path().join("covers")))).unwrap();

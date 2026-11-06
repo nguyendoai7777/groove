@@ -8,13 +8,13 @@ use std::time::{Duration, Instant};
 use futures::StreamExt;
 use futures::executor::block_on;
 use groove_core::model::{CategoryRef, TrackRef};
+use groove_core::test_dir::TestDir;
 use groove_library::actor::{LibraryError, LibraryEvent, OpenFailure, OpenStatus};
 use groove_library::covers::CoverStore;
 use groove_library::db::migrate::{CoverRecord, CoverSink, OpenOutcome};
 use groove_library::db::queries::{self, QueryError, SongUpsert};
 use groove_library::store::{Library, LibraryConfig};
 use rusqlite::Connection;
-use tempfile::TempDir;
 
 const LEGACY_SCHEMA: &str = "
 CREATE TABLE folders (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, path TEXT UNIQUE NOT NULL,
@@ -38,13 +38,13 @@ INSERT INTO songs (id, title, folder_id, file_path, filename, duration)
 const NON_BLOCKING: Duration = Duration::from_secs(2);
 
 struct Paths {
-    _dir: TempDir,
+    _dir: TestDir,
     target: PathBuf,
     legacy: PathBuf,
 }
 
 fn paths() -> Paths {
-    let dir = TempDir::new().unwrap();
+    let dir = TestDir::new();
     let target = dir.path().join("Groove X").join("library.db");
     let legacy = dir.path().join("old").join("groovex.db");
     fs::create_dir_all(legacy.parent().unwrap()).unwrap();

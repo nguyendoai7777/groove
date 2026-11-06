@@ -651,6 +651,7 @@ mod tests {
     use groove_audio::engine::EngineOptions;
     use groove_audio::output::FakeOutput;
     use groove_core::i18n::{Language, set_language};
+    use groove_core::test_dir::TestDir;
     use groove_library::actor::LibraryError;
     use groove_library::covers::CoverStore;
     use groove_library::fixtures::{TINY_PNG, write_mp3_with_frames};
@@ -659,7 +660,6 @@ mod tests {
     use groove_library::store::{Library, LibraryConfig};
     use groove_library::tags::{self, CoverEdit};
     use materiant::gpui_kit::base::Root;
-    use tempfile::TempDir;
 
     use super::*;
     use crate::player::{self, PlayerDeps};
@@ -771,13 +771,13 @@ mod tests {
     // ---- Test view: thư viện và tệp trong thư mục tạm, FakeOutput, không chạm nhạc thật ----
 
     struct Env {
-        dir: TempDir,
+        dir: TestDir,
         library: Library,
         ops: MetadataOps,
     }
 
     fn env() -> Env {
-        let dir = TempDir::new().unwrap();
+        let dir = TestDir::new();
         let config = LibraryConfig { target: dir.path().join("data").join("library.db"), legacy: None };
         let library = Library::open(config, Box::new(CoverStore::new(dir.path().join("covers")))).unwrap();
         let ops = MetadataOps::new(library.clone(), CoverStore::new(dir.path().join("covers"))).unwrap();

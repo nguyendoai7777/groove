@@ -9,4 +9,6 @@ pub mod paths;
 pub mod queue;
 pub mod session;
 pub mod settings;
+#[cfg(any(test, feature = "test-support"))]
+pub mod test_dir;
 pub mod timeline;

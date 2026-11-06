@@ -717,12 +717,12 @@ mod tests {
     use groove_audio::engine::EngineOptions;
     use groove_audio::output::FakeOutput;
     use groove_core::model::TrackRef;
+    use groove_core::test_dir::TestDir;
     use groove_library::db::migrate::{CoverRecord, CoverSink};
     use groove_library::db::queries::{self, SongUpsert};
     use groove_library::fixtures::{self, AudioKind};
     use groove_library::store::{Library, LibraryConfig};
     use materiant::gpui_kit::base::Root;
-    use tempfile::TempDir;
 
     use super::*;
     use crate::player::{self, PlayerDeps};
@@ -794,7 +794,7 @@ mod tests {
         palette: Entity<CommandPalette>,
         ran: Rc<RefCell<Vec<Command>>>,
         songs: Vec<TrackRef>,
-        _dir: TempDir,
+        _dir: TestDir,
     }
 
     impl Rig<'_> {
@@ -859,7 +859,7 @@ mod tests {
     fn rig(cx: &mut TestAppContext) -> Rig<'_> {
         groove_core::i18n::set_language(groove_core::i18n::Language::Vi);
         cx.executor().allow_parking();
-        let dir = TempDir::new().unwrap();
+        let dir = TestDir::new();
         let config = LibraryConfig { target: dir.path().join("library.db"), legacy: None };
         let library = Library::open(config, no_covers()).unwrap();
         let wav = |name: &str| fixtures::write_sample(dir.path(), name, AudioKind::Wav).unwrap();

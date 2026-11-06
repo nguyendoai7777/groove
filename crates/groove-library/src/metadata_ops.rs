@@ -745,7 +745,7 @@ mod tests {
 
     #[test]
     fn rename_never_replaces_an_existing_file_and_cleans_its_placeholder() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = groove_core::test_dir::TestDir::new();
         let (from, to) = (dir.path().join("a.mp3"), dir.path().join("b.mp3"));
         fs::write(&from, b"a").unwrap();
         fs::write(&to, b"b").unwrap();
@@ -762,7 +762,7 @@ mod tests {
     /// Bài thư viện: chữ lấy từ DB, tệp không cần mở (đã xoá vẫn đọc được). Tệp ngoài thư viện: đọc thẻ.
     #[test]
     fn read_text_takes_library_songs_from_the_database_without_opening_the_file() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = groove_core::test_dir::TestDir::new();
         let config = LibraryConfig { target: dir.path().join("db").join("library.db"), legacy: None };
         let sink = Box::new(|_: &[u8]| -> anyhow::Result<CoverRecord> { anyhow::bail!("unused") });
         let library = Library::open(config, sink).unwrap();
@@ -779,7 +779,7 @@ mod tests {
         assert_eq!(text.timeline.as_deref(), Some("0:00 Intro"));
         assert!(matches!(ops.read_text(TrackRef::Library(id + 1)).wait(), Err(MetadataError::SongNotFound(_))));
 
-        let outside = tempfile::tempdir().unwrap();
+        let outside = groove_core::test_dir::TestDir::new();
         let external = write_sample(outside.path(), "b", AudioKind::Mp3).unwrap();
         ops.save_lyrics(TrackRef::External(external.clone()), "outside".into()).wait().unwrap();
         let text = ops.read_text(TrackRef::External(external)).wait().unwrap();
@@ -793,7 +793,7 @@ mod tests {
     /// Lần đổi tên hỏng sau khi thẻ đã ghi: giữ tên cũ, DB theo thẻ mới, dấu tệp khớp.
     #[test]
     fn failed_rename_after_write_leaves_file_and_database_consistent() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = groove_core::test_dir::TestDir::new();
         let config = LibraryConfig { target: dir.path().join("db").join("library.db"), legacy: None };
         let sink = Box::new(|_: &[u8]| -> anyhow::Result<CoverRecord> { anyhow::bail!("unused") });
         let library = Library::open(config, sink).unwrap();

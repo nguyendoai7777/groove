@@ -1050,12 +1050,12 @@ mod tests {
     use gpui::TestAppContext;
     use groove_audio::output::FakeOutput;
     use groove_core::model::RepeatMode;
+    use groove_core::test_dir::TestDir;
     use groove_library::actor::{MovedSong, SyncReport};
     use groove_library::db::migrate::{CoverRecord, CoverSink};
     use groove_library::db::queries::{self, SongUpsert};
     use groove_library::fixtures::{self, AudioKind};
     use groove_library::store::LibraryConfig;
-    use tempfile::TempDir;
 
     use super::*;
 
@@ -1063,7 +1063,7 @@ mod tests {
     const SILENCE: f32 = 1e-3;
 
     struct Rig {
-        dir: TempDir,
+        dir: TestDir,
         library: Library,
         fake: FakeOutput,
         player: Entity<Player>,
@@ -1078,7 +1078,7 @@ mod tests {
     fn rig(cx: &mut TestAppContext, prepare: impl FnOnce(&Path, &Library)) -> Rig {
         // Engine và thư viện chạy luồng thật, đánh thức foreground task từ luồng khác.
         cx.executor().allow_parking();
-        let dir = TempDir::new().unwrap();
+        let dir = TestDir::new();
         let config = LibraryConfig { target: dir.path().join("library.db"), legacy: None };
         let library = Library::open(config, no_covers()).unwrap();
         prepare(dir.path(), &library);
@@ -1576,7 +1576,7 @@ mod tests {
     #[gpui::test]
     fn opened_file_beats_the_restored_track(cx: &mut TestAppContext) {
         cx.executor().allow_parking();
-        let dir = TempDir::new().unwrap();
+        let dir = TestDir::new();
         let a = fixtures::write_sample(dir.path(), "a", AudioKind::Wav).unwrap();
         let b = fixtures::write_sample(dir.path(), "b", AudioKind::Wav).unwrap();
         let session_file = dir.path().join("session.json");
@@ -1622,7 +1622,7 @@ mod tests {
 
     #[test]
     fn nothing_is_saved_before_the_session_is_read() {
-        let dir = TempDir::new().unwrap();
+        let dir = TestDir::new();
         let path = dir.path().join("session.json");
         let mut sync = SessionSync::new(Some(path.clone()));
         sync.flush();

@@ -860,19 +860,19 @@ mod tests {
     use std::time::Duration;
 
     use ::gpui::{Modifiers, TestAppContext, VisualTestContext};
+    use groove_core::test_dir::TestDir;
     use groove_library::db::queries::{self, SongUpsert};
     use groove_library::store::LibraryConfig;
-    use tempfile::TempDir;
 
     struct Env {
-        _dir: TempDir,
+        _dir: TestDir,
         library: Library,
         covers: CoverStore,
     }
 
     /// Thư viện mới trong thư mục tạm; `legacy` là nội dung tệp DB cũ (để ép lỗi chuyển).
     fn env(legacy: Option<&[u8]>) -> Env {
-        let dir = TempDir::new().unwrap();
+        let dir = TestDir::new();
         let target = dir.path().join("Groove X").join("library.db");
         let legacy_path = dir.path().join("old").join("groovex.db");
         fs::create_dir_all(legacy_path.parent().unwrap()).unwrap();

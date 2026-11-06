@@ -513,6 +513,7 @@ mod tests_support {
     use groove_audio::engine::EngineOptions;
     use groove_audio::output::FakeOutput;
     use groove_core::model::TrackRef;
+    use groove_core::test_dir::TestDir;
     use groove_library::covers::CoverStore;
     use groove_library::db::migrate::CoverRecord;
     use groove_library::fixtures::{self, AudioKind};
@@ -522,7 +523,6 @@ mod tests_support {
     use groove_library::tags;
     use materiant::gpui_kit::base::Root;
     use materiant::gpui_kit::{Entity, SharedString, px, size};
-    use tempfile::TempDir;
 
     use crate::player::{self, Player, PlayerDeps};
     use crate::route::Route;
@@ -533,7 +533,7 @@ mod tests_support {
     }
 
     pub struct Rig {
-        pub dir: TempDir,
+        pub dir: TestDir,
         pub library: Library,
         pub ops: MetadataOps,
         pub fake: FakeOutput,
@@ -543,7 +543,7 @@ mod tests_support {
     pub fn rig(cx: &mut TestAppContext) -> Rig {
         cx.executor().allow_parking();
         groove_core::i18n::set_language(groove_core::i18n::Language::Vi);
-        let dir = TempDir::new().unwrap();
+        let dir = TestDir::new();
         let config = LibraryConfig { target: dir.path().join("library.db"), legacy: None };
         let sink = Box::new(|_: &[u8]| -> anyhow::Result<CoverRecord> { anyhow::bail!("no covers in this test") });
         let library = Library::open(config, sink).unwrap();

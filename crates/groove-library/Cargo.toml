@@ -34,7 +34,7 @@ unicode-normalization.workspace = true
 walkdir = "2"
 
 [dev-dependencies]
-tempfile.workspace = true
+groove-core = { workspace = true, features = ["test-support"] }
 
 [lints]
 workspace = true

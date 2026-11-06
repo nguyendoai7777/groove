@@ -917,25 +917,25 @@ mod tests {
     use gpui::{TestAppContext, VisualTestContext};
     use groove_audio::engine::EngineOptions;
     use groove_audio::output::FakeOutput;
+    use groove_core::test_dir::TestDir;
     use groove_library::fixtures::{self, AudioKind};
     use groove_library::indexer::IndexTally;
     use groove_library::metadata_ops::MetadataOps;
     use groove_library::store::LibraryConfig;
     use materiant::gpui_kit::base::Root;
-    use tempfile::TempDir;
 
     use super::*;
     use crate::player::PlayerDeps;
     use crate::route::Route;
 
     struct Env {
-        dir: TempDir,
+        dir: TestDir,
         library: Library,
         covers: CoverStore,
     }
 
     fn env() -> Env {
-        let dir = TempDir::new().unwrap();
+        let dir = TestDir::new();
         let config = LibraryConfig { target: dir.path().join("library.db"), legacy: None };
         let covers = CoverStore::new(dir.path().join("covers"));
         let library = Library::open(config, Box::new(CoverStore::new(dir.path().join("covers")))).unwrap();

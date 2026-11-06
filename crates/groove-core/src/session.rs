@@ -112,13 +112,13 @@ mod tests {
 
     #[test]
     fn missing_file_is_an_empty_session() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_dir::TestDir::new();
         assert_eq!(Session::load_from(&dir.path().join("session.json")), Session::default());
     }
 
     #[test]
     fn round_trip_keeps_library_and_external_tracks() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_dir::TestDir::new();
         let path = dir.path().join("session.json");
         sample().save_to(&path).unwrap();
         assert_eq!(Session::load_from(&path), sample());
@@ -136,7 +136,7 @@ mod tests {
 
     #[test]
     fn corrupt_file_is_an_empty_session() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_dir::TestDir::new();
         let path = dir.path().join("session.json");
         std::fs::write(&path, "{ cut off").unwrap();
         assert_eq!(Session::load_from(&path), Session::default());
@@ -144,7 +144,7 @@ mod tests {
 
     #[test]
     fn a_bad_key_keeps_the_rest_of_the_session() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_dir::TestDir::new();
         let path = dir.path().join("session.json");
         std::fs::write(&path, r#"{"current": {"library": 5}, "positionSec": 9, "queue": "oops"}"#).unwrap();
         let s = Session::load_from(&path);

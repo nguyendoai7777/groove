@@ -65,7 +65,7 @@ mod tests {
 
     #[test]
     fn saved_session_round_trips_without_playing_state() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = groove_core::test_dir::TestDir::new();
         let path = dir.path().join("session.json");
         let mut queue = Queue::with_seed(1);
         queue.play_list(TrackRef::Library(2), vec![TrackRef::Library(1), TrackRef::Library(2), TrackRef::Library(3)]);
@@ -91,7 +91,7 @@ mod tests {
 
     #[test]
     fn only_missing_external_files_are_reported() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = groove_core::test_dir::TestDir::new();
         let there = dir.path().join("a.mp3");
         std::fs::write(&there, b"x").unwrap();
         let gone = TrackRef::from_path(dir.path().join("b.mp3"));

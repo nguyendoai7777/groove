@@ -358,6 +358,7 @@ mod tests {
     use groove_audio::output::FakeOutput;
     use groove_core::cli;
     use groove_core::settings::DEFAULT_KEYBINDINGS;
+    use groove_core::test_dir::TestDir;
     use groove_library::db::migrate::{CoverRecord, CoverSink};
     use groove_library::db::queries::SongUpsert;
     use groove_library::fixtures::{self, AudioKind};
@@ -371,7 +372,6 @@ mod tests {
         Render, div, point, px, size,
     };
     use materiant::overlay::dialog::{Dialog, DialogHandle};
-    use tempfile::TempDir;
 
     use super::*;
     use crate::player::{self, PlayerDeps};
@@ -754,7 +754,7 @@ mod tests {
     /// C10..C13 (S21) — lệnh chữ làm thật: `/queue` thêm cuối, `/play` tìm rồi phát, chọn bài từ kết quả tìm giữ hàng đợi.
     #[gpui::test]
     fn cli_commands_do_real_work(cx: &mut TestAppContext) {
-        let dir = TempDir::new().unwrap();
+        let dir = TestDir::new();
         let config = LibraryConfig { target: dir.path().join("library.db"), legacy: None };
         let library = Library::open(config, no_covers()).unwrap();
         let wav = |name: &str| fixtures::write_sample(dir.path(), name, AudioKind::Wav).unwrap();

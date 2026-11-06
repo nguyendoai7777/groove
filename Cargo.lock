@@ -2658,7 +2658,6 @@ dependencies = [
  "serde",
  "serde_json",
  "souvlaki",
- "tempfile",
  "unicode-normalization",
  "windows-sys 0.61.2",
 ]
@@ -2687,7 +2686,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sys-locale",
- "tempfile",
  "thiserror 2.0.21",
  "toml 1.1.8+spec-1.1.0",
 ]
@@ -2712,7 +2710,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
- "tempfile",
  "thiserror 2.0.21",
  "unicode-normalization",
  "walkdir",

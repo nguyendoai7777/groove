@@ -98,7 +98,7 @@ fn failure(path: &Path, message: impl ToString) -> ScanFailure {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
+    use groove_core::test_dir::TestDir;
 
     fn touch(path: &Path) {
         fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -111,7 +111,7 @@ mod tests {
 
     #[test]
     fn finds_audio_recursively_in_a_stable_order() {
-        let dir = TempDir::new().unwrap();
+        let dir = TestDir::new();
         for name in ["b.mp3", "a/c.FLAC", "a/deep/d.m4a", "e.wav", "f.ogg", "g.m4r"] {
             touch(&dir.path().join(name));
         }
@@ -128,7 +128,7 @@ mod tests {
     #[test]
     fn missing_root_is_a_failure_not_an_empty_folder() {
         // N1: bản cũ nuốt lỗi `read_dir`, nên gốc mất giống hệt gốc rỗng.
-        let dir = TempDir::new().unwrap();
+        let dir = TestDir::new();
         let root = dir.path().join("gone");
         let outcome = scan(&root);
         assert!(outcome.files.is_empty());
@@ -139,7 +139,7 @@ mod tests {
 
     #[test]
     fn a_file_root_is_a_failure() {
-        let dir = TempDir::new().unwrap();
+        let dir = TestDir::new();
         let file = dir.path().join("a.mp3");
         touch(&file);
         assert!(scan(&file).root_failure(&file).is_some());
@@ -147,7 +147,7 @@ mod tests {
 
     #[test]
     fn empty_folder_has_no_failure() {
-        let dir = TempDir::new().unwrap();
+        let dir = TestDir::new();
         assert_eq!(scan(dir.path()), ScanOutcome::default());
     }
 
@@ -170,7 +170,7 @@ mod tests {
     #[test]
     fn a_link_cycle_ends_and_protects_what_is_behind_it() {
         // S26: bản cũ đệ quy theo liên kết, vòng lặp làm tràn stack.
-        let dir = TempDir::new().unwrap();
+        let dir = TestDir::new();
         let root = dir.path().join("root");
         touch(&root.join("a.mp3"));
         let link = root.join("loop");
@@ -188,7 +188,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn a_link_to_a_file_is_indexed() {
-        let dir = TempDir::new().unwrap();
+        let dir = TestDir::new();
         let root = dir.path().join("root");
         let target = dir.path().join("outside.mp3");
         fs::create_dir(&root).unwrap();

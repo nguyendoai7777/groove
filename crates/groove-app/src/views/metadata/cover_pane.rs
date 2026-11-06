@@ -428,7 +428,7 @@ mod tests {
 
     #[test]
     fn reads_a_file_and_reports_what_is_wrong() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = groove_core::test_dir::TestDir::new();
         let good = dir.path().join("cover.png");
         std::fs::write(&good, TINY_PNG).unwrap();
         assert_eq!(read_cover_file(&good).unwrap(), TINY_PNG);

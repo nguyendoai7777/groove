@@ -418,14 +418,14 @@ mod tests {
     use groove_audio::output::FakeOutput;
     use groove_core::model::TrackRef;
     use groove_core::settings::Settings;
+    use groove_core::test_dir::TestDir;
     use groove_library::fixtures::{self, AudioKind};
-    use tempfile::TempDir;
 
     use super::*;
     use crate::player::PlayerDeps;
 
     struct Rig {
-        dir: TempDir,
+        dir: TestDir,
         fake: FakeOutput,
         player: Entity<Player>,
     }
@@ -448,7 +448,7 @@ mod tests {
             install(cx);
             player
         });
-        Rig { dir: TempDir::new().unwrap(), fake, player }
+        Rig { dir: TestDir::new(), fake, player }
     }
 
     impl Rig {

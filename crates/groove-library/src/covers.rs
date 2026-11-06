@@ -268,8 +268,8 @@ fn clamp_brightness([r, g, b]: [f64; 3]) -> [u8; 3] {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use groove_core::test_dir::TestDir;
     use image::{ImageFormat, Rgb, Rgba, RgbaImage};
-    use tempfile::TempDir;
 
     fn encode(image: DynamicImage, format: ImageFormat) -> Vec<u8> {
         let mut bytes = Vec::new();
@@ -287,8 +287,8 @@ mod tests {
         encode(DynamicImage::ImageRgb8(RgbImage::from_pixel(64, 64, Rgb(color))), ImageFormat::Png)
     }
 
-    fn store() -> (TempDir, CoverStore) {
-        let dir = TempDir::new().unwrap();
+    fn store() -> (TestDir, CoverStore) {
+        let dir = TestDir::new();
         let store = CoverStore::new(dir.path().join("cache").join("covers"));
         (dir, store)
     }
@@ -516,7 +516,7 @@ mod tests {
     // C8
     #[test]
     fn reports_a_directory_it_cannot_create() {
-        let dir = TempDir::new().unwrap();
+        let dir = TestDir::new();
         let blocker = dir.path().join("covers");
         fs::write(&blocker, b"a file where the directory should be").unwrap();
         let result = CoverStore::new(&blocker).save(&solid([1, 2, 3]));

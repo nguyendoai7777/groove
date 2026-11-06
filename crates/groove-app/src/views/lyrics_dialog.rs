@@ -310,6 +310,7 @@ mod tests {
     use gpui::{TestAppContext, VisualTestContext, size};
     use groove_audio::engine::EngineOptions;
     use groove_audio::output::FakeOutput;
+    use groove_core::test_dir::TestDir;
     use groove_library::covers::CoverStore;
     use groove_library::db::migrate::CoverRecord;
     use groove_library::fixtures::{self, AudioKind};
@@ -317,7 +318,6 @@ mod tests {
     use groove_library::store::{Library, LibraryConfig};
     use groove_library::tags;
     use materiant::gpui_kit::base::Root;
-    use tempfile::TempDir;
 
     use super::*;
     use crate::player::{Player, PlayerDeps};
@@ -325,7 +325,7 @@ mod tests {
 
     /// Thư mục tạm, DB tạm, `FakeOutput`: không phát tiếng, không chạm DB hay nhạc thật.
     struct Rig {
-        dir: TempDir,
+        dir: TestDir,
         library: Library,
         ops: MetadataOps,
         fake: FakeOutput,
@@ -336,7 +336,7 @@ mod tests {
         // Engine, thư viện, `MetadataOps` chạy luồng thật, đánh thức foreground task từ luồng khác.
         cx.executor().allow_parking();
         groove_core::i18n::set_language(groove_core::i18n::Language::Vi);
-        let dir = TempDir::new().unwrap();
+        let dir = TestDir::new();
         let config = LibraryConfig { target: dir.path().join("library.db"), legacy: None };
         let sink = Box::new(|_: &[u8]| -> anyhow::Result<CoverRecord> { anyhow::bail!("no covers in this test") });
         let library = Library::open(config, sink).unwrap();

@@ -213,9 +213,9 @@ mod tests {
     use groove_audio::engine::EngineOptions;
     use groove_audio::output::FakeOutput;
     use groove_core::model::TrackRef;
+    use groove_core::test_dir::TestDir;
     use groove_library::fixtures::{self, AudioKind};
     use materiant::gpui_kit::Entity;
-    use tempfile::TempDir;
 
     use super::*;
     use crate::player::{Player, PlayerDeps};
@@ -298,7 +298,7 @@ mod tests {
     }
 
     struct Rig {
-        dir: TempDir,
+        dir: TestDir,
         fake: FakeOutput,
         player: Entity<Player>,
         sender: UnboundedSender<OpenRequest>,
@@ -308,7 +308,7 @@ mod tests {
     /// `FakeOutput`, không thư viện, không phiên: không ra loa, không chạm DB thật.
     fn rig(cx: &mut TestAppContext, initial: impl FnOnce(&Path) -> Vec<PathBuf>) -> Rig {
         cx.executor().allow_parking();
-        let dir = TempDir::new().unwrap();
+        let dir = TestDir::new();
         let fake = FakeOutput::new(48_000, 2);
         let deps = PlayerDeps {
             library: None,

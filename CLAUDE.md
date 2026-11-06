@@ -148,6 +148,11 @@ màn không có thì thoát, không rơi về màn mặc định. Xem ảnh xong
 
 ## Bẫy
 
+- **Test cần thư mục dùng `groove_core::test_dir::TestDir`, không `tempfile`** (đã bỏ khỏi workspace): trên Windows SQLite
+  còn mở lúc `TempDir` drop ⇒ xoá thất bại im lặng, mỗi lượt `cargo test` sót ~180 thư mục `.tmp*` trong `%TEMP%` (từng gom
+  37 nghìn thư mục, đăng nhập Windows chậm hẳn). `TestDir::new()` trỏ `target/test-tmp/<crate>/<tệp>-<tên test>[-n]`, cố
+  định giữa các lượt, xoá bản cũ lúc tạo ⇒ số thư mục có trần bằng số test. Crate mới cần nó: dev-dep `groove-core` với
+  feature `test-support`.
 - **Vùng `WindowControlArea` (kéo cửa sổ) không đặt trong view `cached`**: gpui-pre 0.3.10 dùng lại hitbox, listener của view
   `cached` nhưng không chép `window_control_hitboxes`, vùng kéo mất từ khung đầu tiên view được dùng lại (hit-test thành
   `HTCLIENT`). Vùng kéo của thanh trên, header cột trái là khung bọc ở `Shell::render`, vẽ sau phần `cached`.

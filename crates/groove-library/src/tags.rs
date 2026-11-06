@@ -1265,8 +1265,8 @@ mod tests {
 
     const MODES: [WriteMode; 3] = [WriteMode::Clean, WriteMode::CleanKeepKnown, WriteMode::Merge];
 
-    fn tmp() -> tempfile::TempDir {
-        tempfile::tempdir().unwrap()
+    fn tmp() -> groove_core::test_dir::TestDir {
+        groove_core::test_dir::TestDir::new()
     }
 
     fn fields_edit(fields: TagFields) -> MetadataEdit {

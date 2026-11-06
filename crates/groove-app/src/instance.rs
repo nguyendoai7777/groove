@@ -468,7 +468,7 @@ mod sys {
 
         #[test]
         fn same_directory_ignores_case_and_file_name() {
-            let dir = tempfile::tempdir().unwrap();
+            let dir = groove_core::test_dir::TestDir::new();
             let sub = dir.path().join("Sub");
             std::fs::create_dir(&sub).unwrap();
             assert!(same_directory(&sub.join("x.exe"), &dir.path().join("sub").join("y.exe")));
