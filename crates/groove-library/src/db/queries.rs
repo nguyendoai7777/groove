@@ -755,10 +755,10 @@ pub fn remove_song_from_playlist(conn: &Connection, playlist_id: i64, song_id: i
 mod tests {
     use super::*;
     use crate::db::migrate::open_fresh;
-    use tempfile::TempDir;
+    use groove_core::test_dir::TestDir;
 
-    fn db() -> (TempDir, Connection) {
-        let dir = TempDir::new().unwrap();
+    fn db() -> (TestDir, Connection) {
+        let dir = TestDir::new();
         let conn = open_fresh(&dir.path().join("library.db")).unwrap();
         (dir, conn)
     }

@@ -53,7 +53,6 @@ embed-resource = "3"
 [dev-dependencies]
 # Test: `set_language` chỉ có hiệu lực trên luồng gọi, các test chạy song song không giẫm ngôn ngữ của nhau.
 groove-core = { workspace = true, features = ["test-support"] }
-tempfile.workspace = true
 # Test hộp sửa thẻ soi khung ID3 trong tệp sau khi lưu.
 id3 = "1"
 # Test view trong App ảo: `test-support` bật thẳng trên gpui-pre, cùng crate với GPUI của materiant.

@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 
 use futures::channel::mpsc::UnboundedReceiver;
 use groove_core::model::{CategoryRef, TrackRef};
+use groove_core::test_dir::TestDir;
 use groove_library::actor::{LibraryEvent, MovedSong, SyncReport};
 use groove_library::covers::CoverStore;
 use groove_library::db::migrate::{CoverRecord, CoverSink};
@@ -17,10 +18,9 @@ use groove_library::reconcile::{self, MISSING_GRACE_MS, RootState};
 use groove_library::store::{Library, LibraryConfig};
 use groove_library::tags::{self, CoverEdit, FileStamp, MetadataEdit, TagFields, WriteMode};
 use groove_library::watcher::{self, ChangeBatch, LibraryWatcher, WatcherOptions};
-use tempfile::TempDir;
 
 struct Fixture {
-    dir: TempDir,
+    dir: TestDir,
     library: Library,
     indexer: Indexer,
     music: PathBuf,
@@ -31,7 +31,7 @@ fn no_covers() -> Box<dyn CoverSink + Send> {
 }
 
 fn fixture() -> Fixture {
-    let dir = TempDir::new().unwrap();
+    let dir = TestDir::new();
     let music = dir.path().join("Music");
     fs::create_dir_all(&music).unwrap();
     let config = LibraryConfig { target: dir.path().join("library.db"), legacy: None };

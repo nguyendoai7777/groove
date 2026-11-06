@@ -153,7 +153,7 @@ mod tests {
 
     #[test]
     fn rotation_moves_big_file_aside() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_dir::TestDir::new();
         let path = dir.path().join("logs").join("groove.log");
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::write(&path, vec![b'x'; ROTATE_BYTES as usize + 1]).unwrap();

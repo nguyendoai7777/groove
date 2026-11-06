@@ -4,11 +4,11 @@ use std::io::Cursor;
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
+use groove_core::test_dir::TestDir;
 use groove_library::covers::{CoverSize, CoverStore, cover_hash};
 use groove_library::db::migrate::{OpenOutcome, open_or_migrate};
 use image::{DynamicImage, ImageFormat, Rgb, RgbImage};
 use rusqlite::Connection;
-use tempfile::TempDir;
 
 const LEGACY_SCHEMA: &str = "
 CREATE TABLE folders (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, path TEXT UNIQUE NOT NULL,
@@ -30,7 +30,7 @@ CREATE TABLE playlist_songs (playlist_id INTEGER NOT NULL, song_id INTEGER NOT N
 
 #[test]
 fn real_sink_turns_legacy_base64_into_files_and_a_true_accent() {
-    let dir = TempDir::new().unwrap();
+    let dir = TestDir::new();
     let legacy = dir.path().join("groovex.db");
     let target = dir.path().join("Groove X").join("library.db");
     let mut store = CoverStore::new(dir.path().join("cache").join("covers"));

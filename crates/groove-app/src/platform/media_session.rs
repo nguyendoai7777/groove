@@ -384,8 +384,8 @@ mod tests {
     use gpui::{TestAppContext, VisualContext as _};
     use groove_audio::engine::EngineOptions;
     use groove_audio::output::FakeOutput;
+    use groove_core::test_dir::TestDir;
     use groove_library::fixtures::{self, AudioKind};
-    use tempfile::TempDir;
 
     use super::*;
     use crate::player::{PlayerDeps, install_for_test};
@@ -576,7 +576,7 @@ mod tests {
     #[gpui::test]
     fn follows_the_real_player(cx: &mut TestAppContext) {
         cx.executor().allow_parking();
-        let dir = TempDir::new().unwrap();
+        let dir = TestDir::new();
         let deps = PlayerDeps {
             library: None,
             output: Box::new(FakeOutput::new(48_000, 2)),
@@ -629,7 +629,7 @@ mod tests {
     #[gpui::test]
     fn actions_drive_the_player(cx: &mut TestAppContext) {
         cx.executor().allow_parking();
-        let dir = TempDir::new().unwrap();
+        let dir = TestDir::new();
         let deps = PlayerDeps {
             library: None,
             output: Box::new(FakeOutput::new(48_000, 2)),

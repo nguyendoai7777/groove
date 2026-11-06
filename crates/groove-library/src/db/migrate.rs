@@ -501,7 +501,7 @@ mod tests {
 
     #[test]
     fn version_1_upgrades_and_keeps_every_row() {
-        let dir = tempfile::TempDir::new().unwrap();
+        let dir = groove_core::test_dir::TestDir::new();
         let path = dir.path().join("library.db");
         {
             let conn = Connection::open(&path).unwrap();
@@ -530,7 +530,7 @@ mod tests {
 
     #[test]
     fn a_failed_upgrade_leaves_version_1_intact() {
-        let dir = tempfile::TempDir::new().unwrap();
+        let dir = groove_core::test_dir::TestDir::new();
         let path = dir.path().join("library.db");
         {
             let conn = Connection::open(&path).unwrap();

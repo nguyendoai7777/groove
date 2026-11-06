@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use futures::StreamExt;
 use futures::executor::block_on;
 use groove_core::model::{CategoryRef, TrackRef};
+use groove_core::test_dir::TestDir;
 use groove_library::actor::{LibraryEvent, ProgressKind};
 use groove_library::covers::{CoverStore, cover_hash};
 use groove_library::db::migrate::CoverRecord;
@@ -16,19 +17,18 @@ use groove_library::indexer::{TrackRow, apply_scanned_track};
 use groove_library::metadata_ops::{FileNameError, GroupEdit, MetadataError, MetadataOps};
 use groove_library::store::{Library, LibraryConfig};
 use groove_library::tags::{self, CoverEdit, FileStamp, MetadataEdit, TagError, TagFields, WriteMode};
-use tempfile::TempDir;
 
 const ALL_KINDS: [AudioKind; 6] =
     [AudioKind::Mp3, AudioKind::Flac, AudioKind::Wav, AudioKind::M4a, AudioKind::M4r, AudioKind::Ogg];
 
 struct Env {
-    dir: TempDir,
+    dir: TestDir,
     library: Library,
     ops: MetadataOps,
 }
 
 fn env() -> Env {
-    let dir = TempDir::new().unwrap();
+    let dir = TestDir::new();
     let config = LibraryConfig { target: dir.path().join("data").join("library.db"), legacy: None };
     let sink = Box::new(|_: &[u8]| -> anyhow::Result<CoverRecord> { anyhow::bail!("no legacy covers") });
     let library = Library::open(config, sink).unwrap();

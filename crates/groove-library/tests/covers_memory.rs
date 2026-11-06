@@ -4,9 +4,9 @@ use std::alloc::{GlobalAlloc, Layout, System};
 use std::io::Cursor;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use groove_core::test_dir::TestDir;
 use groove_library::covers::{CoverSize, CoverStore};
 use image::{DynamicImage, ImageFormat, Rgb, RgbImage};
-use tempfile::TempDir;
 
 struct Counting;
 
@@ -40,7 +40,7 @@ fn large_cover_costs_about_one_decode_and_is_released() {
     let mut jpeg = Vec::new();
     DynamicImage::ImageRgb8(image).write_to(&mut Cursor::new(&mut jpeg), ImageFormat::Jpeg).unwrap();
 
-    let dir = TempDir::new().unwrap();
+    let dir = TestDir::new();
     let store = CoverStore::new(dir.path().join("covers"));
 
     let before = CURRENT.load(Ordering::Relaxed);

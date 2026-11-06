@@ -494,7 +494,7 @@ impl Drop for JsonSaver {
 mod tests {
     use super::*;
 
-    fn temp_file(dir: &tempfile::TempDir) -> PathBuf {
+    fn temp_file(dir: &crate::test_dir::TestDir) -> PathBuf {
         dir.path().join("nested").join("settings.json")
     }
 
@@ -531,7 +531,7 @@ mod tests {
 
     #[test]
     fn volume_before_mute_survives_a_restart_and_old_files_lack_it() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_dir::TestDir::new();
         let path = temp_file(&dir);
         let s = Settings { volume: 0, is_muted: true, volume_before_mute: Some(64), ..Settings::default() };
         s.save_to(&path).unwrap();
@@ -544,7 +544,7 @@ mod tests {
 
     #[test]
     fn missing_file_gives_defaults_and_leaves_nothing_behind() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_dir::TestDir::new();
         let path = temp_file(&dir);
         assert_eq!(Settings::load_from(&path), Settings::default());
         assert!(!path.exists());
@@ -552,7 +552,7 @@ mod tests {
 
     #[test]
     fn round_trip_keeps_every_field() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_dir::TestDir::new();
         let path = temp_file(&dir);
         let mut s = Settings { language: Some(Language::Vi), volume: 40, is_muted: true, ..Settings::default() };
         s.theme = ThemeChoice::System;
@@ -598,7 +598,7 @@ mod tests {
 
     #[test]
     fn old_black_pink_key_becomes_deeppink() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_dir::TestDir::new();
         let path = temp_file(&dir);
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(&path, r#"{"themePreset": "black-pink", "theme": "system"}"#).unwrap();
@@ -608,7 +608,7 @@ mod tests {
 
     #[test]
     fn missing_keys_take_their_defaults() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_dir::TestDir::new();
         let path = temp_file(&dir);
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(&path, r#"{"volume": 30, "somethingFromTheFuture": 1}"#).unwrap();
@@ -620,7 +620,7 @@ mod tests {
 
     #[test]
     fn a_wrongly_typed_key_only_loses_that_key() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_dir::TestDir::new();
         let path = temp_file(&dir);
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(&path, r#"{"volume": "loud", "theme": "sepia", "seekStep": 9}"#).unwrap();
@@ -633,7 +633,7 @@ mod tests {
     #[test]
     fn corrupt_file_gives_defaults_and_is_kept_aside() {
         for corrupt in ["{ not json", "[1, 2]", ""] {
-            let dir = tempfile::tempdir().unwrap();
+            let dir = crate::test_dir::TestDir::new();
             let path = temp_file(&dir);
             std::fs::create_dir_all(path.parent().unwrap()).unwrap();
             std::fs::write(&path, corrupt).unwrap();
@@ -645,7 +645,7 @@ mod tests {
 
     #[test]
     fn out_of_range_values_are_pulled_back() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_dir::TestDir::new();
         let path = temp_file(&dir);
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(
@@ -662,7 +662,7 @@ mod tests {
 
     #[test]
     fn saving_leaves_no_temp_files_and_replaces_the_old_file() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_dir::TestDir::new();
         let path = temp_file(&dir);
         Settings::default().save_to(&path).unwrap();
         Settings { volume: 1, ..Settings::default() }.save_to(&path).unwrap();
@@ -764,7 +764,7 @@ mod tests {
 
     #[test]
     fn saver_coalesces_writes_and_keeps_the_latest() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_dir::TestDir::new();
         let path = temp_file(&dir);
         let saver = JsonSaver::spawn(path.clone(), Duration::from_secs(3600)).unwrap();
         for volume in 1..=5 {
@@ -777,7 +777,7 @@ mod tests {
 
     #[test]
     fn saver_writes_after_the_debounce() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_dir::TestDir::new();
         let path = temp_file(&dir);
         let saver = JsonSaver::spawn(path.clone(), Duration::from_millis(10)).unwrap();
         saver.save(&Settings { volume: 9, ..Settings::default() });
@@ -790,7 +790,7 @@ mod tests {
 
     #[test]
     fn dropping_the_saver_writes_what_is_pending() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_dir::TestDir::new();
         let path = temp_file(&dir);
         let saver = JsonSaver::spawn(path.clone(), Duration::from_secs(3600)).unwrap();
         saver.save(&Settings { volume: 11, ..Settings::default() });

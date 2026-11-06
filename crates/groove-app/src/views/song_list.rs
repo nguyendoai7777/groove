@@ -740,9 +740,9 @@ mod tests {
     use ::gpui::{Modifiers, MouseButton, TestAppContext, VisualTestContext};
     use groove_audio::engine::EngineOptions;
     use groove_audio::output::FakeOutput;
+    use groove_core::test_dir::TestDir;
     use groove_library::db::queries::{self, SongUpsert};
     use groove_library::store::LibraryConfig;
-    use tempfile::TempDir;
 
     use super::*;
     use crate::player::PlayerDeps;
@@ -813,13 +813,13 @@ mod tests {
     // ---- Test view trong App ảo: thư viện thật ở thư mục tạm, `FakeOutput` (không ra loa, không chạm DB người dùng) ----
 
     struct Env {
-        _dir: TempDir,
+        _dir: TestDir,
         library: Library,
         covers: CoverStore,
     }
 
     fn env() -> Env {
-        let dir = TempDir::new().unwrap();
+        let dir = TestDir::new();
         let config = LibraryConfig { target: dir.path().join("library.db"), legacy: None };
         let covers = CoverStore::new(dir.path().join("covers"));
         let library = Library::open(config, Box::new(CoverStore::new(dir.path().join("covers")))).unwrap();

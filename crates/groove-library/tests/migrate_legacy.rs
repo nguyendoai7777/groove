@@ -4,12 +4,12 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::bail;
+use groove_core::test_dir::TestDir;
 use groove_library::db::migrate::{
     CoverRecord, CoverSink, MigrateError, OpenOutcome, migrate_legacy, open_fresh, open_or_migrate,
 };
 use groove_library::db::schema;
 use rusqlite::{Connection, params};
-use tempfile::TempDir;
 
 /// Ảnh giả: `data:` trỏ tới byte 1, 2, 3 và 4, 5, 6.
 const COVER_A: &str = "data:image/png;base64,AQID";
@@ -35,14 +35,14 @@ CREATE TABLE playlist_songs (playlist_id INTEGER NOT NULL, song_id INTEGER NOT N
 ";
 
 struct Fixture {
-    _dir: TempDir,
+    _dir: TestDir,
     legacy: PathBuf,
     target: PathBuf,
 }
 
 impl Fixture {
     fn empty() -> Self {
-        let dir = TempDir::new().unwrap();
+        let dir = TestDir::new();
         let legacy = dir.path().join("com.mrdxd.groovex").join("groovex.db");
         fs::create_dir_all(legacy.parent().unwrap()).unwrap();
         let target = dir.path().join("Groove X").join("library.db");
@@ -465,7 +465,7 @@ fn creates_a_new_library_when_there_is_no_legacy_file() {
     drop(conn);
 
     // Tệp rỗng cũng là chưa có gì.
-    let empty = TempDir::new().unwrap();
+    let empty = TestDir::new();
     let path = empty.path().join("library.db");
     fs::write(&path, b"").unwrap();
     let (conn, outcome) = open_or_migrate(&path, None, &mut no_covers).unwrap();
@@ -485,7 +485,7 @@ fn migrated_and_new_libraries_have_the_same_schema() {
             conn.prepare("SELECT name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY name").unwrap();
         stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect()
     };
-    let dir = TempDir::new().unwrap();
+    let dir = TestDir::new();
     let fresh = open_fresh(&dir.path().join("library.db")).unwrap();
     assert_eq!(dump(&migrated), dump(&fresh));
 }

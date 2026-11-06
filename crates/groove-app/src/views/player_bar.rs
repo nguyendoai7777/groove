@@ -657,9 +657,9 @@ mod tests {
     use gpui::{Modifiers, MouseButton, TestAppContext, VisualTestContext, point, size};
     use groove_audio::engine::EngineOptions;
     use groove_audio::output::FakeOutput;
+    use groove_core::test_dir::TestDir;
     use groove_library::fixtures::{self, AudioKind};
     use materiant::gpui_kit::base::Root;
-    use tempfile::TempDir;
 
     use super::*;
     use crate::player::PlayerDeps;
@@ -721,7 +721,7 @@ mod tests {
     }
 
     struct Rig {
-        dir: TempDir,
+        dir: TestDir,
         fake: FakeOutput,
         player: Entity<Player>,
     }
@@ -742,7 +742,7 @@ mod tests {
             cx.set_global(TestPrefs(70, false));
             player::install_for_test(deps, cx)
         });
-        Rig { dir: TempDir::new().unwrap(), fake, player }
+        Rig { dir: TestDir::new(), fake, player }
     }
 
     impl Rig {

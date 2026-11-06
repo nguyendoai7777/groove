@@ -9,6 +9,7 @@ use futures::StreamExt;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::executor::block_on;
 use groove_core::model::{CategoryRef, TrackRef};
+use groove_core::test_dir::TestDir;
 use groove_library::actor::{LibraryEvent, Progress, ProgressKind, SyncReport};
 use groove_library::covers::CoverStore;
 use groove_library::db::migrate::{CoverRecord, CoverSink};
@@ -18,10 +19,9 @@ use groove_library::indexer::{IndexError, Indexer};
 use groove_library::store::{Library, LibraryConfig};
 use groove_library::tags::{self, CoverEdit, MetadataEdit, TagFields, WriteMode};
 use id3::TagLike;
-use tempfile::TempDir;
 
 struct Fixture {
-    dir: TempDir,
+    dir: TestDir,
     library: Library,
     indexer: Indexer,
     music: PathBuf,
@@ -33,7 +33,7 @@ fn no_covers() -> Box<dyn CoverSink + Send> {
 }
 
 fn fixture() -> Fixture {
-    let dir = TempDir::new().unwrap();
+    let dir = TestDir::new();
     let music = dir.path().join("Music");
     let covers = dir.path().join("covers");
     fs::create_dir_all(&music).unwrap();
