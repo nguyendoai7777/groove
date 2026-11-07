@@ -825,10 +825,17 @@ mod tests {
                 data.extend_from_slice(&sample);
             }
             let id = NEXT_FILE.fetch_add(1, Ordering::Relaxed);
-            let path = std::env::temp_dir().join(format!("groove-audio-{}-{id}.wav", std::process::id()));
+            let path = scratch(&format!("wav-{id}.wav"));
             std::fs::write(&path, data).unwrap();
             Self(path)
         }
+    }
+
+    /// Tệp thử trong `target/test-tmp/groove-audio/engine` — tên theo bộ đếm, mỗi lượt ghi đè cùng một bộ, không rải vào `%TEMP%`.
+    fn scratch(name: &str) -> PathBuf {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/test-tmp/groove-audio/engine");
+        std::fs::create_dir_all(&dir).unwrap();
+        dir.join(name)
     }
 
     impl Drop for TempWav {
@@ -1238,7 +1245,7 @@ mod tests {
 
     #[test]
     fn bad_files_become_errors_and_engine_keeps_working() {
-        let garbage = std::env::temp_dir().join(format!("groove-audio-bad-{}.mp3", std::process::id()));
+        let garbage = scratch("bad.mp3");
         std::fs::write(&garbage, vec![0x11u8; 8192]).unwrap();
         let wav = TempWav::new(RATE, 2400);
         let mut rig = rig();

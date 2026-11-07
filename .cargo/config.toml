@@ -1,0 +1,7 @@
+# Thư mục tạm của mọi tiến trình cargo (test, `cargo run` lúc dev, build script, trình link) nằm trong repo, không phải %TEMP%:
+# test và chạy thử từng rải hàng trăm thư mục `.tmp*` (SQLite còn mở lúc dọn ⇒ xoá thất bại im lặng) vào %TEMP%, đăng nhập
+# Windows chậm vì quét chúng. `.cargo/tmp` luôn có sẵn (`.gitignore` bên trong được commit), `clean.*` dọn nó.
+# Chỉ TMP / TEMP (Windows): Unix giữ TMPDIR vì socket IPC trong đó có trần độ dài đường dẫn (104 byte trên macOS).
+[env]
+TMP = { value = ".cargo/tmp", relative = true, force = true }
+TEMP = { value = ".cargo/tmp", relative = true, force = true }

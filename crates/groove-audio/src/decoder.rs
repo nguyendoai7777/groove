@@ -515,7 +515,8 @@ mod tests {
         data.extend_from_slice(b"data");
         data.extend_from_slice(&400u32.to_le_bytes());
         data.extend_from_slice(&[1u8; 400]);
-        let path = std::env::temp_dir().join(format!("groove-audio-id3-{}.wav", std::process::id()));
+        let dir = groove_core::test_dir::TestDir::new();
+        let path = dir.path().join("id3.wav");
         std::fs::write(&path, data).unwrap();
         let mut file = File::open(&path).unwrap();
         assert_eq!(id3_prefix_len(&mut file), 60);
@@ -525,19 +526,17 @@ mod tests {
             d.next_frames(&mut out).map(|_| out.len())
         });
         drop(file);
-        std::fs::remove_file(&path).unwrap();
         assert_eq!(frames, Ok(Ok(200)));
     }
 
     #[test]
     fn missing_and_garbage_files_are_errors() {
-        let dir = std::env::temp_dir();
-        let missing = dir.join("groove-audio-does-not-exist.mp3");
+        let dir = groove_core::test_dir::TestDir::new();
+        let missing = dir.path().join("does-not-exist.mp3");
         assert_eq!(TrackDecoder::open(&missing).err(), Some(AudioErrorKind::NotFound));
-        let garbage = dir.join(format!("groove-audio-garbage-{}.mp3", std::process::id()));
+        let garbage = dir.path().join("garbage.mp3");
         std::fs::write(&garbage, vec![0x5Au8; 4096]).unwrap();
         let result = TrackDecoder::open(&garbage).err();
-        std::fs::remove_file(&garbage).unwrap();
         assert_eq!(result, Some(AudioErrorKind::Unsupported));
     }
 }

@@ -31,3 +31,6 @@ linux-alsa = ["dep:cpal"]
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+groove-core = { workspace = true, features = ["test-support"] }

@@ -14,7 +14,7 @@
 param(
   [string]$Keys = '',
   [string]$Display = 'secondary',
-  [string]$Out = (Join-Path $env:TEMP 'groove-run'),
+  [string]$Out = (Join-Path $PSScriptRoot '..\target\run'),
   [string]$Exe = '',
   [int]$SettleMs = 1500
 )
