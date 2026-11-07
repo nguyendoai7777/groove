@@ -132,7 +132,9 @@ function Get-ShortcutAumid([string] $Path) {
 }
 
 $before = Snapshot
-$dir = Join-Path ([IO.Path]::GetTempPath()) "groove-e2e-$([guid]::NewGuid().ToString('N'))"
+# Thư mục cài thử cố định trong target/ của repo (không rải GUID vào %TEMP%); lượt trước còn sót thì xoá.
+$dir = Join-Path $PSScriptRoot '../../target/installer-e2e'
+Remove-Item -Recurse -Force -LiteralPath $dir -ErrorAction SilentlyContinue
 $installed = Join-Path $dir 'Groovex'
 $failed = $false
 try {

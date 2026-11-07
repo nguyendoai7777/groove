@@ -60,7 +60,8 @@ try {
     cargo deny --log-level error check licenses
     if ($LASTEXITCODE -ne 0) { throw "cargo deny check licenses failed (exit $LASTEXITCODE)" }
 
-    $raw = Join-Path ([IO.Path]::GetTempPath()) "groove-licenses-$([guid]::NewGuid().ToString('N')).html"
+    $raw = Join-Path $repo 'target/licenses-raw.html'
+    New-Item -ItemType Directory -Force (Split-Path $raw) | Out-Null
     try {
         cargo about generate --frozen --workspace --config (Join-Path $dir 'about.toml') --output-file $raw (Join-Path $dir 'template.hbs')
         if ($LASTEXITCODE -ne 0) { throw "cargo about failed (exit $LASTEXITCODE)" }

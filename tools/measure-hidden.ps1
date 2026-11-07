@@ -172,13 +172,19 @@ public static class HiddenDesktop {
 '@
 
 $exe = (Resolve-Path $Exe).Path
-$data = Join-Path ([IO.Path]::GetTempPath()) ("groove-hidden-" + [guid]::NewGuid().ToString("N"))
+# Dữ liệu tạm cố định cạnh exe (`<target>/hidden-data`), dùng lại mọi lượt: xoá sạch lúc đầu lượt, không rải thư mục GUID vào
+# %TEMP% (SQLite còn mở lúc dọn ⇒ xoá thất bại im lặng, thư mục sót gom lại làm đăng nhập Windows chậm).
+$data = Join-Path (Split-Path (Split-Path $exe)) "hidden-data"
+for ($i = 0; (Test-Path $data) -and $i -lt 40; $i++) {
+    Remove-Item -Recurse -Force $data -ErrorAction SilentlyContinue
+    if (Test-Path $data) { Start-Sleep -Milliseconds 100 }
+}
+if (Test-Path $data) { throw "$data is still in use (another groove from a previous run?)" }
 New-Item -ItemType Directory -Force $data | Out-Null
 
 # Bản phát hành thật bỏ qua GROOVE_DATA_DIR, trình biên dịch bỏ luôn chuỗi này khỏi exe: không có chuỗi là từ chối, trước khi chạy.
 $bytes = [Text.Encoding]::Latin1.GetString([IO.File]::ReadAllBytes($exe))
 if ($bytes.IndexOf("GROOVE_DATA_DIR", [StringComparison]::Ordinal) -lt 0) {
-    Remove-Item -Recurse -Force $data
     throw "$exe does not honour GROOVE_DATA_DIR and would open the real library. Build with debug assertions."
 }
 Remove-Variable bytes
@@ -322,5 +328,4 @@ try {
     } else {
         "data_dir_used=False (exe không có debug assertions: có thể đã mở dữ liệu thật, đừng dùng exe này)"
     }
-    Remove-Item -Recurse -Force $data -ErrorAction SilentlyContinue
 }
