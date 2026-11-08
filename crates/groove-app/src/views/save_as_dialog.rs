@@ -31,6 +31,7 @@ use materiant::gpui_kit::{
 use materiant::overlay::dialog::{Dialog, DialogHandle};
 use materiant::progress::ProgressBar;
 use materiant::radio::{RadioGroup, RadioItem};
+use materiant::scroll::ScrollArea;
 use materiant::slider::Slider;
 use materiant::theme::ActiveTheme;
 use materiant::toast::{Toast, ToastKind, ToastSpec};
@@ -38,7 +39,12 @@ use materiant::toast::{Toast, ToastKind, ToastSpec};
 use crate::library_ctl;
 
 const DIALOG_WIDTH: f32 = 560.;
-const TIME_FIELD_WIDTH: f32 = 96.;
+const TIME_FIELD_WIDTH: f32 = 88.;
+/// Cột nhãn Bắt đầu / Kết thúc.
+const TIME_LABEL_WIDTH: f32 = 72.;
+/// Đệm thân hộp khi tự cuộn (`flush_body`, D-16): như hộp metadata.
+const BODY_PADDING_X: f32 = 24.;
+const BODY_PADDING_Y: f32 = 16.;
 /// Nhịp đọc tiến độ của luồng xuất.
 const POLL: Duration = Duration::from_millis(100);
 /// Bước của thanh trượt (giây).
@@ -168,14 +174,13 @@ impl SaveAsDialog {
         let time_field = |id: &'static str, label: &'static str, end: bool, window: &mut Window, cx: &mut App| {
             let this = this.clone();
             cx.new(|cx| {
-                TextField::new(id, window, cx)
-                    .label(label)
-                    .label_weight(FontWeight::NORMAL)
-                    .placeholder(t!("save_as.time_hint"))
-                    .on_change(move |value: &SharedString, _, cx| {
-                        let value = value.to_string();
-                        this.update(cx, |this, cx| this.typed_time(end, &value, cx)).ok();
-                    })
+                let mut field = TextField::new(id, window, cx).placeholder(t!("save_as.time_hint"));
+                // Nhãn nằm bên trái ô (hàng gọn); trình đọc màn hình vẫn có tên.
+                field.set_accessibility_label(label, cx);
+                field.on_change(move |value: &SharedString, _, cx| {
+                    let value = value.to_string();
+                    this.update(cx, |this, cx| this.typed_time(end, &value, cx)).ok();
+                })
             })
         };
         let start_field = time_field("save-as-start", t!("save_as.start"), false, window, cx);
@@ -467,8 +472,13 @@ impl SaveAsDialog {
         let time_row = |id: &'static str, field: &Entity<TextField>, value: f64, end: bool| {
             div()
                 .flex()
-                .items_end()
+                .items_center()
                 .gap_3()
+                .child(div().w(px(TIME_LABEL_WIDTH)).flex_none().text_sm().text_color(c.muted).child(if end {
+                    t!("save_as.end")
+                } else {
+                    t!("save_as.start")
+                }))
                 .child(div().w(px(TIME_FIELD_WIDTH)).flex_none().child(field.clone()))
                 .child(
                     Slider::new(id)
@@ -649,6 +659,8 @@ impl Render for SaveAsDialog {
                 .title_weight(FontWeight::NORMAL)
                 .max_width(px(DIALOG_WIDTH))
                 .divided(true)
+                // Cửa sổ thấp (800 × 600): thân hộp cuộn, vùng cuộn chạm mép hộp (D-16), hàng nút luôn thấy.
+                .flush_body(true)
                 // Đang lưu: chỉ nút Huỷ đóng được (huỷ lượt xuất).
                 .close_on_escape(!busy)
                 .close_on_backdrop(!busy)
@@ -664,7 +676,16 @@ impl Render for SaveAsDialog {
                         .on_click(cx.listener(|this, _: &ClickEvent, window, cx| this.save(window, cx)))
                         .into_any_element(),
                 ])
-                .child(body),
+                .child(
+                    div().id("save-as-body").flex().flex_shrink(1.).min_h_0().child(
+                        ScrollArea::new("save-as-scroll")
+                            .vertical()
+                            .flex_1()
+                            .min_w_0()
+                            .padding_x(px(BODY_PADDING_X))
+                            .child(div().py(px(BODY_PADDING_Y)).child(body)),
+                    ),
+                ),
         )
     }
 }
