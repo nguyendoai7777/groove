@@ -34,7 +34,7 @@
 ## 2. Không làm trong task này
 
 - Nghe thử đoạn chọn (cần một engine phát thứ hai hoặc chiếm hàng đợi — mục 10).
-- Thanh hai núm trong materiant (dùng hai `Slider`).
+- ~~Thanh hai núm trong materiant (dùng hai `Slider`).~~ Đã làm sau khi xong, mục 9 "Sửa theo chủ dự án".
 
 ## 6. Nghiệm thu
 
@@ -84,9 +84,16 @@
   bố cục đúng, chữ một độ đậm, màu nhấn từ theme. Dòng `ERROR … RefCell already borrowed` lúc khởi động có cả ở bản master 04/11, không
   do task này.
 
+- **Sửa theo chủ dự án (08/11/2026)**: bỏ hai hàng Bắt đầu / Kết thúc (ô + `Slider`), thay bằng `materiant::slider::RangeSlider`
+  (mới, hai núm) cộng hai ô `m:ss` bên dưới, độ dài dồn phải. Kéo một núm thì chỉ ghi lại ô của núm đó. Bỏ dòng "Cắt không mã hoá
+  lại…" / "Mã hoá lại…" dưới nhóm định dạng; dòng lý do của định dạng bị khoá vẫn còn. `Method::is_lossless_cut` hết chỗ dùng nên
+  gỡ; khoá i18n `note.copy`, `note.encode` đã gỡ, thêm `range`. Cùng lượt sửa GPUI vá của materiant: khung devtool mở thì
+  `viewport_size` của app không gồm khung, nên hộp thoại co vào phần còn lại, không đè devtool (chụp ở desktop ẩn: devtool ghim dưới,
+  hộp cuộn trong 360 px còn lại).
+
 ## 10. Đề xuất cải tiến
 
 - Nút nghe thử đoạn chọn: engine phát thứ hai dùng chung thiết bị, hoặc tạm dừng bài đang phát rồi trả lại vị trí cũ.
-- Slider hai núm trong materiant (`RangeSlider`) thay hai thanh trượt.
+- ~~Slider hai núm trong materiant (`RangeSlider`) thay hai thanh trượt.~~ Đã làm (mục 9).
 - Dạng sóng (waveform) dưới thanh đoạn để chọn mép theo âm lượng.
 - Nhớ định dạng / "thêm vào thư viện" lần trước trong `settings.json`.

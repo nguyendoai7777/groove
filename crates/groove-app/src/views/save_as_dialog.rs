@@ -1,7 +1,7 @@
 //! groove-gd2_03: hộp "Save as new" — cắt một bài ra tệp mới (chủ dự án 08/11/2026: "cắt nhanh theo duration và export nhiều
 //! loại định dạng như: current, mp3, m4r").
 //!
-//! Điểm đầu / cuối: ô `m:ss` + thanh trượt, thanh đoạn đã chọn nằm dưới. Định dạng: `groove_audio::export::plan` cho biết cách
+//! Điểm đầu / cuối: thanh trượt hai núm (`RangeSlider`, chủ dự án 08/11/2026) + hai ô `m:ss` bên dưới. Định dạng: `groove_audio::export::plan` cho biết cách
 //! làm (cắt không mã lại / mã lại) hoặc vì sao khoá (OS chưa có bộ mã hoá, D-2). Mặc định lưu cạnh tệp gốc, tên
 //! `<gốc> (cut)` không trùng tệp có sẵn; "Chọn…" mở hộp lưu của OS. Xuất chạy ở luồng riêng (`ExportJob`, N7), có tiến độ và
 //! huỷ; xong thì toast, tuỳ chọn thêm bài mới vào thư viện (`LibraryCtl::add_file`).
@@ -14,7 +14,7 @@ use std::time::Duration;
 
 use groove_audio::decoder::TrackDecoder;
 use groove_audio::export::{
-    self, ExportError, ExportFormat, ExportJob, ExportRequest, MIN_CLIP_SEC, Method, RINGTONE_MAX_SEC, Unavailable,
+    self, ExportError, ExportFormat, ExportJob, ExportRequest, MIN_CLIP_SEC, RINGTONE_MAX_SEC, Unavailable,
 };
 use groove_core::model::{Song, TrackRef};
 use groove_core::t;
@@ -26,13 +26,13 @@ use materiant::gpui_kit::base::Disableable;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
     AnyElement, App, ClickEvent, Context, Entity, FontWeight, IntoElement, ParentElement, Render, SharedString, Styled,
-    Task, Window, div, px, relative,
+    Task, Window, div, px,
 };
 use materiant::overlay::dialog::{Dialog, DialogHandle};
 use materiant::progress::ProgressBar;
 use materiant::radio::{RadioGroup, RadioItem};
 use materiant::scroll::ScrollArea;
-use materiant::slider::Slider;
+use materiant::slider::RangeSlider;
 use materiant::theme::ActiveTheme;
 use materiant::toast::{Toast, ToastKind, ToastSpec};
 
@@ -40,8 +40,6 @@ use crate::library_ctl;
 
 const DIALOG_WIDTH: f32 = 560.;
 const TIME_FIELD_WIDTH: f32 = 88.;
-/// Cột nhãn Bắt đầu / Kết thúc.
-const TIME_LABEL_WIDTH: f32 = 72.;
 /// Đệm thân hộp khi tự cuộn (`flush_body`, D-16): như hộp metadata.
 const BODY_PADDING_X: f32 = 24.;
 const BODY_PADDING_Y: f32 = 16.;
@@ -115,12 +113,11 @@ pub fn error_text(err: ExportError) -> &'static str {
     }
 }
 
-fn plan_note(plan: Result<Method, Unavailable>) -> &'static str {
-    match plan {
-        Ok(method) if method.is_lossless_cut() => t!("save_as.note.copy"),
-        Ok(_) => t!("save_as.note.encode"),
-        Err(Unavailable::NoEncoderOnThisOs) => t!("save_as.note.no_encoder_os"),
-        Err(Unavailable::NoEncoderForSource) => t!("save_as.note.no_encoder_source"),
+/// Lý do một định dạng bị khoá (dòng dưới nhóm định dạng).
+fn locked_reason(reason: Unavailable) -> &'static str {
+    match reason {
+        Unavailable::NoEncoderOnThisOs => t!("save_as.note.no_encoder_os"),
+        Unavailable::NoEncoderForSource => t!("save_as.note.no_encoder_source"),
     }
 }
 
@@ -315,19 +312,18 @@ impl SaveAsDialog {
         cx.notify();
     }
 
-    fn slid(&mut self, end: bool, value: f32, window: &mut Window, cx: &mut Context<Self>) {
-        let value = f64::from(value);
-        let field = if end {
-            self.end = value;
-            self.end_field.clone()
-        } else {
-            self.start = value;
-            self.start_field.clone()
-        };
-        field.update(cx, |f, cx| {
-            f.set_value(format_time(value), window, cx);
-            f.set_error(None, cx);
-        });
+    /// Kéo thanh hai núm: chỉ ghi lại ô của đầu vừa đổi (ô kia có thể đang gõ dở).
+    fn slid(&mut self, (start, end): (f32, f32), window: &mut Window, cx: &mut Context<Self>) {
+        let (start, end) = (f64::from(start), f64::from(end));
+        let changed =
+            [(start != self.start, start, self.start_field.clone()), (end != self.end, end, self.end_field.clone())];
+        (self.start, self.end) = (start, end);
+        for (_, value, field) in changed.into_iter().filter(|(changed, ..)| *changed) {
+            field.update(cx, |f, cx| {
+                f.set_value(format_time(value), window, cx);
+                f.set_error(None, cx);
+            });
+        }
         cx.notify();
     }
 
@@ -469,42 +465,14 @@ impl SaveAsDialog {
         };
         let busy = self.busy();
         let duration = source.duration.max(MIN_CLIP_SEC) as f32;
-        let time_row = |id: &'static str, field: &Entity<TextField>, value: f64, end: bool| {
-            div()
-                .flex()
-                .items_center()
-                .gap_3()
-                .child(div().w(px(TIME_LABEL_WIDTH)).flex_none().text_sm().text_color(c.muted).child(if end {
-                    t!("save_as.end")
-                } else {
-                    t!("save_as.start")
-                }))
-                .child(div().w(px(TIME_FIELD_WIDTH)).flex_none().child(field.clone()))
-                .child(
-                    Slider::new(id)
-                        .min(0.)
-                        .max(duration)
-                        .step(SLIDER_STEP)
-                        .value(value as f32)
-                        .disabled(busy)
-                        .accessibility_label(if end { t!("save_as.end") } else { t!("save_as.start") })
-                        .on_change(cx.listener(move |this, v: &f32, window, cx| this.slid(end, *v, window, cx)))
-                        .flex_1(),
-                )
-        };
-        let (a, b) = ((self.start / source.duration).clamp(0.0, 1.0), (self.end / source.duration).clamp(0.0, 1.0));
-        let range_bar =
-            div().relative().h(px(6.)).w_full().rounded_full().bg(c.border).overflow_hidden().when(b > a, |bar| {
-                bar.child(
-                    div()
-                        .absolute()
-                        .top_0()
-                        .bottom_0()
-                        .left(relative(a as f32))
-                        .w(relative((b - a) as f32))
-                        .bg(c.primary),
-                )
-            });
+        let range = RangeSlider::new("save-as-range")
+            .min(0.)
+            .max(duration)
+            .step(SLIDER_STEP)
+            .value(self.start as f32, self.end as f32)
+            .disabled(busy)
+            .accessibility_label(t!("save_as.range"))
+            .on_change(cx.listener(|this, value: &(f32, f32), window, cx| this.slid(*value, window, cx)));
         let length = (self.end - self.start).max(0.0);
         let range_note = match range_error(Some(self.start), Some(self.end), source.duration) {
             Some(err) => div().text_sm().text_color(c.danger).child(err),
@@ -525,13 +493,12 @@ impl SaveAsDialog {
             RadioItem::new(label).disabled(busy || plan.is_err())
         });
         let selected = self.format.and_then(|f| ExportFormat::ALL.iter().position(|x| *x == f));
-        let selected_note = selected.map(|ix| plan_note(plans[ix]));
         let locked: Vec<AnyElement> = ExportFormat::ALL
             .iter()
             .zip(&plans)
             .filter_map(|(format, plan)| {
-                let reason = plan_note(*plan);
-                plan.is_err().then(|| {
+                plan.err().map(|reason| {
+                    let reason = locked_reason(reason);
                     let name = match format {
                         ExportFormat::Current => current_ext.clone(),
                         ExportFormat::Mp3 => "MP3".to_owned(),
@@ -552,7 +519,6 @@ impl SaveAsDialog {
                     cx.notify();
                 },
             )))
-            .children(selected_note.map(|note| div().text_sm().text_color(c.muted).child(note)))
             .children(locked);
 
         let ext = self.format.map(|f| export::extension(&source.path, f)).unwrap_or_default();
@@ -613,10 +579,17 @@ impl SaveAsDialog {
                     .flex()
                     .flex_col()
                     .gap_2()
-                    .child(time_row("save-as-start-slider", &self.start_field, self.start, false))
-                    .child(time_row("save-as-end-slider", &self.end_field, self.end, true))
-                    .child(range_bar)
-                    .child(range_note)
+                    .child(range)
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap_3()
+                            .child(div().w(px(TIME_FIELD_WIDTH)).flex_none().child(self.start_field.clone()))
+                            .child(div().w(px(TIME_FIELD_WIDTH)).flex_none().child(self.end_field.clone()))
+                            // Độ dài (hoặc lỗi của đoạn) dồn sang phải.
+                            .child(div().flex_1().min_w_0().flex().justify_end().child(range_note)),
+                    )
                     .children(ringtone_warning),
             )
             .child(formats)

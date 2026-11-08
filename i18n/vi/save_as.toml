@@ -6,6 +6,7 @@ loading = "Đang đọc bài…"
 unreadable = "Không đọc được bài này."
 start = "Bắt đầu"
 end = "Kết thúc"
+range = "Đoạn cắt"
 time_hint = "m:ss"
 time_invalid = "Nhập dạng m:ss, ví dụ 1:05."
 order_invalid = "Điểm kết thúc phải sau điểm bắt đầu."
@@ -28,8 +29,6 @@ mp3 = "MP3"
 m4r = "M4R (nhạc chuông iPhone)"
 
 [note]
-copy = "Cắt không mã hoá lại, chất lượng giữ nguyên."
-encode = "Mã hoá lại, chất lượng giảm nhẹ."
 no_encoder_os = "Chưa có trên hệ điều hành này."
 no_encoder_source = "Chưa có bộ mã hoá cho định dạng này, chọn MP3 hoặc M4R."
 

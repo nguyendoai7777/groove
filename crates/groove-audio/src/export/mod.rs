@@ -55,13 +55,6 @@ pub enum Method {
     EncodeAac,
 }
 
-impl Method {
-    /// Không mã hoá lại: chất lượng giữ nguyên.
-    pub fn is_lossless_cut(self) -> bool {
-        matches!(self, Method::Mp3FrameCopy | Method::AacCopy | Method::Wav | Method::Flac)
-    }
-}
-
 /// Vì sao một định dạng không dùng được.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Unavailable {
