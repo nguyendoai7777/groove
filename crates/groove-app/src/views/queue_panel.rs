@@ -6,6 +6,9 @@
 //!
 //! `Queue` chỉ giữ `TrackRef`, nên tên bài tra qua `Library::songs_for_tracks` ở luồng nền (UI không chạm đĩa, N7), nhớ
 //! theo id: đổi thứ tự (shuffle) không phải tra lại. Chỉ tra phần chưa có.
+//!
+//! groove-gd2_03: chuột phải một dòng (hoặc Shift+F10) mở menu Lyrics / Timeline / Metadata / Save as new; panel chỉ phát
+//! [`QueuePanelEvent`], `NowPlaying` mở đúng các hộp mà ba nút ở khung Lyrics đang mở.
 
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -15,10 +18,11 @@ use groove_core::t;
 use groove_library::store::Library;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    AnyElement, App, Context, Entity, FontWeight, IntoElement, ParentElement, Render, SharedString, Styled,
-    Subscription, Task, Window, div, px,
+    AnyElement, App, Context, Entity, EventEmitter, FontWeight, IntoElement, MouseButton, MouseDownEvent,
+    ParentElement, Render, SharedString, Styled, Subscription, Task, WeakEntity, Window, div, px,
 };
 use materiant::list::{Align, VirtualList, VirtualListHandle};
+use materiant::menu::{ContextMenuExt, Menu, MenuItem};
 use materiant::scroll::TRACK_THICKNESS;
 use materiant::theme::ActiveTheme;
 
@@ -95,6 +99,19 @@ pub fn take_center(skip_next: &mut bool) -> bool {
     !std::mem::take(skip_next)
 }
 
+/// Mục của menu chuột phải trên một dòng hàng đợi.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum QueueMenuAction {
+    Lyrics,
+    Timeline,
+    Metadata,
+    SaveAs,
+}
+
+/// Người dùng chọn một mục menu cho bài `TrackRef`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct QueuePanelEvent(pub QueueMenuAction, pub TrackRef);
+
 pub struct QueuePanel {
     player: Entity<Player>,
     library: Option<Library>,
@@ -106,6 +123,8 @@ pub struct QueuePanel {
     playing: bool,
     /// Con trỏ bàn phím; `None` thì tô dòng hiện tại.
     cursor: Option<usize>,
+    /// Dòng vừa chuột phải: menu dùng bài của dòng này.
+    menu_row: Option<usize>,
     skip_center: bool,
     /// Lần mở màn Now Playing (kể cả lần dựng đầu) chờ đưa bài đang phát lên đỉnh khung: chưa có bài thì đợi bài đầu.
     reveal_pending: bool,
@@ -113,6 +132,8 @@ pub struct QueuePanel {
     load_task: Option<Task<()>>,
     _observe: Subscription,
 }
+
+impl EventEmitter<QueuePanelEvent> for QueuePanel {}
 
 impl QueuePanel {
     pub fn new(library: Option<Library>, cx: &mut Context<Self>) -> QueuePanel {
@@ -127,6 +148,7 @@ impl QueuePanel {
             current: None,
             playing: false,
             cursor: None,
+            menu_row: None,
             skip_center: false,
             reveal_pending: true,
             list: VirtualListHandle::new(),
@@ -272,6 +294,21 @@ impl QueuePanel {
     }
 
     /// Bấm dòng (cho test).
+    /// Chuột phải dòng `ix`: dời con trỏ tới đó, menu (dựng sau, ở khung bọc danh sách) đọc [`Self::menu_track`].
+    fn right_click_row(&mut self, ix: usize, cx: &mut Context<Self>) {
+        if ix < self.tracks.len() {
+            self.menu_row = Some(ix);
+            self.cursor = Some(ix);
+            cx.notify();
+        }
+    }
+
+    /// Bài của menu: dòng vừa chuột phải, không thì dòng con trỏ (Shift+F10), không thì bài hiện tại.
+    pub fn menu_track(&self) -> Option<TrackRef> {
+        let ix = self.menu_row.or(self.cursor).or(self.current)?;
+        self.tracks.get(ix).cloned()
+    }
+
     pub fn click_row(&mut self, ix: usize, cx: &mut Context<Self>) {
         self.play_at(ix, true, cx);
     }
@@ -350,6 +387,13 @@ impl Render for QueuePanel {
                         .gap_2()
                         .when(state == RowState::Played, |d| d.opacity(0.25).hover(|s| s.opacity(0.5)))
                         .on_click(on_click)
+                        .debug_selector(move || format!("np-queue-row-{ix}"))
+                        .on_mouse_down(MouseButton::Right, {
+                            let this = this.clone();
+                            move |_: &MouseDownEvent, _: &mut Window, cx: &mut App| {
+                                this.update(cx, |panel, cx| panel.right_click_row(ix, cx));
+                            }
+                        })
                         .child(index_cell)
                         .child(
                             div()
@@ -371,7 +415,7 @@ impl Render for QueuePanel {
                 }
             };
             let (select, activate) = (this.clone(), this.clone());
-            VirtualList::new("np-queue-rows", count, px(ROW_HEIGHT), render_row)
+            let list = VirtualList::new("np-queue-rows", count, px(ROW_HEIGHT), render_row)
                 .measured_rows()
                 // Space là phím phát / dừng toàn cục: không để nó bật vòng focus quanh hàng đợi.
                 .focus_ring(false)
@@ -392,7 +436,18 @@ impl Render for QueuePanel {
                 .padding_x(TRACK_THICKNESS)
                 .flex_1()
                 .min_h_0()
-                .py_1()
+                .py_1();
+            // Menu chuột phải: dòng đã ghi ở `on_mouse_down` (con chạy trước), hoặc Shift+F10 khi focus ở danh sách.
+            let menu_panel = this.downgrade();
+            div()
+                .id("np-queue-host")
+                .relative()
+                .flex_1()
+                .min_h_0()
+                .flex()
+                .flex_col()
+                .child(list)
+                .context_menu(move |menu, _, cx| queue_menu(menu, &menu_panel, cx))
                 .into_any_element()
         };
 
@@ -406,6 +461,26 @@ impl Render for QueuePanel {
             .child(header)
             .child(body)
     }
+}
+
+/// Menu của một dòng: bốn mục giống ba nút ở khung Lyrics + "Save as new". Chưa có bài thì rỗng.
+fn queue_menu(menu: Menu, panel: &WeakEntity<QueuePanel>, cx: &App) -> Menu {
+    let Some(track) = panel.upgrade().and_then(|p| p.read(cx).menu_track()) else { return menu };
+    let item = |id: &'static str, label: &'static str, action: QueueMenuAction| {
+        let (panel, track) = (panel.clone(), track.clone());
+        MenuItem::new(id, label).on_select(move |_, cx| {
+            // Hoãn: `on_select` chạy lúc cửa sổ đang bị mượn, `subscribe_in` của `NowPlaying` cần cửa sổ.
+            let (panel, track) = (panel.clone(), track.clone());
+            cx.defer(move |cx| {
+                panel.update(cx, |_, cx| cx.emit(QueuePanelEvent(action, track))).ok();
+            });
+        })
+    };
+    menu.item(item("np-queue-lyrics", t!("actions.song.edit_lyrics"), QueueMenuAction::Lyrics))
+        .item(item("np-queue-timeline", t!("actions.song.edit_timeline"), QueueMenuAction::Timeline))
+        .item(item("np-queue-metadata", t!("actions.song.edit_metadata"), QueueMenuAction::Metadata))
+        .separator()
+        .item(item("np-queue-save-as", t!("save_as.menu"), QueueMenuAction::SaveAs))
 }
 
 #[cfg(test)]

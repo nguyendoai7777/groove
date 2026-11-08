@@ -1,0 +1,43 @@
+# Vùng save_as (groove-gd2_03): hộp "Lưu dạng mới" cắt một bài ra tệp mới. Khoá viết không tiền tố vùng.
+
+menu = "Lưu dạng mới"
+title = "Lưu dạng mới"
+loading = "Đang đọc bài…"
+unreadable = "Không đọc được bài này."
+start = "Bắt đầu"
+end = "Kết thúc"
+time_hint = "m:ss"
+time_invalid = "Nhập dạng m:ss, ví dụ 1:05."
+order_invalid = "Điểm kết thúc phải sau điểm bắt đầu."
+length = "Dài {length}"
+format = "Định dạng"
+location = "Lưu vào"
+change_location = "Chọn…"
+name = "Tên tệp"
+add_to_library = "Thêm vào thư viện sau khi lưu"
+saving = "Đang lưu {percent}%"
+cancel = "Huỷ"
+save = "Lưu"
+saved = "Đã lưu {name}."
+added = "Đã lưu {name} và thêm vào thư viện."
+ringtone_long = "Nhạc chuông iPhone dài tối đa 40 giây: đoạn này dài {length}."
+
+[format_label]
+current = "Giữ định dạng gốc ({ext})"
+mp3 = "MP3"
+m4r = "M4R (nhạc chuông iPhone)"
+
+[note]
+copy = "Cắt không mã hoá lại, chất lượng giữ nguyên."
+encode = "Mã hoá lại, chất lượng giảm nhẹ."
+no_encoder_os = "Chưa có trên hệ điều hành này."
+no_encoder_source = "Chưa có bộ mã hoá cho định dạng này, chọn MP3 hoặc M4R."
+
+[error]
+same_as_source = "Không được ghi đè tệp gốc."
+exists = "Đã có tệp trùng tên."
+empty = "Đoạn cắt quá ngắn."
+source = "Không đọc được tệp gốc."
+encoder = "Bộ mã hoá lỗi, thử định dạng khác."
+write = "Không ghi được tệp vào thư mục này."
+unavailable = "Định dạng này không dùng được."

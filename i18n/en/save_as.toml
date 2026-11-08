@@ -1,0 +1,43 @@
+# Area save_as (groove-gd2_03): the "Save as new" dialog that cuts a song into a new file. Keys have no area prefix.
+
+menu = "Save as new"
+title = "Save as new"
+loading = "Reading the song…"
+unreadable = "This song cannot be read."
+start = "Start"
+end = "End"
+time_hint = "m:ss"
+time_invalid = "Use m:ss, for example 1:05."
+order_invalid = "The end must be after the start."
+length = "Length {length}"
+format = "Format"
+location = "Save to"
+change_location = "Choose…"
+name = "File name"
+add_to_library = "Add to the library after saving"
+saving = "Saving {percent}%"
+cancel = "Cancel"
+save = "Save"
+saved = "Saved {name}."
+added = "Saved {name} and added it to the library."
+ringtone_long = "iPhone ringtones are limited to 40 seconds: this clip is {length}."
+
+[format_label]
+current = "Same as the original ({ext})"
+mp3 = "MP3"
+m4r = "M4R (iPhone ringtone)"
+
+[note]
+copy = "Cut without re-encoding, quality stays the same."
+encode = "Re-encoded, quality drops slightly."
+no_encoder_os = "Not available on this system yet."
+no_encoder_source = "No encoder for this format, choose MP3 or M4R."
+
+[error]
+same_as_source = "Cannot write over the original file."
+exists = "A file with this name already exists."
+empty = "The clip is too short."
+source = "Cannot read the original file."
+encoder = "The encoder failed, try another format."
+write = "Cannot write the file to this folder."
+unavailable = "This format is not available."

@@ -22,7 +22,7 @@ bản Tauri vẫn là bản chạy được duy nhất đã kiểm:
 | --- | --- | --- | --- |
 | `crates/groove-core` | lib | `paths`, `i18n`, `logging`, `model`, `settings`, `session`, `queue`, `timeline`, `keymap`, `cli` | UI, âm thanh, SQLite |
 | `crates/groove-library` | lib | `db/{schema,migrate,queries}`, `actor`, `store`, `tags`, `fixtures`, `covers`, `scanner`, `indexer`, `watcher`, `reconcile`, `metadata_ops`, `legacy_ls` | UI |
-| `crates/groove-audio` | lib | `engine`, `decoder`, `output`, `dsp` | UI, SQLite |
+| `crates/groove-audio` | lib | `engine`, `decoder`, `output`, `dsp`, `export` (Save as new: cắt / xuất, Media Foundation trên Windows — gd2_02) | UI, SQLite |
 | `crates/groove-app` | bin `groove` | `app`, `route`, `icons`, `player`, `session_sync`, `library_ctl`, `commands`, `instance`, `open_paths`, `window_state`, `dev`, `platform/{media_session,taskbar_windows,always_on_top}`, `views/*` | — |
 
 Viết tắt trong task: `core`, `library`, `audio`, `app`, `views` = `crates/groove-core/src`, `crates/groove-library/src`,
@@ -41,7 +41,7 @@ Viết tắt trong task: `core`, `library`, `audio`, `app`, `views` = `crates/gr
 - **Chữ hiển thị**: `groove_core::t!("<vùng>.<khoá>")` trả `&'static str`, `t!("<vùng>.<khoá>", name = giá_trị)` trả
   `String`. Catalog `i18n/{vi,en}/<vùng>.toml`, khoá viết **không tiền tố vùng**, bảng lồng được, biến `{name}`. Mỗi task sở
   hữu một vùng: `common` (01), `shell` (03), `player` (14), `library` (15), `song_list` (16), `actions` (17), `metadata` (19),
-  `song_dialogs` (20), `now_playing` (21), `palette` (23), `settings` (24), `platform` (26). Có test: hai ngôn ngữ cùng bộ
+  `song_dialogs` (20), `now_playing` (21), `palette` (23), `settings` (24), `platform` (26), `save_as` (gd2_03). Có test: hai ngôn ngữ cùng bộ
   khoá và biến, không chữ toàn hoa (D-13). Task 02 gọi `i18n::set_language` theo cài đặt; `i18n::Language` serde `vi`, `en`.
 - **Đường dẫn**: `groove_core::paths`: `data_dir` (`<data>/Groove X`), `cache_dir`, `library_db`, `settings_file`,
   `session_file`, `covers_dir`, `logs_dir`, `legacy_db`; so sánh `normalize`, `is_under`. Không tự ghép thư mục OS.

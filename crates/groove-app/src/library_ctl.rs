@@ -9,6 +9,7 @@
 //!   `add_to_playlist`, `remove_from_playlist`, `forget_root`.
 //! - Hộp metadata (task 19): `open_metadata`, `open_category_metadata`; `LibraryCtl` giữ entity, `LibraryPage` vẽ.
 //! - Hộp timeline, lyrics (task 20): `open_text_dialog`.
+//! - Hộp "Save as new" (groove-gd2_03): `open_save_as`; bài mới lưu xong vào thư viện qua `add_file`.
 //! - Settings (task 24): danh sách gốc lấy từ `Library::watched_roots`, bỏ gốc bằng `forget_root`.
 
 use std::path::{Path, PathBuf};
@@ -41,6 +42,7 @@ use crate::views::library_page::{LibraryPage, LibraryPageEvent};
 use crate::views::lyrics_dialog::TextDialog;
 use crate::views::metadata::dialog::{GroupScope, MetadataDialog, MetadataDialogEvent};
 use crate::views::playlist_dialog::PlaylistDialog;
+use crate::views::save_as_dialog::SaveAsDialog;
 use crate::views::timeline_dialog;
 
 /// Hộp chọn của hệ điều hành cần gì.
@@ -263,6 +265,8 @@ pub struct LibraryCtl {
     /// Hộp lyrics, timeline: dựng ở lần mở đầu, trang vẽ.
     lyrics_dialog: Option<Entity<TextDialog>>,
     timeline_dialog: Option<Entity<TextDialog>>,
+    /// Hộp "Save as new": dựng ở lần mở đầu, trang vẽ.
+    save_as_dialog: Option<Entity<SaveAsDialog>>,
     /// Hộp metadata đang mở; `Closed` thì bỏ.
     metadata_dialog: Option<Entity<MetadataDialog>>,
     _metadata_events: Option<Subscription>,
@@ -296,6 +300,7 @@ impl LibraryCtl {
             confirm_delete: None,
             lyrics_dialog: None,
             timeline_dialog: None,
+            save_as_dialog: None,
             metadata_dialog: None,
             _metadata_events: None,
             _events: None,
@@ -699,6 +704,60 @@ impl LibraryCtl {
         if let Some(page) = self.page.as_ref().and_then(WeakEntity::upgrade) {
             page.update(cx, |page, cx| page.add_overlay(dialog.into(), cx));
         }
+    }
+
+    /// Mở hộp "Save as new" cho `track` (groove-gd2_03).
+    pub fn open_save_as(&mut self, track: TrackRef, cx: &mut Context<Self>) {
+        let existing = self.save_as_dialog.clone();
+        let library = self.library.clone();
+        let this = cx.entity();
+        with_window(cx, move |window, cx| {
+            let dialog = existing.unwrap_or_else(|| {
+                let dialog = cx.new(|cx| SaveAsDialog::new(library, window, cx));
+                this.update(cx, |this, cx| {
+                    this.save_as_dialog = Some(dialog.clone());
+                    if let Some(page) = this.page.as_ref().and_then(WeakEntity::upgrade) {
+                        page.update(cx, |page, cx| page.add_overlay(dialog.clone().into(), cx));
+                    }
+                });
+                dialog
+            });
+            dialog.update(cx, |dialog, cx| dialog.open(track, window, cx));
+        });
+    }
+
+    #[cfg(test)]
+    pub fn save_as_dialog(&self) -> Option<&Entity<SaveAsDialog>> {
+        self.save_as_dialog.as_ref()
+    }
+
+    /// Đưa một tệp vừa lưu vào thư viện (`Indexer::index_paths`, ở luồng nền), xong thì nạp lại danh sách và toast. `name` là
+    /// tên tệp hiện trong toast.
+    pub fn add_file(&mut self, path: PathBuf, name: String, cx: &mut Context<Self>) {
+        let Some(indexer) = self.indexer.clone() else {
+            self.notice(ToastKind::Success, t!("save_as.saved", name = name), cx);
+            return;
+        };
+        let job = indexer.index_paths(vec![path]);
+        cx.spawn(async move |this, cx| {
+            let result = job.await;
+            this.update(cx, |this, cx| match result {
+                Ok(tally) if tally.read() > 0 => {
+                    if let Some(page) = this.page.as_ref().and_then(WeakEntity::upgrade) {
+                        page.update(cx, |page, cx| page.refresh_lists(cx));
+                    }
+                    this.notice(ToastKind::Success, t!("save_as.added", name = name), cx);
+                }
+                other => {
+                    if let Err(err) = other {
+                        log::warn!("library ctl: cannot add the saved file: {err}");
+                    }
+                    this.notice(ToastKind::Warning, t!("save_as.saved", name = name), cx);
+                }
+            })
+            .ok();
+        })
+        .detach();
     }
 
     // ---- Metadata (task 19) ----
@@ -1599,6 +1658,73 @@ mod tests {
         draw(cx);
         cx.simulate_keystrokes("end enter");
         wait(cx, "hộp tạo danh sách", &|cx| create.read_with(cx, |d, _| d.is_open()));
+    }
+
+    /// groove-gd2_03 C4, C5 — mục cuối của menu bài (thư mục) là "Save as new"; lưu đoạn ra tệp mới cạnh tệp gốc, tệp gốc
+    /// không đổi, bài mới vào thư viện.
+    #[gpui::test]
+    fn save_as_new_from_the_song_menu_writes_and_adds_a_file(cx: &mut TestAppContext) {
+        use gpui::{Modifiers, MouseButton};
+
+        use crate::views::library_page::LibraryPage;
+
+        let env = env();
+        let root = env.import_tree();
+        let before = env.songs_count();
+        let _player = install_player(cx, &env);
+        let (ctl, notices) = ctl_with(cx, &env, fake_picker(None, Rc::default()));
+        let (library, covers) = (env.library.clone(), env.covers.clone());
+        let route = Route::Category(env.folder("B"));
+        let window = cx.add_window(|window, cx| {
+            let page = cx.new(|cx| LibraryPage::new(Some(library), Some(covers), route, cx));
+            Root::new(page, window, cx)
+        });
+        cx.update(|cx| cx.set_global(CtlHandle(ctl.clone())));
+        let cx = VisualTestContext::from_window(window.into(), cx).into_mut();
+        let draw = |cx: &mut VisualTestContext| {
+            cx.update(|window, cx| {
+                window.refresh();
+                window.draw(cx).clear(cx);
+            })
+        };
+        // Đồng hồ của App ảo chỉ chạy khi đẩy: vòng đọc tiến độ của hộp chờ `timer(100 ms)`.
+        let wait = |cx: &mut VisualTestContext, what: &str, done: &dyn Fn(&mut VisualTestContext) -> bool| {
+            for _ in 0..500 {
+                cx.executor().advance_clock(Duration::from_millis(100));
+                cx.run_until_parked();
+                draw(cx);
+                if done(cx) {
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            panic!("quá hạn chờ: {what}");
+        };
+        wait(cx, "dòng", &|cx| cx.debug_bounds("song-row-1").is_some());
+        let source = root.join("B").join("b1.wav");
+        let original = fs::read(&source).unwrap();
+
+        let row = cx.debug_bounds("song-row-1").unwrap().center();
+        cx.simulate_mouse_down(row, MouseButton::Right, Modifiers::default());
+        cx.simulate_mouse_up(row, MouseButton::Right, Modifiers::default());
+        draw(cx);
+        draw(cx);
+        cx.simulate_keystrokes("end enter");
+        wait(cx, "hộp Save as new", &|cx| {
+            ctl.read_with(cx, |c, cx| c.save_as_dialog().is_some_and(|d| d.read(cx).is_ready()))
+        });
+        let dialog = ctl.read_with(cx, |c, _| c.save_as_dialog().unwrap().clone());
+        dialog.update_in(cx, |d, window, cx| {
+            d.set_range_for_test(0.2, 0.7, groove_audio::export::ExportFormat::Current);
+            d.save_for_test(window, cx);
+        });
+        wait(cx, "lưu xong, vào thư viện", &|cx| {
+            !dialog.read_with(cx, |d, _| d.is_open()) && env.songs_count() == before + 1
+        });
+        let saved = root.join("B").join("b1 (cut).wav");
+        assert!(saved.is_file(), "tệp mới cạnh tệp gốc");
+        assert_eq!(fs::read(&source).unwrap(), original, "tệp gốc không đổi");
+        wait(cx, "toast", &|_| notices.borrow().iter().any(|(_, m)| m.contains("b1 (cut).wav")));
     }
 
     #[test]
