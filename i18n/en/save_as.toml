@@ -6,6 +6,7 @@ loading = "Reading the song…"
 unreadable = "This song cannot be read."
 start = "Start"
 end = "End"
+range = "Clip range"
 time_hint = "m:ss"
 time_invalid = "Use m:ss, for example 1:05."
 order_invalid = "The end must be after the start."
@@ -28,8 +29,6 @@ mp3 = "MP3"
 m4r = "M4R (iPhone ringtone)"
 
 [note]
-copy = "Cut without re-encoding, quality stays the same."
-encode = "Re-encoded, quality drops slightly."
 no_encoder_os = "Not available on this system yet."
 no_encoder_source = "No encoder for this format, choose MP3 or M4R."
 
