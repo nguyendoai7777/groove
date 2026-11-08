@@ -10,6 +10,8 @@ publish.workspace = true
 [dependencies]
 groove-core.workspace = true
 crossbeam-channel.workspace = true
+# "Save as new" giữ FLAC (groove-gd2_02): Apache-2.0, thuần Rust; tắt `par` (luồng phụ), `serde`, `log`.
+flacenc = { version = "0.5", default-features = false }
 futures.workspace = true
 log.workspace = true
 ringbuf = "0.6"
@@ -21,6 +23,11 @@ thiserror.workspace = true
 # không kèm vào bản cài, không dùng link tĩnh hay feature kèm mã thư viện.
 [target.'cfg(not(target_os = "linux"))'.dependencies]
 cpal = "0.18"
+
+# Bộ mã hoá MP3 / AAC của Windows (Media Foundation) cho "Save as new" (groove-gd2_02). MIT / Apache-2.0; cùng bản với GPUI,
+# fastcast nên không thêm bản mới vào `Cargo.lock`.
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Media_MediaFoundation", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Variant"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 cpal = { version = "0.18", optional = true }
@@ -34,3 +41,5 @@ workspace = true
 
 [dev-dependencies]
 groove-core = { workspace = true, features = ["test-support"] }
+# Tệp nhạc mẫu tự dựng cho test xuất (groove-gd2_02).
+groove-library.workspace = true

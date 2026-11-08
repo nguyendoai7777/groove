@@ -58,6 +58,8 @@ pub struct TrackDecoder {
     track_id: u32,
     time_base: Option<TimeBase>,
     duration_sec: f64,
+    /// Độ sâu bit tệp khai (PCM, FLAC); `None` với codec nén có tổn hao.
+    bits_per_sample: Option<u32>,
     path: PathBuf,
     /// Đã đọc tới cuối tệp. MP4 của symphonia 0.6 sau đó không đọc được nữa dù tua về (`no atom pending read`).
     exhausted: bool,
@@ -98,6 +100,7 @@ impl TrackDecoder {
             _ => 0.0,
         };
         let (track_id, time_base) = (track.id, track.time_base);
+        let bits_per_sample = params.bits_per_sample;
         let path = path.to_path_buf();
         Ok(Self {
             format,
@@ -105,6 +108,7 @@ impl TrackDecoder {
             track_id,
             time_base,
             duration_sec,
+            bits_per_sample,
             path,
             exhausted: false,
             seek_target: None,
@@ -115,6 +119,11 @@ impl TrackDecoder {
     /// Độ dài theo khai báo của tệp, 0 nếu tệp không khai.
     pub fn duration_sec(&self) -> f64 {
         self.duration_sec
+    }
+
+    /// Độ sâu bit của mẫu gốc, nếu tệp khai (dùng khi xuất giữ định dạng, groove-gd2_02).
+    pub fn bits_per_sample(&self) -> Option<u32> {
+        self.bits_per_sample
     }
 
     /// Tua chính xác. Mốc ngoài tệp thì coi như đã đọc hết, không phải lỗi.
