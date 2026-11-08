@@ -5,7 +5,8 @@
 //! GPUI: các khung dùng nền bán trong suốt thay (bảng thay thế đặc tả mục 4); quầng đổi màu tức thì, không có chuyển 700 ms.
 //!
 //! Màn này không tự ghi gì: ba nút Metadata, Timeline, Sửa / Thêm lời của `LyricsPanel` mở [`MetadataDialog`] và hai
-//! [`TextDialog`] (task 19, 20) cho bài đang phát. Hộp lyrics, timeline tự đóng khi đổi bài, lưu xong tự nạp lại bài.
+//! [`TextDialog`] (task 19, 20) cho bài đang phát; menu chuột phải của hàng đợi mở chính các hộp đó (và hộp "Save as new",
+//! groove-gd2_03) cho bài của dòng. Hộp lyrics, timeline tự đóng khi đổi bài, lưu xong tự nạp lại bài.
 //! Tiêu đề cửa sổ là `<bài> - <nghệ sĩ> | Groovex` khi đang ở màn này.
 //!
 //! Responsive (chủ dự án 03/11/2026; bản web không có): màn hẹp hơn [`NARROW_WIDTH`] thì ẩn cột lời bài, cột hàng đợi giãn ra;
@@ -22,7 +23,7 @@
 
 use std::sync::Arc;
 
-use groove_core::model::Song;
+use groove_core::model::{Song, TrackRef};
 use groove_core::t;
 use groove_library::covers::{CoverSize, CoverStore};
 use groove_library::metadata_ops::MetadataOps;
@@ -47,7 +48,8 @@ use crate::views::lyrics_dialog::TextDialog;
 use crate::views::lyrics_panel::{self, LyricsPanel, LyricsPanelEvent};
 use crate::views::marquee::Marquee;
 use crate::views::metadata::dialog::{MetadataDialog, MetadataDialogEvent};
-use crate::views::queue_panel::QueuePanel;
+use crate::views::queue_panel::{QueueMenuAction, QueuePanel, QueuePanelEvent};
+use crate::views::save_as_dialog::SaveAsDialog;
 use crate::views::timeline_box::TimelineBox;
 use crate::views::timeline_dialog;
 
@@ -98,6 +100,8 @@ pub struct NowPlaying {
     lyrics_dialog: Option<Entity<TextDialog>>,
     timeline_dialog: Option<Entity<TextDialog>>,
     metadata_dialog: Option<Entity<MetadataDialog>>,
+    /// Hộp "Save as new" mở từ menu hàng đợi (groove-gd2_03).
+    save_as_dialog: Entity<SaveAsDialog>,
     /// Màn hẹp: cột lời bài ẩn, lời bài mở trong [`Self::lyrics_drawer`].
     narrow: bool,
     lyrics_drawer: DialogHandle,
@@ -123,6 +127,8 @@ impl NowPlaying {
         });
         let lyrics_dialog = ops.clone().map(|ops| cx.new(|cx| TextDialog::lyrics(ops, window, cx)));
         let timeline_dialog = ops.clone().map(|ops| cx.new(|cx| timeline_dialog::timeline(ops, window, cx)));
+        let save_as_library = library.clone();
+        let save_as_dialog = cx.new(|cx| SaveAsDialog::new(save_as_library, window, cx));
         let subscriptions = vec![
             cx.subscribe_in(&player, window, |this, _, event: &PlayerEvent, window, cx| {
                 if matches!(event, PlayerEvent::TrackChanged) {
@@ -132,6 +138,10 @@ impl NowPlaying {
             }),
             cx.subscribe_in(&lyrics_panel, window, |this, _, event: &LyricsPanelEvent, window, cx| {
                 this.panel_event(*event, window, cx);
+            }),
+            // Menu chuột phải của hàng đợi: cùng các hộp với ba nút ở khung Lyrics, cho bài của dòng đó (groove-gd2_03).
+            cx.subscribe_in(&queue_panel, window, |this, _, QueuePanelEvent(action, track), window, cx| {
+                this.open_editor(*action, track.clone(), window, cx);
             }),
         ];
         let mut view = NowPlaying {
@@ -152,6 +162,7 @@ impl NowPlaying {
             lyrics_dialog,
             timeline_dialog,
             metadata_dialog: None,
+            save_as_dialog,
             narrow: false,
             lyrics_drawer: DialogHandle::new(cx),
             _subscriptions: subscriptions,
@@ -173,6 +184,11 @@ impl NowPlaying {
     #[cfg(test)]
     pub fn queue_panel(&self) -> &Entity<QueuePanel> {
         &self.queue_panel
+    }
+
+    #[cfg(test)]
+    pub fn save_as_dialog(&self) -> &Entity<SaveAsDialog> {
+        &self.save_as_dialog
     }
 
     #[cfg(test)]
@@ -264,18 +280,31 @@ impl NowPlaying {
     /// Nút ở `LyricsPanel` được bấm: mở hộp tương ứng cho bài đang phát.
     fn panel_event(&mut self, event: LyricsPanelEvent, window: &mut Window, cx: &mut Context<Self>) {
         let Some(track) = self.player.read(cx).current_track().cloned() else { return };
-        match event {
-            LyricsPanelEvent::Lyrics => {
+        let action = match event {
+            LyricsPanelEvent::Lyrics => QueueMenuAction::Lyrics,
+            LyricsPanelEvent::Timeline => QueueMenuAction::Timeline,
+            LyricsPanelEvent::Metadata => QueueMenuAction::Metadata,
+        };
+        self.open_editor(action, track, window, cx);
+    }
+
+    /// Mở hộp sửa / cắt cho `track` (nút ở khung Lyrics: bài đang phát; menu hàng đợi: bài của dòng).
+    fn open_editor(&mut self, action: QueueMenuAction, track: TrackRef, window: &mut Window, cx: &mut Context<Self>) {
+        match action {
+            QueueMenuAction::SaveAs => {
+                self.save_as_dialog.update(cx, |dialog, cx| dialog.open(track, window, cx));
+            }
+            QueueMenuAction::Lyrics => {
                 if let Some(dialog) = &self.lyrics_dialog {
                     dialog.update(cx, |dialog, cx| dialog.open(track, window, cx));
                 }
             }
-            LyricsPanelEvent::Timeline => {
+            QueueMenuAction::Timeline => {
                 if let Some(dialog) = &self.timeline_dialog {
                     dialog.update(cx, |dialog, cx| dialog.open(track, window, cx));
                 }
             }
-            LyricsPanelEvent::Metadata => {
+            QueueMenuAction::Metadata => {
                 let Some(ops) = self.ops.clone() else { return };
                 if self.metadata_dialog.is_some() {
                     return;
@@ -455,6 +484,7 @@ impl Render for NowPlaying {
             .children(self.timeline_dialog.clone())
             .children(drawer)
             .children(self.metadata_dialog.clone())
+            .child(self.save_as_dialog.clone())
     }
 }
 
@@ -690,6 +720,59 @@ mod view_tests {
         rig.until(cx, "metadata closes on track change", |cx| {
             view.read_with(cx, |v, cx| v.metadata_dialog().is_none_or(|d| !d.read(cx).is_open()))
         });
+    }
+
+    /// groove-gd2_03 C4 — chuột phải một dòng hàng đợi: menu bốn mục mở đúng các hộp của Now Playing cho bài của dòng đó
+    /// (không phải bài đang phát).
+    #[gpui::test]
+    fn queue_row_menu_opens_editors_for_that_row(cx: &mut TestAppContext) {
+        use gpui::{Modifiers, MouseButton};
+
+        let rig = rig(cx);
+        let (a, _) = rig.song("a");
+        let (b, _) = rig.song("b");
+        let (view, cx) = open_view(&rig, cx);
+        rig.player.update(cx, |p, cx| p.play_list(a.clone(), vec![a.clone(), b.clone()], cx));
+        rig.until(cx, "queue ready", |cx| {
+            view.read_with(cx, |v, cx| {
+                let q = v.queue_panel().read(cx);
+                q.len() == 2 && q.rows().iter().all(Option::is_some)
+            })
+        });
+        let draw = |cx: &mut VisualTestContext| {
+            for _ in 0..2 {
+                cx.update(|window, cx| {
+                    window.refresh();
+                    window.draw(cx).clear(cx);
+                });
+            }
+        };
+        draw(cx);
+        let queue = view.read_with(cx, |v, _| v.queue_panel().clone());
+        let right_click = |cx: &mut VisualTestContext| {
+            let row = cx.debug_bounds("np-queue-row-1").expect("dòng 2").center();
+            cx.simulate_mouse_down(row, MouseButton::Right, Modifiers::default());
+            cx.simulate_mouse_up(row, MouseButton::Right, Modifiers::default());
+            draw(cx);
+        };
+
+        right_click(cx);
+        assert_eq!(queue.read_with(cx, |q, _| q.menu_track()), Some(b.clone()));
+        // Menu mở bằng chuột chưa tô mục nào: Home tới mục đầu.
+        cx.simulate_keystrokes("home enter");
+        cx.run_until_parked();
+        draw(cx);
+        let lyrics = view.read_with(cx, |v, _| v.lyrics_dialog().unwrap().clone());
+        assert!(lyrics.read_with(cx, |d, _| d.is_open()), "mục đầu: lời bài");
+        lyrics.update_in(cx, |d, window, cx| d.close(window, cx));
+
+        right_click(cx);
+        cx.simulate_keystrokes("end enter");
+        cx.run_until_parked();
+        draw(cx);
+        let save_as = view.read_with(cx, |v, _| v.save_as_dialog().clone());
+        assert!(save_as.read_with(cx, |d, _| d.is_open()), "mục cuối: Save as new");
+        rig.until(cx, "save as reads the song", |cx| save_as.read_with(cx, |d, _| d.is_ready()));
     }
 
     /// Responsive: hẹp hơn `NARROW_WIDTH` thì ẩn cột lời bài, nút Lời bài mở drawer; rộng ra thì drawer đóng, cột hiện lại.

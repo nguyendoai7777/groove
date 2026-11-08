@@ -1,5 +1,5 @@
 //! groove-gd1_17: menu chuột phải của bài (đặc tả 1.2): thêm vào danh sách phát, sửa timeline / lyrics / metadata; trong
-//! playlist có thêm "Xoá khỏi danh sách phát", chữ đỏ.
+//! playlist có thêm "Xoá khỏi danh sách phát", chữ đỏ. groove-gd2_03 thêm "Save as new" (cắt ra tệp mới).
 
 use groove_core::model::{CategoryRef, Song, TrackRef};
 use groove_core::t;
@@ -7,6 +7,14 @@ use materiant::gpui_kit::App;
 use materiant::menu::{Menu, MenuItem};
 
 use crate::library_ctl::{self, SongEditKind};
+
+/// Mục "Save as new": hộp cắt / xuất của `LibraryCtl` (groove-gd2_03).
+pub fn save_as(ctl: &materiant::gpui_kit::Entity<library_ctl::LibraryCtl>, track: TrackRef) -> MenuItem {
+    let ctl = ctl.clone();
+    MenuItem::new("song-menu-save-as", t!("save_as.menu")).on_select(move |_, cx| {
+        ctl.update(cx, |ctl, cx| ctl.open_save_as(track.clone(), cx));
+    })
+}
 
 /// Bài `song` trong danh sách `reference`. Chưa có `LibraryCtl` thì menu rỗng.
 pub fn build(menu: Menu, reference: CategoryRef, song: &Song, cx: &App) -> Menu {
@@ -50,7 +58,8 @@ pub fn build(menu: Menu, reference: CategoryRef, song: &Song, cx: &App) -> Menu 
         .separator()
         .item(edit("song-menu-timeline", t!("actions.song.edit_timeline"), SongEditKind::Timeline))
         .item(edit("song-menu-lyrics", t!("actions.song.edit_lyrics"), SongEditKind::Lyrics))
-        .item(metadata);
+        .item(metadata)
+        .item(save_as(&ctl, song.track.clone()));
 
     if let CategoryRef::Playlist(playlist_id) = reference {
         let ctl = ctl.clone();

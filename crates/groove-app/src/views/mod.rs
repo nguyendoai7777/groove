@@ -18,6 +18,7 @@ pub mod player_bar;
 pub mod playing_bars;
 pub mod playlist_dialog;
 pub mod queue_panel;
+pub mod save_as_dialog;
 pub mod seek_bar;
 pub mod settings;
 pub mod side_nav;
