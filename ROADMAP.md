@@ -22,8 +22,17 @@ Còn lại trước khi đóng GĐ1:
 | Task | Trạng thái |
 | --- | --- |
 | `groove-gd2_01` `full-installer` | ✅ |
+| `groove-gd2_02` `save-as-new-export` — cắt / xuất đoạn bài (MP3 theo frame, WAV, FLAC, MP3 / AAC qua Media Foundation) | ✅ |
+| `groove-gd2_03` `save-as-new-dialog` — hộp Save as new, menu chuột phải hàng đợi (phụ thuộc gd2_02) | ✅ |
 
 ### Bàn giao GĐ2
+
+<!-- handoff: groove-gd2_03 -->
+
+- **Đã có**: "Save as new" ở menu bài và menu chuột phải mới của hàng đợi (`views/save_as_dialog.rs`, `groove_audio::export`).
+  Hàng đợi phát `QueuePanelEvent`, `NowPlaying::open_editor` mở hộp lời / timeline / metadata / Save as new cho bài của dòng.
+- **Chờ**: bộ mã hoá MP3 / AAC trên macOS, Linux (mục 8 của `groove-gd2_02`, `plan/_backlog.md`); dòng `[groove-gd2_03 · owner-qa]`.
+- **Bẫy**: `MenuItem::on_select` chạy khi cửa sổ đang bị mượn — phát sự kiện cho view nghe bằng `subscribe_in` thì `cx.defer`.
 
 <!-- handoff: groove-gd2_01 -->
 

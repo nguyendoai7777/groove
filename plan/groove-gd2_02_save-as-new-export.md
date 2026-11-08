@@ -2,7 +2,7 @@
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Trạng thái | 🔄 |
+| Trạng thái | ✅ (08/11/2026) |
 | Repo | groove |
 | Model | opus |
 | Cỡ | M — ~800 dòng (module `export` của groove-audio: cắt MP3 theo frame, WAV, FLAC, Media Foundation trên Windows) + test |
@@ -65,6 +65,42 @@ pub const RINGTONE_MAX_SEC: f64 = 40.0;
 
 ## 8. Nợ chuyển task khác
 
+- **macOS**: AAC / M4R qua AudioToolbox (`ExtAudioFile`, kAudioFileM4AType) — có sẵn trong OS, hợp lệ D-2; chưa làm vì không có
+  máy Mac để chạy test. MP3 trên macOS: AudioToolbox không có bộ mã hoá MP3 ⇒ cần thư viện ngoài (LAME là LGPL — phải hỏi chủ
+  dự án). Ghi ở `plan/_backlog.md`.
+- **Linux**: MP3 / AAC qua GStreamer nạp lúc chạy (G-3 chấp nhận cho quay video của fastcast; dùng cho groove cần chủ dự án
+  xác nhận mở rộng G-3). Ghi ở `plan/_backlog.md`.
+- OGG Vorbis giữ định dạng gốc: không có bộ mã hoá thuần Rust; `vorbis_rs` (BSD, build libvorbis bằng C) hợp lệ nhưng thêm
+  toolchain C — chưa làm, hộp thoại khoá `current` cho OGG kèm lý do.
+
 ## 9. Bàn giao thực tế
 
+- Module `crates/groove-audio/src/export/`: `mod.rs` (API, `plan`, `run`, `ExportJob`), `mp3_copy.rs`, `pcm.rs` (`ClipReader`, WAV,
+  FLAC), `mf.rs` (Windows), `tests.rs`. `TrackDecoder::bits_per_sample` mới trong `decoder.rs`.
+- **Giấy phép (D-2)**: `flacenc` 0.5 Apache-2.0 (tắt feature mặc định; kéo `crc`, `md-5`, `heapless`, `num-traits` — MIT /
+  Apache); `windows` 0.62 MIT / Apache-2.0, đã có trong `Cargo.lock`. `cargo deny check licenses`: ok. Không LAME, không ffmpeg,
+  không LGPL mới. Bộ mã hoá MP3 / AAC của Media Foundation là thành phần của Windows (8+), không phân phối kèm.
+- **Tự quyết (D-9)**:
+  - MP3 đích từ MP3 nguồn = chép frame (như `current`): không mã lại khi không cần.
+  - Mã lại luôn ra **stereo**: bộ mã hoá MP3 của Microsoft trả `MF_E_INVALIDMEDIATYPE` (0xC00D36B4) với mono ở
+    `SetInputMediaType` (đo trong test). MP3 320 kbps, AAC 192 kbps; tần số giữ 44,1 / 48 kHz (MP3 nhận cả 32 kHz), khác thì đổi
+    bằng `decoder::Converter` (rubato) có sẵn.
+  - Cắt MP3: giữ nguyên thẻ ID3v2 gốc (tên, nghệ sĩ, bìa — kể cả `TXXX:TIMELINE` / lời của bài gốc, nay lệch mốc: mục 10), bỏ
+    frame Xing / Info / VBRI, bỏ ID3v1 / APE. Chỉ Layer III. Frame đầu có thể hụt ~26 ms do bit reservoir (mọi công cụ cắt
+    không mã lại đều vậy).
+  - WAV / FLAC giữ độ sâu bit: 24 nếu gốc > 16, còn lại 16 (float 32 bit ⇒ 24).
+  - M4A có ALAC: Source Reader trả kiểu không phải AAC ⇒ mã lại AAC (mất tính lossless của ALAC; mục 10).
+  - Mã lại không ghi thẻ (tên lấy theo tên tệp).
+- **Bẫy đã gặp**: `flacenc` ghi `min_block_size` = cỡ khối cuối (ngắn), symphonia đọc STREAMINFO đó báo `UnexpectedEof` ngay lúc
+  probe ⇒ đặt lại `set_block_sizes(block, block)` (đúng đặc tả FLAC: khối cuối không tính).
+- Đường AAC chép nguyên đã chạy thật trên Windows trong test (`windows_cuts_aac_into_m4r`: mã WAV → M4A rồi cắt M4A → M4R, độ
+  dài khớp ± 0,12 s).
+- Soát xanh: `cargo test -p groove-audio` 66 test (12 test export), clippy `-D warnings`, `cargo deny check licenses`.
+
 ## 10. Đề xuất cải tiến
+
+- Cắt MP3 / M4A: bỏ `TXXX:TIMELINE`, lời đồng bộ của bài gốc trong thẻ chép sang (mốc lệch sau khi cắt), hoặc dời mốc theo
+  điểm đầu. Ghi tiêu đề "<gốc> (cut)" vào thẻ của bài mới.
+- Mã lại: chép thẻ cơ bản (tên, nghệ sĩ, album, bìa) sang tệp mới qua `groove_library::tags`.
+- ALAC: giữ ALAC (Sink Writer chép nguyên mẫu ALAC) thay vì mã AAC.
+- Cắt MP3 chính xác mẫu: ghi khung Info/LAME mới có encoder delay / padding để trình phát gapless cắt đúng mép.
