@@ -2,7 +2,7 @@
 
 | Thuộc tính | Giá trị |
 |---|---|
-| Trạng thái | ☐ — phần 1-5 đã gộp `master` 02/11/2026; còn lại: chủ dự án xem app thật rồi gộp nhánh `claude/remove-tauri` (dòng `[owner-qa]` đầu tiên của `plan/_backlog.md`). Quy ước không có trạng thái "chờ", không đánh ✅ khi chưa nhìn app thật |
+| Trạng thái | ✅ 09/11/2026 — chủ dự án dùng app Rust trên màn thật, chốt gỡ Tauri ("các src của tauri đã hết tác dụng"); gỡ thẳng trên `master` mới, nhánh `claude/remove-tauri` cũ bỏ |
 | Repo | groove |
 | Model | opus |
 | Cỡ | ~100 dòng |

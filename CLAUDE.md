@@ -7,14 +7,9 @@ Repo không có `docs/` (D-7): đặc tả viết lại và bảng so bản cũ 
 `git show 1a2480f:docs/rewrite-spec.md`, `git show 1a2480f:docs/parity.md`. Comment `đặc tả <mục>` và mã lỗi `S<n>`, `N<n>`,
 `M<n>` trong mã, task trỏ vào đặc tả đó (mục 3 là danh sách lỗi). Task: `plan/groove-gd1_*.md` (skill `run-task`), việc treo `plan/_backlog.md`.
 
-**Bản Rust chưa được chủ dự án nhìn trên màn thật.** Cửa sổ thật mới chạy trong desktop ẩn (`tools/measure-hidden.ps1`), nên
-bản Tauri vẫn là bản chạy được duy nhất đã kiểm:
-
-- Tag `tauri-final` là commit cuối còn bản Tauri. Đặc tả trỏ `src/…`, `src-tauri/…`: đọc bằng
-  `git -C groove show tauri-final:<đường dẫn>` (hoặc thẳng thư mục khi nó còn).
-- Nhánh `claude/remove-tauri` gỡ `src/`, `src-tauri/`, Node, `public/`, `scripts/`, chưa gộp. Chủ dự án gộp sau khi đã xem app
-  thật (`plan/_backlog.md`, dòng `[owner-qa]` đầu tiên). Trước lúc đó `master` vẫn còn các thư mục này: chỉ đọc đối chiếu,
-  không sửa, không debug (G-1); `src-tauri` nằm ngoài cargo workspace (`exclude`).
+**Bản Tauri + Vue đã gỡ** (09/11/2026, chủ dự án: "các src của tauri đã hết tác dụng"): repo không còn `src/`, `src-tauri/`,
+Node (`package.json`, pnpm, Vite, husky), `public/`, `scripts/`, cũng không giữ exe / bản cài Tauri để đối soát. Tag
+`tauri-final` là commit cuối còn bản Tauri; đặc tả trỏ `src/…`, `src-tauri/…` thì đọc bằng `git -C groove show tauri-final:<đường dẫn>`.
 
 ## Bố cục (cargo workspace)
 
@@ -174,8 +169,6 @@ màn không có thì thoát, không rơi về màn mặc định. Xem ảnh xong
   cỡ cửa sổ lưu lại trôi mỗi lần mở. `-Clicks rects` in khung / client. Kiểm tay:
   `GROOVE_BLUR=acrylic` giữ acrylic, `GROOVE_WINDOW_SHADOW=on` giữ bóng.
 
-- **Bản Tauri để đối soát — không xoá**: `src-tauri/target/x86_64-pc-windows-msvc/release/groovex.exe` (exe tự chứa giao diện) và
-  `release/groovex_0.1.0_*` (setup, msi, portable). Dọn `target` không đụng hai chỗ này (`clean.sh` đã bỏ qua).
 - **Worktree** cố định (D-18): `<gốc>/.claude/worktrees/groove-w<N>`, build ở `groove/target/w<N>`, xong task giữ cả hai. `materiant = { path = "../materiant" }` nhờ lối nối
   `.claude/worktrees/materiant` đã có. `CARGO_TARGET_DIR` riêng từng worktree (`groove/target/w<N>`), không xoá.
 - **AppData ảo hoá MSIX**: exe chạy từ app Claude trên Windows ghi vào `LocalCache` của gói. Không thấy DB cũ ở đó không có

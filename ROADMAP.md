@@ -9,12 +9,12 @@ song song (đã làm xong, đọc qua lịch sử git): `git show 1a2480f:docs/r
 | --- | --- |
 | 01-27 | ✅, đã gộp `master` |
 | 28 `localstorage-import` (tuỳ chọn) | ☐ chưa làm: bản mới chạy với mặc định, `legacy_ls.rs` là tệp rỗng, phụ thuộc `rusty-leveldb` đã khai |
-| 29 `acceptance-remove-tauri` | ☐ (quy ước không có trạng thái "chờ") mã, bảng so bản cũ (`git show 1a2480f:docs/parity.md`), số đo RAM đã gộp; gỡ Tauri nằm ở nhánh `claude/remove-tauri`, chờ chủ dự án xem app thật |
+| 29 `acceptance-remove-tauri` | ✅ 09/11/2026 — chủ dự án đã dùng app Rust trên màn thật và chốt gỡ Tauri; bản cũ ở tag `tauri-final` |
 
 Còn lại trước khi đóng GĐ1:
 
 1. Chủ dự án xem app thật ở máy hai màn: các dòng `[owner-qa]` ở `plan/_backlog.md`, bắt đầu từ dòng đầu tiên.
-2. Gộp `claude/remove-tauri` (lệnh ở dòng `[owner-qa]` đầu tiên), đánh dấu task 29 ✅, rồi `close-phase`.
+2. `close-phase` (task 29 đã ✅, Tauri đã gỡ 09/11/2026).
 3. macOS, Ubuntu: dựng gói, chạy test một phiên, media session (các dòng `[groove-gd1_25]`, `[groove-gd1_26]`, `[groove-gd1_27]`).
 
 ## GĐ2 — bản cài hoàn chỉnh (02/11/2026)

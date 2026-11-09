@@ -1,8 +1,8 @@
-# Workspace mới của groove (G-1). Bản Tauri ở `src-tauri/` nằm ngoài workspace này, gỡ ở groove-gd1_29.
+# Workspace của groove (G-1). Bản Tauri + Vue đã gỡ 09/11/2026, mã cũ đọc ở tag `tauri-final`.
 [workspace]
 resolver = "3"
 members = ["crates/*"]
-exclude = ["src-tauri", "vendor/souvlaki"]
+exclude = ["vendor/souvlaki"]
 
 [workspace.package]
 version = "0.2.0"
