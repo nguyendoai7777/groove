@@ -2740,6 +2740,7 @@ dependencies = [
  "souvlaki",
  "unicode-normalization",
  "windows-sys 0.61.2",
+ "zbus",
 ]
 
 [[package]]

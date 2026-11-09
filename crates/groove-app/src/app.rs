@@ -97,6 +97,8 @@ pub fn run(dev: DevArgs) {
             crate::platform::move_loop::install(window);
             crate::platform::backdrop::smooth_blur(window);
         });
+        // gnome-blur: GNOME không tự làm mờ sau cửa sổ — extension Shell của Groovex làm, cột trái theo nó đổi alpha.
+        crate::platform::backdrop::watch_shell_blur(handle, cx);
         // Đóng cửa sổ chính là thoát app, không có khay (đặc tả 1.1); trình phát thu nhỏ còn mở cũng đóng theo.
         let main_id = handle.window_id();
         cx.on_window_closed(move |cx, closed| {

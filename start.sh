@@ -68,10 +68,22 @@ ENTRY
   mv "$file.tmp" "$file"
 }
 
+# gnome-blur: GNOME không làm mờ sau cửa sổ cho app — extension Shell của Groovex làm (`platform::backdrop::gnome`). Bản debug
+# không qua gói `.deb` ⇒ nối extension của master vào thư mục extension người dùng (bản này đè bản của gói, luôn mới theo
+# master). Shell chỉ quét thư mục này lúc đăng nhập: nối lần đầu thì đăng xuất / đăng nhập lại, app tự bật extension.
+groove_dev_shell_extension() {
+  local uuid="groovex-shell@com.sandtechs.desktop.groovex"
+  local dir="${XDG_DATA_HOME:-$HOME/.local/share}/gnome-shell/extensions"
+  case ":${XDG_CURRENT_DESKTOP:-}:" in *:GNOME:*) ;; *) return 0 ;; esac
+  [ -e "$dir/$uuid" ] && return 0
+  mkdir -p "$dir" && ln -s "$root/groove/packaging/linux/gnome-shell/$uuid" "$dir/$uuid" \
+    && echo "Đã nối extension GNOME Shell của Groovex (nền mờ): đăng xuất rồi đăng nhập lại để Shell nạp."
+}
+
 # Master build ở groove/target/start; worktree w<N> build ở groove/target/w<N>.
 export CARGO_TARGET_DIR="$root/groove/target/$(xd_target_name "$repo" groove)"
 echo "groove từ $repo"
-[ "$(uname -s)" = Linux ] && groove_dev_desktop_entry
+[ "$(uname -s)" = Linux ] && { groove_dev_desktop_entry; groove_dev_shell_extension; }
 m="$root/materiant"
 xd_run_app --scope groove.dev "$CARGO_TARGET_DIR/debug/groove" \
   "$repo/crates|$repo/i18n|$repo/Cargo.toml|$m/src|$m/assets|$m/vendor|$m/Cargo.toml" \

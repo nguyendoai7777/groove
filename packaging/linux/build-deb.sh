@@ -65,6 +65,13 @@ for icon in "$repo"/packaging/linux/icons/*x*.png; do
   dim="$(basename "$icon" .png)"
   install -D -m 0644 "$icon" "$root/usr/share/icons/hicolor/$dim/apps/groove.png"
 done
+# gnome-blur: extension GNOME Shell làm mờ phía sau cửa sổ (Mutter không cho app tự xin). App tự bật nó một lần; Shell chỉ quét
+# thư mục extension lúc đăng nhập ⇒ cài lần đầu / cập nhật extension thì đăng xuất rồi đăng nhập lại mới có hiệu lực.
+ext="groovex-shell@com.sandtechs.desktop.groovex"
+for f in extension.js metadata.json; do
+  tr -d '\r' < "$repo/packaging/linux/gnome-shell/$ext/$f" > "$work/$f"
+  install -D -m 0644 "$work/$f" "$root/usr/share/gnome-shell/extensions/$ext/$f"
+done
 
 warnings=""
 # Trang giấy phép: `gen-licenses.ps1` khi có pwsh, không thì bản Node `gen-licenses.mjs` (cùng bước, cùng chốt soát).
