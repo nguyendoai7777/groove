@@ -214,7 +214,8 @@ impl KeyEditor {
             key: key.to_string(),
             command: command.name().to_owned(),
             label: self.label.read(cx).value(cx).trim().to_owned(),
-            global: self.global,
+            // OS không có phím toàn cục (Linux) thì không lưu dòng toàn cục.
+            global: self.global && global_keys::supported(),
         })
     }
 
