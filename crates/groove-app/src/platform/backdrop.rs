@@ -41,8 +41,11 @@ enum Blur {
     /// Compositor theo `Blurred` của GPUI: acrylic / blur-behind (Windows), `NSVisualEffectView` (macOS), KWin.
     Compositor,
     /// Extension GNOME Shell của Groovex ([`gnome`]): `Shell.BlurEffect` bán kính 24 (`BLUR_RADIUS` của `extension.js`).
+    /// Chỉ Linux dựng (`blur()`); OS khác chỉ test dùng.
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
     Shell,
     /// Chỉ trong suốt trơn: GNOME chưa nạp extension / bật tương phản cao, wlroots, X11.
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
     None,
 }
 

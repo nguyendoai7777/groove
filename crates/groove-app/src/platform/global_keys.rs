@@ -208,7 +208,7 @@ mod native {
             Some(Native(manager))
         }
 
-        #[cfg(test)]
+        #[cfg(all(test, windows))]
         pub fn bare() -> Native {
             Native(GlobalHotKeyManager::new().expect("hotkey manager"))
         }

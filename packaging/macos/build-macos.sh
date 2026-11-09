@@ -3,8 +3,10 @@
 # dịch vụ trả phí, chủ dự án quyết; lần đầu mở thì Gatekeeper cảnh báo, chuột phải > Open.
 #   bash packaging/macos/build-macos.sh                # bản phát hành: thiếu trang giấy phép là dừng
 #   bash packaging/macos/build-macos.sh --draft        # bản thử: thiếu thì cảnh báo, tên `.dmg` có `_draft`
-# Thêm: --arch arm64|x86_64 (mặc định kiến trúc máy), --skip-build, --out <thư mục> (mặc định dist/macos-<arch>).
-# Cần: `cargo install cargo-about --locked --features cli`, `pwsh` (`packaging/licenses/gen-licenses.ps1`).
+# Thêm: --arch arm64|x86_64|x64 (mặc định kiến trúc máy; Apple Silicon ⇄ Intel cross-compile được, cần `rustup target add
+# <triple>`), --skip-build, --out <thư mục> (mặc định dist/macos-<arch>).
+# Cần: `cargo install cargo-about --locked --features cli`; trang giấy phép qua `gen-licenses.ps1` khi có `pwsh`, không thì bản
+# Node `gen-licenses.mjs` (cùng bước, cùng chốt soát — như build-deb.sh).
 set -euo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -52,12 +54,14 @@ plutil -lint -s "$app/Contents/Info.plist"
 cp "$repo/packaging/macos/groove.icns" "$resources/"
 
 warnings=""
-if command -v pwsh >/dev/null 2>&1 && command -v cargo-about >/dev/null 2>&1; then
+if command -v cargo-about >/dev/null 2>&1 && command -v pwsh >/dev/null 2>&1; then
   pwsh -NoProfile -File "$repo/packaging/licenses/gen-licenses.ps1" -Out "$resources/licenses"
+elif command -v cargo-about >/dev/null 2>&1 && command -v node >/dev/null 2>&1; then
+  node "$repo/packaging/licenses/gen-licenses.mjs" "$resources/licenses"
 elif [ -n "$draft" ]; then
-  warnings="⚠ Không có trang giấy phép: cần pwsh + cargo-about."$'\n'
+  warnings="⚠ Không có trang giấy phép: cần cargo-about + pwsh hoặc Node."$'\n'
 else
-  echo "Không có trang giấy phép: cần pwsh + cargo-about (bản thử: --draft)." >&2
+  echo "Không có trang giấy phép: cần cargo-about + pwsh hoặc Node (bản thử: --draft)." >&2
   exit 1
 fi
 

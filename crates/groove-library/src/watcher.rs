@@ -136,6 +136,26 @@ fn gather(
         }
     }
 
+    // macos-arch (09/11/2026): FSEvents không ghép được cặp đổi tên thư mục — debouncer chỉ báo `Create(Folder)` ở nơi mới,
+    // không báo nơi cũ ⇒ tệp trong thư mục vừa đổi tên / dời tới trông như tệp mới, dòng cũ không ai đánh dấu vắng, `reconcile`
+    // không có ứng viên để ghép rename. Tệp lạ trong lô ⇒ dòng cùng tên tệp đã mất trên đĩa vào `vanished`, `reconcile::plan`
+    // ghép như đổi tên tệp (cỡ, thẻ). Chỉ stat dòng trùng tên, không quét cả gốc.
+    let known: HashSet<&str> = rows.iter().map(|row| row.path_key.as_str()).collect();
+    let fresh_names: HashSet<&std::ffi::OsStr> = changes
+        .seen
+        .iter()
+        .filter(|file| !known.contains(schema::path_key(&file.path.to_string_lossy()).as_str()))
+        .filter_map(|file| file.path.file_name())
+        .collect();
+    if !fresh_names.is_empty() {
+        let orphans = rows
+            .iter()
+            .filter(|row| row.path.file_name().is_some_and(|name| fresh_names.contains(name)))
+            .filter(|row| root_of(&row.path_key).is_some())
+            .filter(|row| probe(&row.path).is_err_and(|err| err.kind() == io::ErrorKind::NotFound));
+        changes.vanished.extend(orphans.map(|row| row.id));
+    }
+
     // N1: cả gốc vắng thì mọi "không có" ở trên chỉ nói là ổ chưa gắn.
     let by_id: HashMap<i64, &KnownRow> = rows.iter().map(|row| (row.id, row)).collect();
     let present: Vec<bool> = roots.iter().map(|root| root_is_present(root)).collect();
