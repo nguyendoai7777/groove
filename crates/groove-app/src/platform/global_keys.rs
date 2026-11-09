@@ -95,6 +95,7 @@ impl<B: Backend> Registry<B> {
     }
 
     /// Lệnh của sự kiện OS `id`.
+    #[cfg(any(windows, target_os = "macos", test))]
     pub fn command_for(&self, id: u32) -> Option<Command> {
         self.registered.iter().find(|(own, _, _)| *own == id).map(|&(_, _, command)| command)
     }
@@ -162,6 +163,7 @@ pub fn probe(key: &KeySequence, cx: &mut App) -> Result<(), String> {
     with(cx, |registry| registry.probe(key)).unwrap_or(Ok(()))
 }
 
+#[cfg(any(windows, target_os = "macos"))]
 fn run_event(id: u32, cx: &mut App) {
     let command = cx.try_global::<GlobalKeys>().and_then(|keys| keys.0.as_ref()?.command_for(id));
     if let Some(command) = command {
