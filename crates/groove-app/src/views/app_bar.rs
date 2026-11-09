@@ -28,6 +28,7 @@ use materiant::theme::{ActiveTheme, Neutral};
 
 use crate::icons::GrooveIcon;
 use crate::platform::window_controls;
+use crate::views::{side_nav, traffic_lights};
 
 pub const HEIGHT: f32 = 36.;
 /// Ô tìm rộng 40 % thanh, canh giữa.
@@ -46,6 +47,8 @@ pub struct AppBar {
     maximized: bool,
     on_back: Handler,
     on_search: Handler,
+    /// macOS, cột trái đang thu: nút mở cột đứng đầu thanh, sau cụm đèn giao thông (`side_nav::toggle_button`).
+    nav_toggle: Option<side_nav::Handler<()>>,
 }
 
 impl AppBar {
@@ -55,7 +58,15 @@ impl AppBar {
         on_back: impl Fn(&mut Window, &mut App) + 'static,
         on_search: impl Fn(&mut Window, &mut App) + 'static,
     ) -> AppBar {
-        AppBar { can_back, maximized, on_back: Rc::new(on_back), on_search: Rc::new(on_search) }
+        AppBar { can_back, maximized, on_back: Rc::new(on_back), on_search: Rc::new(on_search), nav_toggle: None }
+    }
+}
+
+impl AppBar {
+    /// Nút mở cột trái ở đầu thanh (macOS lúc cột thu: đầu cột hẹp đã có đèn giao thông).
+    pub fn nav_toggle(mut self, on_toggle: impl Fn(&mut Window, &mut App) + 'static) -> AppBar {
+        self.nav_toggle = Some(Rc::new(move |(), window, cx| on_toggle(window, cx)));
+        self
     }
 }
 
@@ -198,6 +209,15 @@ impl RenderOnce for AppBar {
                 .child(Kbd::new("Ctrl+K").mac_symbols(mac))
         };
 
+        // macos-captions: cụm đèn giao thông (`Shell` vẽ từ mép trái cửa sổ) tràn qua cột trái đang thu ⇒ chừa phần tràn.
+        let nav_toggle = self.nav_toggle.clone().map(|on_toggle| {
+            div()
+                .flex()
+                .items_center()
+                .pl(px((traffic_lights::END - side_nav::COLLAPSED_WIDTH).max(0.)))
+                .child(side_nav::toggle_button("app-bar-nav-toggle", true, on_toggle, cx))
+        });
+
         let toggle_label = if self.maximized { t!("shell.app_bar.restore") } else { t!("shell.app_bar.maximize") };
 
         div()
@@ -208,37 +228,40 @@ impl RenderOnce for AppBar {
             .flex_none()
             .flex()
             .items_center()
+            .children(nav_toggle)
             .child(back)
             .child(search)
-            .child(
-                div()
-                    .ml_auto()
-                    .flex()
-                    .items_center()
-                    .h_full()
-                    .occlude()
-                    .child(caption(
-                        "app-bar-minimize",
-                        Caption::Minimize,
-                        Caption::Minimize.icon(self.maximized),
-                        t!("shell.app_bar.minimize"),
-                        cx,
-                    ))
-                    .child(caption(
-                        "app-bar-maximize",
-                        Caption::Maximize,
-                        Caption::Maximize.icon(self.maximized),
-                        toggle_label,
-                        cx,
-                    ))
-                    .child(caption(
-                        "app-bar-close",
-                        Caption::Close,
-                        Caption::Close.icon(self.maximized),
-                        t!("shell.app_bar.close"),
-                        cx,
-                    )),
-            )
+            .when(!window_controls::TRAFFIC_LIGHTS, |bar| {
+                bar.child(
+                    div()
+                        .ml_auto()
+                        .flex()
+                        .items_center()
+                        .h_full()
+                        .occlude()
+                        .child(caption(
+                            "app-bar-minimize",
+                            Caption::Minimize,
+                            Caption::Minimize.icon(self.maximized),
+                            t!("shell.app_bar.minimize"),
+                            cx,
+                        ))
+                        .child(caption(
+                            "app-bar-maximize",
+                            Caption::Maximize,
+                            Caption::Maximize.icon(self.maximized),
+                            toggle_label,
+                            cx,
+                        ))
+                        .child(caption(
+                            "app-bar-close",
+                            Caption::Close,
+                            Caption::Close.icon(self.maximized),
+                            t!("shell.app_bar.close"),
+                            cx,
+                        )),
+                )
+            })
     }
 }
 

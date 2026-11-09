@@ -6,7 +6,24 @@
 //! `zoom_window` của gpui-pre-windows chỉ `SW_MAXIMIZE`, nên Windows gọi thẳng `ShowWindowAsync` để bấm lần hai khôi phục cỡ
 //! cũ; đóng gửi `WM_CLOSE` như nút tiêu đề thật (đi qua `on_window_should_close`). Nền khác: API cửa sổ của GPUI.
 
+//!
+//! macos-captions (09/11/2026): macOS vẫn không có thanh tiêu đề OS (`titlebar: None`, chủ dự án: thanh trên tự vẽ, tự vẽ cả ba
+//! đèn giao thông — `views::traffic_lights`). gpui-pre-macos 0.3.10 khi `titlebar: None` tạo NSWindow chỉ với
+//! `Titled | FullSizeContentView`, thiếu `Miniaturizable` / `Resizable` / `Closable` ⇒ `miniaturize:`, `zoom:` bị AppKit
+//! bỏ qua, kéo mép không đổi cỡ. [`prepare`] thêm ba cờ đó rồi ẩn ba nút native mà cờ làm hiện ra.
+
 use materiant::gpui_kit::Window;
+
+/// macOS: ba nút cửa sổ là đèn giao thông tự vẽ ở góc trái trên; nền khác: ba nút kiểu Windows ở góc phải thanh trên.
+pub const TRAFFIC_LIGHTS: bool = cfg!(target_os = "macos");
+
+/// Gọi một lần sau khi mở cửa sổ chính (macOS: cờ NSWindow, ẩn nút native). Nền khác không làm gì.
+pub fn prepare(window: &Window) {
+    #[cfg(target_os = "macos")]
+    mac::prepare(window);
+    #[cfg(not(target_os = "macos"))]
+    let _ = window;
+}
 
 pub fn minimize(window: &Window) {
     window.minimize_window();
@@ -34,6 +51,32 @@ pub fn close(window: &mut Window) {
         return;
     }
     window.remove_window();
+}
+
+#[cfg(target_os = "macos")]
+mod mac {
+    use materiant::gpui_kit::Window;
+    use objc2_app_kit::{NSView, NSWindowButton, NSWindowStyleMask};
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+    pub fn prepare(window: &Window) {
+        let Ok(handle) = HasWindowHandle::window_handle(window) else { return };
+        let RawWindowHandle::AppKit(handle) = handle.as_raw() else { return };
+        // SAFETY: `ns_view` là NSView đang sống của cửa sổ GPUI vừa mở, gọi trên luồng chính.
+        let view: &NSView = unsafe { handle.ns_view.cast::<NSView>().as_ref() };
+        let Some(ns_window) = view.window() else { return };
+        ns_window.setStyleMask(
+            ns_window.styleMask()
+                | NSWindowStyleMask::Closable
+                | NSWindowStyleMask::Miniaturizable
+                | NSWindowStyleMask::Resizable,
+        );
+        for kind in [NSWindowButton::CloseButton, NSWindowButton::MiniaturizeButton, NSWindowButton::ZoomButton] {
+            if let Some(button) = ns_window.standardWindowButton(kind) {
+                button.setHidden(true);
+            }
+        }
+    }
 }
 
 #[cfg(windows)]

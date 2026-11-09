@@ -28,3 +28,4 @@ pub mod song_menu;
 pub mod song_row;
 pub mod timeline_box;
 pub mod timeline_dialog;
+pub mod traffic_lights;

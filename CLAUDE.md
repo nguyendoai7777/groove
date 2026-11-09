@@ -188,6 +188,11 @@ màn không có thì thoát, không rơi về màn mặc định. Xem ảnh xong
   `WindowDecorations::Client` (GNOME Wayland luôn là viền tự vẽ), app phải tự gọi `start_window_resize`. `platform::resize_edges`
   phủ dải 5 px mép trong + góc 12 px trên cùng gốc `Shell` (`occlude`), bỏ mép đang dính (phóng to, ghép nửa màn). Cửa sổ chính
   mới phải gắn `resize_edges::overlay`; test `platform::resize_edges::tests`.
+- **macOS: cửa sổ không thanh tiêu đề thiếu cờ thu nhỏ / phóng to / đổi cỡ** (09/11/2026): gpui-pre-macos 0.3.10 với `titlebar: None`
+  tạo NSWindow chỉ `Titled | FullSizeContentView` ⇒ `minimize_window` / `zoom_window` không ăn, kéo mép không đổi cỡ.
+  `platform::window_controls::prepare` thêm `Closable | Miniaturizable | Resizable` rồi ẩn ba nút native; ba đèn giao thông tự
+  vẽ (`views::traffic_lights`, `Shell` phủ ở góc trái trên, cột trái thu thì nút mở cột lên thanh trên sau cụm đèn), góc phải
+  thanh trên không còn ba nút kiểu Windows. Cửa sổ chính mới trên macOS phải gọi `prepare`.
 - **Worktree** cố định (D-18): `<gốc>/.claude/worktrees/groove-w<N>`, build ở `groove/target/w<N>`, xong task giữ cả hai. `materiant = { path = "../materiant" }` nhờ lối nối
   `.claude/worktrees/materiant` đã có. `CARGO_TARGET_DIR` riêng từng worktree (`groove/target/w<N>`), không xoá.
 - **AppData ảo hoá MSIX**: exe chạy từ app Claude trên Windows ghi vào `LocalCache` của gói. Không thấy DB cũ ở đó không có

@@ -95,6 +95,8 @@ pub fn run(dev: DevArgs) {
         // blur-behind (`platform::backdrop`).
         let _ = handle.update(cx, |_, window, _| {
             crate::platform::move_loop::install(window);
+            // macos-captions: cờ thu nhỏ / phóng to / đổi cỡ cho NSWindow không thanh tiêu đề, ẩn nút native.
+            crate::platform::window_controls::prepare(window);
             crate::platform::backdrop::smooth_blur(window);
         });
         // gnome-blur: GNOME không tự làm mờ sau cửa sổ — extension Shell của Groovex làm, cột trái theo nó đổi alpha.
@@ -525,6 +527,9 @@ impl Shell {
             },
             move |_, cx| shell.update(cx, |_, cx| cx.emit(ShellEvent::OpenSearch)),
         )
+        .when(crate::platform::window_controls::TRAFFIC_LIGHTS && settings(cx).side_nav_collapsed, |bar| {
+            bar.nav_toggle(|_, cx| Shell::toggle_side_nav(cx))
+        })
         .into_any_element()
     }
 }
@@ -617,6 +622,11 @@ impl Render for Shell {
                     .border_color(c.border)
                     .children(player),
             )
+            // macos-captions: đèn giao thông tự vẽ ở góc trái trên, sau phần `cached` (cột trái, thanh trên) để hitbox nằm
+            // trên vùng kéo; dưới bảng lệnh, Settings (lớp phủ của hộp thoại che như mọi nút khác).
+            .when(crate::platform::window_controls::TRAFFIC_LIGHTS, |shell| {
+                shell.child(crate::views::traffic_lights::TrafficLights::new(app_bar::HEIGHT))
+            })
             .children(self.slots.get(Slot::CommandPalette).map(|view| view.clone().into_any_element()))
             .children(self.slots.get(Slot::Settings).map(|view| view.clone().into_any_element()))
             .child(ToastViewport::new().inset_top(px(app_bar::HEIGHT)))

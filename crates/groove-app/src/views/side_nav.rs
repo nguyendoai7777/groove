@@ -32,8 +32,9 @@ use materiant::theme::color::hex;
 use materiant::theme::{ActiveTheme, Neutral};
 
 use crate::icons::GrooveIcon;
-use crate::platform::backdrop;
+use crate::platform::{backdrop, window_controls};
 use crate::route::Route;
+use crate::views::traffic_lights;
 
 pub const EXPANDED_WIDTH: f32 = 230.;
 pub const COLLAPSED_WIDTH: f32 = 56.;
@@ -47,7 +48,7 @@ const WIDTH_TRANSITION: Duration = Duration::from_millis(300);
 /// Quá ngưỡng này (đang nội suy) mới vẽ chữ; thấp hơn chỉ còn icon, tránh chữ bị cắt giữa chừng.
 const LABEL_THRESHOLD: f32 = COLLAPSED_WIDTH + 64.;
 
-type Handler<T> = Rc<dyn Fn(T, &mut Window, &mut App)>;
+pub type Handler<T> = Rc<dyn Fn(T, &mut Window, &mut App)>;
 
 /// Icon của từng mục điều hướng.
 pub fn nav_icon(route: Route) -> GrooveIcon {
@@ -63,6 +64,29 @@ pub fn nav_icon(route: Route) -> GrooveIcon {
 pub fn animated_width(collapsed: bool, window: &mut Window, cx: &mut App) -> f32 {
     let target = if collapsed { COLLAPSED_WIDTH } else { EXPANDED_WIDTH };
     transition("side-nav-width", target, Transition::new(WIDTH_TRANSITION), window, cx)
+}
+
+/// Nút tròn thu / mở cột trái. Cột trái vẽ ở đầu cột; macOS lúc cột thu thì thanh trên vẽ (sau đèn giao thông).
+pub fn toggle_button(id: &'static str, collapsed: bool, on_toggle: Handler<()>, cx: &App) -> impl IntoElement {
+    let toggle_label = if collapsed { t!("shell.side_nav.expand") } else { t!("shell.side_nav.collapse") };
+    let nav_ink = NavInk::resolve(false, cx);
+    div()
+        .flex_none()
+        .occlude()
+        .child(
+            IconButton::new(id, if collapsed { GrooveIcon::SidebarExpand } else { GrooveIcon::SidebarCollapse })
+                .base()
+                // Cùng màu icon mục nav chưa chọn (xám `muted`, rê sáng lên) — trắng đặc trông đậm hơn icon bên dưới.
+                .ink(nav_ink.icon)
+                .hover_ink(nav_ink.hover)
+                .accessibility_label(toggle_label)
+                .on_click(move |_: &ClickEvent, window, cx| on_toggle((), window, cx))
+                .rounded_full()
+                .w(px(TOGGLE_SIZE))
+                .h(px(TOGGLE_SIZE))
+                .icon_size(px(ICON_SIZE)),
+        )
+        .with_tooltip((id, 1usize), toggle_label)
 }
 
 #[derive(IntoElement)]
@@ -113,29 +137,11 @@ impl RenderOnce for SideNav {
         let wide = width > LABEL_THRESHOLD;
         let c = cx.theme().colors().clone();
 
-        let toggle_label = if self.collapsed { t!("shell.side_nav.expand") } else { t!("shell.side_nav.collapse") };
-        let nav_ink = NavInk::resolve(false, cx);
-        let toggle = {
-            let on_toggle = self.on_toggle.clone();
-            div().flex_none().occlude().child(
-                IconButton::new(
-                    "side-nav-toggle",
-                    if self.collapsed { GrooveIcon::SidebarExpand } else { GrooveIcon::SidebarCollapse },
-                )
-                .base()
-                // Cùng màu icon mục nav chưa chọn (xám `muted`, rê sáng lên) — trắng đặc trông đậm hơn icon bên dưới.
-                .ink(nav_ink.icon)
-                .hover_ink(nav_ink.hover)
-                .accessibility_label(toggle_label)
-                .on_click(move |_: &ClickEvent, window, cx| on_toggle((), window, cx))
-                .rounded_full()
-                .w(px(TOGGLE_SIZE))
-                .h(px(TOGGLE_SIZE))
-                .icon_size(px(ICON_SIZE)),
-            )
-        }
-        .with_tooltip("side-nav-toggle-tip", toggle_label);
-
+        // macos-captions: đèn giao thông tự vẽ nằm góc trái đầu cột; cột hẹp không đủ chỗ cho cả đèn lẫn nút thu / mở ⇒ lúc
+        // đó nút ở thanh trên, sau cụm đèn (`AppBar::nav_toggle`).
+        let lights = window_controls::TRAFFIC_LIGHTS;
+        let toggle =
+            (!lights || wide).then(|| toggle_button("side-nav-toggle", self.collapsed, self.on_toggle.clone(), cx));
         let header = div()
             .id("side-nav-header")
             .h(px(HEADER_HEIGHT))
@@ -144,20 +150,25 @@ impl RenderOnce for SideNav {
             .items_center()
             .overflow_hidden()
             .when(wide, |d| {
-                d.justify_between().pl_3().pr(px(6.)).gap_2().child(
-                    div()
-                        .flex_1()
-                        .min_w_0()
-                        .truncate()
-                        .font_weight(FontWeight::NORMAL)
-                        .text_color(c.text)
-                        .child(t!("common.app_name")),
-                )
+                d.justify_between()
+                    .when(lights, |d| d.pl(px(traffic_lights::END)))
+                    .when(!lights, |d| d.pl_3())
+                    .pr(px(6.))
+                    .gap_2()
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .truncate()
+                            .font_weight(FontWeight::NORMAL)
+                            .text_color(c.text)
+                            .child(t!("common.app_name")),
+                    )
             })
             .when(!wide, |d| d.justify_center())
             // Vùng kéo cửa sổ của header nằm ở `Shell` (dải sau cột trái): cột trái nhúng `cached`, vùng điều khiển cửa sổ
             // của view `cached` mất khi GPUI dùng lại khung trước.
-            .child(toggle);
+            .children(toggle);
 
         let items: Vec<AnyElement> = Route::NAV
             .iter()
