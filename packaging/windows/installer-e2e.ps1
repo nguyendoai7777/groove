@@ -8,7 +8,7 @@
   mặc định nào của Windows. Máy đã cài Groovex (khoá, ProgID, lối tắt có sẵn) thì từ chối, không đụng bản đang dùng.
 
 .EXAMPLE
-  pwsh packaging/windows/installer-e2e.ps1 -Setup dist/groovex_0.2.0_win_x64.exe
+  pwsh packaging/windows/installer-e2e.ps1 -Setup dist/groovex_0.2.0_win_x64_setup.exe
 #>
 param([Parameter(Mandatory)] [string] $Setup)
 $ErrorActionPreference = 'Stop'
