@@ -3,7 +3,10 @@
 //! Windows (acrylic), macOS (`NSVisualEffectView`) luôn mờ ⇒ cột trái nền alpha 0,88 (`translucent_surface`).
 //! gpui-pre-linux 0.3.10 chỉ xin mờ qua `org_kde_kwin_blur` trên Wayland (KWin có; GNOME / Mutter — GNOME 50 không quảng bá
 //! giao thức mờ nào —, wlroots không có), X11 không xin gì: ở đó `Blurred` chỉ là trong suốt trơn, chữ cửa sổ phía sau lộ
-//! rõ. Không có mờ thì cột trái đục hơn: alpha 0,94 (`FLOATING_SURFACE_ALPHA` Linux, nền trong suốt app tự chọn — D-10).
+//! rõ. Không có mờ thì cột trái đục hơn: alpha 0,96 tông tối, đục tông sáng (nền trong suốt app tự chọn — D-10).
+//!
+//! gnome-blur (09/11/2026): GNOME có extension Shell của Groovex ([`gnome`]) thì phía sau cửa sổ chính mờ thật ⇒ cột trái
+//! alpha 0,72 cả hai tông, như launcher của fastcast.
 //!
 //! drag-lag (03/11/2026): [`smooth_blur`] — `Blurred` của gpui-pre-windows 0.3.10 là acrylic
 //! (`ACCENT_ENABLE_ACRYLICBLURBEHIND`), mà acrylic trên Windows 10 1903+ và Windows 11 trước 22H2 (build < 22621) giật khi kéo /
@@ -24,18 +27,65 @@
 //!
 //! Kiểm tay trên màn thật: `GROOVE_BLUR=acrylic` giữ acrylic của GPUI (so độ mượt khi kéo), `GROOVE_WINDOW_SHADOW=on` giữ bóng.
 
-use materiant::gpui_kit::{App, Hsla};
-use materiant::style::FLOATING_SURFACE_ALPHA;
+use materiant::gpui_kit::{AnyWindowHandle, App, Hsla};
 use materiant::theme::ActiveTheme;
+use materiant::window::TRANSLUCENT_SURFACE_ALPHA;
 
-/// Nền cột trái: alpha 0,88 khi cửa sổ mờ, 0,94 khi chỉ trong suốt. Tông sáng giữ đục như `translucent_surface`.
+/// Ai làm mờ phía sau cửa sổ chính.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Blur {
+    /// Compositor theo `Blurred` của GPUI: acrylic / blur-behind (Windows), `NSVisualEffectView` (macOS), KWin.
+    Compositor,
+    /// Extension GNOME Shell của Groovex ([`gnome`]): bán kính 40, mờ hơn hẳn acrylic.
+    Shell,
+    /// Chỉ trong suốt trơn: GNOME chưa nạp extension / bật tương phản cao, wlroots, X11.
+    None,
+}
+
+/// Alpha cột trái khi extension GNOME Shell làm mờ, cả hai tông — như launcher của fastcast (`BLURRED_SURFACE_ALPHA`): kiểu
+/// Raycast, nhìn ra mờ; thấp hơn ~0,65 thì nền sáng phía sau làm chữ phụ tông tối khó đọc.
+pub const SHELL_BLUR_ALPHA: f32 = 0.72;
+
+/// Alpha cột trái tông tối khi không có mờ: 0,94 cũ vẫn lộ chữ cửa sổ dưới (ảnh chủ dự án, 09/11/2026). Tông sáng đục.
+pub const UNBLURRED_ALPHA: f32 = 0.96;
+
+/// Nền cột trái theo việc phía sau có mờ thật hay không.
 pub fn side_nav_surface(cx: &App) -> Hsla {
-    if blur_available() {
-        return materiant::window::translucent_surface(cx);
-    }
     let theme = cx.theme();
-    let surface = theme.colors().surface;
-    if theme.is_dark() { surface.opacity(FLOATING_SURFACE_ALPHA) } else { surface }
+    theme.colors().surface.opacity(side_nav_alpha(blur(), theme.is_dark()))
+}
+
+fn side_nav_alpha(blur: Blur, dark: bool) -> f32 {
+    match (blur, dark) {
+        (Blur::Shell, _) => SHELL_BLUR_ALPHA,
+        (_, false) => 1.0,
+        (Blur::Compositor, true) => TRANSLUCENT_SURFACE_ALPHA,
+        (Blur::None, true) => UNBLURRED_ALPHA,
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn blur() -> Blur {
+    Blur::Compositor
+}
+
+#[cfg(target_os = "linux")]
+fn blur() -> Blur {
+    if gnome::blur() {
+        Blur::Shell
+    } else if kwin_blur() {
+        Blur::Compositor
+    } else {
+        Blur::None
+    }
+}
+
+/// Theo dõi lớp mờ của extension GNOME Shell cho cửa sổ chính, vẽ lại khi nó bật / tắt. OS khác, Linux ngoài GNOME: không làm gì.
+pub fn watch_shell_blur(window: AnyWindowHandle, cx: &mut App) {
+    #[cfg(target_os = "linux")]
+    gnome::watch(window, cx);
+    #[cfg(not(target_os = "linux"))]
+    let _ = (window, cx);
 }
 
 /// Đổi nền mờ của cửa sổ `Blurred` sang blur-behind (đúng bằng vùng client) ở bản Windows có acrylic giật khi kéo, và tắt bóng
@@ -340,36 +390,198 @@ mod sys {
     }
 }
 
-#[cfg(not(target_os = "linux"))]
-pub fn blur_available() -> bool {
-    true
-}
-
 /// Đoán theo môi trường như gpui-pre-linux chọn nền: có `WAYLAND_DISPLAY` thì Wayland, và chỉ KWin (Plasma) có
 /// `org_kde_kwin_blur`. Đoán sai về phía KWin tắt hiệu ứng mờ thì chỉ là trong suốt 0,88 như trước.
 #[cfg(target_os = "linux")]
-pub fn blur_available() -> bool {
+fn kwin_blur() -> bool {
     static AVAILABLE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
     *AVAILABLE.get_or_init(|| {
         let wayland = std::env::var_os("WAYLAND_DISPLAY").is_some_and(|v| !v.is_empty());
-        let desktop = std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default();
-        wayland && kwin_desktop(&desktop)
+        wayland && desktop_has(&std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default(), "KDE")
     })
 }
 
+/// `XDG_CURRENT_DESKTOP` (danh sách cách bằng `:`) có tên `name`.
 #[cfg(target_os = "linux")]
-fn kwin_desktop(xdg_current_desktop: &str) -> bool {
-    xdg_current_desktop.split(':').any(|name| name.eq_ignore_ascii_case("KDE"))
+fn desktop_has(xdg_current_desktop: &str, name: &str) -> bool {
+    xdg_current_desktop.split(':').any(|part| part.eq_ignore_ascii_case(name))
 }
 
-#[cfg(all(test, target_os = "linux"))]
+/// gnome-blur (09/11/2026): extension GNOME Shell của Groovex (`packaging/linux/gnome-shell/<UUID>/extension.js`) gắn lớp
+/// `Shell.BlurEffect` dưới cửa sổ chính — Mutter không có giao thức cho app xin mờ, GPUI chỉ xin qua `org_kde_kwin_blur`.
+/// Thuộc tính D-Bus `Blur` nói phía sau có mờ thật không (tương phản cao ⇒ false). App có thể mở trước khi Shell nạp
+/// extension (đăng nhập), tương phản cao đổi lúc đang chạy ⇒ nghe `NameOwnerChanged` + `PropertiesChanged`, mỗi lần đọc lại
+/// `Blur`; đổi thì vẽ lại cả cửa sổ (cột trái nằm trong view `cached`). Không dò theo nhịp. Tên phải khớp `extension.js`.
+#[cfg(target_os = "linux")]
+pub mod gnome {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    use futures::StreamExt;
+    use futures::channel::mpsc;
+    use materiant::gpui_kit::{AnyWindowHandle, App};
+    use zbus::message::Type;
+    use zbus::zvariant::OwnedValue;
+    use zbus::{Connection, MatchRule, MessageStream};
+
+    /// Thư mục của extension trong `gnome-shell/extensions/`.
+    pub const UUID: &str = "groovex-shell@com.sandtechs.desktop.groovex";
+    pub const BUS_NAME: &str = "com.sandtechs.desktop.groovex.Shell";
+    pub const OBJECT_PATH: &str = "/com/sandtechs/desktop/groovex/Shell";
+    pub const INTERFACE: &str = "com.sandtechs.desktop.groovex.Shell1";
+
+    const PROPERTIES: &str = "org.freedesktop.DBus.Properties";
+    const SHELL: &str = "org.gnome.Shell";
+    const SHELL_PATH: &str = "/org/gnome/Shell";
+    const EXTENSIONS: &str = "org.gnome.Shell.Extensions";
+    /// `ExtensionState.ACTIVE` của GNOME Shell 45+.
+    const ACTIVE: f64 = 1.0;
+    /// Mốc trong thư mục dữ liệu: đã bật extension một lần, người dùng tự tắt sau đó là ý của họ.
+    const MARKER: &str = "shell-extension-enabled";
+
+    static BLUR: AtomicBool = AtomicBool::new(false);
+
+    /// Giá trị `Blur` gần nhất của extension (chưa biết, không phải GNOME ⇒ false).
+    pub fn blur() -> bool {
+        BLUR.load(Ordering::Relaxed)
+    }
+
+    pub fn watch(window: AnyWindowHandle, cx: &mut App) {
+        if !super::desktop_has(&std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default(), "GNOME") {
+            return;
+        }
+        let (sender, mut receiver) = mpsc::unbounded();
+        cx.background_executor()
+            .spawn(async move {
+                if let Err(e) = follow(sender).await {
+                    log::debug!("backdrop: GNOME Shell blur unavailable: {e}");
+                }
+            })
+            .detach();
+        cx.spawn(async move |cx| {
+            while let Some(blur) = receiver.next().await {
+                if BLUR.swap(blur, Ordering::Relaxed) != blur {
+                    log::info!("backdrop: GNOME Shell blur {}", if blur { "on" } else { "off" });
+                    let _ = window.update(cx, |_, window, _| window.refresh());
+                }
+            }
+        })
+        .detach();
+    }
+
+    async fn follow(sender: mpsc::UnboundedSender<bool>) -> zbus::Result<()> {
+        let conn = Connection::session().await?;
+        enable_once(&conn).await;
+        let owner = MatchRule::builder()
+            .msg_type(Type::Signal)
+            .sender("org.freedesktop.DBus")?
+            .interface("org.freedesktop.DBus")?
+            .member("NameOwnerChanged")?
+            .add_arg(BUS_NAME)?
+            .build();
+        let changed = MatchRule::builder()
+            .msg_type(Type::Signal)
+            .interface(PROPERTIES)?
+            .member("PropertiesChanged")?
+            .path(OBJECT_PATH)?
+            .build();
+        // Đặt luật nghe trước rồi mới đọc: extension nạp giữa hai bước vẫn không lỡ.
+        let owner = MessageStream::for_match_rule(owner, &conn, None).await?;
+        let changed = MessageStream::for_match_rule(changed, &conn, None).await?;
+        let mut events = futures::stream::select(owner, changed);
+        loop {
+            if sender.unbounded_send(read_blur(&conn).await).is_err() {
+                return Ok(());
+            }
+            if events.next().await.is_none() {
+                return Ok(());
+            }
+        }
+    }
+
+    /// Extension không chạy / bản không có `Blur` ⇒ false.
+    async fn read_blur(conn: &Connection) -> bool {
+        let reply = conn.call_method(Some(BUS_NAME), OBJECT_PATH, Some(PROPERTIES), "Get", &(INTERFACE, "Blur")).await;
+        reply
+            .and_then(|r| r.body().deserialize::<OwnedValue>())
+            .ok()
+            .and_then(|v| bool::try_from(v).ok())
+            .unwrap_or(false)
+    }
+
+    /// Gói `.deb` cài extension vào `/usr/share/gnome-shell/extensions/`, GNOME không tự bật extension mới ⇒ bật một lần. Shell
+    /// chỉ quét thư mục extension lúc đăng nhập: cài xong mà chưa đăng nhập lại thì Shell chưa biết, lần chạy sau thử lại.
+    async fn enable_once(conn: &Connection) {
+        let Ok(marker) = groove_core::paths::data_dir().map(|d| d.join(MARKER)) else { return };
+        if marker.exists() {
+            return;
+        }
+        let info = conn.call_method(Some(SHELL), SHELL_PATH, Some(EXTENSIONS), "GetExtensionInfo", &(UUID,)).await;
+        let info: std::collections::HashMap<String, OwnedValue> = match info.and_then(|r| r.body().deserialize()) {
+            Ok(info) => info,
+            Err(e) => return log::debug!("backdrop: no GNOME Shell ({e})"),
+        };
+        if info.is_empty() {
+            log::info!(
+                "backdrop: GNOME Shell does not know the Groovex extension yet (not installed, or log in again)"
+            );
+            return;
+        }
+        // `d` ở bản Shell cũ; kiểu khác thì coi như chưa bật (`EnableExtension` lần nữa vô hại).
+        let state =
+            info.get("state").and_then(|v| f64::try_from(v).ok().or_else(|| u32::try_from(v).ok().map(f64::from)));
+        let enabled = state == Some(ACTIVE) || {
+            let reply = conn.call_method(Some(SHELL), SHELL_PATH, Some(EXTENSIONS), "EnableExtension", &(UUID,)).await;
+            reply.and_then(|r| r.body().deserialize::<bool>()).unwrap_or(false)
+        };
+        log::info!("backdrop: Groovex shell extension state {state:?}, enabled {enabled}");
+        if enabled
+            && let Err(e) =
+                std::fs::create_dir_all(marker.parent().unwrap_or(&marker)).and_then(|()| std::fs::write(&marker, b""))
+        {
+            log::warn!("backdrop: cannot write the extension marker ({})", e.kind());
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
+    use super::{Blur, SHELL_BLUR_ALPHA, TRANSLUCENT_SURFACE_ALPHA, UNBLURRED_ALPHA, side_nav_alpha};
+
     #[test]
-    fn only_plasma_counts_as_kwin() {
-        assert!(super::kwin_desktop("KDE"));
-        assert!(super::kwin_desktop("X-Generic:KDE"));
-        assert!(!super::kwin_desktop("ubuntu:GNOME"));
-        assert!(!super::kwin_desktop("sway"));
-        assert!(!super::kwin_desktop(""));
+    fn side_nav_is_clearer_only_when_something_blurs_behind() {
+        assert_eq!(side_nav_alpha(Blur::Shell, true), SHELL_BLUR_ALPHA);
+        assert_eq!(side_nav_alpha(Blur::Shell, false), SHELL_BLUR_ALPHA, "extension GNOME mờ đủ cho cả tông sáng");
+        assert_eq!(side_nav_alpha(Blur::Compositor, true), TRANSLUCENT_SURFACE_ALPHA);
+        assert_eq!(side_nav_alpha(Blur::Compositor, false), 1.0);
+        assert_eq!(side_nav_alpha(Blur::None, true), UNBLURRED_ALPHA);
+        assert_eq!(side_nav_alpha(Blur::None, false), 1.0);
+        const { assert!(SHELL_BLUR_ALPHA < TRANSLUCENT_SURFACE_ALPHA && TRANSLUCENT_SURFACE_ALPHA < UNBLURRED_ALPHA) };
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn desktop_names_match_any_entry() {
+        use super::desktop_has;
+        assert!(desktop_has("KDE", "KDE"));
+        assert!(desktop_has("X-Generic:KDE", "KDE"));
+        assert!(!desktop_has("ubuntu:GNOME", "KDE"));
+        assert!(desktop_has("ubuntu:GNOME", "GNOME"));
+        assert!(!desktop_has("sway", "GNOME"));
+        assert!(!desktop_has("", "KDE"));
+    }
+
+    /// Tên D-Bus, UUID khớp `extension.js` / `metadata.json` của gói.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn names_match_the_shell_extension() {
+        use super::gnome::{BUS_NAME, INTERFACE, OBJECT_PATH, UUID};
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../packaging/linux/gnome-shell/");
+        let js = std::fs::read_to_string(format!("{dir}{UUID}/extension.js")).expect("extension.js");
+        let meta = std::fs::read_to_string(format!("{dir}{UUID}/metadata.json")).expect("metadata.json");
+        assert!(js.contains(&format!("'{BUS_NAME}'")));
+        assert!(js.contains(&format!("'{OBJECT_PATH}'")));
+        assert!(js.contains(&format!("\"{INTERFACE}\"")));
+        assert!(js.contains("'groove', 'groove.dev'"), "app_id của bản cài và bản debug (`window_state`)");
+        assert!(meta.contains(&format!("\"uuid\": \"{UUID}\"")));
     }
 }

@@ -1,0 +1,7 @@
+{
+  "uuid": "groovex-shell@com.sandtechs.desktop.groovex",
+  "name": "Groovex",
+  "description": "Blurs the desktop behind the Groovex window.",
+  "shell-version": ["45", "46", "47", "48", "49", "50"],
+  "url": "https://sandtechs.com"
+}
