@@ -1150,8 +1150,12 @@ mod tests {
 
     type Notices = Rc<RefCell<Vec<(ToastKind, String)>>>;
 
+    const WAIT_LIMIT: Duration = Duration::from_secs(30);
+
     fn wait_until(cx: &mut TestAppContext, what: &str, mut done: impl FnMut(&mut TestAppContext) -> bool) {
-        for _ in 0..800 {
+        // Hạn theo đồng hồ, không theo số vòng: cả bộ test chạy song song thì luồng đọc chậm hơn nhiều.
+        let deadline = std::time::Instant::now() + WAIT_LIMIT;
+        while std::time::Instant::now() < deadline {
             cx.run_until_parked();
             if done(cx) {
                 return;
@@ -1443,7 +1447,8 @@ mod tests {
         let folder = env.folder("B");
         page.update(cx_window, |_, cx| cx.emit(LibraryPageEvent::Delete(folder)));
         let dialog = ctl.read_with(cx_window, |c, _| c.confirm_delete.clone()).unwrap();
-        for _ in 0..500 {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while std::time::Instant::now() < deadline {
             cx_window.run_until_parked();
             if dialog.read_with(cx_window, |d, _| d.is_open()) {
                 break;
@@ -1454,7 +1459,8 @@ mod tests {
         assert_eq!(env.songs_count(), 4, "chưa xác nhận thì chưa xoá");
         draw(cx_window);
         dialog.update_in(cx_window, |d, window, cx| d.confirm_for_test(window, cx));
-        for _ in 0..500 {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while std::time::Instant::now() < deadline {
             cx_window.run_until_parked();
             if env.songs_count() == 3 {
                 break;
@@ -1471,7 +1477,8 @@ mod tests {
         assert!(create.read_with(cx_window, |d, _| d.is_open()));
         draw(cx_window);
         create.update_in(cx_window, |d, window, cx| d.submit_for_test("Gym", window, cx));
-        for _ in 0..500 {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while std::time::Instant::now() < deadline {
             cx_window.run_until_parked();
             if !create.read_with(cx_window, |d, _| d.is_busy()) {
                 break;
@@ -1480,7 +1487,8 @@ mod tests {
         }
         assert!(create.read_with(cx_window, |d, _| d.is_open()), "trùng tên: hộp vẫn mở");
         create.update_in(cx_window, |d, window, cx| d.submit_for_test("Chill", window, cx));
-        for _ in 0..500 {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while std::time::Instant::now() < deadline {
             cx_window.run_until_parked();
             if !create.read_with(cx_window, |d, _| d.is_open()) {
                 break;
@@ -1538,7 +1546,8 @@ mod tests {
         cx.run_until_parked();
 
         ctl.update(cx, |ctl, cx| ctl.open_category_metadata(folder, cx));
-        for _ in 0..500 {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while std::time::Instant::now() < deadline {
             cx.run_until_parked();
             if ctl.read_with(cx, |c, _| c.metadata_dialog.is_some()) {
                 break;
@@ -1602,7 +1611,8 @@ mod tests {
             })
         };
         let wait = |cx: &mut VisualTestContext, what: &str, done: &dyn Fn(&mut VisualTestContext) -> bool| {
-            for _ in 0..500 {
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+            while std::time::Instant::now() < deadline {
                 cx.run_until_parked();
                 draw(cx);
                 if done(cx) {
@@ -1689,7 +1699,8 @@ mod tests {
         };
         // Đồng hồ của App ảo chỉ chạy khi đẩy: vòng đọc tiến độ của hộp chờ `timer(100 ms)`.
         let wait = |cx: &mut VisualTestContext, what: &str, done: &dyn Fn(&mut VisualTestContext) -> bool| {
-            for _ in 0..500 {
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+            while std::time::Instant::now() < deadline {
                 cx.executor().advance_clock(Duration::from_millis(100));
                 cx.run_until_parked();
                 draw(cx);
@@ -1753,7 +1764,8 @@ mod tests {
             })
         };
         let wait = |cx: &mut VisualTestContext, what: &str, done: &dyn Fn(&mut VisualTestContext) -> bool| {
-            for _ in 0..500 {
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+            while std::time::Instant::now() < deadline {
                 cx.executor().advance_clock(Duration::from_millis(100));
                 cx.run_until_parked();
                 draw(cx);

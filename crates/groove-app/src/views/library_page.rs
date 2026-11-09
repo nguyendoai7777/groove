@@ -937,9 +937,13 @@ mod tests {
         });
     }
 
-    /// Luồng đọc chạy ở thread khác: lặp cho tới khi view nhận kết quả (trần ~5 s).
+    /// Luồng đọc chạy ở thread khác: lặp cho tới khi view nhận kết quả (trần `WAIT_LIMIT`).
+    const WAIT_LIMIT: Duration = Duration::from_secs(30);
+
     fn wait_until(cx: &mut VisualTestContext, what: &str, mut done: impl FnMut(&mut VisualTestContext) -> bool) {
-        for _ in 0..500 {
+        // Hạn theo đồng hồ, không theo số vòng: cả bộ test chạy song song thì luồng đọc chậm hơn nhiều.
+        let deadline = std::time::Instant::now() + WAIT_LIMIT;
+        while std::time::Instant::now() < deadline {
             cx.run_until_parked();
             if done(cx) {
                 frame(cx);

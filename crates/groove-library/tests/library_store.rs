@@ -161,10 +161,12 @@ fn open_returns_at_once_and_queued_reads_wait_for_the_migration() {
     let config = LibraryConfig { target: paths.target.clone(), legacy: Some(paths.legacy.clone()) };
     let started = Instant::now();
     let library = Library::open(config, Box::new(sink)).unwrap();
+    // Chỉ đo `open`: luồng nền chạm bìa lúc nào tuỳ máy tải, không thuộc điều đang kiểm.
+    let opened = started.elapsed();
     let mut events = library.subscribe();
     let categories = library.categories();
     entered_rx.recv().unwrap();
-    assert!(started.elapsed() < NON_BLOCKING);
+    assert!(opened < NON_BLOCKING, "open took {opened:?}");
     assert_eq!(library.status(), OpenStatus::Opening);
 
     release_tx.send(()).unwrap();

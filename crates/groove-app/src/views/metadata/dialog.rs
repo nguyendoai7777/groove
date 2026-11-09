@@ -871,9 +871,10 @@ mod tests {
         });
     }
 
-    /// Luồng thư viện chạy ngoài, đánh thức future từ luồng khác: lặp tới khi điều kiện đúng (trần ~5 s).
+    /// Luồng thư viện chạy ngoài, đánh thức future từ luồng khác: lặp tới khi điều kiện đúng (trần 30 s theo đồng hồ: cả bộ test chạy song song thì chậm hơn nhiều).
     fn wait_until(cx: &mut VisualTestContext, what: &str, mut done: impl FnMut(&mut VisualTestContext) -> bool) {
-        for _ in 0..500 {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while std::time::Instant::now() < deadline {
             cx.run_until_parked();
             if done(cx) {
                 frame(cx);
