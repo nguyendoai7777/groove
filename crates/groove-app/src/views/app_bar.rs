@@ -34,10 +34,14 @@ pub const HEIGHT: f32 = 36.;
 /// Ô tìm rộng 40 % thanh, canh giữa.
 const SEARCH_WIDTH: f32 = 0.4;
 /// Nút cửa sổ như `icon-btn` của bản web: ô 36 px (`w-9`), icon 20 px (`sm`).
-const CONTROL_WIDTH: f32 = 36.;
+/// macos-caption-inset: macOS bo góc cửa sổ lớn (cửa sổ `Resizable`) ⇒ nút nhỏ hơn (32 × 28, bo góc, icon 18 px) và cụm nút
+/// lùi khỏi mép phải [`MAC_RIGHT_INSET`] để nút Đóng không chạm góc bo.
+const CONTROL_WIDTH: f32 = if cfg!(target_os = "macos") { 32. } else { 36. };
+const CONTROL_HEIGHT: f32 = if cfg!(target_os = "macos") { 28. } else { HEIGHT };
+const MAC_RIGHT_INSET: f32 = 8.;
 /// Nút Lùi tròn 32 px cách mép trái bằng khoảng nó cách mép trên / dưới thanh 36 px.
 const BACK_INSET: f32 = 2.;
-const CAPTION_ICON: f32 = 20.;
+const CAPTION_ICON: f32 = if cfg!(target_os = "macos") { 18. } else { 20. };
 
 type Handler = Rc<dyn Fn(&mut Window, &mut App)>;
 
@@ -120,7 +124,7 @@ impl CaptionPaint {
     }
 }
 
-/// Nút cửa sổ rộng 36 px, cao bằng thanh, icon 20 px, ripple từ tâm. Bấm gọi [`window_controls`] (phóng to bấm lần hai là khôi phục).
+/// Nút cửa sổ rộng 36 px, cao bằng thanh, icon 20 px (macOS 32 × 28 bo góc, icon 18 px), ripple từ tâm. Bấm gọi [`window_controls`] (phóng to bấm lần hai là khôi phục).
 fn caption(id: &'static str, caption: Caption, icon: GrooveIcon, label: &'static str, cx: &App) -> impl IntoElement {
     let paint = CaptionPaint::resolve(caption, cx.theme().colors().text);
     div()
@@ -129,7 +133,8 @@ fn caption(id: &'static str, caption: Caption, icon: GrooveIcon, label: &'static
         .occlude()
         .flex_none()
         .w(px(CONTROL_WIDTH))
-        .h(px(HEIGHT))
+        .h(px(CONTROL_HEIGHT))
+        .when(cfg!(target_os = "macos"), |d| d.rounded_md().overflow_hidden())
         .flex()
         .items_center()
         .justify_center()
@@ -235,6 +240,7 @@ impl RenderOnce for AppBar {
             .child(
                 div()
                     .ml_auto()
+                    .when(cfg!(target_os = "macos"), |d| d.mr(px(MAC_RIGHT_INSET)).gap(px(2.)))
                     .flex()
                     .items_center()
                     .h_full()
