@@ -1727,6 +1727,84 @@ mod tests {
         wait(cx, "toast", &|_| notices.borrow().iter().any(|(_, m)| m.contains("b1 (cut).wav")));
     }
 
+    /// Ô giờ của "Save as new": xoá bằng Backspace rồi gõ lại (ô rỗng, dạng dở `1:`) không làm sập app, giá trị mới vào đoạn.
+    #[gpui::test]
+    fn save_as_time_fields_survive_backspace_and_retyping(cx: &mut TestAppContext) {
+        use gpui::{Modifiers, MouseButton};
+
+        use crate::views::library_page::LibraryPage;
+
+        let env = env();
+        env.import_tree();
+        let _player = install_player(cx, &env);
+        let (ctl, _notices) = ctl_with(cx, &env, fake_picker(None, Rc::default()));
+        let (library, covers) = (env.library.clone(), env.covers.clone());
+        let route = Route::Category(env.folder("B"));
+        let window = cx.add_window(|window, cx| {
+            let page = cx.new(|cx| LibraryPage::new(Some(library), Some(covers), route, cx));
+            Root::new(page, window, cx)
+        });
+        cx.update(|cx| cx.set_global(CtlHandle(ctl.clone())));
+        let cx = VisualTestContext::from_window(window.into(), cx).into_mut();
+        let draw = |cx: &mut VisualTestContext| {
+            cx.update(|window, cx| {
+                window.refresh();
+                window.draw(cx).clear(cx);
+            })
+        };
+        let wait = |cx: &mut VisualTestContext, what: &str, done: &dyn Fn(&mut VisualTestContext) -> bool| {
+            for _ in 0..500 {
+                cx.executor().advance_clock(Duration::from_millis(100));
+                cx.run_until_parked();
+                draw(cx);
+                if done(cx) {
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            panic!("quá hạn chờ: {what}");
+        };
+        wait(cx, "dòng", &|cx| cx.debug_bounds("song-row-1").is_some());
+        let row = cx.debug_bounds("song-row-1").unwrap().center();
+        cx.simulate_mouse_down(row, MouseButton::Right, Modifiers::default());
+        cx.simulate_mouse_up(row, MouseButton::Right, Modifiers::default());
+        draw(cx);
+        draw(cx);
+        cx.simulate_keystrokes("end enter");
+        wait(cx, "hộp Save as new", &|cx| {
+            ctl.read_with(cx, |c, cx| c.save_as_dialog().is_some_and(|d| d.read(cx).is_ready()))
+        });
+        let dialog = ctl.read_with(cx, |c, _| c.save_as_dialog().unwrap().clone());
+        // Hộp nằm trong Shell lúc chạy thật; ở đây vẽ nó trong một cửa sổ riêng để phím tới ô nhập.
+        let mut app = cx.cx.clone();
+        let shown = dialog.clone();
+        let window = app.add_window(|window, cx| Root::new(shown, window, cx));
+        let cx = VisualTestContext::from_window(window.into(), &app).into_mut();
+        cx.simulate_resize(gpui::size(gpui::px(1000.), gpui::px(800.)));
+        let focus = |end: bool, cx: &mut VisualTestContext| {
+            dialog.update_in(cx, |d, window, cx| d.focus_time_for_test(end, window, cx));
+            draw(cx);
+        };
+        for end in [false, true] {
+            focus(end, cx);
+            cx.simulate_keystrokes("end backspace backspace backspace backspace backspace backspace backspace");
+            draw(cx);
+            cx.simulate_input("0:00");
+            cx.simulate_keystrokes("backspace backspace");
+            draw(cx);
+        }
+        focus(false, cx);
+        cx.simulate_keystrokes("end backspace backspace backspace backspace backspace backspace");
+        cx.simulate_input("0.2");
+        draw(cx);
+        focus(true, cx);
+        cx.simulate_keystrokes("end backspace backspace backspace backspace backspace backspace");
+        cx.simulate_input("0.7");
+        draw(cx);
+        let (start, end) = dialog.read_with(cx, |d, _| d.range_for_test());
+        assert!((start - 0.2).abs() < 1e-9 && (end - 0.7).abs() < 1e-9, "{start} {end}");
+    }
+
     #[test]
     fn every_key_exists() {
         use groove_core::i18n::t;

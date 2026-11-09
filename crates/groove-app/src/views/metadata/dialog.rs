@@ -30,6 +30,8 @@ use materiant::scroll::ScrollArea;
 use materiant::style::Accent;
 use materiant::theme::{ActiveTheme, Neutral};
 
+use crate::views::file_chip::extension_chip;
+
 use super::cover_pane::{CoverPane, CoverPaneEvent};
 use super::fields::{Field, Form, edit_for_track, group_edit, name_error_text, strip_known_extension};
 
@@ -449,19 +451,10 @@ impl MetadataDialog {
     }
 
     /// Một trang, không chia tab: bìa bên trái, mọi ô bên phải.
-    fn render_fields(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+    fn render_fields(&self, window: &Window, cx: &mut Context<Self>) -> Option<AnyElement> {
         let form = self.form.as_ref()?;
         let c = cx.theme().colors().clone();
-        let chip = div()
-            .self_end()
-            .h(px(32.))
-            .px_3()
-            .flex()
-            .items_center()
-            .rounded_md()
-            .bg(c.layer(Neutral::N200))
-            .text_color(c.muted)
-            .child(form.extension.clone());
+        let chip = extension_chip(form.extension.clone(), window, cx).self_end();
         let name_row = div()
             .flex()
             .flex_col()
@@ -534,7 +527,7 @@ impl MetadataDialog {
         Some(col.into_any_element())
     }
 
-    fn render_body(&mut self, cx: &mut Context<Self>) -> AnyElement {
+    fn render_body(&mut self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
         let c = cx.theme().colors().clone();
         match &self.phase {
             Phase::Loading => return div().py_8().text_color(c.muted).child(t!("metadata.loading")).into_any_element(),
@@ -548,7 +541,7 @@ impl MetadataDialog {
             .flex()
             .flex_col()
             .gap_4()
-            .children(self.render_fields(cx))
+            .children(self.render_fields(window, cx))
             .children(self.render_group(cx))
             .children(self.render_messages(cx))
             .into_any_element()
@@ -571,9 +564,9 @@ fn inline_note(text: String, color: materiant::gpui_kit::Hsla, icon: IconName) -
 }
 
 impl Render for MetadataDialog {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.note_closed(cx);
-        let body = self.render_body(cx);
+        let body = self.render_body(window, cx);
         let cover = self.cover.clone().filter(|_| matches!(self.phase, Phase::Ready));
         let ready = self.is_ready();
         let cancel_label = if self.saved { t!("common.close") } else { t!("metadata.cancel") };
