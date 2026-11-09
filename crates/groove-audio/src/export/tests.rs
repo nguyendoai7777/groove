@@ -52,26 +52,29 @@ fn request(source: &Path, dest: &Path, start: f64, end: f64, format: ExportForma
 }
 
 #[test]
-fn plan_prefers_copy_and_locks_what_has_no_encoder() {
+fn plan_prefers_copy_and_locks_what_has_no_mp3_encoder() {
     use ExportFormat::*;
     use Method::*;
     use SourceKind as K;
     let table = [
         (K::Mp3, Current, Ok(Mp3FrameCopy), Ok(Mp3FrameCopy)),
         (K::Mp3, Mp3, Ok(Mp3FrameCopy), Ok(Mp3FrameCopy)),
-        (K::Mp3, M4r, Ok(EncodeAac), Err(Unavailable::NoEncoderOnThisOs)),
+        (K::Mp3, M4r, Ok(EncodeAac), Ok(EncodeAac)),
         (K::Wav, Current, Ok(Wav), Ok(Wav)),
         (K::Flac, Current, Ok(Flac), Ok(Flac)),
         (K::Flac, Mp3, Ok(EncodeMp3), Err(Unavailable::NoEncoderOnThisOs)),
-        (K::Mp4, Current, Ok(AacCopy), Err(Unavailable::NoEncoderOnThisOs)),
-        (K::Mp4, M4r, Ok(AacCopy), Err(Unavailable::NoEncoderOnThisOs)),
+        (K::Mp4, Current, Ok(AacCopy), Ok(AacCopy)),
+        (K::Mp4, M4r, Ok(AacCopy), Ok(AacCopy)),
+        (K::Wav, M4r, Ok(EncodeAac), Ok(EncodeAac)),
         (K::Other, Current, Err(Unavailable::NoEncoderForSource), Err(Unavailable::NoEncoderForSource)),
         (K::Other, Mp3, Ok(EncodeMp3), Err(Unavailable::NoEncoderOnThisOs)),
     ];
-    for (kind, format, with_os, without_os) in table {
-        assert_eq!(plan_for(kind, format, true), with_os, "{kind:?} {format:?} with OS encoder");
-        assert_eq!(plan_for(kind, format, false), without_os, "{kind:?} {format:?} without OS encoder");
+    for (kind, format, with_mp3, without_mp3) in table {
+        assert_eq!(plan_for(kind, format, true), with_mp3, "{kind:?} {format:?} with MP3 encoder");
+        assert_eq!(plan_for(kind, format, false), without_mp3, "{kind:?} {format:?} without MP3 encoder");
     }
+    // M4R không còn khoá theo OS.
+    assert_eq!(plan(Path::new("a/b.flac"), M4r), Ok(EncodeAac));
     assert_eq!(source_kind(Path::new("a/B.M4A")), SourceKind::Mp4);
     assert_eq!(source_kind(Path::new("a/b.ogg")), SourceKind::Other);
 }
@@ -250,4 +253,84 @@ fn windows_cuts_aac_into_m4r() {
     let (frames, rate) = decoded_frames(&dest);
     let secs = frames as f64 / f64::from(rate);
     assert!((secs - 2.0).abs() < 0.12, "{secs} s");
+}
+
+/// Đọc lại `.m4r`: brand, codec, tần số, độ dài trình bày (theo edit list) tính bằng giây.
+#[cfg(not(windows))]
+fn m4r_info(path: &Path) -> (String, filmcraft_isobmff::AacConfig, u32, f64) {
+    let file = std::fs::File::open(path).unwrap();
+    let mp4 = filmcraft_isobmff::open(&file).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    let track = &mp4.tracks[mp4.track_of_kind(filmcraft_isobmff::TrackKind::Audio).expect("audio track")];
+    let Some(filmcraft_isobmff::CodecConfig::Aac(aac)) = track.codec() else { panic!("codec {:?}", track.codec()) };
+    assert!(!track.samples.is_empty());
+    let brand = String::from_utf8_lossy(&mp4.major_brand.0).into_owned();
+    let rate = track.audio().map(|a| a.sample_rate as u32).unwrap_or_default();
+    (brand, aac.clone(), rate, mp4.duration as f64 / f64::from(mp4.timescale))
+}
+
+#[cfg(not(windows))]
+#[test]
+fn encodes_m4r_from_pcm_without_os_encoder() {
+    let dir = TestDir::new();
+    // 22,05 kHz mono ⇒ đổi sang 44,1 kHz stereo như Windows; 48 kHz giữ nguyên.
+    for (rate, channels, out_rate) in [(44_100, 2, 44_100), (22_050, 1, 44_100), (48_000, 2, 48_000)] {
+        let source = sine_wav(dir.path(), &format!("sine-{rate}.wav"), rate, channels, 3.0);
+        let dest = dir.path().join(format!("ring-{rate}.m4r"));
+        run(&request(&source, &dest, 0.5, 1.75, ExportFormat::M4r), &Control::default())
+            .unwrap_or_else(|e| panic!("{rate}: {e}"));
+        let (brand, aac, got_rate, secs) = m4r_info(&dest);
+        assert_eq!(brand, "M4A ", "{rate}");
+        assert_eq!((aac.object_type, aac.channels()), (2, 2), "{rate}: AAC-LC stereo");
+        assert_eq!(got_rate, out_rate, "{rate}");
+        assert!((secs - 1.25).abs() < 0.001, "{rate}: {secs} s theo edit list");
+        // Giải mã được bằng chính decoder của app (symphonia bỏ qua edit list ⇒ dư mẫu mồi + đệm cuối).
+        let (frames, decoded_rate) = decoded_frames(&dest);
+        let decoded = frames as f64 / f64::from(decoded_rate);
+        assert!((decoded - 1.25).abs() < 0.1, "{rate}: decoded {decoded} s");
+        let leftovers: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(|e| e.ok()?.file_name().into_string().ok())
+            .filter(|n| n.contains(".part"))
+            .collect();
+        assert!(leftovers.is_empty(), "{leftovers:?}");
+    }
+}
+
+#[cfg(not(windows))]
+#[test]
+fn cuts_aac_into_m4r_by_copying_samples() {
+    let dir = TestDir::new();
+    // M4A thật: mã từ WAV trước, rồi cắt sang M4R (chép nguyên mẫu AAC, không mã lại).
+    let wav = sine_wav(dir.path(), "sine.wav", 48_000, 2, 4.0);
+    let m4a = dir.path().join("sine.m4a");
+    run(&request(&wav, &m4a, 0.0, 4.0, ExportFormat::M4r), &Control::default()).unwrap();
+    let (_, source_aac, _, source_secs) = m4r_info(&m4a);
+    assert!((source_secs - 4.0).abs() < 0.001, "{source_secs}");
+    let dest = dir.path().join("ring.m4r");
+    run(&request(&m4a, &dest, 1.0, 3.0, ExportFormat::M4r), &Control::default()).unwrap();
+    let (brand, aac, rate, secs) = m4r_info(&dest);
+    assert_eq!(brand, "M4A ");
+    assert_eq!(aac.asc, source_aac.asc, "chép nguyên cấu hình AAC của nguồn");
+    assert_eq!(rate, 48_000);
+    assert!((secs - 2.0).abs() < 0.001, "{secs} s");
+    let (frames, decoded_rate) = decoded_frames(&dest);
+    let decoded = frames as f64 / f64::from(decoded_rate);
+    assert!((decoded - 2.0).abs() < 0.1, "decoded {decoded} s");
+    // Chép nguyên mẫu: cỡ tệp xấp xỉ tỉ lệ đoạn cắt, không phải mã lại.
+    let ratio = std::fs::metadata(&dest).unwrap().len() as f64 / std::fs::metadata(&m4a).unwrap().len() as f64;
+    assert!((0.4..0.65).contains(&ratio), "{ratio}");
+}
+
+#[cfg(not(windows))]
+#[test]
+fn m4r_cancel_leaves_nothing_behind() {
+    let dir = TestDir::new();
+    let source = sine_wav(dir.path(), "sine.wav", 44_100, 2, 2.0);
+    let dest = dir.path().join("ring.m4r");
+    let control = Control::default();
+    control.cancel();
+    assert_eq!(run(&request(&source, &dest, 0.0, 2.0, ExportFormat::M4r), &control), Err(ExportError::Cancelled));
+    let names: Vec<_> =
+        std::fs::read_dir(dir.path()).unwrap().filter_map(|e| e.ok()?.file_name().into_string().ok()).collect();
+    assert_eq!(names, ["sine.wav"]);
 }
