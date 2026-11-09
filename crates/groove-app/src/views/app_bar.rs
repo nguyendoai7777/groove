@@ -231,37 +231,36 @@ impl RenderOnce for AppBar {
             .children(nav_toggle)
             .child(back)
             .child(search)
-            .when(!window_controls::TRAFFIC_LIGHTS, |bar| {
-                bar.child(
-                    div()
-                        .ml_auto()
-                        .flex()
-                        .items_center()
-                        .h_full()
-                        .occlude()
-                        .child(caption(
-                            "app-bar-minimize",
-                            Caption::Minimize,
-                            Caption::Minimize.icon(self.maximized),
-                            t!("shell.app_bar.minimize"),
-                            cx,
-                        ))
-                        .child(caption(
-                            "app-bar-maximize",
-                            Caption::Maximize,
-                            Caption::Maximize.icon(self.maximized),
-                            toggle_label,
-                            cx,
-                        ))
-                        .child(caption(
-                            "app-bar-close",
-                            Caption::Close,
-                            Caption::Close.icon(self.maximized),
-                            t!("shell.app_bar.close"),
-                            cx,
-                        )),
-                )
-            })
+            // Ba nút cửa sổ ở góc phải có trên mọi nền (macOS có thêm đèn giao thông tự vẽ ở góc trái, chủ dự án giữ cả hai).
+            .child(
+                div()
+                    .ml_auto()
+                    .flex()
+                    .items_center()
+                    .h_full()
+                    .occlude()
+                    .child(caption(
+                        "app-bar-minimize",
+                        Caption::Minimize,
+                        Caption::Minimize.icon(self.maximized),
+                        t!("shell.app_bar.minimize"),
+                        cx,
+                    ))
+                    .child(caption(
+                        "app-bar-maximize",
+                        Caption::Maximize,
+                        Caption::Maximize.icon(self.maximized),
+                        toggle_label,
+                        cx,
+                    ))
+                    .child(caption(
+                        "app-bar-close",
+                        Caption::Close,
+                        Caption::Close.icon(self.maximized),
+                        t!("shell.app_bar.close"),
+                        cx,
+                    )),
+            )
     }
 }
 
