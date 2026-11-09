@@ -115,6 +115,8 @@ pub fn run(dev: DevArgs) {
         crate::player::install(cx);
         // Task 22: phím tắt, cần player ở trên.
         crate::commands::install(cx);
+        // groove-gd2_04: phím tắt toàn cục, chạy lệnh qua `commands::run` ở trên.
+        crate::platform::global_keys::install(cx);
         // Task 14: thanh phát vào `Slot::PlayerBar`, cần player ở trên.
         crate::views::player_bar::install(handle, cx);
         // Task 26: media session, nút taskbar, cần phím tắt ở trên.

@@ -130,7 +130,7 @@ fn host(cx: &App) -> Rc<dyn Host> {
     cx.global::<CommandCenter>().host.clone()
 }
 
-fn chord_of(keystroke: &Keystroke) -> Option<Chord> {
+pub(crate) fn chord_of(keystroke: &Keystroke) -> Option<Chord> {
     let modifiers = &keystroke.modifiers;
     Chord::from_event(&keystroke.key, modifiers.control || modifiers.platform, modifiers.alt, modifiers.shift)
 }
@@ -681,9 +681,9 @@ mod tests {
         let mut rig = rig(cx);
         assert_eq!(rig.cx.update(|_, cx| key_label(Command::OpenSearch, cx)), Some("Ctrl+K".to_owned()));
         *rig.host.custom.borrow_mut() = Some(vec![
-            KeyBinding { key: "x".to_owned(), command: "launch_rocket".to_owned() },
-            KeyBinding { key: "y".to_owned(), command: "toggle_play".to_owned() },
-            KeyBinding { key: "y".to_owned(), command: "next_track".to_owned() },
+            KeyBinding::new("x", "launch_rocket"),
+            KeyBinding::new("y", "toggle_play"),
+            KeyBinding::new("y", "next_track"),
         ]);
         rig.press("space");
         assert!(rig.take_ran().is_empty(), "phím mặc định hết tác dụng khi đã có bảng riêng");

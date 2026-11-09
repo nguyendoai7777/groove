@@ -24,8 +24,15 @@ Còn lại trước khi đóng GĐ1:
 | `groove-gd2_01` `full-installer` | ✅ |
 | `groove-gd2_02` `save-as-new-export` — cắt / xuất đoạn bài (MP3 theo frame, WAV, FLAC, MP3 / AAC qua Media Foundation) | ✅ |
 | `groove-gd2_03` `save-as-new-dialog` — hộp Save as new, menu chuột phải hàng đợi (phụ thuộc gd2_02) | ✅ |
+| `groove-gd2_04` `shortcuts-editor` — Settings → Phím tắt dạng danh sách + hộp thêm / sửa, phím toàn cục | ✅ |
 
 ### Bàn giao GĐ2
+
+<!-- handoff: groove-gd2_04 -->
+
+- **groove-gd2_04 (09/11/2026)**: Settings → Phím tắt là danh sách + hộp thêm / sửa (`views/settings/{keybindings,key_editor}.rs`);
+  phím toàn cục `platform/global_keys.rs` (Windows / macOS qua `global-hotkey`; Linux chờ portal — `plan/_backlog.md`).
+  `KeyBinding` có thêm `label`, `global`; tạo bằng `KeyBinding::new`. Chi tiết: mục 9 của `plan/groove-gd2_04_shortcuts-editor.md`.
 
 <!-- handoff: groove-gd2_03 -->
 
