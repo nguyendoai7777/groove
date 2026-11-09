@@ -27,7 +27,7 @@ use groove_audio::engine::AudioErrorKind;
 use groove_core::model::{RepeatMode, Song};
 use groove_core::t;
 use groove_library::covers::{CoverSize, CoverStore};
-use materiant::button::IconButton;
+use materiant::button::{ButtonColor, IconButton};
 use materiant::effect::ripple::{RippleConfig, RippleExt, RippleTrigger};
 use materiant::gpui_kit::base::Disableable;
 use materiant::gpui_kit::prelude::*;
@@ -184,7 +184,8 @@ impl Transport {
         self.morph.set_playing(playing, Instant::now(), cx.reduce_motion());
     }
 
-    /// Nút Play / Pause như `toggle-play.vue`: không nền, không đổi màu khi rê; icon màu chữ biến hình theo [`PlayMorph`].
+    /// Nút Play / Pause: icon màu chữ biến hình theo [`PlayMorph`]; rê / nhấn hiện nền tròn như các nút cạnh nó (chủ dự án
+    /// 09/11/2026, khác `toggle-play.vue` không nền).
     fn play_button(
         &self,
         id: &'static str,
@@ -197,6 +198,9 @@ impl Transport {
         let label = if self.player.read(cx).is_playing() { t!("player.bar.pause") } else { t!("player.bar.play") };
         let player = self.player.clone();
         let ink = cx.theme().colors().text;
+        // Nền rê / nhấn tròn như các nút icon cạnh nó (`IconButton` dáng `Text`).
+        let (_, hot) = ButtonColor::default().tokens(cx);
+        let (hover_bg, active_bg) = (hot.ghost_hover, hot.ghost_active);
         let fire = ripple.clone();
         let ring = materiant::style::focus_visible(focus, window, cx)
             .then(|| ring_overlay(cx.focus_ring_color(), px(edge / 2.)));
@@ -211,7 +215,9 @@ impl Transport {
                     .relative()
                     .size(px(edge))
                     .rounded_full()
-                    .when(enabled, |b| b.cursor_pointer())
+                    .when(enabled, |b| {
+                        b.cursor_pointer().hover(move |s| s.bg(hover_bg)).active(move |s| s.bg(active_bg))
+                    })
                     .text_color(ink)
                     .on_click(move |event: &ClickEvent, window, cx| {
                         if matches!(event, ClickEvent::Keyboard(_)) {
