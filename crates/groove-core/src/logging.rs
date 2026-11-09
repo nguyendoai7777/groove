@@ -26,7 +26,8 @@ impl Log for FileLogger {
         if !self.enabled(r.metadata()) {
             return;
         }
-        let level = if is_gpui_teardown(r) { Level::Debug } else { r.level() };
+        let level =
+            if is_gpui_teardown(r) || is_tag_reader_noise(r.level(), r.target()) { Level::Debug } else { r.level() };
         if level > self.level {
             return;
         }
@@ -60,6 +61,13 @@ fn is_gpui_teardown(r: &Record) -> bool {
         && r.target().is_empty()
         && r.file().is_some_and(|file| file.contains("gpui-pre"))
         && is_teardown_message(&r.args().to_string())
+}
+
+/// `lofty` cảnh báo mỗi tệp lệch chuẩn mà nó vẫn đọc được ("ID3v2 tag preceded by junk data", "Using bitrate to estimate
+/// duration"): lần đầu đọc thẻ cả thư viện in hàng trăm dòng, trông như log chạy mãi. Tệp đọc hỏng thật thì `tags` / `indexer`
+/// tự ghi lỗi kèm đường dẫn ⇒ hạ `WARN` của `lofty` xuống `DEBUG`.
+fn is_tag_reader_noise(level: Level, target: &str) -> bool {
+    level == Level::Warn && (target == "lofty" || target.starts_with("lofty::"))
 }
 
 /// Dấu vết GPUI gọi vào cửa sổ vừa đóng, không mất gì, không sửa được từ ngoài thư viện ⇒ hạ `ERROR` xuống `DEBUG` để khỏi che
@@ -141,6 +149,15 @@ mod tests {
         assert!(is_teardown_message("Invalid window handle (0x80040102)"));
         assert!(!is_teardown_message("RefCell already borrowed"));
         assert!(!is_teardown_message("Failed to resize renderer"));
+    }
+
+    #[test]
+    fn lofty_warnings_are_demoted_but_its_errors_are_not() {
+        assert!(is_tag_reader_noise(Level::Warn, "lofty::id3"));
+        assert!(is_tag_reader_noise(Level::Warn, "lofty::mpeg::properties"));
+        assert!(!is_tag_reader_noise(Level::Error, "lofty::id3"));
+        assert!(!is_tag_reader_noise(Level::Warn, "loftyish"));
+        assert!(!is_tag_reader_noise(Level::Warn, "groove_library::indexer"));
     }
 
     #[test]
