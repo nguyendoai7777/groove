@@ -21,12 +21,12 @@ use groove_core::t;
 use groove_library::store::Library;
 use materiant::button::Button;
 use materiant::checkbox::Checkbox;
-use materiant::field::input::TextField;
+use materiant::field::{FieldEvent, TextField};
 use materiant::gpui_kit::base::Disableable;
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
     AnyElement, App, ClickEvent, Context, Entity, FontWeight, IntoElement, ParentElement, Render, SharedString, Styled,
-    Task, Window, div, px,
+    Subscription, Task, Window, div, px,
 };
 use materiant::overlay::dialog::{Dialog, DialogHandle};
 use materiant::progress::ProgressBar;
@@ -37,6 +37,7 @@ use materiant::theme::ActiveTheme;
 use materiant::toast::{Toast, ToastKind, ToastSpec};
 
 use crate::library_ctl;
+use crate::views::file_chip::extension_chip;
 
 const DIALOG_WIDTH: f32 = 560.;
 const TIME_FIELD_WIDTH: f32 = 88.;
@@ -163,25 +164,31 @@ pub struct SaveAsDialog {
     error: Option<&'static str>,
     _load_task: Option<Task<()>>,
     _poll_task: Option<Task<()>>,
+    _subscriptions: [Subscription; 2],
 }
 
 impl SaveAsDialog {
     pub fn new(library: Option<Library>, window: &mut Window, cx: &mut Context<Self>) -> SaveAsDialog {
-        let this = cx.entity().downgrade();
-        let time_field = |id: &'static str, label: &'static str, end: bool, window: &mut Window, cx: &mut App| {
-            let this = this.clone();
+        let time_field = |id: &'static str, label: &'static str, window: &mut Window, cx: &mut App| {
             cx.new(|cx| {
                 let mut field = TextField::new(id, window, cx).placeholder(t!("save_as.time_hint"));
                 // Nhãn nằm bên trái ô (hàng gọn); trình đọc màn hình vẫn có tên.
                 field.set_accessibility_label(label, cx);
-                field.on_change(move |value: &SharedString, _, cx| {
-                    let value = value.to_string();
-                    this.update(cx, |this, cx| this.typed_time(end, &value, cx)).ok();
-                })
+                field
             })
         };
-        let start_field = time_field("save-as-start", t!("save_as.start"), false, window, cx);
-        let end_field = time_field("save-as-end", t!("save_as.end"), true, window, cx);
+        let start_field = time_field("save-as-start", t!("save_as.start"), window, cx);
+        let end_field = time_field("save-as-end", t!("save_as.end"), window, cx);
+        // Nghe sự kiện, không `on_change`: `on_change` chạy giữa lượt update của ô, mà `typed_time` lại cập nhật chính ô đó
+        // (`set_error`) ⇒ GPUI panic vì update lồng, app thoát ngay phím đầu tiên (Backspace). Sự kiện tới sau lượt update.
+        let listen = |end: bool, field: &Entity<TextField>, cx: &mut Context<Self>| {
+            cx.subscribe(field, move |this, _, event: &FieldEvent, cx| {
+                if let FieldEvent::Change(value) = event {
+                    this.typed_time(end, value, cx);
+                }
+            })
+        };
+        let _subscriptions = [listen(false, &start_field, cx), listen(true, &end_field, cx)];
         let name_field = cx.new(|cx| {
             TextField::new("save-as-name", window, cx).label(t!("save_as.name")).label_weight(FontWeight::NORMAL)
         });
@@ -203,6 +210,7 @@ impl SaveAsDialog {
             error: None,
             _load_task: None,
             _poll_task: None,
+            _subscriptions,
         }
     }
 
@@ -285,6 +293,18 @@ impl SaveAsDialog {
     #[cfg(test)]
     pub fn save_for_test(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.save(window, cx);
+    }
+
+    #[cfg(test)]
+    pub fn range_for_test(&self) -> (f64, f64) {
+        (self.start, self.end)
+    }
+
+    #[cfg(test)]
+    pub fn focus_time_for_test(&self, end: bool, window: &mut Window, cx: &mut App) {
+        let field = if end { &self.end_field } else { &self.start_field };
+        use materiant::gpui_kit::Focusable;
+        window.focus(&field.read(cx).focus_handle(cx), cx);
     }
 
     #[cfg(test)]
@@ -456,7 +476,7 @@ impl SaveAsDialog {
 
     // ---- Vẽ ----
 
-    fn body(&self, cx: &mut Context<Self>) -> AnyElement {
+    fn body(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
         let c = cx.theme().colors().clone();
         let source = match &self.load {
             Load::Loading => return div().text_color(c.muted).child(t!("save_as.loading")).into_any_element(),
@@ -547,7 +567,7 @@ impl SaveAsDialog {
                     .items_end()
                     .gap_2()
                     .child(div().flex_1().min_w_0().child(self.name_field.clone()))
-                    .child(div().pb(px(6.)).text_color(c.muted).child(format!(".{ext}"))),
+                    .child(extension_chip(format!(".{ext}"), window, cx)),
             );
 
         let add = Checkbox::new("save-as-add")
@@ -622,10 +642,10 @@ fn read_source(song: Song) -> Option<Source> {
 }
 
 impl Render for SaveAsDialog {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let busy = self.busy();
         let can_save = self.can_save(cx);
-        let body = self.body(cx);
+        let body = self.body(window, cx);
         div().child(
             Dialog::new("save-as-dialog", &self.handle)
                 .title(t!("save_as.title"))

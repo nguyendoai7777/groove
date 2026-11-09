@@ -5,6 +5,7 @@ pub mod card_menu;
 pub mod category_card;
 pub mod command_palette;
 pub mod cover_image;
+pub mod file_chip;
 pub mod island;
 pub mod layout;
 pub mod library_page;
