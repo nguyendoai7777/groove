@@ -3,13 +3,15 @@
 //! Mở bằng `ShellEvent::OpenSettings` (nút ở đáy cột trái, hay lệnh). Luật của đặc tả:
 //!
 //! - **EQ và hai bước áp ngay** (nghe, thấy tác dụng liền). **Huỷ** khôi phục giá trị lúc mở; **OK** lưu phím tắt.
-//! - **OK** soát JSON phím tắt (M5): sai thì nhảy về tab Phím tắt, hiện lỗi dưới ô, **không đóng**.
+//! - **OK** lưu danh sách phím tắt nháp và đăng ký lại phím toàn cục (groove-gd2_04: trang danh sách thay ô JSON, dòng có
+//!   vấn đề chỉ cảnh báo, không chặn OK).
 //! - **Bấm nền đóng, coi như Huỷ** (G-5; không còn nút ✕): Esc hay bấm nền đều trả bước tua, bước âm lượng, EQ đã áp tạm
 //!   về lúc mở và bỏ nháp phím tắt; hộp phát hiện mình đã đóng mà chưa qua OK thì trả giá trị về. Không lặp M3 của bản
 //!   cũ (bấm ra ngoài giữ EQ mà bỏ phím tắt): mọi thứ cùng về như lúc mở.
 //! - Hộp chia header / body / footer có đường kẻ (`Dialog::divided`); body không đệm (`flush_body`) để khung cuộn chạm
 //!   mép phải của hộp và hai đường kẻ, đệm ngang nằm trong nội dung cuộn (D-16).
-//! - Phím toàn cục tự tắt khi hộp mở (`commands`), nên gõ vào ô JSON không kích hoạt lệnh.
+//! - Phím tắt trong app tự tắt khi hộp mở (`commands`), nên ghi phím ở hộp sửa không kích hoạt lệnh; phím toàn cục của OS
+//!   thì hộp sửa tạm gỡ lúc ghi (`key_editor`).
 //!
 //! Hộp nằm trong cây của khung như bảng lệnh (`Slot::Settings`), dựng một lần ở `install`.
 
@@ -186,22 +188,18 @@ impl SettingsDialog {
         }
     }
 
-    /// OK: lưu phím tắt rồi đóng. Phím tắt sai thì ở lại, nhảy về tab của nó.
+    /// OK: lưu phím tắt (đăng ký lại phím toàn cục) rồi đóng. Danh sách không có trạng thái sai chặn lưu: dòng có vấn đề chỉ
+    /// cảnh báo (groove-gd2_04).
     pub fn confirm(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let draft = self.keys.update(cx, |keys, cx| keys.check(cx));
-        match draft {
-            Err(()) => self.select_tab(SettingsTab::Keybindings, cx),
-            Ok(draft) => {
-                match draft {
-                    Draft::Unchanged => {}
-                    Draft::Defaults => app::update_settings(cx, |s| s.custom_keybindings = None),
-                    Draft::Custom(list) => app::update_settings(cx, |s| s.custom_keybindings = Some(list)),
-                }
-                self.opened = None;
-                self.handle.close(window, cx);
-                cx.notify();
-            }
+        match self.keys.read(cx).draft() {
+            Draft::Unchanged => {}
+            Draft::Defaults => app::update_settings(cx, |s| s.custom_keybindings = None),
+            Draft::Custom(list) => app::update_settings(cx, |s| s.custom_keybindings = Some(list)),
         }
+        super::keybindings::apply_global(cx);
+        self.opened = None;
+        self.handle.close(window, cx);
+        cx.notify();
     }
 
     /// Huỷ: trả nền, bảng màu, font, kiểu chia vùng, bước tua, bước âm lượng, EQ về lúc mở rồi đóng. Phím tắt chưa lưu nên chỉ cần bỏ nháp.
@@ -398,13 +396,15 @@ mod tests {
     use groove_library::fixtures::{self, AudioKind};
     use groove_library::indexer::Indexer;
     use groove_library::store::{Library, LibraryConfig};
-    use materiant::gpui_kit::SharedString;
     use materiant::gpui_kit::base::Root;
 
     use super::*;
     use crate::library_ctl::{LibraryCtl, PickKind, Picker};
+    use crate::platform::global_keys;
     use crate::player::{self, PlayerDeps};
+    use crate::views::settings::key_editor::KeyEditor;
     use crate::views::settings::roots::RootsState;
+    use groove_core::keymap::Command;
 
     const TIMEOUT: Duration = Duration::from_secs(20);
     /// Dưới mức này là khung im lặng (engine chưa kịp nạp ring lúc máy bận), không phải kết quả của EQ: bỏ qua.
@@ -486,17 +486,29 @@ mod tests {
         draw(cx);
     }
 
-    fn set_keys_text(rig: &Rig, text: impl Into<SharedString>, cx: &mut VisualTestContext) {
-        let text = text.into();
-        rig.dialog.update_in(cx, |d, window, cx| d.keybindings().update(cx, |k, cx| k.set_text(text, window, cx)));
+    fn keys_panel(rig: &Rig, cx: &VisualTestContext) -> Entity<KeybindingsPanel> {
+        rig.dialog.read_with(cx, |d, _| d.keybindings().clone())
     }
 
-    fn keys_text(rig: &Rig, cx: &VisualTestContext) -> String {
-        rig.dialog.read_with(cx, |d, cx| d.keybindings().read(cx).text(cx).to_string())
+    fn keys_list(rig: &Rig, cx: &VisualTestContext) -> Vec<KeyBinding> {
+        keys_panel(rig, cx).read_with(cx, |k, _| k.list().to_vec())
     }
 
-    fn keys_have_error(rig: &Rig, cx: &VisualTestContext) -> bool {
-        rig.dialog.read_with(cx, |d, cx| d.keybindings().read(cx).has_error())
+    /// Xoá dòng đầu như bấm nút xoá.
+    fn remove_first_key(rig: &Rig, cx: &mut VisualTestContext) {
+        keys_panel(rig, cx).update(cx, |k, cx| k.remove(0, cx));
+        draw(cx);
+    }
+
+    fn editor(rig: &Rig, cx: &VisualTestContext) -> Entity<KeyEditor> {
+        keys_panel(rig, cx).read_with(cx, |k, _| k.editor().clone())
+    }
+
+    /// Mở hộp sửa cho dòng `index` (`None`: thêm), như bấm nút.
+    fn open_editor(rig: &Rig, index: Option<usize>, cx: &mut VisualTestContext) {
+        let panel = keys_panel(rig, cx);
+        panel.update_in(cx, |k, window, cx| k.open_editor(index, window, cx));
+        draw(cx);
     }
 
     fn eq_panel(rig: &Rig, cx: &VisualTestContext) -> Entity<EqPanel> {
@@ -622,7 +634,7 @@ mod tests {
         cx.update(|_, cx| {
             app::update_settings(cx, |s| {
                 s.seek_step = 12;
-                s.custom_keybindings = Some(vec![KeyBinding { key: "x".into(), command: "toggle_play".into() }]);
+                s.custom_keybindings = Some(vec![KeyBinding::new("x", "toggle_play")]);
                 s.eq.set_band(2, 4.5);
             })
         });
@@ -631,8 +643,7 @@ mod tests {
         assert_eq!(rig.dialog.read_with(cx, |d, _| d.tab()), SettingsTab::General);
         let seek = rig.dialog.read_with(cx, |d, cx| d.general().read(cx).seek_step_value(cx));
         assert_eq!(seek, Some(12.0));
-        let text = keys_text(&rig, cx);
-        assert!(text.contains("\"key\": \"x\"") && !text.contains("ctrl+k"), "{text}");
+        assert_eq!(keys_list(&rig, cx), [KeyBinding::new("x", "toggle_play")]);
         assert_eq!(eq_panel(&rig, cx).read_with(cx, |p, _| p.eq().gains[2]), 4.5);
     }
 
@@ -667,7 +678,7 @@ mod tests {
                 s.theme_preset = "rose-red".into();
             })
         });
-        set_keys_text(&rig, "[]", cx);
+        remove_first_key(&rig, cx);
         eq_panel(&rig, cx).update(cx, |panel, cx| panel.apply(|eq| eq.set_band(0, 6.0), cx));
         draw(cx);
         assert_eq!(settings(cx).seek_step, 45);
@@ -696,7 +707,7 @@ mod tests {
             panel.apply(|eq| eq.set_band(3, 5.0), cx);
             panel.apply(|eq| eq.set_bass_boost(4.0), cx);
         });
-        set_keys_text(rig, "[ nháp ]", cx);
+        remove_first_key(rig, cx);
         draw(cx);
         assert_eq!(settings(cx).seek_step, 45);
         assert_eq!(eq_panel(rig, cx).read_with(cx, |p, _| p.eq().gains[3]), 5.0);
@@ -712,7 +723,7 @@ mod tests {
         assert_eq!(eq, EqSettings::default(), "{how}: bảng EQ về lúc mở");
         assert_eq!(after.custom_keybindings, None, "{how}: không lưu nháp phím tắt");
         open(rig, cx);
-        assert!(keys_text(rig, cx).contains("ctrl+k"), "{how}: mở lại thì nháp cũ không còn");
+        assert_eq!(keys_list(rig, cx), default_keybindings(), "{how}: mở lại thì nháp cũ không còn");
     }
 
     /// C5 (G-5) — bấm lớp phủ đóng hộp, coi như Huỷ: trả mọi thay đổi chưa OK, kể cả EQ đã áp tạm.
@@ -805,41 +816,111 @@ mod tests {
         let _ = rig;
     }
 
-    /// C6 (M5) — OK với JSON sai: nhảy về tab Phím tắt, báo lỗi, không đóng, không lưu gì.
+    /// C6 (groove-gd2_04 C4) — thêm dòng qua hộp sửa (chọn lệnh, phím, toàn cục, tên) rồi OK: lưu đúng cả `label`, `global`.
+    /// Huỷ hộp sửa không thêm gì; Huỷ hộp Settings bỏ dòng đã thêm.
     #[gpui::test]
-    fn c6_ok_with_bad_json_jumps_to_the_keys_tab_and_stays(cx: &mut TestAppContext) {
+    fn c6_add_through_the_editor_then_ok_saves_label_and_global(cx: &mut TestAppContext) {
         let (rig, cx) = rig(cx);
         open(&rig, cx);
-        for text in ["[{\"key\": ", "{}", "[{\"key\": \"a\", \"command\": \"nope\"}]", "[{\"key\": \"a\"}]"] {
-            rig.dialog.update_in(cx, |d, _, cx| d.select_tab(SettingsTab::General, cx));
-            set_keys_text(&rig, text, cx);
-            confirm(&rig, cx);
-            assert!(is_open(&rig, cx), "{text}: không đóng");
-            assert_eq!(rig.dialog.read_with(cx, |d, _| d.tab()), SettingsTab::Keybindings, "{text}: nhảy về tab phím");
-            assert!(keys_have_error(&rig, cx), "{text}: có lỗi dưới ô");
-            assert_eq!(settings(cx).custom_keybindings, None);
-        }
-        // Gõ tiếp thì lời báo cũ biến mất.
-        rig.dialog.update_in(cx, |d, window, cx| d.keybindings().update(cx, |k, cx| k.type_text("[]", window, cx)));
+        rig.dialog.update_in(cx, |d, _, cx| d.select_tab(SettingsTab::Keybindings, cx));
         draw(cx);
-        assert!(!keys_have_error(&rig, cx));
+        let before = keys_list(&rig, cx).len();
+
+        // Huỷ hộp sửa: không thêm.
+        open_editor(&rig, None, cx);
+        assert!(editor(&rig, cx).read_with(cx, |e, _| e.is_open()));
+        editor(&rig, cx).update_in(cx, |e, window, cx| e.close(window, cx));
+        draw(cx);
+        assert_eq!(keys_list(&rig, cx).len(), before);
+
+        open_editor(&rig, None, cx);
+        editor(&rig, cx).update_in(cx, |e, window, cx| {
+            e.set_for_test(Command::NextTrack, "ctrl+f7", true, cx);
+            e.set_label_for_test("Bài kế", window, cx);
+            e.save_for_test(window, cx);
+        });
+        draw(cx);
+        assert!(!editor(&rig, cx).read_with(cx, |e, _| e.is_open()), "lưu thì đóng hộp sửa");
+        let mut expected = KeyBinding::new("ctrl+f7", "next_track");
+        expected.label = "Bài kế".into();
+        expected.global = global_keys::supported();
+        assert_eq!(keys_list(&rig, cx).last(), Some(&expected));
+        assert!(is_open(&rig, cx), "hộp Settings vẫn mở");
+
+        // Huỷ hộp Settings: dòng mới không được lưu.
+        cancel(&rig, cx);
+        assert_eq!(settings(cx).custom_keybindings, None);
+
+        open(&rig, cx);
+        open_editor(&rig, None, cx);
+        editor(&rig, cx).update_in(cx, |e, window, cx| {
+            e.set_for_test(Command::NextTrack, "ctrl+f7", true, cx);
+            e.set_label_for_test("Bài kế", window, cx);
+            e.save_for_test(window, cx);
+        });
+        confirm(&rig, cx);
+        let saved = settings(cx).custom_keybindings.expect("đã lưu");
+        assert_eq!(saved.len(), before + 1);
+        assert_eq!(saved.last(), Some(&expected));
     }
 
-    /// C7 — OK với phím hợp lệ: lưu, đóng, `Settings::keybindings` trả đúng danh sách; trả về mặc định thì ghi `None`;
-    /// không đổi gì thì không đụng tới cài đặt.
+    /// C6b (groove-gd2_04 C6) — ghi phím: `g` rồi `m` liền nhau ra chuỗi `g m`, Enter xong; Esc huỷ giữ phím cũ; phím trùng
+    /// dòng khác hiện cảnh báo nêu tên dòng đó; Lưu khi chưa có phím thì báo, không đóng.
     #[gpui::test]
-    fn c7_ok_saves_valid_keybindings_and_closes(cx: &mut TestAppContext) {
+    fn c6b_recording_makes_sequences_and_warns_on_conflicts(cx: &mut TestAppContext) {
         let (rig, cx) = rig(cx);
-        let custom = vec![
-            KeyBinding { key: "ctrl+j".into(), command: "open_search".into() },
-            KeyBinding { key: "g m".into(), command: "go_to_library".into() },
-        ];
         open(&rig, cx);
-        set_keys_text(&rig, groove_core::keymap::to_json(&custom), cx);
+        open_editor(&rig, None, cx);
+        let editor = editor(&rig, cx);
+        editor.update_in(cx, |e, window, cx| {
+            e.save_for_test(window, cx);
+            assert!(e.is_open(), "chưa có phím thì không lưu");
+            assert_eq!(e.warning_texts().len(), 1, "báo thiếu phím");
+
+            e.start_recording_for_test(window, cx);
+            assert!(e.is_recording());
+            for key in ["g", "m", "enter"] {
+                e.press_for_test(key, cx);
+            }
+            assert!(!e.is_recording());
+            assert_eq!(e.key_text().as_deref(), Some("g m"));
+            // Mặc định đã có `g m` (Đi tới Thư viện): dòng mới trùng, cảnh báo nêu tên dòng đó.
+            let warnings = e.warning_texts();
+            assert!(warnings.len() == 1 && warnings[0].contains(Command::GoToLibrary.label()), "{warnings:?}");
+        });
+        editor.update_in(cx, |e, window, cx| {
+            e.start_recording_for_test(window, cx);
+            e.press_for_test("ctrl-k", cx);
+            e.press_for_test("escape", cx);
+            assert_eq!(e.key_text().as_deref(), Some("g m"), "Esc giữ phím cũ");
+            e.set_for_test(Command::TogglePlay, "ctrl+k", false, cx);
+            let warnings = e.warning_texts();
+            assert!(warnings.iter().any(|w| w.contains(Command::OpenSearch.label())), "{warnings:?}");
+            e.set_for_test(Command::TogglePlay, "g m", true, cx);
+            assert!(e.warning_texts().len() >= 2, "trùng + phím toàn cục là chuỗi: {:?}", e.warning_texts());
+        });
+    }
+
+    /// C7 — sửa, xoá, đặt lại mặc định rồi OK: lưu đúng; về mặc định thì ghi `None`; không đổi gì thì không đụng cài đặt.
+    #[gpui::test]
+    fn c7_edit_remove_and_reset_then_ok(cx: &mut TestAppContext) {
+        let (rig, cx) = rig(cx);
+        open(&rig, cx);
+        // Sửa dòng đầu (Ctrl+K mở tìm kiếm) thành Ctrl+J, giữ chức năng.
+        open_editor(&rig, Some(0), cx);
+        editor(&rig, cx).update_in(cx, |e, window, cx| {
+            assert_eq!(e.key_text().as_deref(), Some("ctrl+k"), "nạp đúng dòng đang sửa");
+            e.set_for_test(Command::OpenSearch, "ctrl+j", false, cx);
+            assert!(e.warning_texts().is_empty(), "không tự trùng với chính dòng đang sửa");
+            e.save_for_test(window, cx);
+        });
+        draw(cx);
+        remove_first_key(&rig, cx);
+        let custom: Vec<KeyBinding> = default_keybindings().into_iter().skip(1).collect();
+        assert_eq!(keys_list(&rig, cx), custom);
         confirm(&rig, cx);
         assert!(!is_open(&rig, cx));
         assert_eq!(settings(cx).custom_keybindings, Some(custom.clone()));
-        assert_eq!(settings(cx).keybindings(), custom);
 
         // Mở lại, không sửa gì, OK: giữ nguyên.
         open(&rig, cx);
@@ -848,7 +929,7 @@ mod tests {
 
         // Đặt lại mặc định rồi OK: về `None` để phím mới của bản sau tới người dùng.
         open(&rig, cx);
-        set_keys_text(&rig, groove_core::keymap::to_json(&default_keybindings()), cx);
+        keys_panel(&rig, cx).update(cx, |k, cx| k.reset(cx));
         confirm(&rig, cx);
         assert_eq!(settings(cx).custom_keybindings, None);
         assert!(!is_open(&rig, cx));

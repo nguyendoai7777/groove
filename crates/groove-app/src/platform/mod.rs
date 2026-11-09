@@ -1,6 +1,7 @@
 pub mod always_on_top;
 pub mod backdrop;
 pub mod default_player;
+pub mod global_keys;
 pub mod media_session;
 pub mod move_loop;
 #[cfg(windows)]

@@ -3,5 +3,6 @@ pub mod dialog;
 pub mod eq_bands;
 pub mod eq_panel;
 pub mod general;
+pub mod key_editor;
 pub mod keybindings;
 pub mod roots;

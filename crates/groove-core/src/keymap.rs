@@ -8,6 +8,9 @@
 //!
 //! M5: tệp cài đặt có thể chứa bất cứ gì, nên [`Keymap::from_bindings`] bỏ dòng sai và vẫn chạy; [`validate`] liệt kê từng dòng
 //! sai để hộp Settings báo.
+//!
+//! groove-gd2_04: trang Phím tắt dạng danh sách. [`conflict`] báo trùng phím khi thêm / sửa một dòng, [`KeySequence::global_issue`]
+//! nói tổ hợp có dùng làm phím toàn cục được không.
 
 use std::fmt;
 use std::time::{Duration, Instant};
@@ -72,6 +75,23 @@ impl Command {
         Command::ALL.into_iter().find(|command| command.name() == name)
     }
 
+    /// Tên hiển thị (dropdown chức năng, dòng phím tắt chưa đặt tên).
+    pub fn label(self) -> &'static str {
+        match self {
+            Command::OpenSearch => crate::t!("settings.keys.command.open_search"),
+            Command::TogglePlay => crate::t!("settings.keys.command.toggle_play"),
+            Command::SeekBackward => crate::t!("settings.keys.command.seek_backward"),
+            Command::SeekForward => crate::t!("settings.keys.command.seek_forward"),
+            Command::PrevTrack => crate::t!("settings.keys.command.prev_track"),
+            Command::NextTrack => crate::t!("settings.keys.command.next_track"),
+            Command::VolumeUp => crate::t!("settings.keys.command.volume_up"),
+            Command::VolumeDown => crate::t!("settings.keys.command.volume_down"),
+            Command::PlayRandom => crate::t!("settings.keys.command.play_random"),
+            Command::GoToLibrary => crate::t!("settings.keys.command.go_to_library"),
+            Command::GoToNowPlaying => crate::t!("settings.keys.command.go_to_now_playing"),
+        }
+    }
+
     /// Chạy cả khi đang gõ trong ô nhập (M4): chỉ mở bảng lệnh.
     pub const fn works_in_text_input(self) -> bool {
         matches!(self, Command::OpenSearch)
@@ -131,6 +151,27 @@ impl Chord {
             return Err(KeyParseError::MissingKey);
         }
         Chord::from_event(key, ctrl, alt, shift).ok_or(KeyParseError::MissingKey)
+    }
+
+    pub fn ctrl(&self) -> bool {
+        self.ctrl
+    }
+
+    pub fn alt(&self) -> bool {
+        self.alt
+    }
+
+    pub fn shift(&self) -> bool {
+        self.shift
+    }
+
+    /// Tên phím đã chuẩn hoá (`k`, `f7`, `arrowleft`, `space`).
+    pub fn key(&self) -> &str {
+        &self.key
+    }
+
+    fn is_function_key(&self) -> bool {
+        self.key.strip_prefix('f').and_then(|n| n.parse::<u8>().ok()).is_some_and(|n| (1..=24).contains(&n))
     }
 
     /// Nhãn cho `Kbd`: `Ctrl+K`, `Alt+←`, `Space`.
@@ -221,6 +262,25 @@ impl KeySequence {
     pub fn label(&self) -> String {
         self.0.iter().map(Chord::label).collect::<Vec<_>>().join(" ")
     }
+
+    /// Vì sao không dùng làm phím toàn cục được. OS chỉ nhận một tổ hợp, và phím trơn (`space`, `m`) mà giữ toàn cục thì
+    /// gõ chữ ở mọi app khác đều mất phím đó; F1–F24 thì được.
+    pub fn global_issue(&self) -> Option<GlobalIssue> {
+        match self.0.as_slice() {
+            [chord] if chord.ctrl || chord.alt || chord.is_function_key() => None,
+            [_] => Some(GlobalIssue::NoModifier),
+            _ => Some(GlobalIssue::Sequence),
+        }
+    }
+}
+
+/// Vì sao một phím không dùng làm phím toàn cục được.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GlobalIssue {
+    /// Chuỗi hai phím: OS chỉ đăng ký một tổ hợp.
+    Sequence,
+    /// Không có Ctrl / Alt (Shift chỉ đi với F1–F24): chặn mất phím gõ chữ ở app khác.
+    NoModifier,
 }
 
 impl fmt::Display for KeySequence {
@@ -359,6 +419,51 @@ impl KeyIssue {
     }
 }
 
+/// Phím mới đụng một dòng khác trong danh sách.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Conflict {
+    /// Cùng phím với dòng `index` (kể cả viết khác: `left`, `arrowleft`).
+    Same { index: usize },
+    /// Phím mới là chuỗi mà phím đầu đã là phím đơn ở dòng `index`: chuỗi không bao giờ tới.
+    ShadowedBy { index: usize },
+    /// Phím mới là phím đơn trùng phím đầu của chuỗi ở dòng `index`: chuỗi đó thôi chạy.
+    Shadows { index: usize },
+}
+
+impl Conflict {
+    pub fn index(self) -> usize {
+        match self {
+            Conflict::Same { index } | Conflict::ShadowedBy { index } | Conflict::Shadows { index } => index,
+        }
+    }
+}
+
+/// Phím `key` đặt vào dòng `editing` (`None` là dòng mới) đụng dòng nào khác. Dòng có phím sai bị bỏ qua; trùng hẳn được
+/// báo trước, rồi mới tới chuỗi bị che.
+pub fn conflict(bindings: &[KeyBinding], editing: Option<usize>, key: &KeySequence) -> Option<Conflict> {
+    let others = || {
+        bindings
+            .iter()
+            .enumerate()
+            .filter(move |&(index, _)| Some(index) != editing)
+            .filter_map(|(index, binding)| KeySequence::parse(&binding.key).ok().map(|sequence| (index, sequence)))
+    };
+    if let Some((index, _)) = others().find(|(_, other)| other == key) {
+        return Some(Conflict::Same { index });
+    }
+    let chords = key.chords();
+    others().find_map(|(index, other)| {
+        let theirs = other.chords();
+        if chords.len() > 1 && theirs == &chords[..1] {
+            Some(Conflict::ShadowedBy { index })
+        } else if theirs.len() > 1 && chords == &theirs[..1] {
+            Some(Conflict::Shadows { index })
+        } else {
+            None
+        }
+    })
+}
+
 /// Soát danh sách phím, trả mọi dòng sai theo thứ tự dòng.
 pub fn validate(bindings: &[KeyBinding]) -> Vec<KeyIssue> {
     let mut issues = Vec::new();
@@ -391,55 +496,13 @@ pub fn validate(bindings: &[KeyBinding]) -> Vec<KeyIssue> {
     issues
 }
 
-/// Lỗi hình dạng của ô JSON phím tắt (đặc tả 1.10).
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum KeyJsonError {
-    Empty,
-    /// Không phải JSON. `line` tính từ 1.
-    Syntax {
-        line: usize,
-        column: usize,
-    },
-    NotArray,
-    /// Dòng `index` (từ 0) thiếu `key` hoặc `command`, hay chúng rỗng, không phải chuỗi.
-    MissingField {
-        index: usize,
-    },
-}
-
-/// Đọc ô JSON `[{key, command}]`. Chỉ soát hình dạng; [`validate`] soát nội dung.
-pub fn parse_json(text: &str) -> Result<Vec<KeyBinding>, KeyJsonError> {
-    if text.trim().is_empty() {
-        return Err(KeyJsonError::Empty);
-    }
-    let value: serde_json::Value =
-        serde_json::from_str(text).map_err(|err| KeyJsonError::Syntax { line: err.line(), column: err.column() })?;
-    let items = value.as_array().ok_or(KeyJsonError::NotArray)?;
-    items
-        .iter()
-        .enumerate()
-        .map(|(index, item)| {
-            let field = |name: &str| item.get(name).and_then(|v| v.as_str()).filter(|s| !s.trim().is_empty());
-            match (field("key"), field("command")) {
-                (Some(key), Some(command)) => Ok(KeyBinding { key: key.to_owned(), command: command.to_owned() }),
-                _ => Err(KeyJsonError::MissingField { index }),
-            }
-        })
-        .collect()
-}
-
-/// Văn bản cho ô JSON: nút "Đặt lại mặc định", mở hộp Settings.
-pub fn to_json(bindings: &[KeyBinding]) -> String {
-    serde_json::to_string_pretty(bindings).unwrap_or_else(|_| "[]".to_owned())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::settings::{DEFAULT_KEYBINDINGS, default_keybindings};
 
     fn binding(key: &str, command: &str) -> KeyBinding {
-        KeyBinding { key: key.to_owned(), command: command.to_owned() }
+        KeyBinding::new(key, command)
     }
 
     fn chord(text: &str) -> Chord {
@@ -616,22 +679,52 @@ mod tests {
         assert_eq!(map.sequence_for(Command::PlayRandom), None);
     }
 
+    fn sequence(text: &str) -> KeySequence {
+        KeySequence::parse(text).unwrap()
+    }
+
+    /// groove-gd2_04 C2: trùng phím, chuỗi bị che, che chuỗi; dòng đang sửa không tự đụng mình.
     #[test]
-    fn json_shape_errors() {
-        assert_eq!(parse_json("  "), Err(KeyJsonError::Empty));
-        assert!(matches!(parse_json("[{"), Err(KeyJsonError::Syntax { .. })));
-        assert_eq!(parse_json("{}"), Err(KeyJsonError::NotArray));
+    fn conflict_finds_same_and_shadowed_keys() {
+        let list =
+            [binding("ctrl+k", "open_search"), binding("g m", "go_to_library"), binding("left", "seek_backward")];
+        assert_eq!(conflict(&list, None, &sequence("ctrl+k")), Some(Conflict::Same { index: 0 }));
         assert_eq!(
-            parse_json(r#"[{"key":"a","command":"toggle_play"},{"key":"b"}]"#),
-            Err(KeyJsonError::MissingField { index: 1 })
+            conflict(&list, None, &sequence("arrowleft")),
+            Some(Conflict::Same { index: 2 }),
+            "viết khác vẫn trùng"
         );
-        assert_eq!(parse_json(r#"[{"key":"","command":"x"}]"#), Err(KeyJsonError::MissingField { index: 0 }));
-        assert_eq!(parse_json(r#"[{"key":1,"command":"x"}]"#), Err(KeyJsonError::MissingField { index: 0 }));
+        assert_eq!(conflict(&list, None, &sequence("g")), Some(Conflict::Shadows { index: 1 }));
+        assert_eq!(conflict(&list, None, &sequence("ctrl+k x")), Some(Conflict::ShadowedBy { index: 0 }));
+        assert_eq!(conflict(&list, Some(0), &sequence("ctrl+k")), None, "chính dòng đang sửa");
+        assert_eq!(conflict(&list, None, &sequence("g p")), None);
+        assert_eq!(conflict(&list, None, &sequence("ctrl+j")), None);
+        // Dòng hỏng trong tệp sửa tay không làm hỏng việc soát.
+        let broken = [binding("a b c", "toggle_play"), binding("x", "toggle_play")];
+        assert_eq!(conflict(&broken, None, &sequence("x")), Some(Conflict::Same { index: 1 }));
+    }
+
+    /// groove-gd2_04 C3: chỉ tổ hợp có Ctrl / Alt, hoặc F1–F24, làm phím toàn cục được.
+    #[test]
+    fn global_needs_one_chord_with_a_modifier_or_function_key() {
+        for ok in ["ctrl+f7", "alt+p", "ctrl+shift+arrowright", "f7", "shift+f12", "f24"] {
+            assert_eq!(sequence(ok).global_issue(), None, "{ok}");
+        }
+        for (bad, issue) in [
+            ("g m", GlobalIssue::Sequence),
+            ("ctrl+k ctrl+j", GlobalIssue::Sequence),
+            ("space", GlobalIssue::NoModifier),
+            ("shift+k", GlobalIssue::NoModifier),
+            ("f25", GlobalIssue::NoModifier),
+        ] {
+            assert_eq!(sequence(bad).global_issue(), Some(issue), "{bad}");
+        }
     }
 
     #[test]
-    fn json_round_trips_defaults() {
-        let defaults = default_keybindings();
-        assert_eq!(parse_json(&to_json(&defaults)).unwrap(), defaults);
+    fn every_command_has_a_label() {
+        for command in Command::ALL {
+            assert!(!command.label().is_empty() && !command.label().starts_with("settings."), "{}", command.name());
+        }
     }
 }

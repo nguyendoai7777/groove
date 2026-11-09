@@ -197,18 +197,32 @@ fn clamp_finite(value: f32, min: f32, max: f32) -> f32 {
     if value.is_finite() { value.clamp(min, max) } else { 0.0_f32.clamp(min, max) }
 }
 
-/// Một dòng phím tắt, cùng dạng `[{key, command}]` của bản cũ.
+/// Một dòng phím tắt, cùng dạng `[{key, command}]` của bản cũ. groove-gd2_04 thêm `label`, `global`: tệp cũ đọc ra `""`,
+/// `false`; ghi lại thì bỏ trường trống, tệp của người không dùng hai trường này vẫn như cũ.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct KeyBinding {
     pub key: String,
     pub command: String,
+    /// Tên người dùng đặt; rỗng thì hiện tên lệnh (`keymap::Command::label`).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub label: String,
+    /// Nghe ở mức hệ thống, cả khi cửa sổ không focus (`platform::global_keys` của app).
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub global: bool,
+}
+
+impl KeyBinding {
+    pub fn new(key: impl Into<String>, command: impl Into<String>) -> KeyBinding {
+        KeyBinding { key: key.into(), command: command.into(), label: String::new(), global: false }
+    }
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 pub fn default_keybindings() -> Vec<KeyBinding> {
-    DEFAULT_KEYBINDINGS
-        .iter()
-        .map(|&(key, command)| KeyBinding { key: key.to_owned(), command: command.to_owned() })
-        .collect()
+    DEFAULT_KEYBINDINGS.iter().map(|&(key, command)| KeyBinding::new(key, command)).collect()
 }
 
 /// Vị trí cửa sổ (đặc tả 5.7): pixel logic toàn cục. `width`, `height` là cỡ lúc chưa phóng to.
@@ -542,6 +556,30 @@ mod tests {
         assert_eq!((old.volume, old.is_muted, old.volume_before_mute), (30, true, None));
     }
 
+    /// groove-gd2_04 C1: tệp của bản trước (chỉ `key`, `command`) đọc được; ghi lại không thêm trường rỗng; `label`,
+    /// `global` đi trọn vòng.
+    #[test]
+    fn old_keybindings_file_reads_and_new_fields_round_trip() {
+        let dir = crate::test_dir::TestDir::new();
+        let path = temp_file(&dir);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let old_file = r#"{"customKeybindings": [{"key": "ctrl+k", "command": "open_search"}, {"key": "g m", "command": "go_to_library"}]}"#;
+        std::fs::write(&path, old_file).unwrap();
+        let old = Settings::load_from(&path);
+        let list = old.custom_keybindings.clone().unwrap();
+        assert_eq!(list, [KeyBinding::new("ctrl+k", "open_search"), KeyBinding::new("g m", "go_to_library")]);
+        old.save_to(&path).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(!text.contains("label") && !text.contains("global"), "{text}");
+
+        let mut next = KeyBinding::new("ctrl+f7", "next_track");
+        next.label = "Bài kế".into();
+        next.global = true;
+        let s = Settings { custom_keybindings: Some(vec![next.clone()]), ..Settings::default() };
+        s.save_to(&path).unwrap();
+        assert_eq!(Settings::load_from(&path).custom_keybindings, Some(vec![next]));
+    }
+
     #[test]
     fn missing_file_gives_defaults_and_leaves_nothing_behind() {
         let dir = crate::test_dir::TestDir::new();
@@ -562,7 +600,7 @@ mod tests {
         s.eq.set_band(3, 2.5);
         s.eq.set_bass_boost(4.0);
         s.last_active_route = StartPage::Playlists;
-        s.custom_keybindings = Some(vec![KeyBinding { key: "ctrl+p".into(), command: "toggle_play".into() }]);
+        s.custom_keybindings = Some(vec![KeyBinding::new("ctrl+p", "toggle_play")]);
         s.side_nav_collapsed = true;
         s.window = Some(WindowPlacement {
             x: 10.0,
