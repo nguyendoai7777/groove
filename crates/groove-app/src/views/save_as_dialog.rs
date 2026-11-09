@@ -162,6 +162,8 @@ pub struct SaveAsDialog {
     job: Option<ExportJob>,
     progress: f32,
     error: Option<&'static str>,
+    /// Ô giờ bắt đầu / kết thúc đang có chữ không đọc được. Ô chỉ đổi viền đỏ; câu lỗi nằm một dòng dưới hàng hai ô.
+    typo: [bool; 2],
     _load_task: Option<Task<()>>,
     _poll_task: Option<Task<()>>,
     _subscriptions: [Subscription; 2],
@@ -208,6 +210,7 @@ impl SaveAsDialog {
             job: None,
             progress: 0.0,
             error: None,
+            typo: [false; 2],
             _load_task: None,
             _poll_task: None,
             _subscriptions,
@@ -222,6 +225,7 @@ impl SaveAsDialog {
         }
         self.load = Load::Loading;
         self.error = None;
+        self.typo = [false; 2];
         self.progress = 0.0;
         self.overwrite = None;
         for field in [&self.start_field, &self.end_field, &self.name_field] {
@@ -308,6 +312,13 @@ impl SaveAsDialog {
     }
 
     #[cfg(test)]
+    pub fn time_focused_for_test(&self, end: bool, window: &Window, cx: &App) -> bool {
+        let field = if end { &self.end_field } else { &self.start_field };
+        use materiant::gpui_kit::Focusable;
+        field.read(cx).focus_handle(cx).is_focused(window)
+    }
+
+    #[cfg(test)]
     pub fn set_range_for_test(&mut self, start: f64, end: f64, format: ExportFormat) {
         (self.start, self.end, self.format) = (start, end, Some(format));
     }
@@ -325,9 +336,14 @@ impl SaveAsDialog {
                 } else {
                     self.start = value
                 }
+                self.typo[usize::from(end)] = false;
                 field.update(cx, |f, cx| f.set_error(None, cx));
             }
-            None => field.update(cx, |f, cx| f.set_error(Some(t!("save_as.time_invalid").into()), cx)),
+            None => {
+                self.typo[usize::from(end)] = true;
+                // Thông báo rỗng: chỉ viền đỏ, ô không cao thêm (câu lỗi ở dưới hàng).
+                field.update(cx, |f, cx| f.set_error(Some(SharedString::default()), cx));
+            }
         }
         cx.notify();
     }
@@ -338,7 +354,8 @@ impl SaveAsDialog {
         let changed =
             [(start != self.start, start, self.start_field.clone()), (end != self.end, end, self.end_field.clone())];
         (self.start, self.end) = (start, end);
-        for (_, value, field) in changed.into_iter().filter(|(changed, ..)| *changed) {
+        for (index, (_, value, field)) in changed.into_iter().enumerate().filter(|(_, (changed, ..))| *changed) {
+            self.typo[index] = false;
             field.update(cx, |f, cx| {
                 f.set_value(format_time(value), window, cx);
                 f.set_error(None, cx);
@@ -388,6 +405,7 @@ impl SaveAsDialog {
         let Some(source) = self.source() else { return false };
         !self.busy()
             && self.format.is_some_and(|f| export::plan(&source.path, f).is_ok())
+            && !self.typo.contains(&true)
             && range_error(Some(self.start), Some(self.end), source.duration).is_none()
             && self.destination(cx).is_some()
     }
@@ -494,10 +512,14 @@ impl SaveAsDialog {
             .accessibility_label(t!("save_as.range"))
             .on_change(cx.listener(|this, value: &(f32, f32), window, cx| this.slid(*value, window, cx)));
         let length = (self.end - self.start).max(0.0);
-        let range_note = match range_error(Some(self.start), Some(self.end), source.duration) {
-            Some(err) => div().text_sm().text_color(c.danger).child(err),
-            None => div().text_sm().text_color(c.muted).child(t!("save_as.length", length = format_time(length))),
-        };
+        let length_note = div().text_sm().text_color(c.muted).child(t!("save_as.length", length = format_time(length)));
+        // Một dòng lỗi dưới hàng hai ô, rộng cả hàng: chữ gõ sai trước, rồi tới lỗi của đoạn.
+        let range_note = if self.typo.contains(&true) {
+            Some(t!("save_as.time_invalid"))
+        } else {
+            range_error(Some(self.start), Some(self.end), source.duration)
+        }
+        .map(|err| div().text_sm().text_color(c.danger).child(err));
         let ringtone_warning = (self.format == Some(ExportFormat::M4r) && length > RINGTONE_MAX_SEC).then(|| {
             div().text_sm().text_color(c.warning).child(t!("save_as.ringtone_long", length = format_time(length)))
         });
@@ -605,11 +627,12 @@ impl SaveAsDialog {
                             .flex()
                             .items_center()
                             .gap_3()
-                            .child(div().w(px(TIME_FIELD_WIDTH)).flex_none().child(self.start_field.clone()))
-                            .child(div().w(px(TIME_FIELD_WIDTH)).flex_none().child(self.end_field.clone()))
-                            // Độ dài (hoặc lỗi của đoạn) dồn sang phải.
-                            .child(div().flex_1().min_w_0().flex().justify_end().child(range_note)),
+                            .child(time_box("save-as-start-box", &self.start_field))
+                            .child(time_box("save-as-end-box", &self.end_field))
+                            // Độ dài dồn sang phải.
+                            .child(div().flex_1().min_w_0().flex().justify_end().child(length_note)),
                     )
+                    .children(range_note)
                     .children(ringtone_warning),
             )
             .child(formats)
@@ -619,6 +642,10 @@ impl SaveAsDialog {
             .children(self.error.map(|err| div().text_sm().text_color(c.danger).child(err)))
             .into_any_element()
     }
+}
+
+fn time_box(id: &'static str, field: &Entity<TextField>) -> impl IntoElement {
+    div().w(px(TIME_FIELD_WIDTH)).flex_none().debug_selector(move || id.to_owned()).child(field.clone())
 }
 
 /// Nền: độ dài (DB có thì dùng, không thì đọc tệp) và tên trống cạnh tệp gốc. Tệp đọc không được ⇒ `None`.

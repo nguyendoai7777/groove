@@ -1785,6 +1785,16 @@ mod tests {
             dialog.update_in(cx, |d, window, cx| d.focus_time_for_test(end, window, cx));
             draw(cx);
         };
+        // Bấm sát mép phải trong khung ô (chỗ trống sau chữ) cũng phải focus vào ô.
+        draw(cx);
+        for (end, id) in [(false, "save-as-start-box"), (true, "save-as-end-box")] {
+            let bounds = cx.debug_bounds(id).expect(id);
+            let at = gpui::point(bounds.right() - gpui::px(6.), bounds.top() + gpui::px(16.));
+            cx.simulate_mouse_down(at, MouseButton::Left, Modifiers::default());
+            cx.simulate_mouse_up(at, MouseButton::Left, Modifiers::default());
+            draw(cx);
+            assert!(dialog.update_in(cx, |d, window, cx| d.time_focused_for_test(end, window, cx)), "{id}");
+        }
         for end in [false, true] {
             focus(end, cx);
             cx.simulate_keystrokes("end backspace backspace backspace backspace backspace backspace backspace");
