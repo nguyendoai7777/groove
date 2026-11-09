@@ -681,6 +681,38 @@ mod view_tests {
         assert!((top(cx) - first).abs() < 1., "quay lại màn: bài đang phát về đúng chỗ lần đầu");
     }
 
+    /// Bấm bài hiện tại trong hàng đợi đảo phát / dừng như nút play, phát tiếp từ vị trí cũ; bấm bài khác thì phát bài đó.
+    #[gpui::test]
+    fn clicking_the_current_queue_row_toggles_playback(cx: &mut TestAppContext) {
+        let rig = rig(cx);
+        let (a, _) = rig.song("a");
+        let (b, _) = rig.song("b");
+        let (view, cx) = open_view(&rig, cx);
+        rig.player.update(cx, |p, cx| p.play_list(a.clone(), vec![a.clone(), b.clone()], cx));
+        let queue = view.read_with(cx, |v, _| v.queue_panel().clone());
+        rig.until(cx, "playing past the start", |cx| {
+            queue.read_with(cx, |q, _| q.current() == Some(0))
+                && rig.player.read_with(cx, |p, _| p.is_playing() && p.position_sec() > 0.1)
+        });
+
+        queue.update(cx, |q, cx| q.click_row(0, cx));
+        rig.until(cx, "paused", |cx| !rig.player.read_with(cx, |p, _| p.is_playing()));
+        let paused_at = rig.player.read_with(cx, |p, _| p.position_sec());
+        assert!(paused_at > 0.1, "dừng tại chỗ, không về đầu ({paused_at})");
+        assert_eq!(rig.player.read_with(cx, |p, _| p.current_track().cloned()), Some(a.clone()));
+
+        queue.update(cx, |q, cx| q.click_row(0, cx));
+        rig.until(cx, "resumed", |cx| rig.player.read_with(cx, |p, _| p.is_playing()));
+        let resumed_at = rig.player.read_with(cx, |p, _| p.position_sec());
+        assert!(resumed_at >= paused_at - 0.01, "phát tiếp từ {paused_at}, không từ 0 ({resumed_at})");
+        assert_eq!(rig.player.read_with(cx, |p, _| p.current_track().cloned()), Some(a.clone()));
+
+        queue.update(cx, |q, cx| q.click_row(1, cx));
+        rig.until(cx, "other row plays", |cx| {
+            rig.player.read_with(cx, |p, _| p.current_track() == Some(&b) && p.is_playing())
+        });
+    }
+
     /// C1 hàng đợi liệt kê đủ bài; C2 ba nút mở đúng hộp cho bài đang phát; C3 timeline hiện đoạn.
     #[gpui::test]
     fn buttons_open_dialogs_and_queue_lists_tracks(cx: &mut TestAppContext) {

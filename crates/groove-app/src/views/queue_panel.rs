@@ -2,7 +2,8 @@
 //!
 //! Hiển thị = lịch sử + bài hiện tại + hàng đợi (`Queue::visible`). Dòng đã phát mờ (25 %, rê chuột 50 %), dòng hiện tại có
 //! [`PlayingBars`] và chữ màu nhấn, tự cuộn vào giữa khi đổi bài trừ khi người dùng vừa bấm ngay trong bảng. Bấm một dòng
-//! là phát bài đó (`Player::play_track`, không kèm danh sách, bảng 1.4); phím mũi tên chỉ dời con trỏ, Enter mới phát.
+//! là phát bài đó (`Player::play_track`, không kèm danh sách, bảng 1.4); bấm dòng hiện tại thì đảo phát / dừng như nút play
+//! của thanh phát (`Player::toggle_play`, phát tiếp từ vị trí cũ). Phím mũi tên chỉ dời con trỏ, Enter mới phát / đảo.
 //!
 //! `Queue` chỉ giữ `TrackRef`, nên tên bài tra qua `Library::songs_for_tracks` ở luồng nền (UI không chạm đĩa, N7), nhớ
 //! theo id: đổi thứ tự (shuffle) không phải tra lại. Chỉ tra phần chưa có.
@@ -284,16 +285,20 @@ impl QueuePanel {
         }));
     }
 
-    /// Phát bài ở dòng `ix`. `from_click`: bấm ngay trong bảng thì lần đổi bài kế không kéo bảng đi chỗ khác.
+    /// Phát bài ở dòng `ix`; dòng hiện tại thì đảo phát / dừng (không phát lại từ đầu). `from_click`: bấm ngay trong bảng
+    /// thì lần đổi bài kế không kéo bảng đi chỗ khác.
     fn play_at(&mut self, ix: usize, from_click: bool, cx: &mut Context<Self>) {
         let Some(track) = self.tracks.get(ix).cloned() else { return };
-        if from_click && Some(ix) != self.current {
+        if Some(ix) == self.current {
+            self.player.update(cx, |player, cx| player.toggle_play(cx));
+            return;
+        }
+        if from_click {
             self.skip_center = true;
         }
         self.player.update(cx, |player, cx| player.play_track(track, cx));
     }
 
-    /// Bấm dòng (cho test).
     /// Chuột phải dòng `ix`: dời con trỏ tới đó, menu (dựng sau, ở khung bọc danh sách) đọc [`Self::menu_track`].
     fn right_click_row(&mut self, ix: usize, cx: &mut Context<Self>) {
         if ix < self.tracks.len() {
@@ -309,6 +314,7 @@ impl QueuePanel {
         self.tracks.get(ix).cloned()
     }
 
+    /// Bấm dòng `ix` bằng chuột.
     pub fn click_row(&mut self, ix: usize, cx: &mut Context<Self>) {
         self.play_at(ix, true, cx);
     }
@@ -360,7 +366,11 @@ impl Render for QueuePanel {
                     let is_current = state == RowState::Current;
                     let on_click = {
                         let this = this.clone();
-                        move |_: &materiant::gpui_kit::ClickEvent, _: &mut Window, cx: &mut App| {
+                        move |event: &materiant::gpui_kit::ClickEvent, _: &mut Window, cx: &mut App| {
+                            // Nhấp đúp: lần nhấp đầu đã phát / đảo rồi, lần hai không đảo ngược lại.
+                            if event.click_count() > 1 {
+                                return;
+                            }
                             this.update(cx, |panel, cx| panel.click_row(ix, cx));
                         }
                     };
@@ -427,9 +437,12 @@ impl Render for QueuePanel {
                         cx.notify();
                     });
                 })
-                .on_activate(move |ix: &usize, _, cx| {
-                    let ix = *ix;
-                    activate.update(cx, |panel, cx| panel.play_at(ix, true, cx));
+                // Enter phát / đảo; nhấp đúp thì `on_click` của dòng đã xử lý lần nhấp đầu.
+                .on_activate(move |ix: &usize, window, cx| {
+                    if window.last_input_was_keyboard() {
+                        let ix = *ix;
+                        activate.update(cx, |panel, cx| panel.play_at(ix, true, cx));
+                    }
                 })
                 .track(&self.list)
                 // D-16: khung cuộn chạm hai mép khung bảng, đệm ngang nằm trong (`padding_x`) để thumb sát mép phải.
