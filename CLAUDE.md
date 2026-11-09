@@ -18,7 +18,7 @@ Node (`package.json`, pnpm, Vite, husky), `public/`, `scripts/`, cũng không gi
 | `crates/groove-core` | lib | `paths`, `i18n`, `logging`, `model`, `settings`, `session`, `queue`, `timeline`, `keymap`, `cli` | UI, âm thanh, SQLite |
 | `crates/groove-library` | lib | `db/{schema,migrate,queries}`, `actor`, `store`, `tags`, `fixtures`, `covers`, `scanner`, `indexer`, `watcher`, `reconcile`, `metadata_ops`, `legacy_ls` | UI |
 | `crates/groove-audio` | lib | `engine`, `decoder`, `output`, `dsp`, `export` (Save as new: cắt / xuất; MP3 / AAC qua Media Foundation trên Windows — gd2_02; M4R trên Linux / macOS bằng `filmcraft-aac` + `filmcraft-isobmff` thuần Rust, `export::aac`) | UI, SQLite |
-| `crates/groove-app` | bin `groove` | `app`, `route`, `icons`, `player`, `session_sync`, `library_ctl`, `commands`, `instance`, `open_paths`, `window_state`, `dev`, `platform/{media_session,taskbar_windows,always_on_top,global_keys,backdrop}`, `views/*` | — |
+| `crates/groove-app` | bin `groove` | `app`, `route`, `icons`, `player`, `session_sync`, `library_ctl`, `commands`, `instance`, `open_paths`, `window_state`, `dev`, `platform/{media_session,taskbar_windows,always_on_top,global_keys,backdrop,resize_edges}`, `views/*` | — |
 
 Viết tắt trong task: `core`, `library`, `audio`, `app`, `views` = `crates/groove-core/src`, `crates/groove-library/src`,
 `crates/groove-audio/src`, `crates/groove-app/src`, `crates/groove-app/src/views`.
@@ -55,7 +55,7 @@ Viết tắt trong task: `core`, `library`, `audio`, `app`, `views` = `crates/gr
   chép trong một transaction, không sửa tệp cũ; giữ nguyên `id` của `songs`, `playlists`, `albums`, `folders`; `user_version`
   lớn hơn bản đang hỗ trợ thì từ chối mở và báo, không ghi đè. Thẻ tệp nhạc tương thích hai chiều, `TXXX:TIMELINE` giữ tên.
 - **Lệch có chủ đích so với bản web** (GPUI: `div` không có `scale`, `transform`, `backdrop-filter`, transition khai báo):
-  khối nổi nền đặc (D-10, sửa 03/11/2026) thay `backdrop-blur`, chỉ cột trái mờ cả cửa sổ (`Blurred`; GNOME có extension Shell của Groovex ⇒ cột trái alpha 0,72 cả hai tông; Linux không có mờ ⇒ 0,96 tông tối / đục tông sáng — `platform::backdrop`, mục "Nền mờ trên GNOME" ở Bẫy); bỏ `scale` khi hover, đổi
+  khối nổi nền đặc (D-10, sửa 03/11/2026) thay `backdrop-blur`, chỉ cột trái mờ cả cửa sổ (`Blurred`; GNOME có extension Shell của Groovex ⇒ cột trái alpha 0,66 tông tối / 0,74 tông sáng, thanh trên, nội dung, thanh phát nền `surface` đặc; Linux không có mờ ⇒ 0,96 tông tối / đục tông sáng — `platform::backdrop`, mục "Nền mờ trên GNOME" ở Bẫy); bỏ `scale` khi hover, đổi
   nền / viền; bỏ nhấp nháy số giờ; thanh phát cập nhật tối đa 4 lần / s và chỉ khi đang phát. Nền `Blurred` làm GPUI tắt
   ClearType, chữ cả app khử răng cưa xám — chờ chủ dự án xem trên màn thật.
 - **Màu nhấn** theo bảng màu đang chọn (Settings → Chung; mặc định xanh Material `#005cbb` của materiant — G-4, đổi 03/11/2026): `app::apply_theme` = `set_palette(preset)` + bản vá groove (nền, font, độ đậm), không đặt `primary`; nền và bảng màu lưu riêng (`theme`, `themePreset`); view lấy
@@ -172,7 +172,8 @@ màn không có thì thoát, không rơi về màn mặc định. Xem ảnh xong
 - **Nền mờ trên GNOME** (09/11/2026): GPUI `Blurred` chỉ xin mờ qua `org_kde_kwin_blur` (KWin), Mutter không có giao thức nào
   cho app xin mờ phía sau ⇒ extension GNOME Shell riêng của Groovex `packaging/linux/gnome-shell/groovex-shell@com.sandtechs.desktop.groovex`
   (cùng cách launcher của fastcast, extension bản 11 — tách riêng vì hai app phát hành, cài, gỡ độc lập: máy không cài fastcast
-  thì không có extension của nó). Nó gắn `Clutter.Actor` + `Shell.BlurEffect` (BACKGROUND, bán kính 40)
+  thì không có extension của nó). Nó gắn `Clutter.Actor` + `Shell.BlurEffect` (BACKGROUND, bán kính 24 — 40 cũ cộng alpha 0,72 nhoè nền thành mảng gần đặc; bán kính do extension của ta
+  quyết, `BLUR_RADIUS` trong `extension.js`, đổi xong phải đăng nhập lại mới ăn)
   làm con dưới cùng của actor cửa sổ chính (`app_id` `groove` / `groove.dev`, đổi cỡ được — PiP cỡ cố định, nền đục, bỏ qua), khớp
   khung, theo `size-changed`. Thuộc tính D-Bus `Blur` (false khi `org.gnome.desktop.a11y.interface high-contrast`), đổi thì phát
   `PropertiesChanged`. App (`backdrop::gnome::watch`, chỉ khi `XDG_CURRENT_DESKTOP` có GNOME) nghe `NameOwnerChanged` +
@@ -183,6 +184,10 @@ màn không có thì thoát, không rơi về màn mặc định. Xem ảnh xong
   `bash tools/blur-headless.sh <target>/debug` (GNOME Shell headless trên bus riêng, không đụng phiên đang dùng): app mở trước
   extension ⇒ tự bật, thấy `Blur` rồi có lớp mờ; bật tương phản cao lúc chạy ⇒ gỡ lớp mờ; tương phản cao từ đầu ⇒ không mờ. Ảnh ở
   `<target>/blur-headless/`. Test `platform::backdrop::tests::names_match_the_shell_extension` giữ tên D-Bus khớp `extension.js`.
+- **Viền tự vẽ trên Linux không tự đổi cỡ** (09/11/2026): gpui-pre-linux 0.3.10 không hit-test mép cho
+  `WindowDecorations::Client` (GNOME Wayland luôn là viền tự vẽ), app phải tự gọi `start_window_resize`. `platform::resize_edges`
+  phủ dải 5 px mép trong + góc 12 px trên cùng gốc `Shell` (`occlude`), bỏ mép đang dính (phóng to, ghép nửa màn). Cửa sổ chính
+  mới phải gắn `resize_edges::overlay`; test `platform::resize_edges::tests`.
 - **Worktree** cố định (D-18): `<gốc>/.claude/worktrees/groove-w<N>`, build ở `groove/target/w<N>`, xong task giữ cả hai. `materiant = { path = "../materiant" }` nhờ lối nối
   `.claude/worktrees/materiant` đã có. `CARGO_TARGET_DIR` riêng từng worktree (`groove/target/w<N>`), không xoá.
 - **AppData ảo hoá MSIX**: exe chạy từ app Claude trên Windows ghi vào `LocalCache` của gói. Không thấy DB cũ ở đó không có

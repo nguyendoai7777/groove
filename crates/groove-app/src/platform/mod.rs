@@ -4,6 +4,7 @@ pub mod default_player;
 pub mod global_keys;
 pub mod media_session;
 pub mod move_loop;
+pub mod resize_edges;
 #[cfg(windows)]
 pub mod taskbar_windows;
 pub mod window_controls;
