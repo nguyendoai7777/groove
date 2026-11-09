@@ -2,7 +2,7 @@
 //!
 //! Rộng 230 px, thu còn 56 px; đầu cột cao 36 px kéo được cửa sổ, có tên app + nút tròn thu / mở; ba mục cao 42 px, vạch trái
 //! 3 px của mục đang chọn trượt lên xuống khi đổi mục (`materiant::tabs::InkBar`, cùng nhịp với tab dọc); Settings ở đáy.
-//! Nền là tầng alpha của cửa sổ mờ (`translucent_surface`; OS không làm mờ được thì alpha 0,96, GNOME có extension Shell thì 0,72 — `platform::backdrop`), phần nội
+//! Nền là tầng alpha của cửa sổ mờ (`translucent_surface`; OS không làm mờ được thì alpha 0,96, GNOME có extension Shell thì 0,66 tối / 0,74 sáng — `platform::backdrop`), phần nội
 //! dung bên phải đục. Bề rộng nội suy 300 ms, OS bật giảm
 //! chuyển động thì nhảy (`transition` của gpui-base tự xử lý).
 //!

@@ -6,7 +6,11 @@
 //! rõ. Không có mờ thì cột trái đục hơn: alpha 0,96 tông tối, đục tông sáng (nền trong suốt app tự chọn — D-10).
 //!
 //! gnome-blur (09/11/2026): GNOME có extension Shell của Groovex ([`gnome`]) thì phía sau cửa sổ chính mờ thật ⇒ cột trái
-//! alpha 0,72 cả hai tông, như launcher của fastcast.
+//! trong hơn hẳn.
+//!
+//! clear-blur (09/11/2026): bán kính 40 + alpha 0,72 nhoè nền thành một mảng gần đặc (ảnh chủ dự án) ⇒ extension giảm bán kính
+//! còn 24 (thấy hình khối cửa sổ phía sau, chữ của nó vẫn nhoè), cột trái alpha 0,66 tông tối / 0,74 tông sáng — kiểu sidebar
+//! macOS, Mica của Windows 11: nền theme làm tint, đủ để chữ phụ đọc được trên nền phía sau trắng (tông tối) hay đen (tông sáng).
 //!
 //! drag-lag (03/11/2026): [`smooth_blur`] — `Blurred` của gpui-pre-windows 0.3.10 là acrylic
 //! (`ACCENT_ENABLE_ACRYLICBLURBEHIND`), mà acrylic trên Windows 10 1903+ và Windows 11 trước 22H2 (build < 22621) giật khi kéo /
@@ -36,15 +40,18 @@ use materiant::window::TRANSLUCENT_SURFACE_ALPHA;
 enum Blur {
     /// Compositor theo `Blurred` của GPUI: acrylic / blur-behind (Windows), `NSVisualEffectView` (macOS), KWin.
     Compositor,
-    /// Extension GNOME Shell của Groovex ([`gnome`]): bán kính 40, mờ hơn hẳn acrylic.
+    /// Extension GNOME Shell của Groovex ([`gnome`]): `Shell.BlurEffect` bán kính 24 (`BLUR_RADIUS` của `extension.js`).
     Shell,
     /// Chỉ trong suốt trơn: GNOME chưa nạp extension / bật tương phản cao, wlroots, X11.
     None,
 }
 
-/// Alpha cột trái khi extension GNOME Shell làm mờ, cả hai tông — như launcher của fastcast (`BLURRED_SURFACE_ALPHA`): kiểu
-/// Raycast, nhìn ra mờ; thấp hơn ~0,65 thì nền sáng phía sau làm chữ phụ tông tối khó đọc.
-pub const SHELL_BLUR_ALPHA: f32 = 0.72;
+/// Alpha cột trái tông tối khi extension GNOME Shell làm mờ: thấy hình khối phía sau; thấp hơn ~0,65 thì nền trắng phía sau
+/// đẩy nền cột trái lên xám vừa, chữ phụ khó đọc.
+pub const SHELL_BLUR_ALPHA_DARK: f32 = 0.66;
+
+/// Như [`SHELL_BLUR_ALPHA_DARK`], tông sáng: cửa sổ tối phía sau (terminal) kéo nền xám xuống nhanh hơn ⇒ đục hơn chút.
+pub const SHELL_BLUR_ALPHA_LIGHT: f32 = 0.74;
 
 /// Alpha cột trái tông tối khi không có mờ: 0,94 cũ vẫn lộ chữ cửa sổ dưới (ảnh chủ dự án, 09/11/2026). Tông sáng đục.
 pub const UNBLURRED_ALPHA: f32 = 0.96;
@@ -57,7 +64,8 @@ pub fn side_nav_surface(cx: &App) -> Hsla {
 
 fn side_nav_alpha(blur: Blur, dark: bool) -> f32 {
     match (blur, dark) {
-        (Blur::Shell, _) => SHELL_BLUR_ALPHA,
+        (Blur::Shell, true) => SHELL_BLUR_ALPHA_DARK,
+        (Blur::Shell, false) => SHELL_BLUR_ALPHA_LIGHT,
         (_, false) => 1.0,
         (Blur::Compositor, true) => TRANSLUCENT_SURFACE_ALPHA,
         (Blur::None, true) => UNBLURRED_ALPHA,
@@ -545,17 +553,28 @@ pub mod gnome {
 
 #[cfg(test)]
 mod tests {
-    use super::{Blur, SHELL_BLUR_ALPHA, TRANSLUCENT_SURFACE_ALPHA, UNBLURRED_ALPHA, side_nav_alpha};
+    use super::{
+        Blur, SHELL_BLUR_ALPHA_DARK, SHELL_BLUR_ALPHA_LIGHT, TRANSLUCENT_SURFACE_ALPHA, UNBLURRED_ALPHA, side_nav_alpha,
+    };
 
     #[test]
     fn side_nav_is_clearer_only_when_something_blurs_behind() {
-        assert_eq!(side_nav_alpha(Blur::Shell, true), SHELL_BLUR_ALPHA);
-        assert_eq!(side_nav_alpha(Blur::Shell, false), SHELL_BLUR_ALPHA, "extension GNOME mờ đủ cho cả tông sáng");
+        assert_eq!(side_nav_alpha(Blur::Shell, true), SHELL_BLUR_ALPHA_DARK);
+        assert_eq!(
+            side_nav_alpha(Blur::Shell, false),
+            SHELL_BLUR_ALPHA_LIGHT,
+            "extension GNOME mờ đủ cho cả tông sáng"
+        );
         assert_eq!(side_nav_alpha(Blur::Compositor, true), TRANSLUCENT_SURFACE_ALPHA);
         assert_eq!(side_nav_alpha(Blur::Compositor, false), 1.0);
         assert_eq!(side_nav_alpha(Blur::None, true), UNBLURRED_ALPHA);
         assert_eq!(side_nav_alpha(Blur::None, false), 1.0);
-        const { assert!(SHELL_BLUR_ALPHA < TRANSLUCENT_SURFACE_ALPHA && TRANSLUCENT_SURFACE_ALPHA < UNBLURRED_ALPHA) };
+        // Thấy nền phía sau (không gần đặc như 0,72 cũ) nhưng không xuống dưới ngưỡng đọc được.
+        const {
+            assert!(0.6 <= SHELL_BLUR_ALPHA_DARK && SHELL_BLUR_ALPHA_DARK < SHELL_BLUR_ALPHA_LIGHT);
+            assert!(SHELL_BLUR_ALPHA_LIGHT <= 0.75 && SHELL_BLUR_ALPHA_LIGHT < TRANSLUCENT_SURFACE_ALPHA);
+            assert!(TRANSLUCENT_SURFACE_ALPHA < UNBLURRED_ALPHA);
+        };
     }
 
     #[cfg(target_os = "linux")]

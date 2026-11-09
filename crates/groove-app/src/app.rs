@@ -620,6 +620,8 @@ impl Render for Shell {
             .children(self.slots.get(Slot::CommandPalette).map(|view| view.clone().into_any_element()))
             .children(self.slots.get(Slot::Settings).map(|view| view.clone().into_any_element()))
             .child(ToastViewport::new().inset_top(px(app_bar::HEIGHT)))
+            // linux-resize: viền tự vẽ trên Linux không tự đổi cỡ được — dải kéo mép, trên cùng mọi lớp.
+            .children(crate::platform::resize_edges::overlay(window))
     }
 }
 

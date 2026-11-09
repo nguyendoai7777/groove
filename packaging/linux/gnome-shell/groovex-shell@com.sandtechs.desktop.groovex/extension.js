@@ -21,7 +21,9 @@ import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 const BUS_NAME = 'com.sandtechs.desktop.groovex.Shell';
 const OBJECT_PATH = '/com/sandtechs/desktop/groovex/Shell';
 const VERSION = 1;
-const BLUR_RADIUS = 40;
+// clear-blur: 40 nhoè nền thành mảng gần đặc; 24 còn thấy hình khối cửa sổ phía sau, chữ của nó vẫn nhoè. Khớp alpha cột trái
+// trong `groove-app` `platform::backdrop` (`SHELL_BLUR_ALPHA_*`).
+const BLUR_RADIUS = 24;
 const APP_IDS = ['groove', 'groove.dev'];
 
 const IFACE = `<node>
