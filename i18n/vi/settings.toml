@@ -50,7 +50,6 @@ vocal = "Giọng hát"
 treble = "Treble"
 
 [keys]
-hint = "Bấm Thêm phím tắt để gán phím cho một chức năng. Chuỗi hai phím như G rồi M bấm liền nhau trong chưa tới một giây."
 add = "Thêm phím tắt"
 reset = "Đặt lại mặc định"
 edit = "Sửa"

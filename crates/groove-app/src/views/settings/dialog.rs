@@ -844,7 +844,7 @@ mod tests {
         let mut expected = KeyBinding::new("ctrl+f7", "next_track");
         expected.label = "Bài kế".into();
         expected.global = global_keys::supported();
-        assert_eq!(keys_list(&rig, cx).last(), Some(&expected));
+        assert_eq!(keys_list(&rig, cx).first(), Some(&expected), "dòng mới lên đầu");
         assert!(is_open(&rig, cx), "hộp Settings vẫn mở");
 
         // Huỷ hộp Settings: dòng mới không được lưu.
@@ -861,7 +861,7 @@ mod tests {
         confirm(&rig, cx);
         let saved = settings(cx).custom_keybindings.expect("đã lưu");
         assert_eq!(saved.len(), before + 1);
-        assert_eq!(saved.last(), Some(&expected));
+        assert_eq!(saved.first(), Some(&expected));
     }
 
     /// C6b (groove-gd2_04 C6) — ghi phím: `g` rồi `m` liền nhau ra chuỗi `g m`, Enter xong; Esc huỷ giữ phím cũ; phím trùng

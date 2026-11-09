@@ -1,6 +1,9 @@
-//! groove-gd1_24, groove-gd2_04: tab Phím tắt — danh sách phím tắt (tên, chip phím, nhãn "Toàn cục", sửa / xoá), nút Thêm
-//! và Đặt lại mặc định; thêm / sửa ở hộp lồng [`KeyEditor`]. Thay ô JSON của gd1_24 (chủ dự án 09/11/2026), giữ dạng lưu
-//! `[{key, command}]` thêm `label`, `global`.
+//! groove-gd1_24, groove-gd2_04: tab Phím tắt — nút Thêm và Đặt lại mặc định ở đầu, dưới là danh sách phím tắt (tên, chip
+//! phím, nhãn "Toàn cục", sửa / xoá); thêm / sửa ở hộp lồng [`KeyEditor`]. Thay ô JSON của gd1_24 (chủ dự án 09/11/2026),
+//! giữ dạng lưu `[{key, command}]` thêm `label`, `global`.
+//!
+//! Thứ tự là thứ tự sửa, mới nhất trên đầu (chủ dự án 09/11/2026): dòng vừa thêm / sửa dời lên đầu danh sách và lưu theo thứ
+//! tự đó, nên không cần dấu thời gian. Hệ quả: dòng trùng phím thì dòng vừa sửa thắng (`Keymap` lấy dòng trước).
 //!
 //! Danh sách là **bản nháp**: chỉ nút OK của hộp Settings mới lưu (`draft` rồi `app::update_settings`); đóng kiểu khác bỏ
 //! nháp (M3). Dòng có vấn đề hiện cảnh báo ngay dưới nó: trùng phím, chuỗi bị che, lệnh lạ / phím sai (tệp sửa tay), phím
@@ -72,6 +75,14 @@ pub fn row_warnings(list: &[KeyBinding], index: usize) -> Vec<String> {
     out
 }
 
+/// Lưu dòng thêm (`index` `None`) / sửa: dời lên đầu, mới nhất trên đầu.
+pub fn save_row(list: &mut Vec<KeyBinding>, index: Option<usize>, binding: KeyBinding) {
+    if let Some(ix) = index.filter(|ix| *ix < list.len()) {
+        list.remove(ix);
+    }
+    list.insert(0, binding);
+}
+
 pub struct KeybindingsPanel {
     /// Bản nháp.
     list: Vec<KeyBinding>,
@@ -86,10 +97,7 @@ impl KeybindingsPanel {
         let editor = cx.new(|cx| KeyEditor::new(window, cx));
         let saved = cx.subscribe(&editor, |this, _, event: &KeyEditorEvent, cx| {
             let KeyEditorEvent::Save { index, binding } = event;
-            match index.and_then(|ix| this.list.get_mut(ix)) {
-                Some(row) => *row = binding.clone(),
-                None => this.list.push(binding.clone()),
-            }
+            save_row(&mut this.list, *index, binding.clone());
             cx.notify();
         });
         KeybindingsPanel {
@@ -245,11 +253,27 @@ impl Render for KeybindingsPanel {
         } else {
             div().flex().flex_col().children(rows).into_any_element()
         };
+        let actions = div()
+            .flex()
+            .items_center()
+            .justify_between()
+            .gap_2()
+            .child(
+                Button::new("settings-keys-add", t!("settings.keys.add"))
+                    .filled()
+                    .primary()
+                    .on_click(cx.listener(|this, _: &ClickEvent, window, cx| this.open_editor(None, window, cx))),
+            )
+            .child(
+                Button::new("settings-keys-reset", t!("settings.keys.reset"))
+                    .outlined()
+                    .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.reset(cx))),
+            );
         div()
             .flex()
             .flex_col()
             .gap_3()
-            .child(div().text_size(px(12.)).text_color(c.muted).child(t!("settings.keys.hint")))
+            .child(actions)
             .child(
                 div()
                     .debug_selector(|| "settings-keys-list".into())
@@ -258,23 +282,6 @@ impl Render for KeybindingsPanel {
                     .border_color(c.border)
                     .overflow_hidden()
                     .child(list),
-            )
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .justify_between()
-                    .gap_2()
-                    .child(
-                        Button::new("settings-keys-add", t!("settings.keys.add")).filled().primary().on_click(
-                            cx.listener(|this, _: &ClickEvent, window, cx| this.open_editor(None, window, cx)),
-                        ),
-                    )
-                    .child(
-                        Button::new("settings-keys-reset", t!("settings.keys.reset"))
-                            .outlined()
-                            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| this.reset(cx))),
-                    ),
             )
             .child(self.editor.clone())
     }
@@ -303,6 +310,17 @@ mod tests {
         assert_eq!(draft_of(&defaults, &custom), Draft::Defaults);
         assert_eq!(draft_of(&custom, &defaults), Draft::Custom(custom.clone()));
         assert_eq!(draft_of(&[], &defaults), Draft::Custom(vec![]), "bỏ hết phím là việc được phép");
+    }
+
+    /// Thêm và sửa đều dời dòng lên đầu; sửa không nhân đôi dòng.
+    #[test]
+    fn saved_rows_move_to_the_top() {
+        let keys = |list: &[KeyBinding]| list.iter().map(|b| b.key.clone()).collect::<Vec<_>>();
+        let mut list = vec![binding("a", "toggle_play"), binding("b", "next_track"), binding("c", "open_search")];
+        save_row(&mut list, Some(2), binding("j", "open_search"));
+        assert_eq!(keys(&list), ["j", "a", "b"]);
+        save_row(&mut list, None, binding("x", "previous_track"));
+        assert_eq!(keys(&list), ["x", "j", "a", "b"]);
     }
 
     /// Mỗi vấn đề của dòng ra lời báo riêng, nhắc đúng thứ gây ra; không khoá trần lọt ra.

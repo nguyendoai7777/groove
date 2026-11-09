@@ -50,7 +50,6 @@ vocal = "Vocal"
 treble = "Treble"
 
 [keys]
-hint = "Press Add shortcut to bind a key to a function. Two-key sequences like G then M are pressed within a second."
 add = "Add shortcut"
 reset = "Reset to defaults"
 edit = "Edit"
