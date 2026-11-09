@@ -897,7 +897,9 @@ mod tests {
             let warnings = e.warning_texts();
             assert!(warnings.iter().any(|w| w.contains(Command::OpenSearch.label())), "{warnings:?}");
             e.set_for_test(Command::TogglePlay, "g m", true, cx);
-            assert!(e.warning_texts().len() >= 2, "trùng + phím toàn cục là chuỗi: {:?}", e.warning_texts());
+            // OS chưa có phím toàn cục (Linux) thì công tắc khoá, chỉ còn cảnh báo trùng.
+            let expected = if global_keys::supported() { 2 } else { 1 };
+            assert!(e.warning_texts().len() >= expected, "trùng + phím toàn cục là chuỗi: {:?}", e.warning_texts());
         });
     }
 

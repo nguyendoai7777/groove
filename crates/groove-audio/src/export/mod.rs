@@ -1,13 +1,15 @@
 //! groove-gd2_02: "Save as new" — cắt đoạn `[start, end)` của một tệp nhạc, ghi tệp mới ở định dạng gốc, MP3 hoặc M4R.
 //!
-//! Ưu tiên không mã hoá lại: MP3 chép nguyên frame ([`mp3_copy`]), AAC trong MP4 chép nguyên mẫu (Media Foundation, Windows).
-//! WAV / FLAC giải mã rồi ghi lại cùng độ sâu bit ([`pcm`]); còn lại giải mã rồi mã MP3 / AAC bằng bộ mã hoá của OS ([`mf`]).
-//! Bộ mã hoá MP3 / AAC chỉ có ở Windows (Media Foundation): macOS / Linux trả [`Unavailable::NoEncoderOnThisOs`], hộp thoại khoá
-//! lựa chọn đó (mục 9 của task). Không bao giờ ghi đè tệp gốc; ghi ra `<đích>.part` rồi đổi tên, huỷ / lỗi thì xoá.
+//! Ưu tiên không mã hoá lại: MP3 chép nguyên frame ([`mp3_copy`]), AAC trong MP4 chép nguyên mẫu.
+//! WAV / FLAC giải mã rồi ghi lại cùng độ sâu bit ([`pcm`]); còn lại giải mã rồi mã MP3 / AAC.
+//! Windows mã MP3 / AAC bằng Media Foundation ([`mf`]); Linux / macOS mã AAC (M4R) bằng thư viện thuần Rust ([`aac`]), MP3
+//! thì chưa có bộ mã hoá hợp lệ (D-2) ⇒ [`Unavailable::NoEncoderOnThisOs`], hộp thoại khoá lựa chọn đó (mục 9 của task). Không bao giờ ghi đè tệp gốc; ghi ra `<đích>.part` rồi đổi tên, huỷ / lỗi thì xoá.
 
 mod mp3_copy;
 mod pcm;
 
+#[cfg(not(windows))]
+mod aac;
 #[cfg(windows)]
 mod mf;
 
@@ -47,11 +49,11 @@ pub enum Method {
     Wav,
     /// Giải mã rồi mã FLAC (`flacenc`) cùng độ sâu bit.
     Flac,
-    /// Chép nguyên mẫu AAC trong MP4 (Windows); bộ ghi từ chối thì mã lại AAC.
+    /// Chép nguyên mẫu AAC trong MP4; nguồn không phải AAC / bộ ghi từ chối thì mã lại AAC.
     AacCopy,
     /// Giải mã rồi mã MP3 (Windows).
     EncodeMp3,
-    /// Giải mã rồi mã AAC trong MP4 (Windows).
+    /// Giải mã rồi mã AAC trong MP4.
     EncodeAac,
 }
 
@@ -84,24 +86,24 @@ fn source_kind(source: &Path) -> SourceKind {
     }
 }
 
-/// Bộ mã hoá của OS (Media Foundation) có trên máy này không.
-const OS_ENCODER: bool = cfg!(windows);
+/// Có bộ mã hoá MP3 trên máy này không (Media Foundation, chỉ Windows). AAC thì mọi OS đều có.
+const MP3_ENCODER: bool = cfg!(windows);
 
 /// Cách xuất `source` sang `format`, hoặc vì sao không được.
 pub fn plan(source: &Path, format: ExportFormat) -> Result<Method, Unavailable> {
-    plan_for(source_kind(source), format, OS_ENCODER)
+    plan_for(source_kind(source), format, MP3_ENCODER)
 }
 
-fn plan_for(kind: SourceKind, format: ExportFormat, os_encoder: bool) -> Result<Method, Unavailable> {
-    let os = |method| if os_encoder { Ok(method) } else { Err(Unavailable::NoEncoderOnThisOs) };
+fn plan_for(kind: SourceKind, format: ExportFormat, mp3_encoder: bool) -> Result<Method, Unavailable> {
     match (format, kind) {
         (ExportFormat::Current | ExportFormat::Mp3, SourceKind::Mp3) => Ok(Method::Mp3FrameCopy),
         (ExportFormat::Current, SourceKind::Wav) => Ok(Method::Wav),
         (ExportFormat::Current, SourceKind::Flac) => Ok(Method::Flac),
-        (ExportFormat::Current | ExportFormat::M4r, SourceKind::Mp4) => os(Method::AacCopy),
+        (ExportFormat::Current | ExportFormat::M4r, SourceKind::Mp4) => Ok(Method::AacCopy),
         (ExportFormat::Current, SourceKind::Other) => Err(Unavailable::NoEncoderForSource),
-        (ExportFormat::Mp3, _) => os(Method::EncodeMp3),
-        (ExportFormat::M4r, _) => os(Method::EncodeAac),
+        (ExportFormat::Mp3, _) if mp3_encoder => Ok(Method::EncodeMp3),
+        (ExportFormat::Mp3, _) => Err(Unavailable::NoEncoderOnThisOs),
+        (ExportFormat::M4r, _) => Ok(Method::EncodeAac),
     }
 }
 
@@ -265,9 +267,11 @@ fn write_part(method: Method, request: &ExportRequest, part: &Path, control: &Co
         #[cfg(windows)]
         Method::EncodeAac => mf::encode(&request.source, part, start, end, mf::Codec::Aac, control),
         #[cfg(not(windows))]
-        Method::AacCopy | Method::EncodeMp3 | Method::EncodeAac => {
-            Err(ExportError::Unavailable(Unavailable::NoEncoderOnThisOs))
-        }
+        Method::AacCopy => aac::copy_aac(&request.source, part, start, end, control),
+        #[cfg(not(windows))]
+        Method::EncodeAac => aac::encode(&request.source, part, start, end, control),
+        #[cfg(not(windows))]
+        Method::EncodeMp3 => Err(ExportError::Unavailable(Unavailable::NoEncoderOnThisOs)),
     }
 }
 

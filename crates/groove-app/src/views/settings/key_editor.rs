@@ -378,7 +378,8 @@ impl KeyEditor {
     pub fn set_for_test(&mut self, command: Command, key: &str, global: bool, cx: &mut Context<Self>) {
         self.command = Command::ALL.iter().position(|c| *c == command);
         self.key = KeySequence::parse(key).ok();
-        self.global = global;
+        // Như công tắc trên UI: OS chưa có phím toàn cục thì không bật được.
+        self.global = global && global_keys::supported();
         self.refresh_probe(cx);
     }
 
