@@ -1,6 +1,6 @@
 # groove — trình phát nhạc Groovex
 
-Repo git riêng trong workspace `xdesktop` (luật chung, quyết định D-* / G-*: `../CLAUDE.md`, `../docs/decisions.md`).
+Repo git riêng trong workspace `xdesktop` (luật chung, quyết định D-* / G-*: `../CLAUDE.md`, `../.claude/rules/decisions/`).
 Đã viết lại từ Tauri + Vue sang Rust + GPUI + materiant (G-1): mọi task GĐ1 đã gộp, trừ task 28 (đọc localStorage cũ, tuỳ
 chọn, chưa làm). Lộ trình: `ROADMAP.md`.
 Repo không có `docs/` (D-7): đặc tả viết lại và bảng so bản cũ đã làm xong, đọc qua lịch sử git —

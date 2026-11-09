@@ -1,6 +1,6 @@
 # Soát giấy phép cả cây phụ thuộc của workspace mới (D-2: mã đóng, chỉ phát hành bản cài).
 #   cargo deny check licenses
-# Thêm giấy phép mới vào `allow` ⇒ phải có trong danh sách D-2 ở `docs/decisions.md` của repo gốc.
+# Thêm giấy phép mới vào `allow` ⇒ phải có trong danh sách D-2 ở `.claude/rules/decisions/` của repo gốc.
 
 [graph]
 # Soát cả cây của mọi nền tảng phát hành, không chỉ máy đang chạy.
