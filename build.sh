@@ -4,11 +4,13 @@
 #   bash groove/build.sh [-f | --force]                     # --force: biên dịch lại mã của ta, giữ thư viện đã build
 #   bash groove/build.sh --arch x64                         # macOS: Intel (x86_64-apple-darwin), build được trên Apple Silicon
 #   bash groove/build.sh --os macos --arch arm64 --chip apple
+#   bash groove/build.sh --package setup,portable          # Windows: không hỏi dạng đóng gói (bản cài / bản chạy thẳng .zip)
 #   bash groove/build.sh --plans                            # groove chưa có plan ⇒ in rỗng
 # macOS: hỏi kiến trúc (Enter = máy đang chạy; không tty ⇒ máy đang chạy), Apple Silicon ⇄ Intel cross-compile được, luôn build
 # với --target; --chip apple|intel tương đương --arch arm64|x64. Ra Groovex.app + groovex_<version>_macos_<arm64|x64>.dmg (hai
 # kiến trúc dùng chung tên .app: dựng cái sau đè .app cái trước, .dmg giữ cả hai).
-# Windows (Git Bash ⇒ build.ps1, bản cài NSIS) và Linux (.deb) chỉ build cho máy đang chạy: --os / --arch khác máy thì dừng.
+# Windows (Git Bash ⇒ build.ps1: bản cài NSIS _setup.exe và / hoặc bản chạy thẳng _portable.zip, chỉ x64 — bỏ ARM 10/11/2026) và
+# Linux (.deb) chỉ build cho máy đang chạy: --os / --arch khác máy thì dừng.
 set -euo pipefail
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$repo"
@@ -19,11 +21,13 @@ done
 . "$root/tools/script-lib.sh"
 repo="$(xd_path "$repo")"
 
-force="" os="" arch="" chip=""
+force="" os="" arch="" chip="" package=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --plans) exit 0 ;;
     -f|--force) force=1; shift ;;
+    --package) package="${2:-}"; shift 2 || { echo "--package cần giá trị: setup, portable" >&2; exit 1; } ;;
+    --package=*) package="${1#--package=}"; shift ;;
     --os|--arch|--chip)
       [ $# -ge 2 ] || { echo "$1 cần giá trị." >&2; exit 1; }
       case "$1" in --os) os="$2" ;; --arch) arch="$2" ;; --chip) chip="$2" ;; esac
@@ -70,7 +74,8 @@ else
   case "$arch" in ""|"$host_arch") ;; *) echo "groove ở $host_os chỉ build cho kiến trúc máy đang chạy ($host_arch)." >&2; exit 1 ;; esac
 fi
 
-[ "$host_os" != windows ] || exec pwsh -NoProfile -File "$(cygpath -w "$repo/build.ps1")" ${force:+-Force}
+[ -z "$package" ] || [ "$host_os" = windows ] || { echo "--package chỉ dùng ở Windows." >&2; exit 1; }
+[ "$host_os" != windows ] || exec pwsh -NoProfile -File "$(cygpath -w "$repo/build.ps1")" ${force:+-Force} ${package:+-Package "$package"}
 if [ -n "$force" ]; then
   clean_target=()
   [ "$host_os" != macos ] || clean_target=(--target "$triple")

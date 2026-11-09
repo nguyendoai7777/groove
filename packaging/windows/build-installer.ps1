@@ -1,7 +1,9 @@
 <#
 .SYNOPSIS
-  Dựng bản cài Windows `<OutDir>/groovex_<version>_win_<x64|arm64>_setup.exe` (NSIS): build release → `cargo deny` + trang
-  giấy phép → `makensis`. Bước nào đỏ thì dừng. Không ký mã: SmartScreen sẽ cảnh báo (ký là dịch vụ trả phí, chủ dự án quyết).
+  Dựng bản Windows ở <OutDir>: `groovex_<version>_win_<x64|arm64>_setup.exe` (bản cài NSIS) và / hoặc
+  `groovex_<version>_win_<x64|arm64>_portable.zip` (bản chạy thẳng: giải nén ra một thư mục, chạy `groove.exe`), chọn bằng
+  `-Package setup,portable` (mặc định chỉ bản cài); mỗi tệp kèm `.sha256`. Build release → `cargo deny` + trang giấy phép →
+  `makensis` / nén zip. Bước nào đỏ thì dừng. Không ký mã: SmartScreen sẽ cảnh báo (ký là dịch vụ trả phí, chủ dự án quyết).
 
 .EXAMPLE
   winget install NSIS.NSIS; cargo install cargo-deny --locked; cargo install cargo-about --locked --features cli
@@ -11,7 +13,8 @@
 param(
     [string] $OutDir,
     [string] $Makensis,
-    [switch] $SkipBuild
+    [switch] $SkipBuild,
+    [ValidateSet('setup', 'portable')] [string[]] $Package = @('setup')
 )
 $ErrorActionPreference = 'Stop'
 
@@ -19,7 +22,6 @@ $repo = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 if (-not $OutDir) { $OutDir = Join-Path $repo 'dist' }
 New-Item -ItemType Directory -Force $OutDir | Out-Null
 $OutDir = (Resolve-Path $OutDir).Path
-$stage = Join-Path $OutDir 'groove-stage'
 
 function Find-Makensis {
     if ($Makensis) { return (Resolve-Path $Makensis).Path }
@@ -36,13 +38,18 @@ function Find-Makensis {
     foreach ($path in ($known | Where-Object { $_ })) { if (Test-Path -LiteralPath $path) { return (Resolve-Path $path).Path } }
     throw 'makensis not found: winget install NSIS.NSIS, or pass -Makensis <path>'
 }
-$nsis = Find-Makensis
+$nsis = if ('setup' -in $Package) { Find-Makensis }
 
 $metadata = cargo metadata --format-version 1 --no-deps --manifest-path (Join-Path $repo 'Cargo.toml') | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0) { throw 'cargo metadata failed' }
 $version = ($metadata.packages | Where-Object name -EQ 'groove-app').version
 if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "version $version does not fit VIProductVersion" }
 $exe = Join-Path $metadata.target_directory 'release/groove.exe'
+$arch = if ([Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq 'Arm64') { 'arm64' } else { 'x64' }
+# Tên tệp: {app}_{version}_{os}_{arch}; thư mục dựng mang đúng tên này để zip giải nén ra một thư mục cùng tên.
+$baseName = "groovex_${version}_win_$arch"
+$stage = Join-Path $OutDir $baseName
+$outputs = @()
 
 if (-not $SkipBuild) {
     Push-Location $repo
@@ -61,18 +68,27 @@ try {
     Copy-Item -LiteralPath $exe -Destination $stage
     & (Join-Path $repo 'packaging/licenses/gen-licenses.ps1') -Out (Join-Path $stage 'licenses')
 
-    # Tên tệp: {app}_{version}_{os}_{arch}_setup.exe (cạnh thư mục exe rời cùng tên: hậu tố cho biết tệp nào là bản cài)
-    $setupArch = if ([Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq 'Arm64') { 'arm64' } else { 'x64' }
-    $setup = Join-Path $OutDir "groovex_${version}_win_${setupArch}_setup.exe"
-    & $nsis /V2 /WX /INPUTCHARSET UTF8 `
-        "/DVERSION=$version" "/DVERSION4=$version.0" "/DSTAGE=$stage" `
-        "/DICON=$(Join-Path $repo 'crates/groove-app/assets/app/groove.ico')" "/DOUTFILE=$setup" `
-        (Join-Path $repo 'packaging/windows/groove.nsi')
-    if ($LASTEXITCODE -ne 0) { throw "makensis failed (exit $LASTEXITCODE)" }
+    if ('setup' -in $Package) {
+        $setup = Join-Path $OutDir "${baseName}_setup.exe"
+        & $nsis /V2 /WX /INPUTCHARSET UTF8 `
+            "/DVERSION=$version" "/DVERSION4=$version.0" "/DSTAGE=$stage" `
+            "/DICON=$(Join-Path $repo 'crates/groove-app/assets/app/groove.ico')" "/DOUTFILE=$setup" `
+            (Join-Path $repo 'packaging/windows/groove.nsi')
+        if ($LASTEXITCODE -ne 0) { throw "makensis failed (exit $LASTEXITCODE)" }
+        $outputs += $setup
+    }
+    if ('portable' -in $Package) {
+        $zip = Join-Path $OutDir "${baseName}_portable.zip"
+        Remove-Item -Force -LiteralPath $zip -ErrorAction Ignore
+        Compress-Archive -LiteralPath $stage -DestinationPath $zip -CompressionLevel Optimal
+        $outputs += $zip
+    }
 } finally {
     Remove-Item -Recurse -Force -LiteralPath $stage -ErrorAction SilentlyContinue
 }
 
-$sha = (Get-FileHash -Algorithm SHA256 -LiteralPath $setup).Hash.ToLowerInvariant()
-Set-Content -Encoding ascii -LiteralPath "$setup.sha256" -Value "$sha  $(Split-Path -Leaf $setup)"
-Write-Host ("{0}: {1:N1} MB, sha256 {2}" -f $setup, ((Get-Item -LiteralPath $setup).Length / 1MB), $sha)
+foreach ($file in $outputs) {
+    $sha = (Get-FileHash -Algorithm SHA256 -LiteralPath $file).Hash.ToLowerInvariant()
+    Set-Content -Encoding ascii -LiteralPath "$file.sha256" -Value "$sha  $(Split-Path -Leaf $file)"
+    Write-Host ("{0}: {1:N1} MB, sha256 {2}" -f $file, ((Get-Item -LiteralPath $file).Length / 1MB), $sha)
+}
