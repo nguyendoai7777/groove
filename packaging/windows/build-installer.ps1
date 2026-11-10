@@ -14,6 +14,8 @@ param(
     [string] $OutDir,
     [string] $Makensis,
     [switch] $SkipBuild,
+    # Kiến trúc đích; bỏ trống = máy đang chạy. arm64 trên máy x64: cần "MSVC ARM64 build tools" của Visual Studio.
+    [ValidateSet('x64', 'arm64')] [string] $Arch,
     [ValidateSet('setup', 'portable')] [string[]] $Package = @('setup')
 )
 $ErrorActionPreference = 'Stop'
@@ -44,8 +46,11 @@ $metadata = cargo metadata --format-version 1 --no-deps --manifest-path (Join-Pa
 if ($LASTEXITCODE -ne 0) { throw 'cargo metadata failed' }
 $version = ($metadata.packages | Where-Object name -EQ 'groove-app').version
 if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "version $version does not fit VIProductVersion" }
-$exe = Join-Path $metadata.target_directory 'release/groove.exe'
-$arch = if ([Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq 'Arm64') { 'arm64' } else { 'x64' }
+$hostArch = if ([Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq 'Arm64') { 'arm64' } else { 'x64' }
+$arch = if ($Arch) { $Arch } else { $hostArch }
+# Kiến trúc khác máy đang chạy ⇒ build chéo bằng `--target`, exe nằm ở `<target>/<triple>/release`.
+$triple = if ($arch -ne $hostArch) { @{ x64 = 'x86_64-pc-windows-msvc'; arm64 = 'aarch64-pc-windows-msvc' }[$arch] }
+$exe = Join-Path $metadata.target_directory "$(if ($triple) { "$triple/" })release/groove.exe"
 # Tên tệp: {app}_{version}_{os}_{arch}; thư mục dựng mang đúng tên này để zip giải nén ra một thư mục cùng tên.
 $baseName = "groovex_${version}_win_$arch"
 $stage = Join-Path $OutDir $baseName
@@ -54,7 +59,11 @@ $outputs = @()
 if (-not $SkipBuild) {
     Push-Location $repo
     try {
-        cargo build --release --locked -p groove-app --bin groove
+        if ($triple -and (rustup target list --installed) -notcontains $triple) {
+            rustup target add $triple
+            if ($LASTEXITCODE -ne 0) { throw "rustup target add $triple failed" }
+        }
+        cargo build --release --locked -p groove-app --bin groove @(if ($triple) { '--target', $triple })
         if ($LASTEXITCODE -ne 0) { throw "cargo build failed (exit $LASTEXITCODE)" }
     } finally {
         Pop-Location
