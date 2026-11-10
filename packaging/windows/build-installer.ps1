@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
-  Dựng bản Windows ở <OutDir>: `groovex_<version>_win_<x64|arm64>_setup.exe` (bản cài NSIS) và / hoặc
-  `groovex_<version>_win_<x64|arm64>_portable.zip` (bản chạy thẳng: giải nén ra một thư mục, chạy `groove.exe`), chọn bằng
+  Dựng bản Windows x64 ở <OutDir>: `groovex_<version>_win_x64_setup.exe` (bản cài NSIS) và / hoặc
+  `groovex_<version>_win_x64_portable.zip` (bản chạy thẳng: giải nén ra một thư mục, chạy `groove.exe`), chọn bằng
   `-Package setup,portable` (mặc định chỉ bản cài); mỗi tệp kèm `.sha256`. Build release → `cargo deny` + trang giấy phép →
   `makensis` / nén zip. Bước nào đỏ thì dừng. Không ký mã: SmartScreen sẽ cảnh báo (ký là dịch vụ trả phí, chủ dự án quyết).
 
@@ -14,8 +14,6 @@ param(
     [string] $OutDir,
     [string] $Makensis,
     [switch] $SkipBuild,
-    # Kiến trúc đích; bỏ trống = máy đang chạy. arm64 trên máy x64: cần "MSVC ARM64 build tools" của Visual Studio.
-    [ValidateSet('x64', 'arm64')] [string] $Arch,
     [ValidateSet('setup', 'portable')] [string[]] $Package = @('setup')
 )
 $ErrorActionPreference = 'Stop'
@@ -47,9 +45,9 @@ if ($LASTEXITCODE -ne 0) { throw 'cargo metadata failed' }
 $version = ($metadata.packages | Where-Object name -EQ 'groove-app').version
 if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "version $version does not fit VIProductVersion" }
 $hostArch = if ([Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq 'Arm64') { 'arm64' } else { 'x64' }
-$arch = if ($Arch) { $Arch } else { $hostArch }
-# Kiến trúc khác máy đang chạy ⇒ build chéo bằng `--target`, exe nằm ở `<target>/<triple>/release`.
-$triple = if ($arch -ne $hostArch) { @{ x64 = 'x86_64-pc-windows-msvc'; arm64 = 'aarch64-pc-windows-msvc' }[$arch] }
+# Chỉ phát hành x64 (bỏ ARM, chủ dự án 10/11/2026). Máy ARM ⇒ build chéo bằng `--target`, exe ở `<target>/<triple>/release`.
+$arch = 'x64'
+$triple = if ($hostArch -ne 'x64') { 'x86_64-pc-windows-msvc' }
 $exe = Join-Path $metadata.target_directory "$(if ($triple) { "$triple/" })release/groove.exe"
 # Tên tệp: {app}_{version}_{os}_{arch}; thư mục dựng mang đúng tên này để zip giải nén ra một thư mục cùng tên.
 $baseName = "groovex_${version}_win_$arch"
