@@ -98,6 +98,7 @@ try {
 
 foreach ($file in $outputs) {
     $sha = (Get-FileHash -Algorithm SHA256 -LiteralPath $file).Hash.ToLowerInvariant()
-    Set-Content -Encoding ascii -LiteralPath "$file.sha256" -Value "$sha  $(Split-Path -Leaf $file)"
+    # Xuống dòng LF, không CRLF: `sha256sum -c` (Linux / macOS / Git Bash) báo không đọc được tệp nếu dòng có CR.
+    [IO.File]::WriteAllText("$file.sha256", "$sha  $(Split-Path -Leaf $file)`n")
     Write-Host ("{0}: {1:N1} MB, sha256 {2}" -f $file, ((Get-Item -LiteralPath $file).Length / 1MB), $sha)
 }
