@@ -21,14 +21,3 @@ search_placeholder = "Search songs, artists, albums"
 # Placeholder for a screen that is not built yet; only visible while tasks are in progress.
 [slot]
 empty = "{page} is not built yet"
-
-# Update button in the title bar (`updater`).
-[update]
-button = "Update"
-available = "Version {version} is available: click to download and install"
-open_page = "Version {version} is available: click to open the download page"
-downloading = "Downloading version {version}"
-installing = "Installing"
-restart = "Restart"
-restart_tooltip = "Version {version} is installed, restart to use it"
-failed = "Could not update: {error}"

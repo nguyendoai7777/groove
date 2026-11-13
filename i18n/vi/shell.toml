@@ -21,14 +21,3 @@ search_placeholder = "Tìm bài hát, ca sĩ, album"
 # Chỗ giữ cho màn chưa được dựng; chỉ thấy trong lúc các task còn làm dở.
 [slot]
 empty = "Màn {page} chưa được dựng"
-
-# Nút cập nhật ở thanh trên (`updater`).
-[update]
-button = "Cập nhật"
-available = "Có bản {version}: bấm để tải và cài"
-open_page = "Có bản {version}: bấm để mở trang tải"
-downloading = "Đang tải bản {version}"
-installing = "Đang cài"
-restart = "Khởi động lại"
-restart_tooltip = "Đã cài bản {version}, khởi động lại để dùng"
-failed = "Không cập nhật được: {error}"

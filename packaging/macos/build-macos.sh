@@ -79,7 +79,5 @@ trap 'rm -rf "$stage"' EXIT
 cp -R "$app" "$stage/"
 ln -s /Applications "$stage/Applications"
 hdiutil create -quiet -volname "Groovex $version" -srcfolder "$stage" -format UDZO -ov "$dmg"
-# Manifest cập nhật (nút Cập nhật của app); bản `_draft` không lên trang tải.
-[ -n "$draft" ] || bash "$repo/packaging/update-manifest.sh" "$dmg" "macos-${arch/x86_64/x64}" "$version"
 
 printf '\nXong: %s (%s)\n%s\n%s' "$dmg" "$(du -h "$dmg" | cut -f1)" "$app" "$warnings"

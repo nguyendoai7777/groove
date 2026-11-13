@@ -99,13 +99,4 @@ foreach ($file in $outputs) {
     # Xuống dòng LF, không CRLF: `sha256sum -c` (Linux / macOS / Git Bash) báo không đọc được tệp nếu dòng có CR.
     [IO.File]::WriteAllText("$file.sha256", "$sha  $(Split-Path -Leaf $file)`n")
     Write-Host ("{0}: {1:N1} MB, sha256 {2}" -f $file, ((Get-Item -LiteralPath $file).Length / 1MB), $sha)
-    # Manifest cập nhật (`groove-app` `updater`, như `packaging/update-manifest.sh`): chỉ bộ cài x64, trang tải đặt nó với tên
-    # groovex-latest-win-x64-setup.exe cạnh tệp json này.
-    if ($file -like '*_x64_setup.exe') {
-        $size = (Get-Item -LiteralPath $file).Length
-        $json = Join-Path (Split-Path -Parent $file) 'groovex-latest-win-x64-setup.json'
-        $body = '{{"version":"{0}","file":"groovex-latest-win-x64-setup.exe","size":{1},"sha256":"{2}"}}' -f $version, $size, $sha
-        [IO.File]::WriteAllText($json, "$body`n")
-        Write-Host "Manifest cập nhật: $json"
-    }
 }

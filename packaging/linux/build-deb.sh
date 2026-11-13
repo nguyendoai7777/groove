@@ -136,6 +136,4 @@ suffix=""
 # Tên tệp: {app}_{version}_{os}_{arch}[_draft].deb
 deb="$out/groovex_${version}_linux_${arch}${suffix}.deb"
 dpkg-deb --build --root-owner-group "$root" "$deb"
-# Manifest cập nhật (nút Cập nhật của app); bản `_draft` không lên trang tải.
-[ -n "$draft" ] || [ "$arch" != amd64 ] || bash "$repo/packaging/update-manifest.sh" "$deb" "linux-$arch" "$version"
 printf '\nXong: %s (%s)\nDepends: %s\n%s' "$deb" "$(du -h "$deb" | cut -f1)" "$depends" "$warnings"
