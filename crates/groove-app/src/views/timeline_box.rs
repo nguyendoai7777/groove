@@ -160,21 +160,29 @@ impl TimelineBox {
                     .py(px(ROW_PADDING_Y))
                     .flex()
                     .items_center()
-                    .gap_2()
                     .text_sm()
-                    .child(
-                        div()
-                            .flex_none()
-                            .min_w(px(40.))
-                            .text_color(if current { primary } else { muted })
-                            .child(line.time.clone()),
-                    )
+                    // Khối giữa dòng; bên trong canh đỉnh: giờ ngang dòng đầu của tên đoạn dài (cùng cỡ chữ).
                     .child(
                         div()
                             .flex_1()
                             .min_w_0()
-                            .text_color(if current { primary } else { text.opacity(0.85) })
-                            .child(line.title.clone()),
+                            .flex()
+                            .items_start()
+                            .gap_2()
+                            .child(
+                                div()
+                                    .flex_none()
+                                    .min_w(px(40.))
+                                    .text_color(if current { primary } else { muted })
+                                    .child(line.time.clone()),
+                            )
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .text_color(if current { primary } else { text.opacity(0.85) })
+                                    .child(line.title.clone()),
+                            ),
                     )
                     .into_any_element()
             }

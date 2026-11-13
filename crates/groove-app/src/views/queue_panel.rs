@@ -333,7 +333,7 @@ impl Render for QueuePanel {
             .flex_none()
             .flex()
             .flex_wrap()
-            .items_baseline()
+            .items_center()
             .gap_2()
             .px_4()
             .pt_3()
@@ -374,8 +374,17 @@ impl Render for QueuePanel {
                             this.update(cx, |panel, cx| panel.click_row(ix, cx));
                         }
                     };
-                    let index_cell = div().w(px(INDEX_WIDTH)).flex_none().flex().items_center().justify_center().child(
-                        if is_current {
+                    // Ô số / thanh nhảy cao đúng một dòng tiêu đề (`text_sm` + ký tự rỗng giữ cao dòng) để canh giữa với
+                    // dòng đầu của tên, không với cả khối tên + ca sĩ.
+                    let index_cell = div()
+                        .w(px(INDEX_WIDTH))
+                        .flex_none()
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .text_sm()
+                        .child("\u{200b}")
+                        .child(if is_current {
                             if playing {
                                 // Vẽ ở lớp phủ: panel nằm trong khung `cached` của Now Playing.
                                 bars_overlay::anchor(px(14.)).into_any_element()
@@ -384,8 +393,7 @@ impl Render for QueuePanel {
                             }
                         } else {
                             div().text_xs().text_color(c.muted).child((ix + 1).to_string()).into_any_element()
-                        },
-                    );
+                        });
                     div()
                         .id(("np-queue-row", ix))
                         // Cao theo chữ (`measured_rows`), không `size_full`: dòng ngắn vẫn đủ `ROW_HEIGHT`, chữ giữa dòng.
@@ -394,7 +402,6 @@ impl Render for QueuePanel {
                         .px(px(ROW_INSET))
                         .flex()
                         .items_center()
-                        .gap_2()
                         .when(state == RowState::Played, |d| d.opacity(0.25).hover(|s| s.opacity(0.5)))
                         .on_click(on_click)
                         .debug_selector(move || format!("np-queue-row-{ix}"))
@@ -404,22 +411,35 @@ impl Render for QueuePanel {
                                 this.update(cx, |panel, cx| panel.right_click_row(ix, cx));
                             }
                         })
-                        .child(index_cell)
+                        // Khối giữa dòng; bên trong canh đỉnh: ô số ngang dòng đầu của tên.
                         .child(
                             div()
                                 .flex_1()
                                 .min_w_0()
                                 .py(px(ROW_PADDING_Y))
                                 .flex()
-                                .flex_col()
-                                // Không cắt "…": tên dài xuống dòng như Apple Music, dòng cao theo chữ.
+                                .items_start()
+                                .gap_2()
+                                .child(index_cell)
                                 .child(
                                     div()
-                                        .text_sm()
-                                        .text_color(if is_current { c.primary_ink } else { c.text.opacity(0.9) })
-                                        .child(title),
-                                )
-                                .child(div().text_xs().text_color(c.muted).child(artist)),
+                                        .flex_1()
+                                        .min_w_0()
+                                        .flex()
+                                        .flex_col()
+                                        // Không cắt "…": tên dài xuống dòng như Apple Music, dòng cao theo chữ.
+                                        .child(
+                                            div()
+                                                .text_sm()
+                                                .text_color(if is_current {
+                                                    c.primary_ink
+                                                } else {
+                                                    c.text.opacity(0.9)
+                                                })
+                                                .child(title),
+                                        )
+                                        .child(div().text_xs().text_color(c.muted).child(artist)),
+                                ),
                         )
                         .into_any_element()
                 }
