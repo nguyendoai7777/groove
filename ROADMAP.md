@@ -25,6 +25,7 @@ Còn lại trước khi đóng GĐ1:
 | `groove-gd2_02` `save-as-new-export` — cắt / xuất đoạn bài (MP3 theo frame, WAV, FLAC, MP3 / AAC qua Media Foundation) | ✅ |
 | `groove-gd2_03` `save-as-new-dialog` — hộp Save as new, menu chuột phải hàng đợi (phụ thuộc gd2_02) | ✅ |
 | `groove-gd2_04` `shortcuts-editor` — Settings → Phím tắt dạng danh sách + hộp thêm / sửa, phím toàn cục | ✅ |
+| `groove-gd2_05` `auto-update` — tự cập nhật (crate `updater` của materiant, server `cloud`): nút cập nhật + ⌘D, Settings → Giới thiệu, menu macOS, hộp Có gì mới | ✅ |
 
 ### Bàn giao GĐ2
 
