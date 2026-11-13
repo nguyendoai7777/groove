@@ -9,6 +9,10 @@
 // Cửa sổ chính = `app_id` `groove` (bản cài) hoặc `groove.dev` (bản debug) và đổi cỡ được — trình phát thu nhỏ (PiP) cỡ cố định,
 // nền đục, không cần mờ.
 //
+// maximized-blur (13/11/2026, bản 2): Mutter trả `allows_resize()` = false cho cửa sổ đang phóng to / ghép nửa màn / toàn màn.
+// Bản 1 xét đúng một lần lúc cửa sổ hiện ⇒ app mở lại ở trạng thái phóng to đã lưu thì không bao giờ có lớp mờ (máy chủ dự
+// án). Nay phóng to / toàn màn cũng là cửa sổ chính; cửa sổ cùng `app_id` chưa nhận (mở sẵn ghép nửa màn) thì chờ nó đổi cỡ.
+//
 // Tương phản cao (`org.gnome.desktop.a11y.interface high-contrast`) ⇒ không làm mờ. Thuộc tính D-Bus `Blur` cho app biết có mờ
 // thật hay không để chọn alpha nền; đổi (bật / tắt tương phản cao) thì phát `PropertiesChanged`. App bật trước khi Shell nạp
 // extension thì nghe `NameOwnerChanged` của BUS_NAME. Tên phải khớp `groove-app` `platform::backdrop::gnome`.
@@ -20,7 +24,7 @@ import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
 const BUS_NAME = 'com.sandtechs.desktop.groovex.Shell';
 const OBJECT_PATH = '/com/sandtechs/desktop/groovex/Shell';
-const VERSION = 1;
+const VERSION = 2;
 // clear-blur: 40 nhoè nền thành mảng gần đặc; 24 còn thấy hình khối cửa sổ phía sau, chữ của nó vẫn nhoè. Khớp alpha cột trái
 // trong `groove-app` `platform::backdrop` (`SHELL_BLUR_ALPHA_*`).
 const BLUR_RADIUS = 24;
@@ -37,6 +41,8 @@ class Service {
     constructor() {
         // Cửa sổ chính đang theo → `{blur, unmanaged}`.
         this._windows = new Map();
+        // Cửa sổ cùng `app_id` chưa đổi cỡ được (PiP, hoặc cửa sổ chính mở sẵn ghép nửa màn) → id tín hiệu chờ nó đổi cỡ.
+        this._pending = new Map();
         this._a11y = new Gio.Settings({schema_id: 'org.gnome.desktop.a11y.interface'});
         this._blur = blurAllowed(this._a11y);
         this._a11ySignal = this._a11y.connect('changed::high-contrast', () => this._sync());
@@ -46,7 +52,7 @@ class Service {
         // có `app_id` ⇒ chưa nhận thì chờ nó hiện.
         for (const window of global.display.list_all_windows()) {
             this._track(window);
-            if (!this._windows.has(window))
+            if (!this._windows.has(window) && !this._pending.has(window))
                 this._watchShown(window);
         }
         this._dbus = Gio.DBusExportedObject.wrapJSObject(IFACE, this);
@@ -78,16 +84,35 @@ class Service {
     }
 
     _track(window) {
-        if (!isMain(window) || this._windows.has(window))
+        if (!isGroove(window) || this._windows.has(window) || this._pending.has(window))
             return;
         if (!window.get_compositor_private())
             return;
+        if (!isMain(window)) {
+            const retry = () => {
+                if (!isMain(window))
+                    return;
+                this._unpend(window);
+                this._track(window);
+            };
+            this._pending.set(window, [
+                window.connect('size-changed', retry),
+                window.connect('unmanaged', () => this._unpend(window)),
+            ]);
+            return;
+        }
         const entry = {blur: this._blur ? blurBehind(window) : null, unmanaged: 0};
         entry.unmanaged = window.connect('unmanaged', () => {
             entry.blur?.destroy();
             this._windows.delete(window);
         });
         this._windows.set(window, entry);
+    }
+
+    _unpend(window) {
+        for (const id of this._pending.get(window) ?? [])
+            window.disconnect(id);
+        this._pending.delete(window);
     }
 
     _sync() {
@@ -108,6 +133,8 @@ class Service {
         for (const [window, ids] of this._shown)
             ids.forEach(id => window.disconnect(id));
         this._shown.clear();
+        for (const window of [...this._pending.keys()])
+            this._unpend(window);
         for (const [window, entry] of this._windows) {
             window.disconnect(entry.unmanaged);
             entry.blur?.destroy();
@@ -122,8 +149,20 @@ function blurAllowed(a11y) {
     return !a11y.get_boolean('high-contrast');
 }
 
+function isGroove(window) {
+    return APP_IDS.includes(window.get_wm_class());
+}
+
+// Đổi cỡ được, hoặc đang phóng to / toàn màn (lúc đó Mutter trả `allows_resize()` = false). PiP cỡ cố định không phóng to được.
 function isMain(window) {
-    return APP_IDS.includes(window.get_wm_class()) && window.allows_resize();
+    return window.allows_resize() || isMaximized(window) || window.is_fullscreen();
+}
+
+// Shell 49+: `is_maximized()`; 45–48: `get_maximized()` trả cờ ngang / dọc.
+function isMaximized(window) {
+    if (typeof window.is_maximized === 'function')
+        return window.is_maximized();
+    return window.get_maximized() !== 0;
 }
 
 // Lớp mờ dưới cùng trong actor cửa sổ, khớp khung cửa sổ (actor gồm cả phần bóng / viền vô hình nếu có). Trả `{destroy()}`;

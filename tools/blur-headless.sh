@@ -6,6 +6,8 @@
 #          có lớp `Shell.BlurEffect` khớp khung cửa sổ, `Blur` = true (ảnh `blur-on.png`); rồi bật tương phản cao lúc đang
 #          chạy ⇒ gỡ lớp mờ, `Blur` = false, app vẽ lại nền đục (ảnh `high-contrast-live.png`).
 #   hc   — tương phản cao bật từ đầu ⇒ không lớp mờ, `Blur` = false (ảnh `high-contrast.png`).
+#   max  — extension bật từ đầu (như sau đăng nhập), app mở lại ở trạng thái phóng to đã lưu ⇒ vẫn có lớp mờ (ảnh
+#          `maximized.png`; bản 1 của extension bỏ sót: Mutter trả `allows_resize()` = false cho cửa sổ phóng to).
 #   cargo build -p groove-app && bash tools/blur-headless.sh [<target>/debug]
 # Dữ liệu, ảnh: `<target>/blur-headless/` (xoá đầu lượt, giữ sau lượt để xem).
 set -u
@@ -15,7 +17,7 @@ if [ -z "${BLUR_NESTED:-}" ]; then
   out="$(dirname "$bin")/blur-headless"
   rm -rf "$out" && mkdir -p "$out"
   fail=0
-  for run in live hc; do
+  for run in live hc max; do
     BLUR_NESTED=1 dbus-run-session -- bash "$0" "$bin" "$out" "$run" || fail=1
   done
   echo "ảnh: $out"
@@ -32,6 +34,7 @@ mkdir -p "$exts/blur-probe@groove" "$XDG_CONFIG_HOME/glib-2.0/settings"
 cp -r "$repo/packaging/linux/gnome-shell/$uuid" "$exts/"
 hc=false; enabled="'blur-probe@groove'"
 [ "$run" = hc ] && { hc=true; enabled="'$uuid', 'blur-probe@groove'"; }
+[ "$run" = max ] && enabled="'$uuid', 'blur-probe@groove'"
 printf "[org/gnome/shell]\nenabled-extensions=[%s]\ndisable-user-extensions=false\n[org/gnome/desktop/a11y/interface]\nhigh-contrast=%s\n[org/gnome/desktop/interface]\ncolor-scheme='prefer-dark'\n" "$enabled" "$hc" \
   > "$XDG_CONFIG_HOME/glib-2.0/settings/keyfile"
 echo '{"uuid":"blur-probe@groove","name":"blur-probe","description":"groove test","shell-version":["45","46","47","48","49","50"]}' \
@@ -125,7 +128,11 @@ check() {
 export WAYLAND_DISPLAY="$disp" XDG_CURRENT_DESKTOP=GNOME GROOVE_DATA_DIR="$work/groove" GROOVE_LOG=info
 unset DISPLAY
 mkdir -p "$GROOVE_DATA_DIR"
-echo '{"theme":"dark"}' > "$GROOVE_DATA_DIR/settings.json"
+if [ "$run" = max ]; then
+  echo '{"theme":"dark","window":{"x":0,"y":0,"width":900,"height":700,"maximized":true}}' > "$GROOVE_DATA_DIR/settings.json"
+else
+  echo '{"theme":"dark"}' > "$GROOVE_DATA_DIR/settings.json"
+fi
 "$bin/groove" > "$work/app.log" 2>&1 &
 app=$!
 sleep 8
@@ -139,6 +146,9 @@ if [ "$run" = live ]; then
   sleep 3
   check false "$(blur_prop)" "$(shot high-contrast-live)" || ok=0
   grep -q "GNOME Shell blur off" "$work/app.log" || { echo "  SAI: app không thấy Blur tắt (app.log)"; ok=0; }
+elif [ "$run" = max ]; then
+  echo "lượt max: extension bật từ đầu, cửa sổ mở sẵn phóng to"
+  check true "$(blur_prop)" "$(shot maximized)" || ok=0
 else
   echo "lượt hc: tương phản cao từ đầu"
   check false "$(blur_prop)" "$(shot high-contrast)" || ok=0
