@@ -1,0 +1,31 @@
+# Vùng update (groove-gd2_05): tự cập nhật, thẻ Giới thiệu, hộp "Có gì mới", menu macOS.
+button = "Cập nhật lên v{version}"
+tooltip = "Cập nhật lên v{version} · {key}"
+open_page = "Tải v{version} ở trang Groovex"
+downloading = "Đang tải {percent}%"
+installing = "Đang cài…"
+failed = "Không cập nhật được. Thử lại sau."
+check_failed = "Không kiểm tra được bản mới. Thử lại sau."
+
+[about]
+tab = "Giới thiệu"
+version = "Phiên bản {version}"
+status_idle = "Groovex tự kiểm tra bản mới khi mở và mỗi 6 giờ."
+status_checking = "Đang kiểm tra bản mới…"
+status_up_to_date = "Bạn đang dùng bản mới nhất."
+status_available = "Có bản mới v{version}."
+status_failed = "Không kiểm tra được bản mới."
+check = "Kiểm tra cập nhật"
+install = "Cập nhật"
+open_page = "Mở trang tải"
+
+[whats_new]
+title = "Có gì mới"
+ok = "OK"
+
+[menu]
+about = "Giới thiệu Groovex"
+check = "Kiểm tra cập nhật…"
+settings = "Cài đặt…"
+hide = "Ẩn Groovex"
+quit = "Thoát Groovex"

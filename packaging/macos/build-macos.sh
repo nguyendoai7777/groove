@@ -79,5 +79,16 @@ trap 'rm -rf "$stage"' EXIT
 cp -R "$app" "$stage/"
 ln -s /Applications "$stage/Applications"
 hdiutil create -quiet -volname "Groovex $version" -srcfolder "$stage" -format UDZO -ov "$dmg"
+# Tệp cập nhật (groove-gd2_05): `.app.zip` (`ditto` giữ quyền, liên kết, chữ ký trong bundle; bỏ xattr ⇒ không sinh `._*`) —
+# app tải qua server `cloud`, soát sha256 rồi thay `Groovex.app` (crate `updater` của materiant).
+zip="${dmg%.dmg}.app.zip"
+rm -f "$zip"
+ditto -c -k --norsrc --noextattr --noqtn --keepParent "$app" "$zip"
+for f in "$dmg" "$zip"; do (cd "$(dirname "$f")" && shasum -a 256 "$(basename "$f")" > "$(basename "$f").sha256"); done
 
-printf '\nXong: %s (%s)\n%s\n%s' "$dmg" "$(du -h "$dmg" | cut -f1)" "$app" "$warnings"
+printf '\nXong: %s (%s)\n%s (%s, cập nhật)\n%s\n%s' "$dmg" "$(du -h "$dmg" | cut -f1)" "$zip" "$(du -h "$zip" | cut -f1)" "$app" "$warnings"
+# Lệnh đưa bản lên kênh cập nhật (server `cloud`): không đưa bản `_draft`.
+if [ -z "$draft" ]; then
+  printf '\nĐưa lên kênh cập nhật của staging (đứng ở gốc xdesktop):\n  bash cloud/deploy/publish-release.sh groove %s --version %s --os macos --arch %s --plan free --notes groove/release-notes/v%s.md\n' \
+    "$zip" "$version" "${arch/x86_64/x64}" "$version"
+fi

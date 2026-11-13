@@ -38,7 +38,7 @@ impl Language {
 macro_rules! catalog {
     ($lang:literal) => {
         catalog!(@areas $lang, "common", "shell", "player", "library", "song_list", "actions", "metadata",
-            "song_dialogs", "now_playing", "palette", "settings", "platform", "save_as")
+            "song_dialogs", "now_playing", "palette", "settings", "platform", "save_as", "update")
     };
     (@areas $lang:literal, $($area:literal),+) => {
         &[$(($area, include_str!(concat!("../../../i18n/", $lang, "/", $area, ".toml")))),+]

@@ -60,11 +60,13 @@ pub enum SettingsTab {
     Eq,
     Keybindings,
     Library,
+    /// groove-gd2_05: phiên bản + cập nhật.
+    About,
 }
 
 impl SettingsTab {
-    const ALL: [SettingsTab; 4] =
-        [SettingsTab::General, SettingsTab::Eq, SettingsTab::Keybindings, SettingsTab::Library];
+    const ALL: [SettingsTab; 5] =
+        [SettingsTab::General, SettingsTab::Eq, SettingsTab::Keybindings, SettingsTab::Library, SettingsTab::About];
 
     fn label(self) -> &'static str {
         match self {
@@ -72,6 +74,7 @@ impl SettingsTab {
             SettingsTab::Eq => t!("settings.tab.eq"),
             SettingsTab::Keybindings => t!("settings.tab.keybindings"),
             SettingsTab::Library => t!("settings.tab.library"),
+            SettingsTab::About => t!("update.about.tab"),
         }
     }
 
@@ -165,12 +168,18 @@ impl SettingsDialog {
 
     /// Mở hộp: nhớ giá trị hiện có, nạp vào các tab, về tab đầu.
     pub fn open(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_at(SettingsTab::General, window, cx);
+    }
+
+    /// Mở hộp ở `tab` (menu macOS Giới thiệu / Kiểm tra cập nhật ⇒ `About`); đang mở thì chỉ chuyển tab.
+    pub fn open_at(&mut self, tab: SettingsTab, window: &mut Window, cx: &mut Context<Self>) {
         if self.handle.is_open() {
+            self.select_tab(tab, cx);
             return;
         }
         let settings = app::settings(cx).clone();
         self.opened = Some(Snapshot::of(&settings));
-        self.tab = SettingsTab::General;
+        self.tab = tab;
         self.general.update(cx, |general, cx| general.show(&settings, window, cx));
         let eq = settings.eq.clone();
         self.eq.update(cx, |panel, cx| panel.show(eq, cx));
@@ -313,6 +322,7 @@ impl SettingsDialog {
             SettingsTab::Eq => self.eq.clone().into_any_element(),
             SettingsTab::Keybindings => self.keys.clone().into_any_element(),
             SettingsTab::Library => self.roots.clone().into_any_element(),
+            SettingsTab::About => super::about::panel(cx),
         };
         // settings-gap (13/11/2026): khe `TABS_GAP` là `gap` của flex — không phần tử nào giữ nó nên inspector không chỉ ra được,
         // ở kiểu lưới nó thành dải trống hai bên đường kẻ (bên phải còn cộng thêm đệm `CONTENT_PADDING` của nội dung). Kiểu lưới:
@@ -369,10 +379,10 @@ pub fn install(window: AnyWindowHandle, cx: &mut App) {
         app::install_slot(Slot::Settings, dialog.clone(), cx);
         let shell = app::shell(cx);
         window
-            .subscribe(&shell, cx, move |_, event: &ShellEvent, window, cx| {
-                if *event == ShellEvent::OpenSettings {
-                    dialog.update(cx, |dialog, cx| dialog.open(window, cx));
-                }
+            .subscribe(&shell, cx, move |_, event: &ShellEvent, window, cx| match event {
+                ShellEvent::OpenSettings => dialog.update(cx, |dialog, cx| dialog.open(window, cx)),
+                ShellEvent::OpenAbout => dialog.update(cx, |dialog, cx| dialog.open_at(SettingsTab::About, window, cx)),
+                _ => {}
             })
             .detach();
     });
@@ -789,14 +799,14 @@ mod tests {
         draw(cx);
         assert_eq!(ink(cx).origin.y, first.origin.y + px(TAB_HEIGHT));
 
-        // End tới mục cuối (Thư viện, hàng thứ tư): vạch dừng đúng hàng đó.
+        // End tới mục cuối (Giới thiệu, hàng thứ năm — groove-gd2_05): vạch dừng đúng hàng đó.
         cx.simulate_keystrokes("end");
-        assert_eq!(rig.dialog.read_with(cx, |d, _| d.tab()), SettingsTab::Library);
+        assert_eq!(rig.dialog.read_with(cx, |d, _| d.tab()), SettingsTab::About);
         draw(cx);
         cx.executor().advance_clock(Duration::from_millis(400));
         draw(cx);
         draw(cx);
-        assert_eq!(ink(cx).origin.y, first.origin.y + px(TAB_HEIGHT * 3.));
+        assert_eq!(ink(cx).origin.y, first.origin.y + px(TAB_HEIGHT * 4.));
     }
 
     /// Bố cục: header / body / footer chồng sát nhau, cùng bề ngang; cột tab sát mép trái của hộp; khung cuộn chạm mép phải

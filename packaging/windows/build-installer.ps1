@@ -53,6 +53,7 @@ $exe = Join-Path $metadata.target_directory "$(if ($triple) { "$triple/" })relea
 $baseName = "groovex_${version}_win_$arch"
 $stage = Join-Path $OutDir $baseName
 $outputs = @()
+$setup = $null
 
 if (-not $SkipBuild) {
     Push-Location $repo
@@ -99,4 +100,10 @@ foreach ($file in $outputs) {
     # Xuống dòng LF, không CRLF: `sha256sum -c` (Linux / macOS / Git Bash) báo không đọc được tệp nếu dòng có CR.
     [IO.File]::WriteAllText("$file.sha256", "$sha  $(Split-Path -Leaf $file)`n")
     Write-Host ("{0}: {1:N1} MB, sha256 {2}" -f $file, ((Get-Item -LiteralPath $file).Length / 1MB), $sha)
+}
+# Lệnh đưa bản cài lên kênh cập nhật (groove-gd2_05, server `cloud`): app tự tải `_setup.exe` rồi chạy `/S /UPDATE`.
+if ($setup -and (Test-Path -LiteralPath $setup)) {
+    Write-Host ""
+    Write-Host "Đưa lên kênh cập nhật của staging (đứng ở gốc xdesktop, Git Bash):"
+    Write-Host ("  bash cloud/deploy/publish-release.sh groove {0} --version {1} --os windows --arch x64 --plan free --notes groove/release-notes/v{1}.md" -f ($setup -replace '\\', '/'), $version)
 }

@@ -53,6 +53,8 @@ pub struct AppBar {
     on_search: Handler,
     /// macOS, cột trái đang thu: nút mở cột đứng đầu thanh, sau cụm đèn giao thông (`side_nav::toggle_button`).
     nav_toggle: Option<side_nav::Handler<()>>,
+    /// groove-gd2_05: có bản mới ⇒ nút "Cập nhật lên v<x>" trước cụm nút cửa sổ.
+    update: Option<crate::update::Badge>,
 }
 
 impl AppBar {
@@ -62,7 +64,14 @@ impl AppBar {
         on_back: impl Fn(&mut Window, &mut App) + 'static,
         on_search: impl Fn(&mut Window, &mut App) + 'static,
     ) -> AppBar {
-        AppBar { can_back, maximized, on_back: Rc::new(on_back), on_search: Rc::new(on_search), nav_toggle: None }
+        AppBar {
+            can_back,
+            maximized,
+            on_back: Rc::new(on_back),
+            on_search: Rc::new(on_search),
+            nav_toggle: None,
+            update: None,
+        }
     }
 }
 
@@ -72,6 +81,56 @@ impl AppBar {
         self.nav_toggle = Some(Rc::new(move |(), window, cx| on_toggle(window, cx)));
         self
     }
+}
+
+impl AppBar {
+    pub fn update(mut self, badge: Option<crate::update::Badge>) -> AppBar {
+        self.update = badge;
+        self
+    }
+}
+
+/// groove-gd2_05: nút tròn dài màu nhấn "Cập nhật lên v<x>" (rê: phím); đang tải ⇒ "Đang tải n%", đang cài ⇒ "Đang cài…".
+/// Bản major / không tự cài được ⇒ cùng nút, bấm mở trang tải (chữ rê nói rõ).
+fn update_button(badge: crate::update::Badge, cx: &App) -> impl IntoElement {
+    let c = cx.theme().colors();
+    let busy = badge.progress.is_some();
+    let label = match (badge.installing, badge.progress) {
+        (true, _) => t!("update.installing").to_owned(),
+        (false, Some(fraction)) => t!("update.downloading", percent = (fraction * 100.).round() as u32),
+        _ => t!("update.button", version = &badge.version),
+    };
+    let tip = if badge.opens_page {
+        t!("update.open_page", version = &badge.version)
+    } else {
+        t!("update.tooltip", version = &badge.version, key = crate::update::shortcut_label())
+    };
+    let (primary, hover) = (c.primary, c.primary.opacity(0.12));
+    div()
+        .id("app-bar-update")
+        .debug_selector(|| "app-bar-update".into())
+        .occlude()
+        .flex_none()
+        .flex()
+        .items_center()
+        .gap(px(6.))
+        .h(px(26.))
+        .px(px(10.))
+        .mr(px(6.))
+        .rounded_full()
+        .border_1()
+        .border_color(primary.opacity(0.5))
+        .text_sm()
+        .text_color(primary)
+        .when(!busy, |d| {
+            d.cursor_pointer()
+                .hover(move |s| s.bg(hover))
+                .on_click(|_, _, cx| crate::update::start_install(cx))
+                .ripple(RippleConfig::default().color(primary))
+        })
+        .child(Icon::new(GrooveIcon::Update).size(px(14.)).color(primary))
+        .child(label)
+        .with_tooltip(("app-bar-update", 0usize), tip)
 }
 
 /// Ba nút cửa sổ ở góc phải.
@@ -266,6 +325,7 @@ impl RenderOnce for AppBar {
                     .items_center()
                     .h_full()
                     .occlude()
+                    .children(self.update.clone().map(|badge| update_button(badge, cx)))
                     .child(caption(
                         "app-bar-minimize",
                         Caption::Minimize,

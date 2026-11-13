@@ -101,6 +101,8 @@ groove_icons! {
     HelpCircle => "help-circle",
     Artist => "artist",
     Action => "action",
+    // groove-gd2_05: nút cập nhật trên thanh trên (Lucide `circle-arrow-down`).
+    Update => "update",
 }
 
 impl From<GrooveIcon> for IconSource {

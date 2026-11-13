@@ -124,6 +124,12 @@ fn on_keystroke(event: &KeystrokeEvent, window: &mut Window, cx: &mut App) {
         return;
     };
     let scope = scope_of(event, window, cx);
+    // groove-gd2_05: ⌘D / Ctrl+D cài bản mới — chỉ khi có bản mới và không có hộp / ô nhập giữ phím; không thì phím đi tiếp.
+    if scope == KeyScope::Global && crate::update::is_install_key(&event.keystroke) && crate::update::can_install(cx) {
+        cx.stop_propagation();
+        crate::update::start_install(cx);
+        return;
+    }
     refresh_keymap(cx);
     let now = cx.background_executor().now();
     let CommandCenter { keymap, matcher, .. } = cx.global_mut::<CommandCenter>();

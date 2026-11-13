@@ -138,6 +138,9 @@ pub fn run(dev: DevArgs) {
         if crate::open_paths::wants_pip(&std::env::args_os().collect::<Vec<_>>()) {
             crate::views::pip::open(cx);
         }
+        // groove-gd2_05: tự cập nhật + hộp "Có gì mới" (`Slot::WhatsNew`), menu macOS có "Kiểm tra cập nhật".
+        crate::update::install(handle, cx);
+        crate::app_menu::install(cx);
         dev::replay(handle, dev.keys, cx);
     });
 }
@@ -255,6 +258,7 @@ fn install_settings(settings: Settings, saver: Option<JsonSaver>, cx: &mut App) 
         if now.1 != applied.1 {
             groove_core::i18n::set_language(now.1);
             crate::views::pip::refresh_dock_menu(cx);
+            crate::app_menu::set_menus(cx);
             cx.refresh_windows();
         } else if now.4 != applied.4 {
             // Kiểu chia vùng (`views::layout`): view `cached` (cột trái, trang thư viện, ba khung Now Playing) không nghe cài
@@ -335,6 +339,8 @@ pub enum Slot {
     CommandPalette,
     /// Hộp Settings (task 24): cũng là dialog tự vẽ lớp phủ.
     Settings,
+    /// Hộp "Có gì mới" sau khi lên bản mới (groove-gd2_05).
+    WhatsNew,
 }
 
 /// Sự kiện của khung cho view khác nghe.
@@ -345,6 +351,8 @@ pub enum ShellEvent {
     OpenSearch,
     /// Nút Settings ở đáy cột trái: mở hộp Settings (task 24).
     OpenSettings,
+    /// Menu macOS Giới thiệu / Kiểm tra cập nhật: hộp Settings ở thẻ Giới thiệu (groove-gd2_05).
+    OpenAbout,
 }
 
 #[derive(Default)]
@@ -354,6 +362,7 @@ struct Slots {
     now_playing: Option<AnyView>,
     command_palette: Option<AnyView>,
     settings: Option<AnyView>,
+    whats_new: Option<AnyView>,
 }
 
 impl Slots {
@@ -364,6 +373,7 @@ impl Slots {
             Slot::NowPlaying => self.now_playing.as_ref(),
             Slot::CommandPalette => self.command_palette.as_ref(),
             Slot::Settings => self.settings.as_ref(),
+            Slot::WhatsNew => self.whats_new.as_ref(),
         }
     }
 
@@ -374,6 +384,7 @@ impl Slots {
             Slot::NowPlaying => self.now_playing = Some(view),
             Slot::CommandPalette => self.command_palette = Some(view),
             Slot::Settings => self.settings = Some(view),
+            Slot::WhatsNew => self.whats_new = Some(view),
         }
     }
 }
@@ -533,6 +544,7 @@ impl Shell {
             },
             move |_, cx| shell.update(cx, |_, cx| cx.emit(ShellEvent::OpenSearch)),
         )
+        .update(crate::update::badge(cx))
         .when(crate::platform::window_controls::TRAFFIC_LIGHTS && settings(cx).side_nav_collapsed, |bar| {
             bar.nav_toggle(|_, cx| Shell::toggle_side_nav(cx))
         })
@@ -636,6 +648,7 @@ impl Render for Shell {
             })
             .children(self.slots.get(Slot::CommandPalette).map(|view| view.clone().into_any_element()))
             .children(self.slots.get(Slot::Settings).map(|view| view.clone().into_any_element()))
+            .children(self.slots.get(Slot::WhatsNew).map(|view| view.clone().into_any_element()))
             .child(ToastViewport::new().inset_top(px(app_bar::HEIGHT)))
             // linux-resize: viền tự vẽ trên Linux không tự đổi cỡ được — dải kéo mép, trên cùng mọi lớp.
             .children(crate::platform::resize_edges::overlay(window))
@@ -698,6 +711,19 @@ pub fn bring_main_to_front(cx: &mut App) {
     if let Some(window) = main_window(cx) {
         let _ = window.update(cx, |_, window, _| window.activate_window());
     }
+}
+
+pub fn open_settings(cx: &mut App) {
+    shell(cx).update(cx, |_, cx| cx.emit(ShellEvent::OpenSettings));
+}
+
+pub fn open_about(cx: &mut App) {
+    shell(cx).update(cx, |_, cx| cx.emit(ShellEvent::OpenAbout));
+}
+
+/// `None` trước khi khung mở (test của view khác).
+pub fn try_shell(cx: &App) -> Option<Entity<Shell>> {
+    cx.try_global::<ShellHandle>().map(|h| h.0.clone())
 }
 
 pub fn shell(cx: &App) -> Entity<Shell> {
@@ -1179,5 +1205,42 @@ mod tests {
         shell.update(cx, |s, cx| s.navigate(Route::NowPlaying, cx));
         frames(2, cx);
         assert_eq!(cx.update(|_, cx| bars_overlay::count(cx)), 0, "đổi màn: anchor của trang cũ hết hiệu lực");
+    }
+
+    /// groove-gd2_05 C1: có bản mới ⇒ thanh trên hiện nút cập nhật; không có ⇒ không.
+    #[gpui::test]
+    fn update_button_shows_only_when_a_new_version_is_available(cx: &mut TestAppContext) {
+        let (_shell, _events, cx) = open(cx, Settings::default());
+        cx.update(|_, cx| crate::update::set_for_test(crate::update::Status::UpToDate, cx));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        assert!(cx.debug_bounds("app-bar-update").is_none());
+        let manifest = crate::update::test_manifest("9.9.9");
+        cx.update(|_, cx| crate::update::set_for_test(crate::update::Status::Available(manifest.into()), cx));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        assert!(cx.debug_bounds("app-bar-update").is_some(), "nút cập nhật trên thanh trên");
+        let badge = cx.update(|_, cx| crate::update::badge(cx)).unwrap();
+        assert_eq!((badge.version.as_str(), badge.progress), ("9.9.9", None));
+        assert!(badge.opens_page, "bản chạy từ target/ không tự cài ⇒ mở trang tải");
+    }
+
+    /// groove-gd2_05 C4: hộp "Có gì mới" mở với release note, Enter đóng; mở lại, Esc đóng.
+    #[gpui::test]
+    fn whats_new_closes_with_enter_and_escape(cx: &mut TestAppContext) {
+        let (shell, _events, cx) = open(cx, Settings::default());
+        let dialog = cx.update(|_, cx| {
+            cx.set_global(ShellHandle(shell.clone()));
+            let dialog = cx.new(crate::update::whats_new::WhatsNewDialog::new_for_test);
+            install_slot(Slot::WhatsNew, dialog.clone(), cx);
+            dialog
+        });
+        let notes = vec![updater::ReleaseNote { version: "9.9.9".into(), markdown: "## Mới\n\n- Một điều mới".into() }];
+        for key in ["enter", "escape"] {
+            cx.update(|window, cx| dialog.update(cx, |d, cx| d.open(&notes, window, cx)));
+            cx.run_until_parked();
+            assert!(dialog.read_with(cx, |d, _| d.is_open()));
+            cx.simulate_keystrokes(key);
+            cx.run_until_parked();
+            assert!(!dialog.read_with(cx, |d, _| d.is_open()), "{key} đóng hộp");
+        }
     }
 }

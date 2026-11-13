@@ -19,6 +19,8 @@ groove-audio.workspace = true
 materiant.workspace = true
 # Ctrl+Shift+I / Ctrl+Shift+C ở bản debug (D-19, D-25); bản release crate rỗng.
 devtool.workspace = true
+# Tự cập nhật: soát manifest ký, tải, cài, release note (groove-gd2_05).
+updater.workspace = true
 anyhow.workspace = true
 crossbeam-channel.workspace = true
 futures.workspace = true

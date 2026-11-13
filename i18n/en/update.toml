@@ -1,0 +1,31 @@
+# Area update (groove-gd2_05): self-update, About tab, "What's new" dialog, macOS menu.
+button = "Update to v{version}"
+tooltip = "Update to v{version} · {key}"
+open_page = "Get v{version} from the Groovex page"
+downloading = "Downloading {percent}%"
+installing = "Installing…"
+failed = "Couldn't update. Try again later."
+check_failed = "Couldn't check for updates. Try again later."
+
+[about]
+tab = "About"
+version = "Version {version}"
+status_idle = "Groovex checks for updates when it opens and every 6 hours."
+status_checking = "Checking for updates…"
+status_up_to_date = "You're on the latest version."
+status_available = "Version {version} is available."
+status_failed = "Couldn't check for updates."
+check = "Check for updates"
+install = "Update"
+open_page = "Open download page"
+
+[whats_new]
+title = "What's new"
+ok = "OK"
+
+[menu]
+about = "About Groovex"
+check = "Check for Updates…"
+settings = "Settings…"
+hide = "Hide Groovex"
+quit = "Quit Groovex"

@@ -22,6 +22,8 @@ groove-audio = { path = "crates/groove-audio" }
 materiant = { path = "../materiant", features = ["font-mona-sans", "font-be-vietnam-pro"] }
 # Inspector kiểu DevTools (crate `devtool` trong repo materiant, D-25): chỉ bản debug, bản release rỗng.
 devtool = { path = "../materiant/devtool" }
+# Tự cập nhật dùng chung (crate `updater` của repo materiant, không GPUI) — groove-gd2_05.
+updater = { path = "../materiant/updater" }
 
 anyhow = "1"
 crossbeam-channel = "0.5"

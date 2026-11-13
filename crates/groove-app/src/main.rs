@@ -5,6 +5,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod app;
+mod app_menu;
 mod commands;
 mod dev;
 mod icons;
@@ -15,6 +16,7 @@ mod platform;
 mod player;
 mod route;
 mod session_sync;
+mod update;
 mod views;
 mod window_state;
 

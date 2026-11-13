@@ -26,6 +26,7 @@ RequestExecutionLevel user
 
 !include "MUI2.nsh"
 !include "Sections.nsh"
+!include "FileFunc.nsh"
 
 !define APP_NAME "Groovex"
 ; D-21: nhà phát hành, trang chủ chung mọi app (`crates/groove-app/build.rs` cùng giá trị).
@@ -288,6 +289,13 @@ Section "$(sec_app)" SecMain
   WriteRegDWORD HKCU "${UNINST_KEY}" "NoRepair" 1
   SectionGetSize ${SecMain} $0
   WriteRegDWORD HKCU "${UNINST_KEY}" "EstimatedSize" $0
+  # Tự cập nhật (groove-gd2_05): app chạy `_setup.exe /S /UPDATE /D=<thư mục cài>` rồi thoát ⇒ `StopApp` ở trên chờ exe hết khoá,
+  # chép đè, cài xong bật lại `groove.exe --updated` (hộp "Có gì mới").
+  ${GetParameters} $R0
+  ClearErrors
+  ${GetOptions} $R0 "/UPDATE" $R1
+  IfErrors +2
+    Exec '"$INSTDIR\groove.exe" --updated'
 SectionEnd
 
 Section /o "$(sec_desktop)" SecDesktop

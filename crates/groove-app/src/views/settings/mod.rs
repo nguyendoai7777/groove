@@ -1,3 +1,4 @@
+pub mod about;
 pub mod default_player;
 pub mod dialog;
 pub mod eq_bands;
