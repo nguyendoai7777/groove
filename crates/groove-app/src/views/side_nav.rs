@@ -34,6 +34,7 @@ use materiant::theme::{ActiveTheme, Neutral};
 use crate::icons::GrooveIcon;
 use crate::platform::{backdrop, window_controls};
 use crate::route::Route;
+use crate::views::playing_bars::PlayingBars;
 use crate::views::traffic_lights;
 
 pub const EXPANDED_WIDTH: f32 = 230.;
@@ -89,6 +90,16 @@ pub fn toggle_button(id: &'static str, collapsed: bool, on_toggle: Handler<()>, 
         .with_tooltip((id, 1usize), toggle_label)
 }
 
+/// Trạng thái phát vẽ ở icon mục Now Playing (np-nav-bars, 13/11/2026): như mọi chỗ khác — đang phát là thanh nhảy, dừng là
+/// thanh đứng yên, chưa có bài là icon thường.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum NavPlayback {
+    #[default]
+    Idle,
+    Paused,
+    Playing,
+}
+
 #[derive(IntoElement)]
 pub struct SideNav {
     /// Bề rộng chủ đã tính ([`animated_width`]); `None` thì tự nội suy.
@@ -98,6 +109,7 @@ pub struct SideNav {
     on_select: Handler<Route>,
     on_toggle: Handler<()>,
     on_settings: Handler<()>,
+    playback: NavPlayback,
 }
 
 impl SideNav {
@@ -116,6 +128,7 @@ impl SideNav {
             on_select: Rc::new(on_select),
             on_toggle: Rc::new(move |(), window, cx| on_toggle(window, cx)),
             on_settings: Rc::new(move |(), window, cx| on_settings(window, cx)),
+            playback: NavPlayback::Idle,
         }
     }
 }
@@ -124,6 +137,12 @@ impl SideNav {
     /// Bề rộng do chủ nội suy ([`animated_width`]).
     pub fn width(mut self, width: f32) -> SideNav {
         self.width = Some(width);
+        self
+    }
+
+    /// Icon mục Now Playing theo trạng thái phát ([`NavPlayback`]).
+    pub fn playback(mut self, playback: NavPlayback) -> SideNav {
+        self.playback = playback;
         self
     }
 }
@@ -172,8 +191,10 @@ impl RenderOnce for SideNav {
 
         let items: Vec<AnyElement> = Route::NAV
             .iter()
-            .enumerate()
-            .map(|(ix, &route)| nav_item(ix, route, route == self.active, wide, self.on_select.clone(), window, cx))
+            .map(|&route| {
+                let glyph = if route == Route::NowPlaying { playback_glyph(self.playback) } else { None };
+                nav_item(route, route == self.active, wide, glyph, self.on_select.clone(), window, cx)
+            })
             .collect();
         // Vạch của mục đang chọn: một phần tử trượt giữa các hàng (hàng cao đều nên khỏi đo).
         let ink = Route::NAV.iter().position(|&route| route == self.active).map(|ix| {
@@ -187,7 +208,7 @@ impl RenderOnce for SideNav {
 
         let settings = nav_button(
             "side-nav-settings",
-            (GrooveIcon::Settings, t!("shell.nav.settings")),
+            (GrooveIcon::Settings, t!("shell.nav.settings"), None),
             wide,
             false,
             self.on_settings.clone(),
@@ -246,7 +267,7 @@ impl NavInk {
 /// Một hàng cao 42 px toàn bề ngang, vạch trái 3 px: icon + chữ khi rộng, chỉ icon + tooltip khi thu.
 fn nav_button(
     id: &'static str,
-    (icon, label): (GrooveIcon, &'static str),
+    (icon, label, glyph): (GrooveIcon, &'static str, Option<AnyElement>),
     wide: bool,
     active: bool,
     on_click: Handler<()>,
@@ -257,12 +278,15 @@ fn nav_button(
     let focus = window.use_keyed_state(ElementId::from((id, 1u32)), cx, |_, cx| cx.focus_handle()).read(cx).clone();
     let ring = materiant::style::focus_visible(&focus, window, cx);
     let group = SharedString::from(format!("{id}-group"));
-    let glyph = svg()
-        .path(icon.path())
-        .flex_none()
-        .size(px(ICON_SIZE))
-        .text_color(ink.icon)
-        .when(!active, |s| s.group_hover(group.clone(), move |s| s.text_color(ink.hover)));
+    let glyph = glyph.unwrap_or_else(|| {
+        svg()
+            .path(icon.path())
+            .flex_none()
+            .size(px(ICON_SIZE))
+            .text_color(ink.icon)
+            .when(!active, |s| s.group_hover(group.clone(), move |s| s.text_color(ink.hover)))
+            .into_any_element()
+    });
     let row = Button::new(id)
         .track_focus(&focus)
         .selected(active)
@@ -314,19 +338,30 @@ fn nav_button(
     if wide { row.into_any_element() } else { row.with_tooltip((id, 0usize), label).into_any_element() }
 }
 
+/// Thanh nhảy thay icon Now Playing. Đang chạy thì chỉ đặt anchor: cột trái nằm `cached` (`Island<Shell>`), lớp phủ
+/// `bars_overlay` của Shell vẽ bốn thanh mỗi khung (vẽ thẳng thì Shell và cột trái dựng lại mỗi khung).
+fn playback_glyph(playback: NavPlayback) -> Option<AnyElement> {
+    match playback {
+        NavPlayback::Idle => None,
+        NavPlayback::Paused => Some(PlayingBars::new(false).size(px(ICON_SIZE)).into_any_element()),
+        NavPlayback::Playing => Some(crate::views::bars_overlay::anchor(px(ICON_SIZE)).into_any_element()),
+    }
+}
+
 fn nav_item(
-    ix: usize,
     route: Route,
     active: bool,
     wide: bool,
+    glyph: Option<AnyElement>,
     on_select: Handler<Route>,
     window: &mut Window,
     cx: &mut App,
 ) -> AnyElement {
+    let ix = Route::NAV.iter().position(|&r| r == route).unwrap_or(0);
     let id: &'static str = ["side-nav-0", "side-nav-1", "side-nav-2"][ix];
     nav_button(
         id,
-        (nav_icon(route), route.title()),
+        (nav_icon(route), route.title(), glyph),
         wide,
         active,
         Rc::new(move |(), window, cx| on_select(route, window, cx)),

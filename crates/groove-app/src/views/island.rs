@@ -45,6 +45,8 @@ impl<H: 'static> Island<H> {
 
 impl<H: 'static> Render for Island<H> {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // Anchor thanh nhảy trong phần này thuộc chính Island (view đang vẽ lúc paint): lần dựng này ghi lại cái còn hiện.
+        crate::views::bars_overlay::forget(cx.entity_id(), cx);
         let part = self.part;
         self.host.update(cx, |host, cx| part(host, window, cx)).unwrap_or_else(|_| Empty.into_any_element())
     }

@@ -11,7 +11,7 @@
 //! - **Vị trí**: anchor ghi khung + vùng cắt (`content_mask`, để hàng cuộn khuất nửa thì thanh cũng khuất) lúc **paint**. View chứa
 //!   nó được GPUI dùng lại từ cache chỉ khi bố cục y nguyên, nên vị trí đã ghi vẫn đúng; dựng lại thì anchor ghi lại.
 //! - **Hết hiệu lực**: view chứa anchor gọi [`forget`] đầu `render` (hàng thôi phát, cuộn khuất, đổi bài thì lần vẽ sau không
-//!   ghi lại); `Shell` gọi [`forget_all`] khi đổi view nội dung (view cũ không vẽ nữa nên không tự xoá được).
+//!   ghi lại); `Shell` gọi [`forget_all_except`] khi đổi view nội dung (trừ anchor của cột trái) (view cũ không vẽ nữa nên không tự xoá được).
 //! - **Ẩn khi rê**: hàng ẩn thanh, hiện nút Pause khi rê (`invisible` + `group_hover`): GPUI bỏ `paint` của phần ẩn nên anchor
 //!   không ghi; rê đổi trạng thái thì GPUI làm mới cả cửa sổ.
 //! - **Lớp**: lớp phủ nằm trong vùng nội dung, trước thanh phát, bảng lệnh, Settings, hộp thoại, menu (`deferred`) — những thứ đó
@@ -64,10 +64,10 @@ pub fn forget(owner: EntityId, cx: &mut App) {
     }
 }
 
-/// Bỏ mọi anchor (đổi view nội dung).
-pub fn forget_all(cx: &mut App) {
+/// Bỏ mọi anchor (đổi view nội dung), trừ của view `keep` (cột trái của Shell: icon Now Playing, không thuộc nội dung).
+pub fn forget_all_except(keep: EntityId, cx: &mut App) {
     if cx.has_global::<Anchors>() {
-        cx.global_mut::<Anchors>().by_owner.clear();
+        cx.global_mut::<Anchors>().by_owner.retain(|owner, _| *owner == keep);
     }
 }
 

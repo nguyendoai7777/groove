@@ -117,6 +117,8 @@ pub fn run(dev: DevArgs) {
         library_page::install(cx);
         // Task 13: player cần thư viện ở trên.
         crate::player::install(cx);
+        // np-nav-bars: icon Now Playing ở cột trái theo player ở trên.
+        follow_player(cx);
         // Task 22: phím tắt, cần player ở trên.
         crate::commands::install(cx);
         // groove-gd2_04: phím tắt toàn cục, chạy lệnh qua `commands::run` ở trên.
@@ -404,6 +406,8 @@ pub struct Shell {
     bars: Entity<BarsOverlay>,
     /// View nội dung của khung trước: đổi thì anchor của view cũ hết hiệu lực.
     content_view: Option<EntityId>,
+    /// np-nav-bars: icon mục Now Playing ở cột trái theo player (`follow_player`).
+    nav_playback: side_nav::NavPlayback,
 }
 
 impl EventEmitter<ShellEvent> for Shell {}
@@ -422,6 +426,7 @@ impl Shell {
             bar: Island::new(Shell::bar_part, cx),
             nav_width: side_nav::EXPANDED_WIDTH,
             bars: cx.new(|_| BarsOverlay),
+            nav_playback: side_nav::NavPlayback::Idle,
             content_view: None,
         }
     }
@@ -514,6 +519,7 @@ impl Shell {
             move |_, cx| shell.update(cx, |_, cx| cx.emit(ShellEvent::OpenSettings)),
         )
         .width(self.nav_width)
+        .playback(self.nav_playback)
         .into_any_element()
     }
 
@@ -576,7 +582,8 @@ impl Render for Shell {
         let content_view = self.slots.get(content_slot(route)).map(AnyView::entity_id);
         if content_view != self.content_view {
             self.content_view = content_view;
-            bars_overlay::forget_all(cx);
+            // Anchor của cột trái (icon Now Playing) không thuộc nội dung: giữ lại.
+            bars_overlay::forget_all_except(self.nav.entity_id(), cx);
         }
         let content = match (content_slot(route), self.slots.get(content_slot(route))) {
             // Trang thư viện không có hoạt ảnh lặp ngoài thanh nhảy của bài đang phát: nhúng `cached`, khung của chữ chạy
@@ -636,6 +643,32 @@ impl Render for Shell {
             // linux-resize: viền tự vẽ trên Linux không tự đổi cỡ được — dải kéo mép, trên cùng mọi lớp.
             .children(crate::platform::resize_edges::overlay(window))
     }
+}
+
+/// np-nav-bars: Shell nghe player, chỉ `notify` (dựng lại cột trái) khi trạng thái của icon Now Playing đổi — không theo nhịp
+/// vị trí hay mỗi lần player `notify`.
+fn follow_player(cx: &mut App) {
+    let player = crate::player::player(cx);
+    let shell = shell(cx);
+    shell.update(cx, |shell, cx| {
+        let read = |player: &Entity<crate::player::Player>, cx: &App| {
+            let p = player.read(cx);
+            match (p.current_track().is_some(), p.is_playing()) {
+                (false, _) => side_nav::NavPlayback::Idle,
+                (true, false) => side_nav::NavPlayback::Paused,
+                (true, true) => side_nav::NavPlayback::Playing,
+            }
+        };
+        shell.nav_playback = read(&player, cx);
+        cx.observe(&player, move |shell, player, cx| {
+            let now = read(&player, cx);
+            if now != shell.nav_playback {
+                shell.nav_playback = now;
+                cx.notify();
+            }
+        })
+        .detach();
+    });
 }
 
 // ---- Lối tắt cho view khác ----

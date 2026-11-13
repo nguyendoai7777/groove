@@ -83,14 +83,16 @@ Danh sách chung: `materiant/CLAUDE.md` mục "Soát trước khi xong một com
   - hoạt ảnh lặp là entity riêng (`MarqueeView`, `BarsView`), khung của nó chỉ `notify` chính nó — không `use_keyed_state` làm
     trạng thái trực tiếp (GPUI `notify` luôn view chủ), không `request_animation_frame` trong `render` của view chủ;
   - đường từ gốc tới hoạt ảnh (Shell → thanh phát / Now Playing) nhúng thường; nhánh nặng bên cạnh nhúng `cached`: cột trái, thanh
-    trên (`Island<Shell>`), trang thư viện, bìa / cụm điều khiển / âm lượng của thanh phát (`Island<PlayerBar>`), ba khung
-    của Now Playing, bìa / cụm nút của PiP (`Island<PipView>`, `views::pip`). View `cached` mà bẩn thì GPUI dựng lại CẢ cây con (kể cả `cached` bên trong);
+    trên (`Island<Shell>`), trang thư viện, bìa / cụm điều khiển / âm lượng của thanh phát (`Island<PlayerBar>`), khung lời + hàng đợi
+    của Now Playing, danh sách đoạn của hộp timeline (`Island<TimelineBox>` — hộp nhúng thường vì đầu hộp có chữ chạy tên đoạn), bìa / cụm nút của PiP (`Island<PipView>`, `views::pip`). View `cached` mà bẩn thì GPUI dựng lại CẢ cây con (kể cả `cached` bên trong);
   - view `cached` chỉ dựng lại khi chính nó (hay view con) `notify`: thứ nó đọc trong `render` phải có `observe` → `notify`
     (`Island` nghe chủ, chủ nghe `Player`…). Theme, ngôn ngữ, đổi cỡ, rê chuột, focus thì GPUI tự làm mới cả cửa sổ;
   - cần cỡ xác định: `.cached(style)` bố cục theo `style`, không đo nội dung — gốc của view con lấp đúng khung (`size_full`).
   - thanh nhảy đang chạy nằm TRONG view `cached` (danh sách bài, hàng đợi, header dòng thời gian) thì đặt
     `bars_overlay::anchor`, không `PlayingBars::new(true)`: lớp phủ cấp nội dung của Shell vẽ nó, trang không bẩn theo khung.
-    View chứa anchor gọi `bars_overlay::forget(cx.entity_id(), cx)` đầu `render`;
+    View chứa anchor gọi `bars_overlay::forget(cx.entity_id(), cx)` đầu `render` (`Island` tự gọi cho chính nó). Icon Now Playing
+    ở cột trái (`side_nav::NavPlayback`, Shell nghe player) cũng là anchor; đổi view nội dung chỉ xoá anchor ngoài cột trái
+    (`forget_all_except`);
   - nhịp vị trí khi phát là `Player::clock()` (`PlaybackClock`), không phải `notify` của `Player`: chỉ view vẽ vị trí nghe nó
     (thanh tua `cached` riêng, TimelineBox), thưa còn mỗi giây khi cửa sổ nền (`PlaybackClock::due`). View nghe `Player` chỉ
     `notify` khi đúng thứ nó vẽ đổi (`BarState` của thanh phát, `Body` của lời bài…).

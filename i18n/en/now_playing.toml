@@ -6,9 +6,6 @@
 no_song = "No song selected"
 unknown_artist = "Unknown artist"
 
-[timeline]
-current = "{position} / {duration}"
-
 [lyrics]
 title = "Lyrics"
 no_song = "Play a song to see its lyrics here."

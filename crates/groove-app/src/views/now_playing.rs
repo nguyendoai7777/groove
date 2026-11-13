@@ -428,7 +428,8 @@ impl Render for NowPlaying {
             // Tên nghệ sĩ dài xuống dòng (không cắt "…").
             .child(div().flex_none().text_color(c.muted).child(artist))
             .children(lyrics_button)
-            .child(div().w_full().flex_1().min_h_0().mt_4().child(self.timeline_box.clone().cached(full())));
+            // np-timeline-header: hộp nhúng thường (chữ chạy, thanh nhảy ở đầu hộp), danh sách đoạn bên trong tự `cached`.
+            .child(div().w_full().flex_1().min_h_0().mt_4().child(self.timeline_box.clone()));
 
         // Hẹp: hàng đợi lấp chỗ cột lời bài để lại.
         let right = if narrow { div().flex_1().min_w_0().h_full() } else { column(RIGHT_COLUMN) }
