@@ -186,7 +186,7 @@ màn không có thì thoát, không rơi về màn mặc định. Xem ảnh xong
   `bash tools/blur-headless.sh <target>/debug` (GNOME Shell headless trên bus riêng, không đụng phiên đang dùng): app mở trước
   extension ⇒ tự bật, thấy `Blur` rồi có lớp mờ; bật tương phản cao lúc chạy ⇒ gỡ lớp mờ; tương phản cao từ đầu ⇒ không mờ. Ảnh ở
   `<target>/blur-headless/`; lượt `max`: app mở lại ở trạng thái phóng to đã lưu vẫn có lớp mờ (extension bản 2, 13/11/2026 — Mutter
-  trả `allows_resize()` = false cho cửa sổ phóng to / ghép nửa màn, bản 1 bỏ sót nên máy chủ dự án không mờ). Test `platform::backdrop::tests::names_match_the_shell_extension` giữ tên D-Bus khớp `extension.js`.
+  trả `allows_resize()` = false cho cửa sổ phóng to / ghép nửa màn, bản 1 bỏ sót nên máy chủ dự án không mờ). **PiP luôn trên cùng** (pip-above, extension bản 3, 13/11/2026): Wayland không cho app tự ghim; mở PiP ⇒ `platform::always_on_top` gọi `KeepAbove(<tiêu đề PiP>)` của extension ⇒ `make_above()` đúng cửa sổ đó (lượt `max` của `blur-headless.sh` kiểm `is_above()`); extension cũ / chưa đăng nhập lại ⇒ PiP là cửa sổ thường. Test `platform::backdrop::tests::names_match_the_shell_extension` giữ tên D-Bus khớp `extension.js`.
 - **Viền tự vẽ trên Linux không tự đổi cỡ** (09/11/2026): gpui-pre-linux 0.3.10 không hit-test mép cho
   `WindowDecorations::Client` (GNOME Wayland luôn là viền tự vẽ), app phải tự gọi `start_window_resize`. `platform::resize_edges`
   phủ dải 5 px mép trong + góc 12 px trên cùng gốc `Shell` (`occlude`), bỏ mép đang dính (phóng to, ghép nửa màn). Cửa sổ chính

@@ -13,6 +13,11 @@
 // Bản 1 xét đúng một lần lúc cửa sổ hiện ⇒ app mở lại ở trạng thái phóng to đã lưu thì không bao giờ có lớp mờ (máy chủ dự
 // án). Nay phóng to / toàn màn cũng là cửa sổ chính; cửa sổ cùng `app_id` chưa nhận (mở sẵn ghép nửa màn) thì chờ nó đổi cỡ.
 //
+// pip-above (13/11/2026, bản 3): Wayland không có giao thức cho app tự ghim cửa sổ lên trên (người dùng phải chuột phải →
+// "Always on Top", như PiP của Chrome). App gọi `KeepAbove(title)` ngay sau khi mở trình phát thu nhỏ; extension `make_above()`
+// cửa sổ Groovex có đúng tiêu đề đó — chưa hiện thì giữ tiêu đề, áp lúc nó hiện. Người dùng bỏ tích sau đó là ý của họ: chỉ áp
+// một lần mỗi lần gọi.
+//
 // Tương phản cao (`org.gnome.desktop.a11y.interface high-contrast`) ⇒ không làm mờ. Thuộc tính D-Bus `Blur` cho app biết có mờ
 // thật hay không để chọn alpha nền; đổi (bật / tắt tương phản cao) thì phát `PropertiesChanged`. App bật trước khi Shell nạp
 // extension thì nghe `NameOwnerChanged` của BUS_NAME. Tên phải khớp `groove-app` `platform::backdrop::gnome`.
@@ -24,7 +29,7 @@ import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
 const BUS_NAME = 'com.sandtechs.desktop.groovex.Shell';
 const OBJECT_PATH = '/com/sandtechs/desktop/groovex/Shell';
-const VERSION = 2;
+const VERSION = 3;
 // clear-blur: 40 nhoè nền thành mảng gần đặc; 24 còn thấy hình khối cửa sổ phía sau, chữ của nó vẫn nhoè. Khớp alpha cột trái
 // trong `groove-app` `platform::backdrop` (`SHELL_BLUR_ALPHA_*`).
 const BLUR_RADIUS = 24;
@@ -34,6 +39,9 @@ const IFACE = `<node>
   <interface name="com.sandtechs.desktop.groovex.Shell1">
     <property name="Version" type="u" access="read"/>
     <property name="Blur" type="b" access="read"/>
+    <method name="KeepAbove">
+      <arg name="title" type="s" direction="in"/>
+    </method>
   </interface>
 </node>`;
 
@@ -43,6 +51,8 @@ class Service {
         this._windows = new Map();
         // Cửa sổ cùng `app_id` chưa đổi cỡ được (PiP, hoặc cửa sổ chính mở sẵn ghép nửa màn) → id tín hiệu chờ nó đổi cỡ.
         this._pending = new Map();
+        // Tiêu đề cửa sổ `KeepAbove` đang chờ hiện (null: không chờ).
+        this._above = null;
         this._a11y = new Gio.Settings({schema_id: 'org.gnome.desktop.a11y.interface'});
         this._blur = blurAllowed(this._a11y);
         this._a11ySignal = this._a11y.connect('changed::high-contrast', () => this._sync());
@@ -68,6 +78,21 @@ class Service {
         return this._blur;
     }
 
+    KeepAbove(title) {
+        this._above = title;
+        for (const window of global.display.list_all_windows())
+            this._raise(window);
+    }
+
+    // Cửa sổ Groovex mang tiêu đề `KeepAbove` đang chờ ⇒ ghim trên cùng, hết chờ.
+    _raise(window) {
+        if (this._above === null || !isGroove(window) || window.get_title() !== this._above)
+            return;
+        this._above = null;
+        if (!window.is_above())
+            window.make_above();
+    }
+
     // `app_id` và giới hạn cỡ có thể tới sau lúc tạo ⇒ xét lúc cửa sổ hiện lần đầu.
     _watchShown(window) {
         const done = () => {
@@ -84,7 +109,10 @@ class Service {
     }
 
     _track(window) {
-        if (!isGroove(window) || this._windows.has(window) || this._pending.has(window))
+        if (!isGroove(window))
+            return;
+        this._raise(window);
+        if (this._windows.has(window) || this._pending.has(window))
             return;
         if (!window.get_compositor_private())
             return;

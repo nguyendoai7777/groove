@@ -509,6 +509,29 @@ pub mod gnome {
         }
     }
 
+    /// Xin extension ghim cửa sổ Groovex mang tiêu đề `title` lên trên (bản 3+). `false` khi không phải GNOME; extension không
+    /// chạy / bản cũ thì lời gọi lỗi, chỉ ghi log.
+    pub fn keep_above(title: String, cx: &mut App) -> bool {
+        if !super::desktop_has(&std::env::var("XDG_CURRENT_DESKTOP").unwrap_or_default(), "GNOME") {
+            return false;
+        }
+        cx.background_executor()
+            .spawn(async move {
+                let reply = match Connection::session().await {
+                    Ok(conn) => {
+                        conn.call_method(Some(BUS_NAME), OBJECT_PATH, Some(INTERFACE), "KeepAbove", &(title,)).await
+                    }
+                    Err(e) => Err(e),
+                };
+                match reply {
+                    Ok(_) => log::info!("pip: GNOME Shell keeps the window above"),
+                    Err(e) => log::info!("pip: GNOME Shell extension cannot keep the window above ({e})"),
+                }
+            })
+            .detach();
+        true
+    }
+
     /// Extension không chạy / bản không có `Blur` ⇒ false.
     async fn read_blur(conn: &Connection) -> bool {
         let reply = conn.call_method(Some(BUS_NAME), OBJECT_PATH, Some(PROPERTIES), "Get", &(INTERFACE, "Blur")).await;

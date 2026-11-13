@@ -7,9 +7,10 @@
 //! - **macOS**: `NSWindow` thường nâng lên `NSFloatingWindowLevel`, theo mọi Space và cạnh app toàn màn hình. Không dùng
 //!   `WindowKind::Floating` / `PopUp`: GPUI dựng `NSPanel`, mà panel mặc định ẩn khi app mất focus (`hidesOnDeactivate`) — PiP
 //!   biến mất đúng lúc người dùng sang app khác.
-//! - **Linux**: không làm gì. Wayland không có giao thức cho app tự ghim cửa sổ lên trên (GNOME / Mutter, KWin đều do người
-//!   dùng chọn: Alt+Space → "Always on Top"); PiP của trình duyệt trên GNOME cũng là cửa sổ thường. X11 có
-//!   `_NET_WM_STATE_ABOVE` nhưng gpui-pre-linux không mở đường gửi, và bản groove trên Linux chạy Wayland.
+//! - **Linux**: Wayland không có giao thức cho app tự ghim cửa sổ lên trên (GNOME / Mutter, KWin đều do người dùng chọn: chuột
+//!   phải → "Always on Top", như PiP của Chrome). pip-above (13/11/2026): trên GNOME, extension Shell của Groovex (bản 3) nhận
+//!   `KeepAbove(title)` và `make_above()` cửa sổ Groovex có đúng tiêu đề đó (chưa hiện thì áp lúc hiện) — [`super::backdrop::gnome::keep_above`].
+//!   Extension chưa nạp (vừa cài, chưa đăng nhập lại) / desktop khác: cửa sổ thường.
 
 use materiant::gpui_kit::{App, Window};
 
@@ -62,7 +63,17 @@ mod sys {
     }
 }
 
-#[cfg(not(any(windows, target_os = "macos")))]
+#[cfg(target_os = "linux")]
+mod sys {
+    use materiant::gpui_kit::{App, Window};
+
+    pub fn keep_on_top(_: &Window, cx: &mut App) -> bool {
+        // Đúng chữ `PipView` đặt làm tiêu đề cửa sổ ở lần vẽ đầu.
+        crate::platform::backdrop::gnome::keep_above(groove_core::t!("player.pip.window_title").to_string(), cx)
+    }
+}
+
+#[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
 mod sys {
     use materiant::gpui_kit::{App, Window};
 

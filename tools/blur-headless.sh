@@ -7,7 +7,9 @@
 #          chạy ⇒ gỡ lớp mờ, `Blur` = false, app vẽ lại nền đục (ảnh `high-contrast-live.png`).
 #   hc   — tương phản cao bật từ đầu ⇒ không lớp mờ, `Blur` = false (ảnh `high-contrast.png`).
 #   max  — extension bật từ đầu (như sau đăng nhập), app mở lại ở trạng thái phóng to đã lưu ⇒ vẫn có lớp mờ (ảnh
-#          `maximized.png`; bản 1 của extension bỏ sót: Mutter trả `allows_resize()` = false cho cửa sổ phóng to).
+#          `maximized.png`; bản 1 của extension bỏ sót: Mutter trả `allows_resize()` = false cho cửa sổ phóng to). Rồi mở
+#          trình phát thu nhỏ (`groove --pip`) ⇒ app gọi `KeepAbove`, extension ghim đúng cửa sổ PiP lên trên, cửa sổ chính không
+#          (pip-above, bản 3; ảnh `pip.png`).
 #   cargo build -p groove-app && bash tools/blur-headless.sh [<target>/debug]
 # Dữ liệu, ảnh: `<target>/blur-headless/` (xoá đầu lượt, giữ sau lượt để xem).
 set -u
@@ -67,7 +69,7 @@ export default class Probe extends Extension {
             const lines = global.get_window_actors().filter(a => a.meta_window.get_wm_class()?.startsWith('groove')).map(a => {
                 const f = a.meta_window.get_frame_rect();
                 const kids = a.get_children().map(c => `${c.get_effects().some(e => e instanceof Shell.BlurEffect) ? 'blur' : 'surface'} ${c.x},${c.y} ${c.width}x${c.height}`);
-                return `${a.meta_window.get_wm_class()} frame ${f.width}x${f.height}: ${kids.join(' | ')}`;
+                return `${a.meta_window.get_wm_class()} above=${a.meta_window.is_above()} frame ${f.width}x${f.height}: ${kids.join(' | ')}`;
             });
             GLib.file_set_contents(`${dir}/actors.txt`, `${lines.join('\n')}\n`);
             const stream = Gio.File.new_for_path(`${dir}/${name}.png`).replace(null, false, Gio.FileCreateFlags.NONE, null);
@@ -149,6 +151,14 @@ if [ "$run" = live ]; then
 elif [ "$run" = max ]; then
   echo "lượt max: extension bật từ đầu, cửa sổ mở sẵn phóng to"
   check true "$(blur_prop)" "$(shot maximized)" || ok=0
+  echo "lượt max: mở trình phát thu nhỏ"
+  "$bin/groove" --pip > "$work/pip.log" 2>&1
+  sleep 3
+  actors="$(shot pip)"
+  echo "  $actors"
+  [ "$(grep -c 'above=true' <<< "$actors")" = 1 ] && [ "$(grep -c 'above=false' <<< "$actors")" = 1 ] \
+    && echo "  ok" || { echo "  SAI: phải có đúng PiP ghim trên cùng, cửa sổ chính không"; ok=0; }
+  grep -q "GNOME Shell keeps the window above" "$work/app.log" || { echo "  SAI: app không gọi được KeepAbove (app.log)"; ok=0; }
 else
   echo "lượt hc: tương phản cao từ đầu"
   check false "$(blur_prop)" "$(shot high-contrast)" || ok=0
