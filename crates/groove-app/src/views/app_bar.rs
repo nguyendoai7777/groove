@@ -20,6 +20,7 @@ use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
     App, ClickEvent, Hsla, IntoElement, ParentElement, RenderOnce, Styled, Window, div, px, relative, svg, white,
 };
+use materiant::icon::Icon;
 use materiant::overlay::tooltip::TooltipExt;
 use materiant::theme::color::hex;
 use materiant::theme::{ActiveTheme, Neutral};
