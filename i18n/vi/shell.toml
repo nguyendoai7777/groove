@@ -16,7 +16,7 @@ minimize = "Thu nhỏ"
 maximize = "Phóng to"
 restore = "Khôi phục"
 close = "Đóng"
-search_placeholder = "Tìm bài hát, lệnh..."
+search_placeholder = "Tìm bài hát, ca sĩ, album"
 
 # Chỗ giữ cho màn chưa được dựng; chỉ thấy trong lúc các task còn làm dở.
 [slot]

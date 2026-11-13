@@ -1,6 +1,5 @@
 //! Nền của Groovex: không UI. Mọi `mod` khai sẵn ở groove-gd1_01, task sau không sửa tệp này.
 
-pub mod cli;
 pub mod i18n;
 pub mod keymap;
 pub mod logging;

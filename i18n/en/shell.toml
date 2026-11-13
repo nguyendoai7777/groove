@@ -16,7 +16,7 @@ minimize = "Minimize"
 maximize = "Maximize"
 restore = "Restore"
 close = "Close"
-search_placeholder = "Search songs, commands..."
+search_placeholder = "Search songs, artists, albums"
 
 # Placeholder for a screen that is not built yet; only visible while tasks are in progress.
 [slot]

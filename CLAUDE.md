@@ -15,7 +15,7 @@ Node (`package.json`, pnpm, Vite, husky), `public/`, `scripts/`, cũng không gi
 
 | Crate | Loại | Việc | Không được mang |
 | --- | --- | --- | --- |
-| `crates/groove-core` | lib | `paths`, `i18n`, `logging`, `model`, `settings`, `session`, `queue`, `timeline`, `keymap`, `cli` | UI, âm thanh, SQLite |
+| `crates/groove-core` | lib | `paths`, `i18n`, `logging`, `model`, `settings`, `session`, `queue`, `timeline`, `keymap` | UI, âm thanh, SQLite |
 | `crates/groove-library` | lib | `db/{schema,migrate,queries}`, `actor`, `store`, `tags`, `fixtures`, `covers`, `scanner`, `indexer`, `watcher`, `reconcile`, `metadata_ops`, `legacy_ls` | UI |
 | `crates/groove-audio` | lib | `engine`, `decoder`, `output`, `dsp`, `export` (Save as new: cắt / xuất; MP3 / AAC qua Media Foundation trên Windows — gd2_02; M4R trên Linux / macOS bằng `filmcraft-aac` + `filmcraft-isobmff` thuần Rust, `export::aac`) | UI, SQLite |
 | `crates/groove-app` | bin `groove` | `app`, `route`, `icons`, `player`, `session_sync`, `library_ctl`, `commands`, `instance`, `open_paths`, `updater`, `window_state`, `dev`, `platform/{media_session,taskbar_windows,always_on_top,global_keys,backdrop,resize_edges}`, `views/*` | — |

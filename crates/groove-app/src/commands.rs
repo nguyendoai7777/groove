@@ -1,7 +1,7 @@
 //! groove-gd1_22: dispatcher Command chung.
 //!
-//! Mọi nguồn lệnh đi một đường: phím tắt, bảng lệnh, media session, taskbar đều gọi [`run`]. `/play` và các lệnh chữ đi qua
-//! [`run_cli`].
+//! Mọi nguồn lệnh đi một đường: phím tắt, bảng lệnh, media session, taskbar đều gọi [`run`]. Chế độ lệnh chữ `/play`… của bảng
+//! lệnh đã bỏ (chủ dự án 13/11/2026: "không có ý nghĩa").
 //!
 //! # Phím tắt theo ngữ cảnh (M4)
 //!
@@ -16,14 +16,10 @@
 
 use std::rc::Rc;
 
-use groove_core::cli::CliCommand;
 use groove_core::keymap::{Chord, Command, KeyMatcher, KeyScope, Keymap};
 use groove_core::model::TrackRef;
-use groove_core::settings::{KeyBinding, Settings, ThemeChoice};
-use groove_library::db::queries;
-use materiant::gpui_kit::{
-    App, FocusHandle, Global, InputPreference, KeyContext, Keystroke, KeystrokeEvent, Task, Window,
-};
+use groove_core::settings::{KeyBinding, Settings};
+use materiant::gpui_kit::{App, FocusHandle, Global, InputPreference, KeyContext, Keystroke, KeystrokeEvent, Window};
 use materiant::overlay::{dialog, stack};
 
 use crate::app;
@@ -33,8 +29,6 @@ use crate::route::Route;
 /// Ba thao tác nhanh khi bảng lệnh trống (đặc tả 1.9). S21: cả ba đều chạy.
 pub const QUICK_ACTIONS: [Command; 3] = [Command::PlayRandom, Command::GoToLibrary, Command::GoToNowPlaying];
 
-/// Số bài `/play <tên>` lấy về, cùng trần với bảng lệnh (đặc tả 1.9).
-const CLI_SEARCH_LIMIT: usize = 50;
 /// Ngữ cảnh của ô nhập trong gpui-base (`input/base/state.rs`, không `pub`).
 const TEXT_INPUT_CONTEXT: &str = "Input";
 
@@ -45,8 +39,6 @@ trait Host {
     fn seek_step(&self, cx: &App) -> u32;
     fn volume_step(&self, cx: &App) -> u8;
     fn custom_keybindings(&self, cx: &App) -> Option<Vec<KeyBinding>>;
-    fn theme(&self, cx: &App) -> ThemeChoice;
-    fn set_theme(&self, theme: ThemeChoice, cx: &mut App);
 }
 
 struct AppHost;
@@ -70,14 +62,6 @@ impl Host for AppHost {
 
     fn custom_keybindings(&self, cx: &App) -> Option<Vec<KeyBinding>> {
         app::settings(cx).custom_keybindings.clone()
-    }
-
-    fn theme(&self, cx: &App) -> ThemeChoice {
-        app::settings(cx).theme
-    }
-
-    fn set_theme(&self, theme: ThemeChoice, cx: &mut App) {
-        app::update_settings(cx, |settings| settings.theme = theme);
     }
 }
 
@@ -251,118 +235,16 @@ pub fn play_search_result(track: TrackRef, cx: &mut App) {
     });
 }
 
-/// Kết quả một lệnh chữ, để bảng lệnh quyết định đóng hay báo.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CliOutcome {
-    /// Đã chạy, đóng bảng.
-    Done,
-    /// `/help`: giữ bảng mở, hiện `cli::COMMANDS` (điền `/` vào ô).
-    ShowHelp,
-    /// Không có bài nào khớp, hoặc `/playall` khi danh sách trống.
-    NoMatch,
-}
-
-/// Chạy một lệnh chữ đã đọc bằng `cli::resolve`. Tìm bài thì đọc DB ở nền (N7), nên trả `Task`.
-pub fn run_cli(command: CliCommand, cx: &mut App) -> Task<CliOutcome> {
-    let player = player(cx);
-    let outcome = match command {
-        CliCommand::Play(Some(query)) => {
-            return search_then(query, cx, |tracks, cx| {
-                let player = crate::player::player(cx);
-                let first = tracks[0].clone();
-                player.update(cx, |p, cx| p.play_list(first, tracks, cx));
-            });
-        }
-        CliCommand::Queue(query) => {
-            return search_then(query, cx, |mut tracks, cx| {
-                let player = crate::player::player(cx);
-                tracks.truncate(1);
-                player.update(cx, |p, cx| p.append(tracks, cx));
-            });
-        }
-        CliCommand::Play(None) => {
-            player.update(cx, |p, cx| p.play(cx));
-            CliOutcome::Done
-        }
-        CliCommand::PlayAll => {
-            let list = player.read(cx).queue().original().to_vec();
-            match list.first().cloned() {
-                Some(first) => {
-                    player.update(cx, |p, cx| p.play_list(first, list, cx));
-                    CliOutcome::Done
-                }
-                None => CliOutcome::NoMatch,
-            }
-        }
-        CliCommand::Pause => {
-            player.update(cx, |p, cx| p.pause(cx));
-            CliOutcome::Done
-        }
-        CliCommand::Next => {
-            player.update(cx, |p, cx| p.next(cx));
-            CliOutcome::Done
-        }
-        CliCommand::Prev => {
-            player.update(cx, |p, cx| p.prev(cx));
-            CliOutcome::Done
-        }
-        CliCommand::Volume(volume) => {
-            player.update(cx, |p, cx| p.set_volume(volume, cx));
-            CliOutcome::Done
-        }
-        CliCommand::Theme(choice) => {
-            let host = host(cx);
-            let theme = choice.unwrap_or(match host.theme(cx) {
-                ThemeChoice::Light => ThemeChoice::Dark,
-                ThemeChoice::Dark | ThemeChoice::System => ThemeChoice::Light,
-            });
-            host.set_theme(theme, cx);
-            CliOutcome::Done
-        }
-        CliCommand::Help => CliOutcome::ShowHelp,
-    };
-    Task::ready(outcome)
-}
-
-/// Tìm trong thư viện ở nền, có bài thì làm `then` trên UI thread. Dùng `read` thay vì `Library::search`: lệnh đang chạy không
-/// được bị coi là lượt cũ khi ô tìm gõ tiếp (S18).
-fn search_then(query: String, cx: &mut App, then: impl FnOnce(Vec<TrackRef>, &mut App) + 'static) -> Task<CliOutcome> {
-    let Some(library) = app::try_library(cx).cloned() else {
-        return Task::ready(CliOutcome::NoMatch);
-    };
-    cx.spawn(async move |cx| {
-        let found = library.read(move |conn| Ok(queries::search(conn, &query, CLI_SEARCH_LIMIT)?)).await;
-        let tracks: Vec<TrackRef> = match found {
-            Ok(songs) => songs.into_iter().map(|song| song.track).collect(),
-            Err(err) => {
-                log::warn!("cli search: {err}");
-                Vec::new()
-            }
-        };
-        if tracks.is_empty() {
-            return CliOutcome::NoMatch;
-        }
-        cx.update(|cx| then(tracks, cx));
-        CliOutcome::Done
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use std::cell::{Cell, RefCell};
-    use std::path::Path;
-    use std::time::{Duration, Instant};
+    use std::time::Duration;
 
     use gpui::{TestAppContext, VisualTestContext};
     use groove_audio::engine::EngineOptions;
     use groove_audio::output::FakeOutput;
-    use groove_core::cli;
     use groove_core::settings::DEFAULT_KEYBINDINGS;
-    use groove_core::test_dir::TestDir;
-    use groove_library::db::migrate::{CoverRecord, CoverSink};
-    use groove_library::db::queries::SongUpsert;
-    use groove_library::fixtures::{self, AudioKind};
-    use groove_library::store::{Library, LibraryConfig};
+    use groove_library::store::Library;
     use materiant::button::Button;
     use materiant::field::input::TextField;
     use materiant::gpui_kit::base::Root;
@@ -387,7 +269,6 @@ mod tests {
         searches: Cell<usize>,
         routes: RefCell<Vec<Route>>,
         custom: RefCell<Option<Vec<KeyBinding>>>,
-        theme: Cell<Option<ThemeChoice>>,
     }
 
     impl Host for FakeHost {
@@ -409,14 +290,6 @@ mod tests {
 
         fn custom_keybindings(&self, _: &App) -> Option<Vec<KeyBinding>> {
             self.custom.borrow().clone()
-        }
-
-        fn theme(&self, _: &App) -> ThemeChoice {
-            self.theme.get().unwrap_or(ThemeChoice::Dark)
-        }
-
-        fn set_theme(&self, theme: ThemeChoice, _: &mut App) {
-            self.theme.set(Some(theme));
         }
     }
 
@@ -706,124 +579,5 @@ mod tests {
         });
         assert_eq!(rig.take_ran(), QUICK_ACTIONS);
         assert_eq!(*host.routes.borrow(), [Route::MyMusic, Route::NowPlaying]);
-    }
-
-    fn no_covers() -> Box<dyn CoverSink + Send> {
-        Box::new(|_: &[u8]| -> anyhow::Result<CoverRecord> { anyhow::bail!("no covers in this test") })
-    }
-
-    fn add_song(library: &Library, path: &Path, title: &str) -> i64 {
-        let (path, title) = (path.to_owned(), title.to_owned());
-        library
-            .writer()
-            .transaction(move |conn| {
-                let upsert = SongUpsert {
-                    path,
-                    folder_id: 1,
-                    album_id: None,
-                    title: Some(title),
-                    artist: None,
-                    album_artist: None,
-                    duration_sec: 1.0,
-                    track_no: None,
-                    disc_no: None,
-                    lyrics: None,
-                    timeline: None,
-                    cover_hash: None,
-                    file_mtime: None,
-                    file_size: None,
-                    tags_read_at: None,
-                };
-                conn.execute("INSERT OR IGNORE INTO folders (id, name, path) VALUES (1, 'f', 'f')", [])
-                    .map_err(queries::QueryError::from)?;
-                Ok(queries::upsert_song(conn, &upsert)?.id)
-            })
-            .wait()
-            .unwrap()
-    }
-
-    fn until(cx: &mut VisualTestContext, what: &str, condition: impl Fn(&App) -> bool) {
-        let deadline = Instant::now() + Duration::from_secs(15);
-        while !cx.update(|_, cx| condition(cx)) {
-            assert!(Instant::now() < deadline, "hết giờ chờ: {what}");
-            cx.run_until_parked();
-            std::thread::sleep(Duration::from_millis(5));
-        }
-    }
-
-    /// C10..C13 (S21) — lệnh chữ làm thật: `/queue` thêm cuối, `/play` tìm rồi phát, chọn bài từ kết quả tìm giữ hàng đợi.
-    #[gpui::test]
-    fn cli_commands_do_real_work(cx: &mut TestAppContext) {
-        let dir = TestDir::new();
-        let config = LibraryConfig { target: dir.path().join("library.db"), legacy: None };
-        let library = Library::open(config, no_covers()).unwrap();
-        let wav = |name: &str| fixtures::write_sample(dir.path(), name, AudioKind::Wav).unwrap();
-        let a = add_song(&library, &wav("alpha"), "Alpha");
-        let b = add_song(&library, &wav("beta"), "Beta");
-        let c = add_song(&library, &wav("gamma"), "Gamma");
-        let (a, b, c) = (TrackRef::Library(a), TrackRef::Library(b), TrackRef::Library(c));
-
-        let mut rig = rig_with_library(cx, Some(library));
-        let run_text = |rig: &mut Rig<'_>, text: &str| {
-            let command = cli::parse(text).unwrap();
-            let task = rig.cx.update(|_, cx| run_cli(command, cx));
-            let result = Rc::new(Cell::new(None));
-            let out = result.clone();
-            rig.cx.update(|_, cx| {
-                cx.spawn(async move |_| out.set(Some(task.await))).detach();
-            });
-            let deadline = Instant::now() + Duration::from_secs(15);
-            while result.get().is_none() {
-                assert!(Instant::now() < deadline, "hết giờ chờ lệnh");
-                rig.cx.run_until_parked();
-                std::thread::sleep(Duration::from_millis(5));
-            }
-            result.get().unwrap()
-        };
-        let current = |rig: &mut Rig<'_>| rig.cx.update(|_, cx| player(cx).read(cx).current_track().cloned());
-        let queued = |rig: &mut Rig<'_>| rig.cx.update(|_, cx| player(cx).read(cx).queue().queue().to_vec());
-
-        // Danh sách trống: `/playall` báo, không im lặng.
-        assert_eq!(run_text(&mut rig, "/playall"), CliOutcome::NoMatch);
-        assert_eq!(run_text(&mut rig, "/play khong co bai nay"), CliOutcome::NoMatch);
-
-        // `/queue` khi chưa có bài nào: phát bài đó.
-        assert_eq!(run_text(&mut rig, "/queue beta"), CliOutcome::Done);
-        assert_eq!(current(&mut rig), Some(b.clone()));
-        // `/queue` lúc đang phát: nằm cuối hàng đợi, bài đang phát không đổi.
-        assert_eq!(run_text(&mut rig, "/queue gamma"), CliOutcome::Done);
-        assert_eq!(current(&mut rig), Some(b.clone()));
-        assert_eq!(queued(&mut rig), std::slice::from_ref(&c));
-
-        // Chọn bài trong kết quả tìm: phát ngay, hàng đợi còn nguyên (bản cũ thay hẳn hàng đợi bằng một bài).
-        rig.cx.update(|_, cx| play_search_result(a.clone(), cx));
-        until(rig.cx, "phát alpha", |cx| player(cx).read(cx).current_track() == Some(&a));
-        assert_eq!(queued(&mut rig), std::slice::from_ref(&c));
-        // Chọn lại đúng bài đang phát: phát / dừng.
-        // `current_track` đổi trước khi engine nạp xong: chờ thật sự phát rồi mới bấm, kẻo bấm dừng thành không đổi gì.
-        until(rig.cx, "alpha đang phát", |cx| player(cx).read(cx).is_playing());
-        rig.cx.update(|_, cx| play_search_result(a.clone(), cx));
-        until(rig.cx, "đã dừng", |cx| !player(cx).read(cx).is_playing());
-        assert_eq!(current(&mut rig), Some(a.clone()));
-
-        // `/play <tên>`: danh sách mới từ kết quả tìm.
-        assert_eq!(run_text(&mut rig, "/play gamma"), CliOutcome::Done);
-        assert_eq!(current(&mut rig), Some(c.clone()));
-
-        // `/playall` về đầu danh sách hiện tại.
-        assert_eq!(run_text(&mut rig, "/playall"), CliOutcome::Done);
-        assert_eq!(current(&mut rig), Some(c));
-
-        assert_eq!(run_text(&mut rig, "/pause"), CliOutcome::Done);
-        assert_eq!(run_text(&mut rig, "/volume 40"), CliOutcome::Done);
-        assert_eq!(run_text(&mut rig, "/help"), CliOutcome::ShowHelp);
-
-        // `/theme` làm thật: đối số, và đổi qua lại khi không đối số.
-        assert_eq!(run_text(&mut rig, "/theme light"), CliOutcome::Done);
-        assert_eq!(rig.host.theme.get(), Some(ThemeChoice::Light));
-        run_text(&mut rig, "/theme");
-        assert_eq!(rig.host.theme.get(), Some(ThemeChoice::Dark));
-        run_text(&mut rig, "/theme");
-        assert_eq!(rig.host.theme.get(), Some(ThemeChoice::Light));
     }
 }

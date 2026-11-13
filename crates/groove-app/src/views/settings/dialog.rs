@@ -51,7 +51,7 @@ const TAB_HEIGHT: f32 = 40.;
 /// đều hai bên (≥ vùng bắt chuột 9 px của thanh cuộn, D-16), trên dưới `EDGE`.
 const EDGE: f32 = 12.;
 const CONTENT_PADDING: f32 = 16.;
-/// Khe giữa cột tab và khung cuộn.
+/// Khe giữa cột tab và khung cuộn ở kiểu thẻ (kiểu lưới có đường kẻ thay).
 const TABS_GAP: f32 = 8.;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -314,14 +314,18 @@ impl SettingsDialog {
             SettingsTab::Keybindings => self.keys.clone().into_any_element(),
             SettingsTab::Library => self.roots.clone().into_any_element(),
         };
+        // settings-gap (13/11/2026): khe `TABS_GAP` là `gap` của flex — không phần tử nào giữ nó nên inspector không chỉ ra được,
+        // ở kiểu lưới nó thành dải trống hai bên đường kẻ (bên phải còn cộng thêm đệm `CONTENT_PADDING` của nội dung). Kiểu lưới:
+        // đường kẻ sát cột tab và nội dung, đệm của nội dung lo khoảng thở; kiểu thẻ (không đường kẻ) mới giữ khe.
+        let line = crate::views::layout::vline(cx);
         let tabs = self.tab_list(window, cx);
         div()
             .flex()
-            .gap(px(TABS_GAP))
+            .when(line.is_none(), |d| d.gap(px(TABS_GAP)))
             .h(px(height))
             .child(tabs)
             // Kiểu lưới: đường kẻ giữa danh sách tab và nội dung (`views::layout`).
-            .children(crate::views::layout::vline(cx))
+            .children(line)
             .child(ScrollArea::new(("settings-body", self.tab.index())).vertical().flex_1().min_w_0().h_full().child(
                 div().px(px(CONTENT_PADDING)).py(px(EDGE)).debug_selector(|| "settings-content".into()).child(panel),
             ))

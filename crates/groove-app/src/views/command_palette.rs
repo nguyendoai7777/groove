@@ -1,33 +1,28 @@
 //! groove-gd1_23: bảng lệnh (đặc tả 1.9).
 //!
-//! Dialog 600 px phía trên cửa sổ, mở bằng `ShellEvent::OpenSearch` (ô tìm, `Ctrl+K`). Ô nhập, nhãn chế độ (Tìm kiếm /
-//! Chế độ lệnh), danh sách nhóm theo loại, chân trang gợi ý phím.
+//! Dialog 600 px phía trên cửa sổ, mở bằng `ShellEvent::OpenSearch` (ô tìm, `Ctrl+K`). Ô nhập, danh sách nhóm theo loại, chân
+//! trang gợi ý phím. Chế độ lệnh `/…` đã bỏ (chủ dự án 13/11/2026: "không có ý nghĩa"): gõ gì cũng là tìm bài.
 //!
 //! - **Trống**: ba thao tác nhanh `commands::QUICK_ACTIONS`, không tiêu đề nhóm (chủ dự án bỏ); chọn thì chạy rồi đóng.
 //! - **Có chữ**: tìm sau 250 ms, tối đa 50 bài. `Library::search` bỏ lượt cũ (`Superseded`, im lặng), kết quả có `seq` nhỏ
 //!   hơn cái đang hiện cũng bỏ (S18). Chọn bài là `commands::play_search_result`, **không đóng** bảng.
-//! - **Bắt đầu bằng `/`**: lọc `cli::COMMANDS`; Tab điền lệnh; Enter đi qua `cli::resolve` (dòng đang chọn thắng chữ gõ,
-//!   S21) rồi `commands::run_cli`. Chạy được thì đóng; `/help` giữ bảng và điền `/`; lỗi hay không có bài thì báo ngay
-//!   dưới ô nhập, không đóng.
 //! - ↑ ↓ quay vòng và bỏ qua dòng tiêu đề nhóm; rê chuột dời con trỏ; Esc đóng (do `Dialog`).
 //!
-//! Phím ↑ ↓ Tab Enter đi qua bộ chặn phím của GPUI chứ không qua ô nhập: ô nhập một dòng giữ ↑ ↓ cho con trỏ chữ và Tab cho
+//! Phím ↑ ↓ Enter đi qua bộ chặn phím của GPUI chứ không qua ô nhập: ô nhập một dòng giữ ↑ ↓ cho con trỏ chữ và Tab cho
 //! vòng focus, bộ chặn chạy trước chúng.
 
 use std::rc::Rc;
 use std::time::Duration;
 
-use groove_core::cli::{self, CliCommand, CliError, CliSpec};
 use groove_core::keymap::Command;
 use groove_core::model::Song;
 use groove_core::t;
 use groove_library::actor::LibraryError;
-use materiant::badge::Badge;
 use materiant::field::input::{FieldEvent, TextField};
 use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
-    AnyElement, AnyWindowHandle, App, Context, Entity, Focusable, FontWeight, IntoElement, Keystroke, ParentElement,
-    Render, Styled, Subscription, Task, WeakEntity, Window, div, px,
+    AnyElement, AnyWindowHandle, App, Context, Entity, Focusable, IntoElement, Keystroke, ParentElement, Render,
+    Styled, Subscription, Task, WeakEntity, Window, div, px,
 };
 use materiant::icon::Icon;
 use materiant::kbd::Kbd;
@@ -36,7 +31,7 @@ use materiant::overlay::dialog::{Dialog, DialogHandle};
 use materiant::theme::ActiveTheme;
 
 use crate::app::{self, ShellEvent, Slot};
-use crate::commands::{self, CliOutcome, QUICK_ACTIONS};
+use crate::commands::{self, QUICK_ACTIONS};
 use crate::icons::GrooveIcon;
 use crate::player::player;
 use crate::views::playing_bars::PlayingBars;
@@ -66,7 +61,6 @@ enum Row {
     Quick(Command),
     /// Chỉ số trong `songs`.
     Song(usize),
-    Cli(&'static CliSpec),
 }
 
 impl Row {
@@ -121,32 +115,6 @@ fn quick_texts(command: Command) -> (&'static str, &'static str) {
     }
 }
 
-fn cli_description(spec: &CliSpec) -> &'static str {
-    match spec.name {
-        "/play" => t!("palette.cli.play"),
-        "/playall" => t!("palette.cli.playall"),
-        "/queue" => t!("palette.cli.queue"),
-        "/pause" => t!("palette.cli.pause"),
-        "/next" => t!("palette.cli.next"),
-        "/prev" => t!("palette.cli.prev"),
-        "/volume" => t!("palette.cli.volume"),
-        "/theme" => t!("palette.cli.theme"),
-        "/help" => t!("palette.cli.help"),
-        _ => "",
-    }
-}
-
-/// Lời báo cho lỗi đọc lệnh, kèm cách gỡ.
-fn cli_error_message(error: &CliError) -> String {
-    match error {
-        CliError::NotACommand => String::new(),
-        CliError::Unknown(name) => t!("palette.error.unknown", name = name),
-        CliError::MissingArg(name) => t!("palette.error.missing_arg", name = name),
-        CliError::InvalidVolume(value) => t!("palette.error.invalid_volume", value = value),
-        CliError::InvalidTheme(value) => t!("palette.error.invalid_theme", value = value),
-    }
-}
-
 /// `Bài hát • <nghệ sĩ> • <album>`, bỏ phần trống.
 fn song_description(song: &Song) -> String {
     let mut parts = vec![t!("palette.song_kind").to_owned()];
@@ -173,10 +141,9 @@ pub struct CommandPalette {
     searching: bool,
     rows: Vec<Row>,
     selected: Option<usize>,
-    /// Lời báo dưới ô nhập (lệnh sai, không có bài).
+    /// Lời báo dưới ô nhập (tìm lỗi).
     notice: Option<String>,
     search_task: Option<Task<()>>,
-    cli_task: Option<Task<()>>,
     /// Chạy một thao tác nhanh. Mặc định `commands::run`; test thay bằng bản ghi lại.
     runner: Runner,
     /// Nhãn phím của một thao tác nhanh. Mặc định `commands::key_label`.
@@ -229,7 +196,6 @@ impl CommandPalette {
             selected: None,
             notice: None,
             search_task: None,
-            cli_task: None,
             runner,
             labeler,
             _subscriptions: subscriptions,
@@ -255,7 +221,6 @@ impl CommandPalette {
             return;
         }
         self.search_task = None;
-        self.cli_task = None;
         self.songs.clear();
         self.shown_seq = 0;
         self.searching = false;
@@ -271,7 +236,6 @@ impl CommandPalette {
     pub fn close(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.search_task = None;
         self.songs = Vec::new();
-        self.cli_task = None;
         self.handle.close(window, cx);
         cx.notify();
     }
@@ -281,21 +245,11 @@ impl CommandPalette {
         window.focus(&focus, cx);
     }
 
-    fn is_cli(&self) -> bool {
-        cli::is_cli(&self.query)
-    }
-
     /// Dựng lại danh sách phẳng theo chữ đang gõ, đặt con trỏ về dòng đầu chọn được.
     fn rebuild(&mut self) {
         self.rows.clear();
         if self.query.trim().is_empty() {
             self.rows.extend(QUICK_ACTIONS.iter().map(|command| Row::Quick(*command)));
-        } else if self.is_cli() {
-            let specs = cli::filter(&self.query);
-            if !specs.is_empty() {
-                self.rows.push(Row::Header(t!("palette.group.commands")));
-                self.rows.extend(specs.into_iter().map(Row::Cli));
-            }
         } else if !self.songs.is_empty() {
             self.rows.push(Row::Header(t!("palette.group.songs")));
             self.rows.extend((0..self.songs.len()).map(Row::Song));
@@ -311,7 +265,7 @@ impl CommandPalette {
         self.notice = None;
         self.search_task = None;
         let text = self.query.trim().to_owned();
-        if text.is_empty() || self.is_cli() {
+        if text.is_empty() {
             self.songs.clear();
             self.shown_seq = 0;
             self.searching = false;
@@ -377,7 +331,6 @@ impl CommandPalette {
         match keystroke.key.as_str() {
             "down" => self.move_selection(1, cx),
             "up" => self.move_selection(-1, cx),
-            "tab" if self.is_cli() => self.complete(window, cx),
             "enter" => self.submit(window, cx),
             _ => return false,
         }
@@ -396,35 +349,12 @@ impl CommandPalette {
         self.list.scroll_to(ix, Align::Nearest);
     }
 
-    /// Tab: điền lệnh đang chọn vào ô.
-    fn complete(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(Row::Cli(spec)) = self.selected.map(|ix| self.rows[ix]) {
-            let text = spec.completion();
-            self.field.update(cx, |field, cx| field.set_value(text.clone(), window, cx));
-            self.on_input(text, window, cx);
-        }
-    }
-
     fn selected_row(&self) -> Option<Row> {
         self.selected.and_then(|ix| self.rows.get(ix).copied())
     }
 
     /// Enter, hoặc nhấp dòng đang chọn.
     fn submit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.is_cli() {
-            let selected = match self.selected_row() {
-                Some(Row::Cli(spec)) => Some(spec),
-                _ => None,
-            };
-            match cli::resolve(&self.query, selected) {
-                Ok(command) => self.run_cli(command, window, cx),
-                Err(error) => {
-                    self.notice = Some(cli_error_message(&error));
-                    cx.notify();
-                }
-            }
-            return;
-        }
         match self.selected_row() {
             Some(Row::Quick(command)) => {
                 (self.runner)(command, cx);
@@ -438,26 +368,6 @@ impl CommandPalette {
             }
             _ => {}
         }
-    }
-
-    fn run_cli(&mut self, command: CliCommand, window: &mut Window, cx: &mut Context<Self>) {
-        let is_play_all = command == CliCommand::PlayAll;
-        let task = commands::run_cli(command, cx);
-        self.cli_task = Some(cx.spawn_in(window, async move |this: WeakEntity<Self>, cx| {
-            let outcome = task.await;
-            let _ = this.update_in(cx, |this, window, cx| match outcome {
-                CliOutcome::Done => this.close(window, cx),
-                CliOutcome::ShowHelp => {
-                    this.field.update(cx, |field, cx| field.set_value("/", window, cx));
-                    this.on_input("/".to_owned(), window, cx);
-                }
-                CliOutcome::NoMatch => {
-                    let message = if is_play_all { t!("palette.playall_empty") } else { t!("palette.not_found") };
-                    this.notice = Some(message.to_owned());
-                    cx.notify();
-                }
-            });
-        }));
     }
 
     /// Rê chuột dời con trỏ.
@@ -496,12 +406,6 @@ impl CommandPalette {
                         trailing,
                     }
                 }
-                Row::Cli(spec) => RowView::Item {
-                    icon: GrooveIcon::Command,
-                    title: spec.name.to_owned(),
-                    description: cli_description(spec).to_owned(),
-                    trailing: Trailing::Keys("Tab".to_owned()),
-                },
             })
             .collect()
     }
@@ -604,9 +508,6 @@ impl CommandPalette {
         if self.searching {
             return Some(t!("palette.searching").to_owned());
         }
-        if self.is_cli() {
-            return Some(t!("palette.error.unknown", name = self.query.split_whitespace().next().unwrap_or("/")));
-        }
         Some(t!("palette.no_results", query = self.query.trim()))
     }
 
@@ -616,14 +517,13 @@ impl CommandPalette {
             div().flex().items_center().gap_1p5().child(Kbd::new(keys)).child(label)
         };
         let dot = || div().opacity(0.5).child("•");
-        let left = div().flex().items_center().gap_2().child(hint("↑ ↓", t!("palette.footer.move"))).child(dot());
-        let left = if self.is_cli() {
-            left.child(hint("Tab", t!("palette.footer.choose_command")))
-                .child(dot())
-                .child(hint("Enter", t!("palette.footer.run")))
-        } else {
-            left.child(hint("Enter", t!("palette.footer.choose")))
-        };
+        let left = div()
+            .flex()
+            .items_center()
+            .gap_2()
+            .child(hint("↑ ↓", t!("palette.footer.move")))
+            .child(dot())
+            .child(hint("Enter", t!("palette.footer.choose")));
         div()
             .pt_3()
             .flex()
@@ -639,8 +539,6 @@ impl CommandPalette {
 
 impl Render for CommandPalette {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        // Chỉ chế độ lệnh có nhãn; chế độ tìm kiếm không còn nút "Search" (G-6: chữ độ đậm normal).
-        let mode = self.is_cli().then(|| Badge::new(t!("palette.mode_cli")).font_weight(FontWeight::NORMAL));
         let border = cx.theme().colors().border;
         let notice = self.notice.clone().filter(|_| !self.rows.is_empty());
         let danger = cx.theme().colors().danger;
@@ -668,8 +566,7 @@ impl Render for CommandPalette {
                             .h(px(SEARCH_HEIGHT))
                             .border_b_1()
                             .border_color(border)
-                            .child(div().flex_1().min_w_0().child(self.field.clone()))
-                            .children(mode),
+                            .child(div().flex_1().min_w_0().child(self.field.clone())),
                     )
                     .child(
                         div()
@@ -973,75 +870,6 @@ mod tests {
         rig.press("enter");
         assert!(rig.is_open());
         assert_eq!(rig.current(), None);
-    }
-
-    /// C6 — `/`: lọc lệnh, Tab điền lệnh, chế độ lệnh.
-    #[gpui::test]
-    fn slash_filters_commands_and_tab_completes(cx: &mut TestAppContext) {
-        let mut rig = rig(cx);
-        rig.type_text("/vo");
-        assert_eq!(rig.rows().len(), 2);
-        assert!(rig.state(|p, _| p.is_cli()));
-        rig.press("tab");
-        assert_eq!(rig.state(|p, cx| p.field.read(cx).value(cx).to_string()), "/volume ");
-        assert_eq!(rig.state(|p, _| p.query().to_owned()), "/volume ");
-    }
-
-    /// C7 — Enter chạy lệnh đang chọn (S21) rồi đóng; `/n` là `/next`.
-    #[gpui::test]
-    fn enter_runs_the_selected_command_and_closes(cx: &mut TestAppContext) {
-        let mut rig = rig(cx);
-        rig.type_text("/volume 30");
-        rig.press("enter");
-        rig.cx.run_until_parked();
-        assert!(!rig.is_open());
-        rig.open();
-        rig.type_text("/n");
-        rig.press("enter");
-        rig.cx.run_until_parked();
-        assert!(!rig.is_open());
-    }
-
-    /// C8 — lệnh sai: báo cách gỡ, không đóng.
-    #[gpui::test]
-    fn bad_command_shows_a_notice_and_stays(cx: &mut TestAppContext) {
-        let mut rig = rig(cx);
-        rig.type_text("/volume");
-        rig.press("enter");
-        assert!(rig.is_open());
-        assert_eq!(rig.state(|p, _| p.notice.clone()), Some(t!("palette.error.missing_arg", name = "/volume")));
-        rig.press("backspace");
-        assert_eq!(rig.state(|p, _| p.notice.clone()), None, "gõ tiếp thì lời báo biến mất");
-        rig.type_text("e x");
-        rig.press("enter");
-        assert_eq!(rig.state(|p, _| p.notice.clone()), Some(t!("palette.error.invalid_volume", value = "x")));
-    }
-
-    /// C9 — `/help` giữ bảng, điền `/`, hiện đủ lệnh.
-    #[gpui::test]
-    fn help_keeps_the_palette_and_lists_commands(cx: &mut TestAppContext) {
-        let mut rig = rig(cx);
-        rig.type_text("/help");
-        rig.press("enter");
-        assert!(rig.is_open());
-        assert_eq!(rig.state(|p, _| p.query().to_owned()), "/");
-        assert_eq!(rig.rows().len(), 1 + cli::COMMANDS.len());
-    }
-
-    /// C10 — `/play` không có bài khớp: báo không đóng.
-    #[gpui::test]
-    fn cli_without_match_reports(cx: &mut TestAppContext) {
-        let mut rig = rig(cx);
-        rig.type_text("/play khong co bai nay");
-        rig.press("enter");
-        let deadline = Instant::now() + Duration::from_secs(15);
-        while rig.state(|p, _| p.notice.is_none()) {
-            assert!(Instant::now() < deadline, "hết giờ chờ");
-            rig.cx.run_until_parked();
-            std::thread::sleep(Duration::from_millis(5));
-        }
-        assert!(rig.is_open());
-        assert_eq!(rig.state(|p, _| p.notice.clone()), Some(t!("palette.not_found").to_owned()));
     }
 
     /// C11 — Esc đóng; mở lại thì ô trống, danh sách về thao tác nhanh.

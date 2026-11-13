@@ -20,8 +20,6 @@ use materiant::gpui_kit::prelude::*;
 use materiant::gpui_kit::{
     App, ClickEvent, Hsla, IntoElement, ParentElement, RenderOnce, Styled, Window, div, px, relative, svg, white,
 };
-use materiant::icon::Icon;
-use materiant::kbd::Kbd;
 use materiant::overlay::tooltip::TooltipExt;
 use materiant::theme::color::hex;
 use materiant::theme::{ActiveTheme, Neutral};
@@ -31,8 +29,10 @@ use crate::platform::window_controls;
 use crate::views::{side_nav, traffic_lights};
 
 pub const HEIGHT: f32 = 36.;
-/// Ô tìm rộng 40 % thanh, canh giữa.
+/// Ô tìm rộng 40 % thanh, canh giữa, tối đa `SEARCH_MAX_WIDTH`; cao 26 px trong thanh 36 px.
 const SEARCH_WIDTH: f32 = 0.4;
+const SEARCH_MAX_WIDTH: f32 = 480.;
+const SEARCH_HEIGHT: f32 = 26.;
 /// Nút cửa sổ như `icon-btn` của bản web: ô 36 px (`w-9`), icon 20 px (`sm`).
 /// macos-caption-inset: macOS bo góc cửa sổ lớn (cửa sổ `Resizable`) ⇒ nút nhỏ hơn (vuông 28 × 28, bo góc, icon 18 px) và cụm nút
 /// lùi khỏi mép phải [`MAC_RIGHT_INSET`] để nút Đóng không chạm góc bo.
@@ -195,42 +195,63 @@ impl RenderOnce for AppBar {
             )
         };
 
+        // search-redesign (13/11/2026, chủ dự án: "ngứa mắt"): ô tìm phẳng bo 8 px, không viền; nền lớp mờ N50, rê sáng lên một
+        // bậc (N100) và icon / chữ gợi ý đậm dần về màu chữ, nhấn N200. Phím tắt là một nhãn nhỏ thay hai chip `Kbd`. Canh giữa
+        // thanh bằng khung phủ không bắt chuột (vùng kéo vẫn ăn quanh ô), rộng 40 % tối đa `SEARCH_MAX_WIDTH`.
         let search = {
             let on_search = self.on_search.clone();
-            div()
-                .id("app-bar-search")
-                .occlude()
-                .absolute()
-                .top(px(5.))
-                .h(px(HEIGHT - 10.))
-                .left(relative((1. - SEARCH_WIDTH) / 2.))
-                .w(relative(SEARCH_WIDTH))
-                .flex()
-                .items_center()
-                .justify_between()
-                .gap_2()
-                .px_3()
-                .rounded_full()
-                .border_1()
-                .border_color(materiant::gpui_kit::transparent_black())
-                .bg(c.layer(Neutral::N100))
-                .cursor_pointer()
-                .hover({
-                    let (border, bg) = (c.input_hover, c.layer(Neutral::N200));
-                    move |s| s.border_color(border).bg(bg)
-                })
-                .on_click(move |_, window, cx| on_search(window, cx))
-                .child(
-                    div()
-                        .flex()
-                        .flex_1()
-                        .min_w_0()
-                        .items_center()
-                        .gap_2()
-                        .child(Icon::new(GrooveIcon::Search).size(px(14.)).color(c.muted))
-                        .child(div().truncate().text_color(c.muted).child(t!("shell.app_bar.search_placeholder"))),
-                )
-                .child(Kbd::new("Ctrl+K").mac_symbols(mac))
+            let (rest, hover, active) = (c.layer(Neutral::N50), c.layer(Neutral::N100), c.layer(Neutral::N200));
+            let (muted, text) = (c.muted, c.text);
+            let shortcut = if mac { "⌘K" } else { "Ctrl K" };
+            div().absolute().top_0().left_0().size_full().flex().items_center().justify_center().child(
+                div()
+                    .id("app-bar-search")
+                    .group("app-bar-search")
+                    .occlude()
+                    .h(px(SEARCH_HEIGHT))
+                    .w(relative(SEARCH_WIDTH))
+                    .max_w(px(SEARCH_MAX_WIDTH))
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .pl(px(10.))
+                    .pr(px(6.))
+                    .rounded(px(8.))
+                    .bg(rest)
+                    .cursor_pointer()
+                    .hover(move |s| s.bg(hover))
+                    .active(move |s| s.bg(active))
+                    .on_click(move |_, window, cx| on_search(window, cx))
+                    .child(
+                        svg()
+                            .path(GrooveIcon::Search.path())
+                            .size(px(14.))
+                            .flex_none()
+                            .text_color(muted)
+                            .group_hover("app-bar-search", move |s| s.text_color(text)),
+                    )
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .truncate()
+                            .text_size(px(13.))
+                            .text_color(muted)
+                            .group_hover("app-bar-search", move |s| s.text_color(text))
+                            .child(t!("shell.app_bar.search_placeholder")),
+                    )
+                    .child(
+                        div()
+                            .flex_none()
+                            .px(px(6.))
+                            .py(px(1.))
+                            .rounded(px(5.))
+                            .bg(c.layer(Neutral::N100))
+                            .text_size(px(11.))
+                            .text_color(muted)
+                            .child(shortcut),
+                    ),
+            )
         };
 
         // macos-captions: cụm đèn giao thông (`Shell` vẽ từ mép trái cửa sổ) tràn qua cột trái đang thu ⇒ chừa phần tràn.
