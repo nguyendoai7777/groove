@@ -58,6 +58,8 @@ groove_icons! {
     Minus => "minus",
     AngleLeft => "angle-left",
     AngleRight => "angle-right",
+    /// Nút Cập nhật ở thanh trên (`updater`).
+    Download => "download",
     /// Nút thu / mở cột trái: khung có vách trái, mũi tên trong khung.
     SidebarCollapse => "sidebar-collapse",
     SidebarExpand => "sidebar-expand",

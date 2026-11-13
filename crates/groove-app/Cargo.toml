@@ -36,6 +36,10 @@ souvlaki = { version = "0.9", default-features = false, features = ["use_zbus"] 
 unicode-normalization.workspace = true
 # `Connection` trong transaction của `library_ctl`.
 rusqlite = { version = "0.41", features = ["bundled", "functions"] }
+# Kiểm bản mới + tải bộ cài (`updater`): HTTPS như fastcast — rustls + `ring`, chứng chỉ do OS xác thực; so phiên bản, soát sha256.
+semver = "1"
+sha2 = "0.10"
+ureq = { version = "3", default-features = false, features = ["rustls-no-provider", "_ring", "platform-verifier", "json"] }
 
 [target.'cfg(windows)'.dependencies]
 # Taskbar, DACL của pipe, focus phiên chính (đặc tả 5.3, 5.5); registry, liên kết tệp, AppUserModelID (gd2_01).

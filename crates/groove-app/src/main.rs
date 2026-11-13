@@ -15,6 +15,7 @@ mod platform;
 mod player;
 mod route;
 mod session_sync;
+mod updater;
 mod views;
 mod window_state;
 

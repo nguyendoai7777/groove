@@ -136,6 +136,8 @@ pub fn run(dev: DevArgs) {
         if crate::open_paths::wants_pip(&std::env::args_os().collect::<Vec<_>>()) {
             crate::views::pip::open(cx);
         }
+        // linux-blur-update: kiểm bản mới, nút Cập nhật ở thanh trên; cần `Shell` ở trên.
+        crate::updater::install(cx);
         dev::replay(handle, dev.keys, cx);
     });
 }
@@ -530,6 +532,7 @@ impl Shell {
         .when(crate::platform::window_controls::TRAFFIC_LIGHTS && settings(cx).side_nav_collapsed, |bar| {
             bar.nav_toggle(|_, cx| Shell::toggle_side_nav(cx))
         })
+        .when_some(crate::updater::button(cx), |bar, button| bar.update(button, crate::updater::click))
         .into_any_element()
     }
 }

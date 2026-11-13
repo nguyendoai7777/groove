@@ -18,7 +18,7 @@ Node (`package.json`, pnpm, Vite, husky), `public/`, `scripts/`, cũng không gi
 | `crates/groove-core` | lib | `paths`, `i18n`, `logging`, `model`, `settings`, `session`, `queue`, `timeline`, `keymap`, `cli` | UI, âm thanh, SQLite |
 | `crates/groove-library` | lib | `db/{schema,migrate,queries}`, `actor`, `store`, `tags`, `fixtures`, `covers`, `scanner`, `indexer`, `watcher`, `reconcile`, `metadata_ops`, `legacy_ls` | UI |
 | `crates/groove-audio` | lib | `engine`, `decoder`, `output`, `dsp`, `export` (Save as new: cắt / xuất; MP3 / AAC qua Media Foundation trên Windows — gd2_02; M4R trên Linux / macOS bằng `filmcraft-aac` + `filmcraft-isobmff` thuần Rust, `export::aac`) | UI, SQLite |
-| `crates/groove-app` | bin `groove` | `app`, `route`, `icons`, `player`, `session_sync`, `library_ctl`, `commands`, `instance`, `open_paths`, `window_state`, `dev`, `platform/{media_session,taskbar_windows,always_on_top,global_keys,backdrop,resize_edges}`, `views/*` | — |
+| `crates/groove-app` | bin `groove` | `app`, `route`, `icons`, `player`, `session_sync`, `library_ctl`, `commands`, `instance`, `open_paths`, `updater`, `window_state`, `dev`, `platform/{media_session,taskbar_windows,always_on_top,global_keys,backdrop,resize_edges}`, `views/*` | — |
 
 Viết tắt trong task: `core`, `library`, `audio`, `app`, `views` = `crates/groove-core/src`, `crates/groove-library/src`,
 `crates/groove-audio/src`, `crates/groove-app/src`, `crates/groove-app/src/views`.
@@ -183,7 +183,8 @@ màn không có thì thoát, không rơi về màn mặc định. Xem ảnh xong
   của gói). **Shell chỉ quét extension lúc đăng nhập**: cài / cập nhật extension xong phải đăng xuất rồi đăng nhập lại. Kiểm:
   `bash tools/blur-headless.sh <target>/debug` (GNOME Shell headless trên bus riêng, không đụng phiên đang dùng): app mở trước
   extension ⇒ tự bật, thấy `Blur` rồi có lớp mờ; bật tương phản cao lúc chạy ⇒ gỡ lớp mờ; tương phản cao từ đầu ⇒ không mờ. Ảnh ở
-  `<target>/blur-headless/`. Test `platform::backdrop::tests::names_match_the_shell_extension` giữ tên D-Bus khớp `extension.js`.
+  `<target>/blur-headless/`; lượt `max`: app mở lại ở trạng thái phóng to đã lưu vẫn có lớp mờ (extension bản 2, 13/11/2026 — Mutter
+  trả `allows_resize()` = false cho cửa sổ phóng to / ghép nửa màn, bản 1 bỏ sót nên máy chủ dự án không mờ). Test `platform::backdrop::tests::names_match_the_shell_extension` giữ tên D-Bus khớp `extension.js`.
 - **Viền tự vẽ trên Linux không tự đổi cỡ** (09/11/2026): gpui-pre-linux 0.3.10 không hit-test mép cho
   `WindowDecorations::Client` (GNOME Wayland luôn là viền tự vẽ), app phải tự gọi `start_window_resize`. `platform::resize_edges`
   phủ dải 5 px mép trong + góc 12 px trên cùng gốc `Shell` (`occlude`), bỏ mép đang dính (phóng to, ghép nửa màn). Cửa sổ chính
@@ -193,6 +194,14 @@ màn không có thì thoát, không rơi về màn mặc định. Xem ảnh xong
   `platform::window_controls::prepare` thêm `Closable | Miniaturizable | Resizable` rồi ẩn ba nút native; ba đèn giao thông tự
   vẽ (`views::traffic_lights`, `Shell` phủ ở góc trái trên, cột trái thu thì nút mở cột lên thanh trên sau cụm đèn); ba nút
   tự vẽ ở góc phải thanh trên vẫn giữ (chủ dự án). Cửa sổ chính mới trên macOS phải gọi `prepare`.
+- **Cập nhật** (`updater`, 13/11/2026): mỗi bản build ghi kèm bộ cài `groovex-latest-<nền>.json` (`version`, `file`, `size`,
+  `sha256`; `packaging/update-manifest.sh` cho Linux / macOS, `build-installer.ps1` cho Windows, bỏ qua bản `_draft`), khoá nền
+  `linux-amd64` / `macos-arm64` / `macos-x64` / `win-x64-setup`. **Trang tải phải đăng cả json lẫn bộ cài tên
+  `groovex-latest-<nền>.<đuôi>` ở `https://groovex.sandtechs.com/download/`** (workspace sandtechs, ngoài repo này) thì app mới
+  thấy bản mới. App hỏi ở luồng riêng 10 s sau khi mở rồi mỗi 6 giờ, mới hơn thì thanh trên có nút Cập nhật; bấm: tải vào
+  `<cache>/updates/`, soát cỡ + sha256, Windows chạy bộ cài rồi thoát, macOS `open` `.dmg`, Linux `/usr/bin/groove` ⇒ `pkexec
+  apt-get install` rồi nút thành Khởi động lại. Bản chạy thẳng / exe ngoài chỗ cài ⇒ mở trang tải. Bản debug chỉ hỏi khi có
+  `GROOVE_UPDATE_URL` (địa chỉ hay đường dẫn tệp json trên đĩa, `file` tính từ thư mục của nó) — thử nút không cần trang thật.
 - **Worktree** cố định (D-18): `<gốc>/.claude/worktrees/groove-w<N>`, build ở `groove/target/w<N>`, xong task giữ cả hai. `materiant = { path = "../materiant" }` nhờ lối nối
   `.claude/worktrees/materiant` đã có. `CARGO_TARGET_DIR` riêng từng worktree (`groove/target/w<N>`), không xoá.
 - **AppData ảo hoá MSIX**: exe chạy từ app Claude trên Windows ghi vào `LocalCache` của gói. Không thấy DB cũ ở đó không có

@@ -12,7 +12,7 @@
 use std::rc::Rc;
 
 use groove_core::t;
-use materiant::button::IconButton;
+use materiant::button::{Button, IconButton, Size};
 use materiant::effect::ripple::{RippleConfig, RippleExt};
 // `#[derive(IntoElement)]` trỏ crate `gpui`; bản không test chỉ có `materiant::gpui_kit`.
 use materiant::gpui_kit as gpui;
@@ -53,6 +53,8 @@ pub struct AppBar {
     on_search: Handler,
     /// macOS, cột trái đang thu: nút mở cột đứng đầu thanh, sau cụm đèn giao thông (`side_nav::toggle_button`).
     nav_toggle: Option<side_nav::Handler<()>>,
+    /// Có bản mới (`updater`): nút trước cụm nút cửa sổ.
+    update: Option<(crate::updater::Button, Handler)>,
 }
 
 impl AppBar {
@@ -62,7 +64,14 @@ impl AppBar {
         on_back: impl Fn(&mut Window, &mut App) + 'static,
         on_search: impl Fn(&mut Window, &mut App) + 'static,
     ) -> AppBar {
-        AppBar { can_back, maximized, on_back: Rc::new(on_back), on_search: Rc::new(on_search), nav_toggle: None }
+        AppBar {
+            can_back,
+            maximized,
+            on_back: Rc::new(on_back),
+            on_search: Rc::new(on_search),
+            nav_toggle: None,
+            update: None,
+        }
     }
 }
 
@@ -70,6 +79,16 @@ impl AppBar {
     /// Nút mở cột trái ở đầu thanh (macOS lúc cột thu: đầu cột hẹp đã có đèn giao thông).
     pub fn nav_toggle(mut self, on_toggle: impl Fn(&mut Window, &mut App) + 'static) -> AppBar {
         self.nav_toggle = Some(Rc::new(move |(), window, cx| on_toggle(window, cx)));
+        self
+    }
+
+    /// Nút Cập nhật (`updater::button`) trước cụm nút cửa sổ.
+    pub fn update(
+        mut self,
+        button: crate::updater::Button,
+        on_click: impl Fn(&mut Window, &mut App) + 'static,
+    ) -> AppBar {
+        self.update = Some((button, Rc::new(on_click)));
         self
     }
 }
@@ -223,6 +242,21 @@ impl RenderOnce for AppBar {
                 .child(side_nav::toggle_button("app-bar-nav-toggle", true, on_toggle, cx))
         });
 
+        // linux-blur-update: nút chữ nhỏ màu nhấn, tròn, trước cụm nút cửa sổ; đang tải / cài thì vòng quay + % và khoá bấm.
+        let update = self.update.clone().map(|(button, on_click)| {
+            div().id("app-bar-update-anchor").occlude().flex_none().mr_2().child(
+                Button::new("app-bar-update", button.label)
+                    .tonal()
+                    .primary()
+                    .size(Size::Sm)
+                    .icon(GrooveIcon::Download)
+                    .loading(button.busy)
+                    .rounded_full()
+                    .on_click(move |_: &ClickEvent, window, cx| on_click(window, cx))
+                    .with_tooltip(("app-bar-update", 0usize), button.tooltip),
+            )
+        });
+
         let toggle_label = if self.maximized { t!("shell.app_bar.restore") } else { t!("shell.app_bar.maximize") };
 
         div()
@@ -245,6 +279,7 @@ impl RenderOnce for AppBar {
                     .items_center()
                     .h_full()
                     .occlude()
+                    .children(update)
                     .child(caption(
                         "app-bar-minimize",
                         Caption::Minimize,
