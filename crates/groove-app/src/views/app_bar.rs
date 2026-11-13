@@ -90,22 +90,30 @@ impl AppBar {
     }
 }
 
-/// groove-gd2_05: nút tròn dài màu nhấn "Cập nhật lên v<x>" (rê: phím); đang tải ⇒ "Đang tải n%", đang cài ⇒ "Đang cài…".
-/// Bản major / không tự cài được ⇒ cùng nút, bấm mở trang tải (chữ rê nói rõ).
+/// groove-gd2_05: nút cập nhật tròn cỡ nút cửa sổ, icon màu nhấn trên nền nhấn nhạt (G-4) — không dùng nút chữ: ô tìm canh giữa
+/// rộng 40 % thanh, cửa sổ hẹp thì nút chữ đè lên nó. Rê: "Cập nhật lên v<x> · ⌘D" (bản major / không tự cài được: "Tải v<x> ở
+/// trang Groovex"). Đang tải ⇒ chữ "n%" thay icon, đang cài ⇒ icon mờ; lúc đó không bấm được.
 fn update_button(badge: crate::update::Badge, cx: &App) -> impl IntoElement {
     let c = cx.theme().colors();
     let busy = badge.progress.is_some();
-    let label = match (badge.installing, badge.progress) {
+    let tip = match (badge.installing, badge.progress) {
         (true, _) => t!("update.installing").to_owned(),
         (false, Some(fraction)) => t!("update.downloading", percent = (fraction * 100.).round() as u32),
-        _ => t!("update.button", version = &badge.version),
+        _ if badge.opens_page => t!("update.open_page", version = &badge.version),
+        _ => t!("update.tooltip", version = &badge.version, key = crate::update::shortcut_label()),
     };
-    let tip = if badge.opens_page {
-        t!("update.open_page", version = &badge.version)
-    } else {
-        t!("update.tooltip", version = &badge.version, key = crate::update::shortcut_label())
+    let (primary, tint, hover) = (c.primary, c.primary.opacity(0.14), c.primary.opacity(0.24));
+    let content = match badge.progress {
+        Some(fraction) if !badge.installing => div()
+            .text_xs()
+            .text_color(primary)
+            .child(format!("{}%", (fraction * 100.).round() as u32))
+            .into_any_element(),
+        _ => Icon::new(GrooveIcon::Update)
+            .size(px(CAPTION_ICON - 2.))
+            .color(if badge.installing { primary.opacity(0.5) } else { primary })
+            .into_any_element(),
     };
-    let (primary, hover) = (c.primary, c.primary.opacity(0.12));
     div()
         .id("app-bar-update")
         .debug_selector(|| "app-bar-update".into())
@@ -113,23 +121,21 @@ fn update_button(badge: crate::update::Badge, cx: &App) -> impl IntoElement {
         .flex_none()
         .flex()
         .items_center()
-        .gap(px(6.))
-        .h(px(26.))
-        .px(px(10.))
+        .justify_center()
+        .min_w(px(CONTROL_HEIGHT.min(28.)))
+        .h(px(CONTROL_HEIGHT.min(28.)))
+        .px(px(4.))
         .mr(px(6.))
         .rounded_full()
-        .border_1()
-        .border_color(primary.opacity(0.5))
-        .text_sm()
-        .text_color(primary)
+        .overflow_hidden()
+        .bg(tint)
         .when(!busy, |d| {
             d.cursor_pointer()
                 .hover(move |s| s.bg(hover))
                 .on_click(|_, _, cx| crate::update::start_install(cx))
-                .ripple(RippleConfig::default().color(primary))
+                .ripple(RippleConfig::centered().color(primary))
         })
-        .child(Icon::new(GrooveIcon::Update).size(px(14.)).color(primary))
-        .child(label)
+        .child(content)
         .with_tooltip(("app-bar-update", 0usize), tip)
 }
 

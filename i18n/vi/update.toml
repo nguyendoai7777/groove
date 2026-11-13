@@ -1,5 +1,4 @@
 # Vùng update (groove-gd2_05): tự cập nhật, thẻ Giới thiệu, hộp "Có gì mới", menu macOS.
-button = "Cập nhật lên v{version}"
 tooltip = "Cập nhật lên v{version} · {key}"
 open_page = "Tải v{version} ở trang Groovex"
 downloading = "Đang tải {percent}%"

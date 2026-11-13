@@ -1,5 +1,4 @@
 # Area update (groove-gd2_05): self-update, About tab, "What's new" dialog, macOS menu.
-button = "Update to v{version}"
 tooltip = "Update to v{version} · {key}"
 open_page = "Get v{version} from the Groovex page"
 downloading = "Downloading {percent}%"

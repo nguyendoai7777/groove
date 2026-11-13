@@ -1233,7 +1233,9 @@ mod tests {
             install_slot(Slot::WhatsNew, dialog.clone(), cx);
             dialog
         });
-        let notes = vec![updater::ReleaseNote { version: "9.9.9".into(), markdown: "## Mới\n\n- Một điều mới".into() }];
+        let notes = vec![updater::ReleaseNote {
+            version: "9.9.9".into(), markdown: "## Mới\n\n- Một điều mới".into()
+        }];
         for key in ["enter", "escape"] {
             cx.update(|window, cx| dialog.update(cx, |d, cx| d.open(&notes, window, cx)));
             cx.run_until_parked();
