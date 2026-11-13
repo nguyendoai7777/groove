@@ -16,7 +16,6 @@ use materiant::gpui_kit::{
     div, px,
 };
 use materiant::list::{Align, VirtualList, VirtualListHandle};
-use materiant::scroll::TRACK_THICKNESS;
 use materiant::theme::{ActiveTheme, Neutral};
 
 use crate::player::{self, Player};
@@ -28,8 +27,9 @@ pub const ROW_HEIGHT: f32 = 34.;
 /// Đệm trên / dưới của dòng đoạn (= `py-1.5`).
 const ROW_PADDING_Y: f32 = 6.;
 const HEADER_HEIGHT: f32 = 36.;
-/// Đệm trái của nội dung dòng; cộng `TRACK_THICKNESS` (9) của danh sách = 12, thẳng hàng với tiêu đề (`px_3`).
-const ROW_INSET: f32 = 3.;
+/// timeline-rows (13/11/2026, chủ dự án): dòng tràn hai mép hộp, nền rê / chọn vuông; chữ lùi vào bằng đệm của chính dòng —
+/// 12 px thẳng hàng với tiêu đề (`px_3`), bên phải ≥ `TRACK_THICKNESS` (9) để thumb không đè chữ (D-16).
+const ROW_INSET: f32 = 12.;
 
 /// `<hiện tại> / <tổng>` theo `m:ss` hoặc `h:mm:ss`.
 pub fn progress_label(position_sec: f64, duration_sec: f64) -> String {
@@ -237,8 +237,9 @@ impl Render for TimelineBox {
                     .on_select(jump.clone())
                     .on_activate(jump)
                     .track(&self.list)
-                    // D-16: khung cuộn chạm hai mép khung, đệm ngang nằm trong để thumb sát mép phải.
-                    .padding_x(TRACK_THICKNESS)
+                    // D-16: khung cuộn chạm hai mép hộp; dòng cũng tràn hai mép, đệm ngang nằm trong dòng (`ROW_INSET`).
+                    .padding_x(px(0.))
+                    .row_radius(px(0.))
                     .flex_1()
                     .min_h_0()
                     .py_1(),
